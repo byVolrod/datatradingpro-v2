@@ -861,10 +861,29 @@ function _csTexteSur(hex) {
   const L = 0.2126 * l((hex >> 16) & 255) + 0.7152 * l((hex >> 8) & 255) + 0.0722 * l(hex & 255);
   return L > 0.42 ? '#0c0c0e' : '#ffffff';
 }
+/* ⚠️ LE FILET PORTE DÉSORMAIS UN POINT D'ARRIVÉE (01/09, demande utilisateur, capture à l'appui :
+   « il faut aligner les courbes à leurs devises qu'on puisse bien comprendre… sans que ça désordonne
+   quoi que ce soit », puis « essayer d'être un peu plus précis »).
+   CE QUI EXISTAIT : quand l'anti-collision écarte une pastille du bout de sa courbe, un filet
+   vertical dans la couleur de la devise relie les deux. Il part du MILIEU de la pastille et court
+   sur |dy| pixels, à `left: 0`, c'est-à-dire pile sur l'axe — là où la courbe se termine.
+   CE QUI MANQUAIT : rien ne marquait SON AUTRE BOUT. Un trait qui s'arrête dans le vide, au milieu
+   de sept autres traits de la même largeur, ne désigne pas un point : l'œil ne sait pas où il
+   atterrit, donc il ne relie pas la pastille à SA courbe. RENDU ET MESURÉ (le badge est du HTML/CSS
+   pur, donc rendable sans amCharts) : les huit filets courant dans la même colonne se recouvraient
+   en une bande opaque — le filet du CHF disparaissait derrière celui du NZD.
+   D'où le partage : le trait devient FIN et DISCRET, et c'est un POINT de 5 px, dans la couleur de
+   la devise et cerné d'un halo au fond du panneau, qui marque la fin RÉELLE de la courbe. Pastille,
+   filet, point, courbe : le trajet se ferme, et deux devises qui finissent collées gardent chacune
+   son point lisible.
+   RIEN NE BOUGE, et c'est la contrainte : aucune pastille n'est déplacée, aucun écart n'est changé,
+   aucune largeur de gouttière n'est touchée. On n'ajoute qu'une marque au bout d'un trait déjà
+   tracé. Une pastille pile sur sa courbe (`d === 0`) n'a ni filet ni point : il n'y a rien à
+   relier, et un point posé là ferait un artefact sur le tracé. */
 function _csBadgeHtml(ccy, fullHex, lightHex, valStr, dy, hors) {
   const d = Math.round(dy || 0);
   const filet = d
-    ? `<i class="cs-link${d > 0 ? '' : ' cs-link--bas'}" style="height:${Math.abs(d)}px;background:${fullHex}"></i>`
+    ? `<i class="cs-link${d > 0 ? '' : ' cs-link--bas'}" style="height:${Math.abs(d)}px;background:${fullHex}"><b style="background:${fullHex}"></b></i>`
     : '';
   const _n = h => (typeof h === 'number') ? h : parseInt(String(h).replace('#', ''), 16);
   const txtPlein = _csTexteSur(_n(fullHex)), txtClair = _csTexteSur(_n(lightHex));

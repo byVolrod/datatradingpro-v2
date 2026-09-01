@@ -23,31 +23,39 @@ const extraire = (nom) => {
   return m ? m[0] : null;
 };
 
-console.log('\n── 1. La carte a la forme de la référence ──');
-const srcCarte = extraire('_anaCarte'), srcProse = extraire('_anaProse');
-v('_anaCarte est extractible d\'app.js', !!srcCarte);
+/* ⚠️ LA FORME A CHANGÉ DEUX FOIS LE 01/09, ET CE BANC DÉCRIVAIT LA PREMIÈRE. Il exigeait la CARTE
+   (cadre, fond, pastille or, libellé, heure) posée le 27/08 sur une référence fournie. Seconde
+   capture du 01/09 : « enlève le fond gris et le bouton jaune, faut que ce soit comme sur la 2ème
+   image ». Il ne reste que la prose, sur le fond du panneau. Le banc éprouve donc l'inverse de ce
+   qu'il exigeait : plus de cadre, plus de pastille, plus d'en-tête — et surtout, que le TEXTE, lui,
+   n'ait rien perdu au passage (paragraphes, gras, échappement, repli à vide). */
+console.log('\n── 1. Le tag n\'ouvre que sur du texte ──');
+const srcCarte = extraire('_anaSynthese'), srcProse = extraire('_anaProse');
+v('_anaSynthese est extractible d\'app.js', !!srcCarte);
 v('_anaProse est extractible d\'app.js', !!srcProse);
 if (srcCarte && srcProse) {
   /* eval d'une DÉCLARATION `function` dans un scope qui porte déjà le nom → « already declared ».
      On les évalue en EXPRESSIONS, ce qui donne aussi les références sans les redéclarer. */
-  const _anaCarte = eval('(' + srcCarte + ')');
+  const _anaSynthese = eval('(' + srcCarte + ')');
   const _anaProse = eval('(' + srcProse + ')');
   const LEAD = ['La **RBA** a maintenu ses taux à 4,35%, à l\'unanimité et très largement attendu.',
                 'Ton un peu moins restrictif que la fois précédente : prévisions d\'inflation rognées.'];
-  const h = _anaCarte('Analyse', Date.UTC(2026, 7, 27, 10, 56), _anaProse(LEAD));
+  const h = _anaSynthese(_anaProse(LEAD));
 
-  v('une pastille ouvre l\'en-tête', /<div class="ana-carte-t"><i><\/i>/.test(h), h);
-  v('le libellé suit la pastille', /<i><\/i>Analyse/.test(h), h);
-  v('l\'heure est là, et à part', /<span>à \d{2}:\d{2}<\/span>/.test(h), h);
+  v('plus aucun cadre ni fond autour du texte', !/ana-carte/.test(h) && !/ana-detail/.test(h), h);
+  v('… plus de pastille', !/<i><\/i>/.test(h), h);
+  v('… plus d\'en-tête « Analyse » (le bouton cliqué porte déjà ce nom)', !/Analyse/.test(h), h);
+  v('… ni d\'heure recopiée (la ligne du fil la porte déjà)', !/<span>à /.test(h), h);
   v('le corps est de la PROSE, pas des puces', /<p>/.test(h) && !/<li>/.test(h) && !/<ul/.test(h), h);
   v('… un paragraphe par ligne du desk', (h.match(/<p>/g) || []).length === 2, h);
   v('le gras du desk est conservé', /<strong>RBA<\/strong>/.test(h), h);
   v('… et le Markdown brut ne fuit pas', !/\*\*/.test(h), h);
 
-  /* SANS ACCROCHE, PAS DE CARTE VIDE : un vieux rapport doit retomber sur son dossier, pas rendre
-     un cadre avec une pastille et rien dedans. */
-  v('sans corps, aucune carte n\'est rendue', _anaCarte('Analyse', Date.now(), '') === '', JSON.stringify(_anaCarte('Analyse', Date.now(), '')));
-  v('sans horodatage, la carte tient quand même', /ana-carte-t/.test(_anaCarte('Analyse', 0, '<p>x</p>')) && !/<span>/.test(_anaCarte('Analyse', 0, '<p>x</p>')));
+  /* ⚠️ LE REPLI À VIDE EST UNE CONDITION, PAS UNE POLITESSE. Le rendu du tag s'écrit
+     `carte || (…puces…)` : une chaîne vide fait basculer sur les puces d'un vieux rapport sans
+     accroche. Rendre un conteneur vide ouvrirait un panneau vide. */
+  v('sans corps, rien n\'est rendu (c\'est ce qui déclenche le repli sur les puces)',
+    _anaSynthese('') === '' && _anaSynthese(null) === '', JSON.stringify(_anaSynthese('')));
   /* L'ÉCHAPPEMENT : le lead vient d'un modèle, il n'a aucun droit d'injecter du HTML. */
   /* ⚠️ LE PREMIER JET DE CE CONTRÔLE ÉTAIT FAUX : il exigeait « &lt;img », donc un ÉCHAPPEMENT. Or
      _anaProse RETIRE les balises avant d'échapper — plus sûr encore, mais le contrôle rougissait sur
@@ -129,18 +137,23 @@ if (mHas) {
   v('… une citation groupée le garde aussi', f({}, '', true, null, [], false, false, []) === true);
 }
 
-console.log('\n── 4. L\'habillage est celui de DTP ──');
-v('la carte a sa règle', /\.ana-carte \{/.test(CSS));
-v('… une bordure fine et des coins doux', /\.ana-carte \{[^}]*border: 1px solid[^}]*border-radius: var\(--radius/.test(CSS));
-/* ⚠️ LA PASTILLE DE LA RÉFÉRENCE EST BLEUE. On reprend la FORME, jamais la couleur : l'identité
-   visuelle du projet est l'or, et aucune teinte étrangère n'entre par une capture d'écran. */
-v('la pastille est OR, pas bleue', /\.ana-carte-t \{[^}]*color: var\(--orange, #e3b23a\)/.test(CSS));
-v('… et ronde', /\.ana-carte-t i \{[^}]*border-radius: 50%/.test(CSS));
-v('… elle prend la couleur de l\'en-tête', /\.ana-carte-t i \{[^}]*background: currentColor/.test(CSS));
-v('aucun bleu n\'est introduit par la carte', !/\.ana-carte[^{]*\{[^}]*#[0-9a-f]*(?:[0-9a-f]{2})(?:cc|dd|ee|ff)\b/i.test(CSS) && !/\.ana-carte[^{]*\{[^}]*(?:blue|#3b82f6|#2563eb|#60a5fa)/i.test(CSS));
-v('l\'heure est repoussée à droite', /\.ana-carte-t span \{[^}]*margin-left: auto/.test(CSS));
-v('le thème clair est traité', /html\[data-theme="light"\] \.ana-carte \{/.test(CSS));
-v('… y compris la pastille', /html\[data-theme="light"\] \.ana-carte-t \{/.test(CSS));
+console.log('\n── 4. L\'habillage : il n\'y en a plus, et c\'est le sujet ──');
+/* Le texte garde sa métrique (taille, interligne, encre) ; tout ce qui l'entourait est parti. */
+v('la prose a sa règle', /\.ana-prose \{/.test(CSS));
+v('… avec sa métrique de lecture (taille, interligne, encre)',
+  /\.ana-prose \{[^}]*font-size: 12\.5px[^}]*line-height: 1\.6[^}]*color: var\(--text2/.test(CSS),
+  (CSS.match(/\.ana-prose \{[^}]*\}/) || [''])[0]);
+v('… et son gras plus clair que le corps', /\.ana-prose strong \{[^}]*color: var\(--text,/.test(CSS));
+/* ⚠️ CE QUI DOIT AVOIR DISPARU DE LA FEUILLE, pas seulement du rendu : un style sans appelant
+   ressuscite au premier copier-coller, et le prochain lecteur y chercherait un sens.
+   On regarde les RÈGLES, pas le fichier entier : le commentaire qui explique le retrait cite
+   forcément les noms retirés — un contrôle qui l'interdirait ferait supprimer l'explication. */
+const _REGLES = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+v('plus aucune règle de carte (fond gris, cadre)', !/\.ana-carte[\s,{]/.test(_REGLES),
+  (_REGLES.match(/.{0,40}\.ana-carte.{0,40}/) || [''])[0]);
+v('… ni de pastille or en tête', !/\.ana-carte-t/.test(_REGLES));
+v('… ni du dossier retiré plus tôt dans la journée', !/\.ana-detail/.test(_REGLES));
+v('le thème clair suit la prose', /html\[data-theme="light"\] \.ana-prose \{/.test(CSS));
 
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);

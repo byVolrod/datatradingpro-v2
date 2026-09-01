@@ -4321,7 +4321,7 @@ function buildNewsItem(item) {
            du desk — résultat, surprise réelle, ton, réaction) est TOUT ce que ce bouton montre.
            Rien n'est supprimé côté serveur : `item.analyse`/`item.description` gardent leurs six
            rubriques, seul CE rendu ne les déroule plus. */
-        const carte = _anaCarte('Analyse', _anaTs, _anaProse(item._evaSynth ? [item._evaSynth] : []));
+        const carte = _anaSynthese(_anaProse(item._evaSynth ? [item._evaSynth] : []));
         /* Un vieux rapport sans accroche (`_evaSynth`) n'a pas de carte à montrer : il retombe sur
            les puces déjà chargées (`item.analyse`), comme avant l'introduction de la synthèse. */
         expandEl.innerHTML = carte || (_nrxQuand('Analyse', _anaTs) + _renderInfoBullets(_puces));
@@ -10402,12 +10402,19 @@ window.addEventListener('resize', () => {
    rubriques, quinze puces — là où la référence tient en UNE carte : pastille, libellé, heure, puis
    un paragraphe de prose. C'est la SYNTHÈSE qui s'y lit ; le détail suit, derrière.
    ⚠️ La pastille est OR, pas bleue : on reprend la forme de la référence, jamais sa couleur. */
-function _anaCarte(libelle, ts, corpsHtml) {
+/* ⚠️ PLUS DE CARTE, JUSTE LE TEXTE (01/09, seconde demande sur capture : « enlève le fond gris et le
+   bouton jaune, faut que ce soit comme sur la 2ème image »). La synthèse était posée dans un cadre
+   au fond plus clair, ouvert par une pastille or, le libellé « Analyse » et l'heure. Trois couches
+   d'habillage autour de quatre phrases — et le panneau annonçait « Analyse » alors que le bouton
+   qu'on vient de cliquer s'appelle déjà « Analyse » : l'en-tête ne disait rien de neuf.
+   Ne reste que la prose, sur le fond du panneau, comme les autres lectures du desk. L'heure n'est
+   pas perdue pour autant : la ligne du fil la porte déjà, à sa place.
+   ⚠️ LE `if (!corpsHtml) return ''` EST LA CONDITION DU REPLI, PAS UNE POLITESSE. Le rendu du tag
+   s'écrit `carte || (…puces…)` : sans accroche, une chaîne vide fait basculer sur les puces d'un
+   vieux rapport. Rendre un conteneur vide ouvrirait un panneau vide. */
+function _anaSynthese(corpsHtml) {
   if (!corpsHtml) return '';
-  let h = '';
-  if (ts) { try { h = new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { h = ''; } }
-  return '<div class="ana-carte"><div class="ana-carte-t"><i></i>' + libelle
-    + (h ? '<span>à ' + h + '</span>' : '') + '</div><div class="ana-carte-c">' + corpsHtml + '</div></div>';
+  return '<div class="ana-prose">' + corpsHtml + '</div>';
 }
 /* Des lignes de texte → des PARAGRAPHES. Le gras Markdown est conservé, tout le reste est échappé. */
 function _anaProse(lignes) {

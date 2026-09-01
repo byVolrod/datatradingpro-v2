@@ -8099,8 +8099,18 @@ html[data-theme="light"] .cal-day-sep td {
 /* FILET DE RAPPEL : relie la pastille au bout réel de sa courbe quand l'anti-collision l'a écartée
    verticalement. Tracé à `left: 0`, c'est-à-dire pile sur l'axe — là où la courbe se termine. Sa
    hauteur est posée en ligne par `_csBadgeHtml` (= |dy|), sa couleur est celle de la devise. */
-.cs-link { position: absolute; left: 0; width: 2px; bottom: 50%; opacity: .9; pointer-events: none; border-radius: 1px; }
+.cs-link { position: absolute; left: 0; width: 1px; bottom: 50%; opacity: .5; pointer-events: none; border-radius: 1px; }
 .cs-link--bas { bottom: auto; top: 50%; }   /* pastille remontée : la courbe est en dessous */
+/* LE POINT D'ARRIVÉE (01/09) : le filet s'arrêtait dans le vide, au milieu de sept autres traits de
+   la même largeur — l'œil ne savait pas OÙ il atterrit, donc il ne reliait pas la pastille à SA
+   courbe. Un point de 5 px, dans la couleur de la devise, marque la fin réelle de la courbe et
+   ferme le trajet : pastille, filet, point, courbe. Il est centré sur le filet (`left: -1.5px`,
+   soit la moitié de son débord de chaque côté d'un trait de 2 px) et posé à SON extrémité — en
+   haut quand la pastille a été poussée vers le bas, en bas dans le cas inverse.
+   Il ne prend aucune place : `position: absolute` dans un filet lui-même absolu. Aucune pastille
+   n'est déplacée, aucun écart n'est modifié. */
+.cs-link b { position: absolute; left: -2px; top: -2.5px; width: 5px; height: 5px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--bg, #0c0c0e); }
+.cs-link--bas b { top: auto; bottom: -2.5px; }
 /* Deux pavés ACCOLÉS : code sur la couleur pleine, valeur sur la même teinte éclaircie. L'ombre est
    portée par `.cs-badge` en `drop-shadow` — elle épouse alors les pixels visibles et ignore le calage
    transparent, là où un `box-shadow` sur chaque pavé aurait dessiné une couture au milieu. */
@@ -19672,32 +19682,26 @@ html[data-theme="light"] .rxg-b--impact  { color: #00783d; }
    l'autre, comme un seul symbole, et c'est le mot qui s'en détache. */
 .tag--pays .tag-flag:last-of-type { margin-right: 5px; }
 /* « Analyse à 8h12 » en tête d'un panneau : discret, il date la lecture sans voler le contenu. */
-/* ═══ CARTE D'ANALYSE (27/08, référence fournie : « le tag analyse doit ressembler à l'image 2 ») ══
-   Le tag ouvrait sur une pile de rubriques à puces — six intertitres, quinze lignes — alors que la
-   référence tient en UNE carte : une pastille, le libellé, l'heure, et un paragraphe de prose. La
-   forme est reprise, la couleur NON : la pastille bleue de la référence devient l'or DTP, seule
-   signature admise ici. Le détail n'est pas perdu, il passe DERRIÈRE la synthèse. */
-.ana-carte { border: 1px solid var(--border, #1c1c20); border-radius: var(--radius, 6px);
-  background: var(--bg2, #101014); padding: 10px 12px; margin: 2px 0 4px; }
-.ana-carte-t { display: flex; align-items: center; gap: 7px; margin-bottom: 6px;
-  font-size: 11.5px; font-weight: 700; color: var(--orange, #e3b23a); }
-/* La pastille : même diamètre que le texte de l'en-tête, jamais écrasée par le flex. */
-.ana-carte-t i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
-.ana-carte-t span { margin-left: auto; font-weight: 500; font-size: 10.5px;
-  color: var(--text3, #6b7280); letter-spacing: .02em; text-transform: none; }
-.ana-carte-c { font-size: 12.5px; line-height: 1.6; color: var(--text2, #b9bcc4); }
-.ana-carte-c p { margin: 0 0 7px; }
-.ana-carte-c p:last-child { margin-bottom: 0; }
-.ana-carte-c strong { color: var(--text, #e8e9ed); font-weight: 600; }
-/* LE DÉTAIL en six rubriques (Chiffres clés, Ce qui a surpris, Réaction de marché…) sous le tag
-   Analyse a été RETIRÉ le 01/09 (demande utilisateur, capture à l'appui : « très simplement », pas
-   comme le dossier déroulé) : le tag ne rend plus que la carte de synthèse. `.ana-detail` /
-   `.ana-detail-t` n'ont plus d'appelant (public/js/app.js) et sont retirées avec lui — les données
-   (`item.analyse`, `item.description`) restent produites côté serveur, seul ce rendu a changé. */
-html[data-theme="light"] .ana-carte { background: #f7f7f9; border-color: #e3e3e8; }
-html[data-theme="light"] .ana-carte-t { color: #816521; }
-html[data-theme="light"] .ana-carte-c { color: #3f4149; }
-html[data-theme="light"] .ana-carte-c strong { color: #16171b; }
+/* ═══ LA SYNTHÈSE DU TAG ANALYSE : DU TEXTE, RIEN D'AUTRE ═════════════════════════════════════════
+   TROIS ÉTATS SUCCESSIFS, ET LE DERNIER EST LE PLUS SIMPLE. Le 27/08, le tag ouvrait sur une pile
+   de six rubriques à puces ; il a été ramené à une CARTE (cadre, fond plus clair, pastille or,
+   libellé, heure) sur une référence fournie. Le 01/09, le dossier qui restait derrière la carte a
+   été retiré. Le même jour, sur une seconde capture : « enlève le fond gris et le bouton jaune,
+   faut que ce soit comme sur la 2ème image ».
+   Il reste donc la prose seule, sur le fond du panneau. Ce que l'habillage apportait ne manque
+   pas : le bouton cliqué s'appelle déjà « Analyse », donc l'en-tête le répétait, et l'heure est
+   déjà portée par la ligne du fil. Un cadre dans un panneau qui est lui-même un cadre était une
+   boîte de plus autour de quatre phrases.
+   `.ana-carte`, `.ana-carte-t` (et sa pastille) sont retirées avec leur appelant — comme
+   `.ana-detail` / `.ana-detail-t` l'ont été plus tôt dans la journée. Les données ne bougent pas :
+   `item._evaSynth`, `item.analyse` et `item.description` sont toujours produites côté serveur,
+   c'est le RENDU qui va à l'essentiel. */
+.ana-prose { font-size: 12.5px; line-height: 1.6; color: var(--text2, #b9bcc4); }
+.ana-prose p { margin: 0 0 7px; }
+.ana-prose p:last-child { margin-bottom: 0; }
+.ana-prose strong { color: var(--text, #e8e9ed); font-weight: 600; }
+html[data-theme="light"] .ana-prose { color: #3f4149; }
+html[data-theme="light"] .ana-prose strong { color: #16171b; }
 
 .nrx-quand { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--text3, #6b7280); padding: 2px 0 6px; }

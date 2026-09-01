@@ -424,9 +424,65 @@ function _rafraichissementSilencieux() {
     /return \{ root, seriesMap, update \};/.test(CH));
 }
 
+/* ══ LA PASTILLE SE RATTACHE À SA COURBE ═════════════════════════════════════════════════════════
+   01/09, demande utilisateur sur capture : « il faut aligner les courbes à leurs devises qu'on
+   puisse bien comprendre… sans que ça désordonne quoi que ce soit ».
+   Quand huit devises finissent dans un mouchoir, l'anti-collision écarte les pastilles : elles
+   forment alors une colonne régulière qui ne suit plus le bout des courbes. Un filet vertical les
+   reliait déjà — mais il s'arrêtait dans le vide, au milieu de sept autres traits de la même
+   largeur. On lui donne un POINT D'ARRIVÉE, à la fin réelle de la courbe.
+   LA CONTRAINTE EST AUSSI IMPORTANTE QUE L'AJOUT : rien ne doit bouger. Ce contrôle éprouve donc
+   les deux — le point existe, et le placement n'a pas été touché. Statique, sans navigateur : la
+   partie visuelle s'abstient ici (amCharts vient d'un CDN injoignable). */
+function _rattacherPastilles() {
+  console.log('\n── La pastille se rattache au bout de sa courbe ──');
+  const CH = fs.readFileSync(path.join(PUB, 'js/charts.js'), 'utf8');
+  const CSS = fs.readFileSync(path.join(PUB, 'css/style.css'), 'utf8');
+  const src = (CH.match(/function _csBadgeHtml\([\s\S]*?\n\}/) || [''])[0];
+  v('`_csBadgeHtml` est retrouvée dans charts.js', !!src);
+  if (!src) return;
+  /* On EXÉCUTE la fabrique plutôt que de lire son texte : c'est le HTML rendu qui compte. */
+  let f = null;
+  try { f = new Function('_csTexteSur', 'return ' + src.replace(/^function /, 'function ') + ';')(() => '#000'); } catch (e) { v('… et elle s\'évalue', false, e.message); return; }
+  v('… et elle s\'évalue', !!f);
+  const ecarte = f('USD', '#ffffff', '#dddddd', '', 34, 0);     // pastille poussée VERS LE BAS
+  const remonte = f('NZD', '#ff3d00', '#ff8a65', '', -21, 0);   // pastille remontée
+  const pile = f('EUR', '#e3b23a', '#f0d089', '', 0, 0);        // pastille pile sur sa courbe
+  v('une pastille écartée porte son filet', /class="cs-link"/.test(ecarte) && /height:34px/.test(ecarte), ecarte);
+  v('… et le filet porte un point d\'arrivée, dans la couleur de la devise',
+    /<b style="background:#ffffff"><\/b>/.test(ecarte), ecarte);
+  v('une pastille REMONTÉE tourne son filet vers le bas', /class="cs-link cs-link--bas"/.test(remonte) && /height:21px/.test(remonte), remonte);
+  v('… avec son point à l\'autre bout, lui aussi', /cs-link--bas[^>]*>\s*<b /.test(remonte), remonte);
+  /* Pile sur sa courbe, il n'y a RIEN à relier : un point posé là serait un artefact sur le tracé. */
+  v('une pastille pile sur sa courbe n\'a ni filet ni point', !/cs-link/.test(pile) && !/<b /.test(pile), pile);
+  /* Le point ne doit occuper AUCUNE place : il est absolu dans un filet lui-même absolu. */
+  v('le point est en position absolue (il ne pousse rien)', /\.cs-link b \{[^}]*position: absolute/.test(CSS),
+    (CSS.match(/\.cs-link b \{[^}]*\}/) || [''])[0]);
+  v('… rond, et posé à l\'extrémité du filet', /\.cs-link b \{[^}]*border-radius: 50%/.test(CSS) && /\.cs-link--bas b \{[^}]*bottom:/.test(CSS));
+  /* ⚠️ MESURÉ AU RENDU (le badge est du HTML/CSS pur, donc rendable sans amCharts) : avec huit
+     devises, les huit filets courent dans la MÊME colonne de pixels et se recouvraient en une seule
+     bande opaque — la CHF disparaissait derrière la NZD. Le trait est donc devenu FIN et DISCRET,
+     et c'est le POINT qui porte l'information : c'est lui qui marque la fin de la courbe, et son
+     halo dans la couleur du fond le détache de ses voisins quand deux devises finissent collées.
+     Inverser ce rapport (trait épais, point discret) ramènerait la bande illisible. */
+  v('le filet est fin et discret : c\'est le point qui porte l\'information',
+    /\.cs-link \{[^}]*width: 1px/.test(CSS) && /\.cs-link \{[^}]*opacity: \.5/.test(CSS),
+    (CSS.match(/\.cs-link \{[^}]*\}/) || [''])[0]);
+  v('… et le point se détache de ses voisins par un halo au fond du panneau',
+    /\.cs-link b \{[^}]*box-shadow: 0 0 0 1\.5px var\(--bg/.test(CSS),
+    (CSS.match(/\.cs-link b \{[^}]*\}/) || [''])[0]);
+  /* ⚠️ RIEN NE BOUGE : les constantes de placement de `declutter` sont celles d'avant. Si un jour
+     l'envie prend d'« améliorer » l'écart en même temps, ce contrôle le dira — la demande était
+     explicite, et un déplacement se paierait en repères perdus pour l'utilisateur. */
+  v('le placement des pastilles n\'a pas été touché (écarts inchangés)',
+    /const pasMin  = HB \+ 2;/.test(CH) && /const pasConf = HB \+ 8;/.test(CH) && /const GAP_BASE = 17;/.test(CH));
+  v('… ni la largeur de la gouttière', /_avecValeur \? \(_csEtroit \? 84 : 70\) : \(_csEtroit \? 56 : 50\)/.test(CH));
+}
+
 if (require.main === module) {
   (async () => {
     _rafraichissementSilencieux();
+    _rattacherPastilles();
     const bin = trouverNavigateur();
     if (!bin) {
       console.log('\n[Force] aucun Chromium trouvé → la partie VISUELLE s\'abstient (ce n\'est pas un échec).');
