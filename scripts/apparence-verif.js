@@ -74,17 +74,34 @@ function lum(css) {
   /* ── LA PÉRIODE ACTIVE SE VOIT (01/09, demande utilisateur, capture à l'appui : « la timeframe
      sélectionnée doit avoir un fond coloré... mais pour le DTP, remplace le fond orange par notre
      doré DTP »). Le modèle unifié des onglets ne posait qu'un soulignement de 2 px : lisible de
-     près, invisible dans une barre de sept boutons. On éprouve donc les trois points qui font la
-     demande — un fond OR, un texte contrasté, et le soulignement retiré pour ne pas dire deux fois
-     la même chose. Les hauteurs et paddings, eux, ne doivent PAS avoir bougé (« garde exactement
-     les mêmes dimensions, espacements, bordures et alignements »). ─────────────────────────── */
+     près, invisible dans une barre de sept boutons.
+     DEUX PASSES LE MÊME JOUR, et ce commentaire décrit la SECONDE — la première posait un aplat
+     d'or plein avec un texte sombre dessus, la capture de référence suivante montre la forme
+     retenue : fond sourd dans la teinte, cadre fin dans la teinte, texte dans la teinte. Plus sobre,
+     et l'or désigne au lieu de recouvrir. (Le commentaire est réécrit avec la règle : une note qui
+     décrirait encore l'aplat plein mentirait avec l'autorité du code.)
+     Les hauteurs et paddings, eux, ne doivent PAS avoir bougé — « garde exactement les mêmes
+     dimensions, espacements, bordures et alignements ». ──────────────────────────────────────── */
   const _pastille = (css.match(/\.stf-btn--active,\s*\n?\s*\.stf-btn\.stf-btn--active \{[^}]*\}/) || [''])[0];
-  v('la période active porte un FOND or DTP', /background:\s*var\(--orange,\s*#e3b23a\)/.test(_pastille), _pastille.slice(0, 140));
-  v('… avec un texte sombre, contrasté sur l\'or', /color:\s*#1a1205/.test(_pastille), _pastille.slice(0, 140));
-  v('… et le soulignement disparaît (le fond le remplace, il ne s\'y ajoute pas)',
+  /* La forme retenue (seconde passe du 01/09, sur capture de reference) : fond SOURD dans la teinte,
+     CADRE fin dans la teinte, TEXTE dans la teinte. Pas l'aplat d'or plein de la premiere passe. */
+  v('la période active porte un fond SOURD dans la teinte or', /background:\s*var\(--orange-bg,/.test(_pastille), _pastille.slice(0, 160));
+  v('… un texte dans l\'or, pas un texte sombre posé dessus', /color:\s*var\(--orange,\s*#e3b23a\)/.test(_pastille) && !/#1a1205/.test(_pastille), _pastille.slice(0, 160));
+  /* ⚠️ LE CADRE EST UNE OMBRE INTERNE. Une vraie bordure ajouterait 2 px a chaque bouton actif et
+     decalerait la barre de sept periodes au moindre clic — ce que la demande interdit
+     explicitement (« garde exactement les mêmes dimensions, espacements, bordures et alignements »).
+     Le controle porte donc sur les DEUX : l'ombre est la, la bordure n'y est pas. */
+  v('… et un cadre fin, dessiné SANS occuper un pixel de plus (ombre interne)',
+    /box-shadow:\s*inset 0 0 0 1px var\(--orange/.test(_pastille) && !/(?:^|[^-\w])border\s*:/.test(_pastille), _pastille.slice(0, 200));
+  v('… et le soulignement disparaît (la pastille le remplace, elle ne s\'y ajoute pas)',
     /\.stf-btn--active::after \{ display: none/.test(css));
-  v('… le survol ne reprend pas le fond translucide des boutons inactifs',
-    /\.stf-btn--active:hover \{ background: var\(--orange/.test(css));
+  v('… le survol ne reprend pas le lavis blanc des boutons inactifs',
+    /\.stf-btn--active:hover \{ background: var\(--orange-bg/.test(css));
+  /* Les deux thèmes suivent SANS règle en double : `--orange` et `--orange-bg` sont redéfinis en
+     clair. Si un jour la pastille repassait à des valeurs en dur, le thème clair casserait en
+     silence — d'où ce contrôle sur les jetons eux-mêmes. */
+  v('… les deux thèmes suivent par les jetons (or et teinte redéfinis en clair)',
+    /--orange:\s*#9b7409/.test(css) && /--orange-bg:\s*rgba\(184, 134, 11/.test(css));
   /* La demande insiste : mêmes dimensions. La règle de la pastille ne doit toucher NI la hauteur,
      NI les paddings — sinon la barre se déforme et sept boutons cessent d'être alignés. */
   v('… et elle ne redéfinit ni hauteur ni padding (le gabarit ne bouge pas)',
@@ -93,7 +110,9 @@ function lum(css) {
      devises. Deux valeurs qui divergeraient feraient deux produits. */
   const _srv = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
   v('… et le widget de courriel porte EXACTEMENT la même pastille',
-    /\.stf-p\.on\{[^}]*background:#e3b23a/.test(_srv) && /\.stf-p\.on\{[^}]*color:#1a1205/.test(_srv),
+    /\.stf-p\.on\{[^}]*color:#e3b23a/.test(_srv)
+    && /\.stf-p\.on\{[^}]*background:rgba\(227,178,58,\.12\)/.test(_srv)
+    && /\.stf-p\.on\{[^}]*box-shadow:inset 0 0 0 1px #e3b23a/.test(_srv),
     (_srv.match(/\.stf-p\.on\{[^}]*\}/) || [''])[0]);
 
   const bin = trouverNavigateur();

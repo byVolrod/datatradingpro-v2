@@ -21670,13 +21670,30 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
    Le soulignement est retiré POUR CES BOUTONS SEULEMENT : garder les deux marqueurs sur la même
    commande, c'est dire deux fois la même chose. Les autres micro-onglets (`.cot-type-btn`,
    `.dmx-tf-btn`) gardent le soulignement — la demande porte sur les périodes.
-   SYNCHRONE AVEC LE MAIL : mêmes valeurs que la pastille `.stf-p.on` du widget de courriel
-   (fond `#e3b23a`, texte `#1a1205`), pour que le desk et le rapport envoyé montrent la même chose. */
+   SYNCHRONE AVEC LE MAIL : mêmes valeurs que la pastille `.stf-p.on` du widget de courriel, pour
+   que le desk et le rapport envoyé montrent la même chose.
+   ⚠️ SECONDE PASSE, MÊME JOUR : PASTILLE TEINTÉE, PAS PASTILLE PLEINE. La première version posait
+   un aplat d'or plein avec un texte sombre dessus. La capture de référence montre autre chose, et
+   c'est ce que l'utilisateur veut : un fond SOURD dans la teinte, un CADRE fin dans la teinte, et
+   le texte lui-même dans la teinte. C'est plus sobre — l'aplat plein criait plus fort que les
+   titres de la barre qu'il côtoie — et ça garde l'or pour ce qu'il désigne au lieu de le poser en
+   surface. La lisibilité y gagne aussi : plus besoin d'un texte sombre sur or vif, la période
+   active se lit dans la couleur de marque.
+   ⚠️ LE CADRE EST UNE OMBRE INTERNE, PAS UNE BORDURE. Une vraie bordure ajouterait 2 px à la
+   largeur et à la hauteur de CHAQUE bouton actif : la barre de sept périodes se décalerait au
+   moindre clic, et la demande était explicite — « garde exactement les mêmes dimensions,
+   espacements, bordures et alignements ». Une `box-shadow: inset` dessine le même trait sans
+   occuper un seul pixel de plus.
+   TOUT VIENT DES JETONS : `--orange` vaut #e3b23a en sombre et #9b7409 en clair, `--orange-bg` la
+   teinte correspondante. Les deux thèmes suivent donc sans une seule règle en double. */
 .stf-btn--active,
 .stf-btn.stf-btn--active {
-  background: var(--orange, #e3b23a) !important;
-  color: #1a1205 !important;                 /* contraste franc sur l'or, dans les deux thèmes */
+  background: var(--orange-bg, rgba(227,178,58,.12)) !important;
+  color: var(--orange, #e3b23a) !important;
   border-radius: 4px !important;             /* sobre : un coin doux, pas une gélule */
+  box-shadow: inset 0 0 0 1px var(--orange, #e3b23a) !important;   /* le cadre, sans un pixel de plus */
 }
-.stf-btn--active::after { display: none !important; }   /* le fond REMPLACE le soulignement, il ne s'y ajoute pas */
-.stf-btn--active:hover { background: var(--orange, #e3b23a) !important; color: #1a1205 !important; }
+.stf-btn--active::after { display: none !important; }   /* la pastille REMPLACE le soulignement, elle ne s'y ajoute pas */
+/* Le survol d'une période DÉJÀ active ne doit rien changer : elle est déjà à son état le plus
+   marqué, et le lavis blanc des boutons inactifs la ternirait. */
+.stf-btn--active:hover { background: var(--orange-bg, rgba(227,178,58,.12)) !important; color: var(--orange, #e3b23a) !important; }
