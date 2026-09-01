@@ -3785,24 +3785,21 @@ document.addEventListener('DOMContentLoaded', () => {
         + '<td><span class="rtc-pill ' + ib + '">' + bps(m.impliedBps) + '</span></td>'
         + '<td><span class="rtc-base ' + bc + '">' + m.baseCase + '</span></td></tr>';
     }).join('');
-    /* PIED DE CARTE — LA SOURCE DE CHAQUE CHIFFRE, ÉCRITE (01/09, « donne des sources qu'on a »).
-       Deux provenances, jamais confondues : celle du TAUX DIRECTEUR (une décision publiée et sa
-       date, ou le relevé à la main quand aucune décision récente ne porte ce chiffre) et celle du
-       PRICING (marché ou modèle). `rateSrc` vient du serveur ; sans lui, la ligne se tait plutôt que
-       d'affirmer une source qu'elle n'a pas. */
-    const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    const srcLine = () => {
-      const rs = b.rateSrc;
-      const taux = 'Taux directeur <b>' + num(b.rate, 2) + '&nbsp;%</b>';
-      let dTaux = '';
-      if (rs && rs.via === 'calendrier') dTaux = ' — décision du ' + fr(rs.date) + (rs.libelle ? ' (' + esc(rs.libelle) + ', calendrier ForexFactory)' : ' (calendrier ForexFactory)');
-      else if (rs && rs.via === 'marche') dTaux = ' — relevé chez notre fournisseur de marché' + (rs.date ? ' le ' + fr(rs.date) : '');
-      else if (rs && rs.via === 'ancre') dTaux = ' — relevé à la main sur le communiqué de la banque' + (rs.date ? ' (' + fr(rs.date) + ')' : '');
-      const pricing = (b.source && b.source !== 'market')
-        ? 'Pricing : modèle DTP' + (b.panne ? ' (pas de pricing de marché chez notre fournisseur : ' + esc(b.panne) + ')' : '')
-        : 'Pricing : marché — probabilités implicites OIS/futures (rateprobability.com)';
-      return '<div class="rtc-srcs">' + taux + dTaux + ' · ' + pricing + '</div>';
-    };
+    /* ⚠️ LE PIED DE CARTE A ÉTÉ RETIRÉ LE 02/09 (demande utilisateur, la phrase citée mot pour mot :
+       « Taux directeur 2,50 % — décision du 08/07/2026 (RBNZ Interest Rate Decision, calendrier
+       ForexFactory) · Pricing : modèle DTP (pas de pricing de marché chez notre fournisseur :
+       abonnement Pro requis chez le fournisseur (HTTP 401)) »).
+       Posé la veille pour citer les sources, il s'était mis à déverser du diagnostic interne sur la
+       carte d'un client payant — un code HTTP et le nom d'un paywall fournisseur n'ont rien à faire
+       dans un produit. Et sur deux lignes de 9,5 px, il pesait plus lourd que les chiffres.
+       ⚠️ CE QUI RESTE, ET POURQUOI CE N'EST PAS NÉGOCIABLE : le badge « pricing modélisé » en tête
+       de carte. C'est LUI le garde-fou né de l'incident du 29/08 (un client a comparé notre modèle à
+       un pricing OIS réel en croyant comparer deux pricings) ; le pied n'en était que la version
+       longue. Retirer le pied ne fait donc perdre aucune garantie : une carte sans pricing de marché
+       continue de le dire, en trois mots au lieu de deux lignes.
+       La provenance elle-même n'est pas perdue non plus : `rateSrc` reste calculé et servi dans
+       /api/rates (server.js, `_origineTaux`) — c'est la donnée qui a permis de répondre « d'où vient
+       ce taux ». Seul son AFFICHAGE sur la carte disparaît. */
     // data-bank : identifiant stable de la carte (FED/ECB/…) — le widget « Onglet Taux » filtre dessus
     // (réglage « Banque » : une seule banque ou toutes). Sans effet sur l'onglet du desk.
     return '<div class="rtc" data-bank="' + (b.code || '') + '">'
@@ -3841,7 +3838,6 @@ document.addEventListener('DOMContentLoaded', () => {
       // lignes se répartissent l'espace au lieu de laisser un vide en bas — même parti que la table
       // de saisonnalité, qui remplit son panneau de la même façon.
       + '<div class="rtc-tblwrap custom-scrollbar"><table class="rtc-tbl"><thead><tr><th>Date de réunion</th><th>Jours</th><th>Baisse (%)</th><th>Maintien (%)</th><th>Hausse (%)</th><th>Δ implicite (BPS)</th><th>Scénario central</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-      + srcLine()
       + '</div>';
   }
 

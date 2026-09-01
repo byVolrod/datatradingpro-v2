@@ -10484,9 +10484,11 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
    a »). Discret par construction — c'est une mention de provenance, pas une donnée : il ne doit ni
    concurrencer les métriques, ni pousser le tableau des réunions hors de la carte (flex: 0 0 auto).
    Il s'enroule sur deux lignes plutôt que de rogner une source : une source coupée ne sert à rien. */
-.rtc-srcs { flex: 0 0 auto; padding: 5px 10px 6px; border-top: 1px solid var(--bg2); background: var(--head-bg); color: #7d838f; font-size: 9.5px; line-height: 1.45; letter-spacing: .01em; }
-.rtc-srcs b { color: #aab3bf; font-family: var(--mono, ui-monospace, monospace); font-weight: var(--fw-bold); }
-@media (max-width: 560px) { .rtc-srcs { padding: 5px 7px 6px; font-size: 9px; } }
+/* ⚠️ `.rtc-srcs` (le pied de carte qui citait les sources) RETIRÉ le 02/09 avec son appelant :
+   il déversait du diagnostic interne — un code HTTP, le nom d'un paywall fournisseur — sur la carte
+   d'un client payant. Le badge « pricing modélisé » en tête de carte, lui, reste : c'est le vrai
+   garde-fou de l'incident du 29/08, le pied n'en était que la version longue. Rien ne porte plus
+   cette classe (charts.js). */
 .rtc-flag { width: 17px; height: 17px; object-fit: cover; border-radius: 50%; border: 1px solid var(--border); flex: 0 0 auto; }
 .rtc-bank { font-size: 12px; font-weight: var(--fw-bold); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ── Bandeau 5 métriques (Next Move · Probability · Expected Δ · Current Rate · Meeting Date)

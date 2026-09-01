@@ -141,29 +141,23 @@ if (SRC_CARD) {
      pouvoir se lire comme un pricing de marché. */
   v('… et la carte modélisée dit que son pricing est modélisé, jamais « marché »',
     /modélis/i.test(lireSrc(incident) || '') && !/march/i.test(lireSrc(incident) || ''), lireSrc(incident));
-  /* LE PIED DE CARTE CITE SA SOURCE (01/09, « donne des sources qu'on a ») — et distingue les deux :
-     d'où vient le TAUX, d'où vient le PRICING. C'est cette séparation qui rend le badge lisible. */
-  const lirePied = h => (h.match(/rtc-srcs">([\s\S]*?)<\/div>/) || [])[1] || '';
-  const pieds = {
-    calendrier: card({ ...base, rate: 2.50, stance: 'HIKE', source: 'maison', panne: 'abonnement Pro requis',
-      scenario: { hold: 50, hike: 19, cut: 31 }, meetings: [{ date: '2026-09-02', days: 5, hold: 50, hike: 19, cut: 31, impliedBps: -3, baseCase: 'HOLD' }],
-      rateSrc: { via: 'calendrier', libelle: 'Official Cash Rate', date: '2026-07-08' } }),
-    ancre: card({ ...base, code: 'CHF', cc: 'ch', rate: 0, stance: 'HOLD', source: 'maison', panne: 'abonnement Pro requis',
-      scenario: { hold: 95, hike: 3, cut: 2 }, meetings: [], rateSrc: { via: 'ancre', libelle: 'Banque nationale suisse', date: '2026-08-30' } }),
-    marche: card({ ...base, code: 'USD', cc: 'us', rate: 3.75, stance: 'HIKE', source: 'market', srcAt: Date.now(),
-      scenario: { hold: 42, hike: 58, cut: 0 }, meetings: [], rateSrc: { via: 'marche', date: '2026-09-01' } }),
-    sansSrc: card({ ...base, code: 'GBP', cc: 'gb', rate: 3.75, stance: 'HOLD', source: 'market', srcAt: Date.now(),
-      scenario: { hold: 80, hike: 20, cut: 0 }, meetings: [] }),
-  };
-  v('le pied cite la DÉCISION qui a écrit le taux, avec sa date',
-    /Taux directeur/.test(pieds.calendrier) && /08\/07\/2026/.test(pieds.calendrier) && /Official Cash Rate/.test(pieds.calendrier), pieds.calendrier);
-  v('… il dit « relevé à la main » quand aucune décision publiée ne porte ce chiffre',
-    /relevé à la main/.test(pieds.ancre) && /30\/08\/2026/.test(pieds.ancre), pieds.ancre);
-  v('… et il sépare toujours la source du TAUX de celle du PRICING',
-    /Pricing : modèle DTP/.test(pieds.calendrier) && /Pricing : marché/.test(pieds.marche), pieds.marche);
-  v('une carte modélisée n\'écrit JAMAIS « Pricing : marché » en pied', !/Pricing : marché/.test(pieds.ancre), pieds.ancre);
-  v('sans provenance connue, le pied se TAIT au lieu d\'affirmer une source',
-    !/décision du|relevé/.test(pieds.sansSrc) && /Taux directeur/.test(pieds.sansSrc), pieds.sansSrc);
+  /* ⚠️ LE PIED DE CARTE A ÉTÉ RETIRÉ LE 02/09 (demande utilisateur citant la phrase mot pour mot).
+     Il citait les sources — utile — mais il déversait aussi du diagnostic interne sur la carte d'un
+     client payant : « abonnement Pro requis chez le fournisseur (HTTP 401) ». Les cinq contrôles qui
+     éprouvaient sa rédaction sont retirés avec lui : un banc qui exige un élément supprimé est un
+     banc qui empêche de le supprimer.
+     ⚠️ CE QUI RESTE ÉPROUVÉ, et c'est l'essentiel : le BADGE de tête, juste au-dessus
+     (« la carte modélisée dit que son pricing est modélisé, jamais “marché” »). C'est lui le
+     garde-fou né de l'incident du 29/08 ; le pied n'en était que la version longue. La propriété
+     protégée n'a donc pas bougé d'un pouce : une carte sans pricing de marché ne peut toujours pas
+     se lire comme un pricing de marché.
+     La provenance elle-même reste calculée et servie dans /api/rates (`_origineTaux`) : seul son
+     affichage sur la carte a disparu. */
+  v('le pied de carte a bien disparu du rendu (plus aucune carte ne l\'écrit)',
+    !/rtc-srcs/.test(incident) && !/Taux directeur/.test(incident), (incident.match(/.{0,60}rtc-srcs.{0,40}/) || [''])[0]);
+  v('… et le diagnostic interne ne peut plus atteindre le client (ni code HTTP, ni paywall)',
+    !/HTTP 401|abonnement Pro/.test(incident), (incident.match(/.{0,50}(HTTP 401|abonnement Pro).{0,40}/) || [''])[0]);
+
   /* Mouvement pricé à 0 % au prochain rendez-vous → repli sur le scénario central, jamais « X · 0,00% ». */
   const zero = card({ ...base, stance: 'HIKE', source: 'market',
     scenario: { hold: 69, hike: 0, cut: 31 },
