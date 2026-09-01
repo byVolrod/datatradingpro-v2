@@ -1698,10 +1698,10 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     // corridors maritimes ») est une DONNÉE, il descend d'une ligne au lieu d'allonger le titre.
     + (gt.length ? _ssTitre('Chronologie')
       + (gtTitre ? `<div style="color:${TOK.grisDoux};font-size:12px;margin:0 0 4px;">${_esc(gtTitre)}</div>` : '')
-      // Jour EN BLANC, SANS GRAS (31/08, demande user « enlève le gras des jours et met en blanc ») :
-      // il était en or gras, ce qui le faisait passer devant le fait qu'il introduit. Même rendu que
-      // le desk (public/js/app.js, `.wr-gt-jour`).
-      + gt.map(j => _puce(`<span style="color:#ffffff;">${_esc(j.jour)}</span> : ${_esc(j.pts.join(' ; '))}`)).join('') : '');
+      // Jour EN GRAS (01/09, demande user « met en gras les jours du récap hebdo dans la partie
+      // géopolitique ») — inverse du 31/08 (qui avait retiré le gras). Même rendu que le desk
+      // (public/js/app.js, `.wr-gt-jour`).
+      + gt.map(j => _puce(`<span style="color:#ffffff;font-weight:700;">${_esc(j.jour)}</span> : ${_esc(j.pts.join(' ; '))}`)).join('') : '');
   S('Géopolitique', geoHtml);
 
   /* ── VIX DE LA SEMAINE, JUSTE APRÈS LA GÉOPOLITIQUE (31/08, demande user, rapport de son mentor à

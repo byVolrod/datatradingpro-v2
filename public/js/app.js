@@ -9989,12 +9989,25 @@ function _renderWeeklyRecap(item) {
       _gt.jours.forEach(j => {
         const pts = (j.points || []).map(p => _wrInline(String(p).replace(/\s*[;.]\s*$/, ''))).filter(Boolean).join(' ; ');
         if (!pts) return;
-        // Jour EN BLANC, SANS GRAS (31/08, demande user « enlève le gras des jours et met en blanc ») :
-        // le nom du jour situe la ligne, il ne la hiérarchise pas — le gras le faisait passer devant
-        // le fait qu'il introduit. Même rendu côté mail (mailer.js, chronologie géopolitique).
+        // Jour EN GRAS (01/09, demande user « met en gras les jours du récap hebdo dans la partie
+        // géopolitique ») — reprend le sens inverse du 31/08 (« enlève le gras des jours »), qui avait
+        // lui-même retiré un gras posé avant. Même rendu côté mail (mailer.js, chronologie géopolitique).
         body += `<div class="wr-bullet"><span class="wr-gt-jour">${_wrEsc(j.jour)} :</span> ${pts}</div>`;
       });
     }
+    /* ══ LE VIX DE LA SEMAINE, ENTRE GÉOPOLITIQUE ET MACRO (01/09, demande user : « n'oublie pas
+       d'ajouter le VIX juste en dessous entre la partie géopolitique et macro, du récap hebdo »).
+       Il vivait déjà dans le mail depuis le 31/08 (mailer.js, juste après la section Géopolitique :
+       « la géopolitique de la semaine vient d'être racontée, le VIX dit ce que le marché en a fait »)
+       mais jamais sur le desk — le rendu HTML de app.js n'avait pas reçu le même bloc. On réutilise
+       l'IMAGE déjà servie au mail (`/api/email-widget/vix.png`, bougies 2 h + traits rouges aux
+       lundis) plutôt que de reconstruire un second graphique amCharts en direct : c'est le même
+       widget partout, donc la même image que celle validée par l'utilisateur sur le mail — et zéro
+       code de graphique de plus à maintenir. Route déjà PUBLIQUE (server.js, _PUBLIC_PREFIXES) et à
+       l'épreuve des pannes (`renderWidgetPngSafe` ne jette jamais : cache frais → dernière bonne
+       image → placeholder), donc rien à bouchonner côté desk. */
+    body += `<div class="wr-macro-heading">Volatilité · VIX</div>`
+      + `<img class="wr-vix-img" src="/api/email-widget/vix.png?t=${w.weekEnding ? _wrEsc(w.weekEnding) : Date.now()}" alt="VIX de la semaine (bougies 2 h) — DataTradingPro" loading="lazy">`;
     /* ══ LA MACRO REVIENT, ENTRE LA GÉOPOLITIQUE ET LES DEVISES (04/09, demande user : « il manque
        la partie macro avant la partie devises ») ══════════════════════════════════════════════════
        Elle avait été retirée du rendu le 11/08 au motif qu'elle répétait les blocs devises. Le motif
