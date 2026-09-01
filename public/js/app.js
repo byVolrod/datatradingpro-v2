@@ -154,8 +154,18 @@ async function _dtpTranslateQuotes(container, sel) {
   // _reveler ne REÉCRIT PAS le texte : il retire seulement le masque. Une ligne non traduite
   // retrouve donc son HTML d'origine intact (le gras de _reportLead, notamment) ; la réécrire en
   // textContent, comme le faisait le repli naïf, l'aurait aplatie.
-  const _reveler = li => { li.classList.remove('dtp-tr-wait'); li.removeAttribute('aria-busy'); li.dataset.trFige = '1'; };
-  const _traduire = (li, fr) => { li.textContent = fr; _reveler(li); };
+  /* ⚠️ RÉVÉLER N'EST PAS FIGER (01/09, capture utilisateur : « c'est en anglais tu vois, faut pas
+     que ça se reproduise à l'avenir, tout doit être bien traduit dans le fil d'actualités » — un
+     panneau de propos dont la première ligne était en français et les six suivantes en anglais).
+     CAUSE RACINE : le repli de 2,5 s révélait la source ET figeait la ligne. Or `applyCache` saute
+     les lignes figées. Une réponse de traduction arrivée à 4 s — le cas ordinaire quand la cascade
+     IA gratuite est lente — était donc bien reçue, bien mise en cache… et JAMAIS PEINTE. L'anglais
+     restait à l'écran pour toute la session, sans le moindre signe d'erreur.
+     Le repli de délai RÉVÈLE désormais sans figer : la ligne redevient lisible en anglais tout de
+     suite (rien ne se dérobe, règle du 24/08) et se corrige d'elle-même dès que sa traduction
+     arrive. Seule la passe FINALE fige, et à ce moment-là c'est vrai : plus rien n'est en vol. */
+  const _reveler = (li, fige) => { li.classList.remove('dtp-tr-wait'); li.removeAttribute('aria-busy'); if (fige) li.dataset.trFige = '1'; };
+  const _traduire = (li, fr) => { li.textContent = fr; _reveler(li, true); };   // traduite = définitive
   const applyCache = () => lis.forEach(li => {
     if (li.dataset.trFige === '1') return;               // ligne DÉFINITIVE : plus personne n'y touche
     const t = _src(li);
@@ -211,8 +221,8 @@ async function _dtpTranslateQuotes(container, sel) {
   });
   // REPLI : au-delà du délai, la source redevient visible et la ligne est figée. Passer du
   // squelette au repli reste « squelette → texte » : rien ne se dérobe.
-  const _repli = () => enAttente.forEach(li => { if (li.dataset.trFige !== '1') _reveler(li); });
-  const _minuteur = setTimeout(_repli, _TR_ATTENTE_MS);
+  const _repli = fige => enAttente.forEach(li => { if (li.dataset.trFige !== '1') _reveler(li, fige); });
+  const _minuteur = setTimeout(() => _repli(false), _TR_ATTENTE_MS);   // on rend la source LISIBLE, on ne renonce pas
   // ENVOI PAR LOTS. Le serveur ne traduit que 16 textes par requête (garde-fou budget IA) et
   // IGNORE le reste sans rien signaler : une fiche de 30 propos ressortait donc à moitié en
   // anglais — moitié FR, moitié EN, sans la moindre erreur visible. On découpe ici, et on
@@ -234,7 +244,7 @@ async function _dtpTranslateQuotes(container, sel) {
   };
   await Promise.all([travailleur(), travailleur(), travailleur()]);
   clearTimeout(_minuteur);
-  _repli();   // ce que le serveur n'a pas renvoyé revient à la source, UNE fois, et se fige
+  _repli(true);   // plus rien n'est en vol : ce que le serveur n'a pas renvoyé revient à la source, et se fige
 }
 window._dtpTranslateQuotes = _dtpTranslateQuotes;
 
@@ -3183,6 +3193,20 @@ function _vdNombre(t) {
    Sans ce dernier mot on ne colore pas — deux nombres côte à côte ne sont pas une comparaison. */
 var _VD_CMP = new RegExp('(' + _VD_NUM + ')[^0-9(]{0,18}\\(?\\s*(?:vs\\.?|contre|face [àa])\\s*(' + _VD_NUM
   + ')\\s*(?:attendus?|att\\.|estim[ée]s?|pr[ée]vus?|consensus|exp\\.?|pr[ée]c[ée]dents?|pr[ée]c\\.|pr[ée]lim\\.?)', 'i');
+/* ⚠️ LA GRAMMAIRE PROPRE AU DESK, QUI N'ÉTAIT PAS RECONNUE (01/09, demande utilisateur : « applique
+   aussi pour les récaps de sessions dans le desk, il n'y a pas les couleurs des datas sorties »).
+   La règle ci-dessus attend le mot de comparaison AVANT la référence (« 51,7 vs 51,5 attendu »).
+   Or les lignes de données du desk écrivent l'inverse, avec un point médian pour séparer :
+   « ISM Manufacturing PMI : 48,7 · attendu 49,0 · préc. 50,1 », « publié 203K · attendu 208K ».
+   Mesuré : ces lignes-là ressortaient BLANCHES pendant que « 51,7 (vs 51,5 prélim.) », juste au
+   dessus, sortait colorée — la couleur dépendait de la tournure, pas de la donnée. Quand la ligne
+   énonçait en plus son verdict (« → surprise baissière »), l'étage 2 la rattrapait ; sans verdict,
+   rien. C'est exactement le cas des récaps de séance, qui listent les chiffres sans les commenter.
+   ⚠️ SEULE LA PRÉVISION SERT DE RÉFÉRENCE. `préc.` est délibérément absent de cette liste : on ne
+   déduit JAMAIS un signal du précédent (arbitrage du 12/08). La règle du dessus, elle, l'accepte —
+   parce que « vs 51,5 prélim. » est une comparaison que le rédacteur a POSÉE, pas une colonne
+   voisine que nous irions interpréter nous-mêmes. */
+var _VD_CMP2 = new RegExp('(' + _VD_NUM + ')\\s*[·,;|]?\\s*(?:attendus?|att\\.|consensus|estim[ée]s?|pr[ée]vus?|exp\\.)\\s*:?\\s*(' + _VD_NUM + ')', 'i');
 // À défaut de comparaison chiffrée : le verdict que la puce énonce en toutes lettres.
 var _VD_POS = /surprise haussi[èe]re|au-dessus des attentes|sup[ée]rieure?s? aux (?:attentes|pr[ée]visions)|meilleure?s? que (?:pr[ée]vu|attendu)|d[ée]passe(?:nt)? les (?:attentes|pr[ée]visions)/i;
 var _VD_NEG = /surprise baissi[èe]re|en dessous des attentes|inf[ée]rieure?s? aux (?:attentes|pr[ée]visions)|en de[çc]a des (?:attentes|pr[ée]visions)|moins bonne?s? que (?:pr[ée]vu|attendu)|d[ée]ception|d[ée]cevante?s?/i;
@@ -3197,7 +3221,9 @@ var _VD_CLS = { pos: 'dtp-val-pos', neg: 'dtp-val-neg', neu: 'dtp-val-neu' };
 function _verdictColore(s) {
   var out = String(s == null ? '' : s);
   // 1) COMPARAISON CHIFFRÉE — le signal le plus sûr : on recalcule l'écart, on n'interprète rien.
-  var m = _VD_CMP.exec(out);
+  //    Deux tournures, une seule lecture : « 51,7 vs 51,5 attendu » et « 48,7 · attendu 49,0 ».
+  //    L'ordre compte : la première pose explicitement sa comparaison, elle a donc la priorité.
+  var m = _VD_CMP.exec(out) || _VD_CMP2.exec(out);
   if (m) {
     var a = _vdNombre(m[1]), f = _vdNombre(m[2]);
     if (a !== null && f !== null) {
@@ -4287,30 +4313,18 @@ function buildNewsItem(item) {
       let _puces = item.analyse || [];
       const _anaTs = item._anaAt || item.timestamp;
       if (item._eventAnalysis) {
-        /* LA SYNTHÈSE D'ABORD, LE DOSSIER DERRIÈRE (27/08). Le panneau ouvrait sur les six rubriques
-           du rapport ; la référence fournie tient en un paragraphe. L'accroche du desk — « le
-           résultat, la surprise réelle, le ton, la réaction principale », déjà rédigée en prose par
-           le prompt — EST cette synthèse : elle n'avait simplement jamais été montrée ici.
-           Rien ne disparaît : les rubriques suivent la carte, sous leur propre intitulé. */
-        const d = _evaDecoupe(item.description);
-        const dossier = [];
-        d.sections.forEach(sec => {
-          if (_EVA_SEC_IMPACT.test(sec.titre)) return;
-          dossier.push(sec.titre + ' :');
-          sec.lignes.forEach(l => dossier.push(l));
-        });
-        /* ⚠️ LA CARTE PORTE LA SYNTHÈSE, PAS L'ACCROCHE. L'accroche (`d.lead`) est le texte du tag
-           INFO depuis le 31/08 — une demande explicite (« le tag info pourquoi il est aussi
-           long ? »), éprouvée en navigateur réel par desk-verif. La reprendre ici remettrait le
-           même paragraphe sur deux boutons : le défaut d'alors, rouvert dans l'autre sens.
-           Le desk écrit donc deux textes distincts : le lead RACONTE ce qui s'est passé, la
-           synthèse (`_evaSynth`) le JUGE — attendu contre sorti, ton, trajectoire. */
+        /* LA SYNTHÈSE SEULE, RIEN DERRIÈRE (01/09, demande utilisateur, capture à l'appui : le tag
+           Analyse doit rester « très simplement » la carte, pas la carte SUIVIE du dossier détaillé
+           en six rubriques). Le 27/08, la synthèse avait été mise EN AVANT du dossier (« la synthèse
+           d'abord, le dossier derrière ») sur la même logique — mais le dossier restait rendu
+           derrière elle. Cette fois il ne l'est plus : la carte de synthèse (déjà la lecture dense
+           du desk — résultat, surprise réelle, ton, réaction) est TOUT ce que ce bouton montre.
+           Rien n'est supprimé côté serveur : `item.analyse`/`item.description` gardent leurs six
+           rubriques, seul CE rendu ne les déroule plus. */
         const carte = _anaCarte('Analyse', _anaTs, _anaProse(item._evaSynth ? [item._evaSynth] : []));
-        /* Un vieux rapport sans accroche ne doit pas rendre une carte vide : sans elle, le dossier
-           reprend simplement sa place, précédé de son heure comme avant. */
-        expandEl.innerHTML = carte
-          ? carte + (dossier.length ? '<div class="ana-detail"><div class="ana-detail-t">Le détail</div>' + _renderInfoBullets(dossier) + '</div>' : '')
-          : _nrxQuand('Analyse', _anaTs) + _renderInfoBullets(dossier.length ? dossier : _puces);
+        /* Un vieux rapport sans accroche (`_evaSynth`) n'a pas de carte à montrer : il retombe sur
+           les puces déjà chargées (`item.analyse`), comme avant l'introduction de la synthèse. */
+        expandEl.innerHTML = carte || (_nrxQuand('Analyse', _anaTs) + _renderInfoBullets(_puces));
         _dtpTranslateQuotes(expandEl);
         expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
         if (analysisTagEl) analysisTagEl.classList.add('tag--active');

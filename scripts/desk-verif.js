@@ -427,10 +427,13 @@ function phaseLogique() {
         'Impact marché :',
         '- **Légèrement haussier pour le dollar américain.**',
       ].join('\n');
+      const SYNTH = "Le PCE global ressort à 3,7% sur un an, un dixième au-dessus du consensus, "
+        + "pendant que le cœur reste à 3,3%. Le dollar s'apprécie face à l'euro, sans que les "
+        + "anticipations de taux ne bougent vraiment.";
       const it = { id: 'eva1', headline: 'ANALYSE PCE US : PCE global au-dessus du consensus, cœur conforme',
         description: DESC, category: 'Economic Commentary', tags: ['Inflation', 'PCE', 'USD'],
         timestamp: Date.now(), priority: 'high', _eventAnalysis: true, _reportType: 'PCE Analysis',
-        _pair: 'EUR/USD', _indic: 'PCE', _ccy: 'USD',
+        _pair: 'EUR/USD', _indic: 'PCE', _ccy: 'USD', _evaSynth: SYNTH,
         _impact: 'Légèrement haussier pour le dollar américain.\nLa conformité du cœur limite le repricing.' };
       const el = window.buildNewsItem(it);
       document.body.appendChild(el);
@@ -449,7 +452,21 @@ function phaseLogique() {
       clic('Impact marché'); await new Promise(r => setTimeout(r, 60));
       const imp = lire();
       el.remove();
-      return { boutons, info, ana, imp };
+      /* SECOND RENDU : le MÊME rapport SANS accroche (`_evaSynth`), c'est-à-dire une analyse
+         produite avant que la synthèse n'existe. Le bouton ne doit pas s'ouvrir sur du vide — il
+         retombe sur les puces, comme avant. C'est le repli, et il se prouve. */
+      const vieux = Object.assign({}, it, { id: 'eva2', _evaSynth: undefined,
+        analyse: ['Le PCE global dépasse le consensus d\'un dixième.', 'Le cœur reste stable à 3,3%.'] });
+      const el2 = window.buildNewsItem(vieux);
+      document.body.appendChild(el2);
+      const b2 = [...el2.querySelectorAll('.news-tags .tag')].find(t => t.textContent.trim() === 'Analyse');
+      if (b2) b2.click();
+      await new Promise(r => setTimeout(r, 60));
+      const p2 = el2.querySelector('.news-description');
+      const anaSansSynth = { txt: ((p2 && p2.textContent) || '').replace(/\s+/g, ' ').trim(),
+        titres: p2 ? [...p2.querySelectorAll('.ip-head')].map(h => h.textContent.trim()) : [] };
+      el2.remove();
+      return { boutons, info, ana, imp, anaSansSynth };
     });
     console.log('\n── Chaque tag son rôle : Info ne déroule plus le rapport entier ──');
     verif('les quatre boutons sont là', ['Info', 'Analyse', 'Impact marché'].every(b => rôles.boutons.includes(b)),
@@ -461,14 +478,24 @@ function phaseLogique() {
       'sections trouvées : ' + JSON.stringify(rôles.info.titres));
     verif('… mais bien l\'accroche', /PCE global américain a progressé de 3,7%/.test(rôles.info.txt), rôles.info.txt.slice(0, 90));
     verif('… et rien du dossier', !/Ce qui a surpris|Implications banque centrale/.test(rôles.info.txt), rôles.info.txt.slice(0, 140));
-    /* RIEN N'EST PERDU : ce qu'Info ne porte plus se lit sous Analyse. Un correctif qui aurait
-       simplement tronqué le texte aurait passé le contrôle précédent et échoué celui-ci. */
-    verif('Analyse porte le dossier', rôles.ana.titres.length >= 3, JSON.stringify(rôles.ana.titres));
+    /* ⚠️ LA RÈGLE A CHANGÉ LE 01/09, ET CE BANC L'AVAIT FIGÉE (demande utilisateur, deux captures
+       opposées : la carte de synthèse SEULE d'un côté, la même carte SUIVIE du dossier en six
+       rubriques de l'autre — « le tag analyse doit ressembler à cette structure genre la manière
+       dont c'est rédigé très simplement, et non comme sur la 2ème image »).
+       Jusqu'ici, ce banc exigeait la PRÉSENCE des quatre intertitres sous Analyse — l'exact
+       contraire de ce que le desk doit rendre aujourd'hui. On éprouve donc désormais l'inverse : la
+       synthèse est là, et AUCUNE rubrique ne la suit. Le dossier n'est pas perdu pour autant : il
+       reste attaché à la news côté serveur (`item.analyse`, `item.description`), ce que prouve le
+       repli ci-dessous — c'est le RENDU qui a changé, pas la donnée. */
+    verif('Analyse ouvre sur la synthèse', /PCE global ressort à 3,7%/.test(rôles.ana.txt), rôles.ana.txt.slice(0, 110));
+    verif('… et RIEN derrière : aucune rubrique du dossier', rôles.ana.titres.length === 0, JSON.stringify(rôles.ana.titres));
     ['Chiffres clés (vs attendu)', 'Ce qui a surpris', 'Réaction de marché', 'Implications banque centrale']
-      .forEach(t => verif('… dont « ' + t + ' »', rôles.ana.titres.includes(t), JSON.stringify(rôles.ana.titres)));
-    /* … SAUF « Impact marché », qui a son propre bouton : l'y laisser aurait déplacé le doublon au
-       lieu de le retirer. */
+      .forEach(t => verif('… pas même « ' + t + ' »', !rôles.ana.txt.includes(t), rôles.ana.txt.slice(0, 160)));
+    /* … et « Impact marché » pas davantage : il a son propre bouton. */
     verif('Analyse ne reprend PAS « Impact marché »', !rôles.ana.titres.includes('Impact marché'), JSON.stringify(rôles.ana.titres));
+    /* LE REPLI, ÉPROUVÉ : une analyse d'avant la synthèse ne doit pas ouvrir sur du vide. */
+    verif('sans synthèse, Analyse retombe sur les puces (jamais un panneau vide)',
+      /PCE global dépasse le consensus/.test(rôles.anaSansSynth.txt), rôles.anaSansSynth.txt.slice(0, 110));
     verif('… qui se lit bien sous son bouton', /haussier pour le dollar/.test(rôles.imp.txt), rôles.imp.txt.slice(0, 90));
 
     /* ── « IMPACT MARCHÉ » TOUT SEUL : LE BOUTON QUI N'OUVRAIT RIEN ────────────────────────────

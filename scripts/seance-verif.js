@@ -674,6 +674,22 @@ if (_SRC_EMP) {
    ['**PMI** : 53,9, conforme aux attentes.', 'neu'],
    ['14h15 **USD** · **ADP Non-Farm Employment Change** : 11,75K', '—'],
    ['**Fed** Collins : l\'inflation reste trop élevée.', '—'],
+   /* ⚠️ LA GRAMMAIRE PROPRE AU DESK, LONGTEMPS INCOLORE (01/09, demande utilisateur : « applique
+      aussi pour les récaps de sessions dans le desk, il n'y a pas les couleurs des datas sorties »).
+      La règle historique attend le mot de comparaison AVANT la référence (« 51,7 vs 51,5 attendu »).
+      Les lignes de données du desk écrivent l'inverse, séparées par un point médian. Mesuré : ces
+      lignes-là ressortaient BLANCHES juste sous des lignes colorées — la couleur dépendait de la
+      TOURNURE, pas de la donnée. Les récaps de séance listent les chiffres sans les commenter :
+      l'étage « verdict énoncé » ne les rattrapait donc jamais. */
+   ['**ISM Manufacturing PMI** : 48,7 · attendu 49,0 · préc. 50,1', 'neg'],
+   ['**S&P Global Composite PMI** : 54,2 · attendu 53,0 · préc. 52,8', 'pos'],
+   ['**GDP Growth Rate QoQ 2nd Est** : publié 1,5% · attendu 1,5% · préc. 2,1%', 'neu'],
+   /* … polarité inversée comprise : moins d'inscriptions au chômage que prévu est une BONNE
+      nouvelle, et cette tournure-ci ne doit pas rater ce que l'autre réussit déjà. */
+   ['**Initial Jobless Claims** : publié 203K · attendu 208K · préc. 207K', 'pos'],
+   /* ⚠️ ET LE PRÉCÉDENT NE SERT TOUJOURS PAS DE RÉFÉRENCE (arbitrage du 12/08 : on ne déduit jamais
+      un signal du précédent). Une ligne sans consensus reste blanche, quelle que soit sa tournure. */
+   ['**ADP Employment Change Weekly** : publié 11,75K · préc. 9,5K', '—'],
   ].forEach(([l, att]) => v(`« ${l.slice(0, 46)}… » → ${att}`, cls(l) === att, cls(l)));
   /* ⚠️ LES INDICATEURS INVERSÉS — le contresens classique du récap automatique. Un chômage AU-DESSUS
      du consensus est une MAUVAISE nouvelle : le peindre en vert serait une faute de sens. */

@@ -94,6 +94,13 @@
     for (var i = 0; i < l.length; i++) if (l[i].k === k) return l[i];
     return null;
   }
+  /* IMPACT D UNE LIGNE DE CALENDRIER, LU SANS CASSE (01/09). Le tableau du calendrier a toujours lu
+     ce champ en minuscules (`calImpDots`) ; les widgets, eux, le comparaient a « High » en casse
+     STRICTE. Une ligne servie « high » ou « HIGH » affichait donc trois points pleins dans le
+     tableau tout en passant pour non-forte dans les cartes : elle reculait dans le compte a rebours
+     et DISPARAISSAIT du panneau des surprises. Une seule lecture partagee, pour que deux composants
+     branches sur la meme reponse ne racontent jamais deux histoires. */
+  function estFort(e) { return String((e && e.impact) || '').toLowerCase() === 'high'; }
   function opt(it, w, k) {
     var d = optDef(w, k); if (!d) return undefined;
     var v = it && it.cfg ? it.cfg[k] : undefined;
@@ -2367,10 +2374,43 @@
               return '<button class="stf-btn wdg-fx-tf' + (t[0] === per ? ' stf-btn--active' : '') + '" data-per="' + t[0] + '">' + t[1] + '</button>';
             }).join('') + '</div>'
           + '<div id="' + id + '" class="wdg-fx-chart"></div></div>';
+        /* ⚠️ LE RAFRAÎCHISSEMENT NE DOIT PLUS SE VOIR (01/09, demande user : « parfois le widget Force
+           de la devise se refresh tout seul : l'affichage disparaît, ça recharge, puis les courbes
+           réapparaissent — évite complètement ce rechargement visuel »).
+           CAUSE RACINE : le minuteur de 60 s appelait `dessine()`, c'est-à-dire `disposeRoot` puis
+           `buildIsolatedStrength`, qui commence par ÉCRIRE UN LOADER dans le cadre avant même de
+           lancer sa requête. Toutes les minutes, le graphe était donc détruit, remplacé par
+           « Chargement… », puis rebâti de zéro : le rechargement complet que l'utilisateur décrit.
+           Le commentaire du minuteur affirmait pourtant « on redessine la MÊME période, sans remonter
+           la carte : un remontage ferait clignoter l'écran » — il décrivait l'intention, pas le code.
+           (Un commentaire périmé ment avec l'autorité du code : il est corrigé plus bas.)
+           RÉPARATION, celle qui marche déjà sur l'onglet › FORCE du desk : on GARDE le contrôleur
+           rendu par `buildStrengthChart` et on lui passe les nouvelles données (`ctl.update`), qui
+           prolonge les courbes en place. Plus rien n'est détruit, aucun loader n'est écrit, les
+           courbes ne disparaissent jamais. La reconstruction reste le chemin du CHANGEMENT DE
+           PÉRIODE (le tracé n'a alors plus rien à voir) et du rétablissement après un échec. */
+        var ctl = null;          // contrôleur du graphe vivant : { root, seriesMap, update }
+        var perCourante = null;  // période réellement peinte (une mise à jour en place n'est valable que sur la même)
         function dessine(p) {
+          ctl = null; perCourante = p;
           try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {}
-          try { buildIsolatedStrength(id, foc, p, { avecValeur: !!opt(it, W, 'valeurs') }); }
-          catch (e) { fallback(host, 'Force des Devises indisponible.'); }
+          try {
+            var r = buildIsolatedStrength(id, foc, p, { avecValeur: !!opt(it, W, 'valeurs') });
+            if (r && typeof r.then === 'function') r.then(function (c) { if (perCourante === p) ctl = c || null; }).catch(function () {});
+          } catch (e) { fallback(host, 'Force des Devises indisponible.'); }
+        }
+        // Mise à jour SILENCIEUSE : les courbes restent à l'écran pendant tout l'aller-retour.
+        function rafraichir(p) {
+          if (!ctl || !ctl.update || p !== perCourante) { dessine(p); return; }
+          var f = window._dtpJSON ? window._dtpJSON('/api/currency-strength?period=' + p)
+                                  : fetch('/api/currency-strength?period=' + p).then(function (r) { return r.json(); });
+          f.then(function (d) {
+            if (!host || !host.isConnected) return;
+            // Rien d'exploitable, ou la période a changé entre-temps : on ne touche à RIEN. Garder
+            // à l'écran la dernière courbe valide vaut mieux que la remplacer par une erreur.
+            if (!d || !d.currencies || p !== perCourante || !ctl || !ctl.update) return;
+            try { ctl.update(d); } catch (e) {}
+          }).catch(function () {});
         }
         // La barre rejoint l'EN-TÊTE du widget (titre à gauche, périodes à droite) comme sur le desk.
         var _carte = host.closest ? host.closest('.wdg-card') : null;
@@ -2406,8 +2446,10 @@
         /* ⚠️ CETTE CARTE NE SE METTAIT JAMAIS À JOUR (mesuré le 21/08). Elle affichait la force des
            devises figée à l'instant de son affichage, jusqu'au rechargement de la page : sur un
            terminal, une donnée juste mais immobile se lit comme une donnée fausse.
-           On redessine la MÊME période, sans remonter la carte : un remontage détruirait et
-           reconstruirait le graphique, ce qui ferait clignoter l'écran à chaque tour.
+           On met à jour la MÊME période EN PLACE (`rafraichir` → `ctl.update`), sans rien détruire
+           ni écrire de loader : les courbes ne disparaissent pas. (Jusqu'au 01/09 ce commentaire
+           annonçait ce comportement alors que le code appelait `dessine()`, donc détruisait et
+           reconstruisait à chaque tour — c'est le clignotement signalé par l'utilisateur.)
            60 s : la force des devises se recalcule en continu côté serveur, mais elle se lit sur
            des heures. Inutile de payer un aller-retour toutes les vingt secondes pour une courbe
            dont la forme ne change pas à cette échelle.
@@ -2419,7 +2461,7 @@
           var b = host.getBoundingClientRect();
           if (b.width < 2 || b.bottom < -200 || b.top > (window.innerHeight || 0) + 200) return;
           var actif = host.querySelector('.wdg-fx-tf.stf-btn--active');
-          try { dessine(actif ? actif.dataset.per : per); } catch (e) {}
+          try { rafraichir(actif ? actif.dataset.per : per); } catch (e) {}
         }, 60 * 1000);
         return function () {
           try { clearInterval(_ivFx); } catch (e) {}
@@ -3494,7 +3536,7 @@
             // surprises constatées, jamais d'événements à venir (le rebours s'en charge).
             var rows = ((d && d.items) || []).filter(function (e) {
               if (!e || !e.timestamp || e.timestamp > maintenant) return false;
-              if (e.impact !== 'High') return false;
+              if (!estFort(e)) return false;
               if (dev !== 'all' && e.currency !== dev) return false;
               return !!(e.actual && String(e.actual).trim() && e.forecast && String(e.forecast).trim());
             }).sort(function (a, b) { return b.timestamp - a.timestamp; }).slice(0, 10);
@@ -5150,16 +5192,27 @@
           var futurs = (items || []).filter(function (e) {
             if (!e || !e.timestamp || e.timestamp <= maintenant) return false;
             if (dev && dev !== 'all' && e.currency !== dev) return false;
-            if (imp === 'High' && e.impact !== 'High') return false;
+            if (imp === 'High' && !estFort(e)) return false;
             return true;
           });
           if (!futurs.length) { suivant = null; return null; }
-          // Depart d egalite EXPLICITE : a la meme seconde, le Fort passe devant le Moyen.
-          futurs.sort(function (a, b) {
-            if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
-            var ra = a.impact === 'High' ? 0 : 1, rb = b.impact === 'High' ? 0 : 1;
-            return ra - rb;
-          });
+          /* ⚠️ CORRECTIF 01/09 (capture user : « dans le compte a rebour le premier qui affiche est
+             JOLTS et non ISM donc met le premier du calendrier pour + de coherence »). A 20h00
+             tombaient DEUX publications fortes ; le calendrier les listait JOLTS puis ISM, la carte
+             annoncait ISM. Deux composants qui lisent LA MEME reponse ne doivent pas donner deux
+             reponses differentes : le trader croit a deux sources.
+             CAUSE RACINE : le tableau du calendrier trie sur le SEUL horodatage (donc il rend
+             l ordre du serveur, le tri etant stable) tandis que cette carte ajoutait un depart
+             d egalite sur l impact, compare en CASSE STRICTE (`impact === 'High'`) — la ou le
+             tableau, lui, lit l impact en minuscules (`calImpDots`). Une ligne servie « high » au
+             lieu de « High » affiche donc trois points pleins dans le tableau et passe pour
+             non-forte ici : elle reculait derriere sa voisine, et le filtre « Fort uniquement »
+             l aurait meme fait DISPARAITRE.
+             Reparation : meme comparateur que le tableau (chronologique pur, tri stable → ordre du
+             serveur), et l impact se lit partout sans casse (voir `estFort`). La carte annonce
+             desormais, par construction, la PREMIERE ligne a venir du calendrier ; celles qui
+             tombent a la meme heure restent signalees par « + N autre(s) publication(s) ». */
+          futurs.sort(function (a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
           var premier = futurs[0];
           // Combien d autres publications tombent a la MEME heure : information reelle, tiree du
           // meme tableau, utile au trader (une seconde ou trois chiffres sortent ensemble).

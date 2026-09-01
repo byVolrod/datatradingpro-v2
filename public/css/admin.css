@@ -1169,3 +1169,18 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 .camp-plan-temoin { display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; padding: 1px 8px;
   font-size: 11px; color: #e3b23a; background: rgba(227,178,58,.10); border: 1px solid rgba(227,178,58,.30); border-radius: 999px; }
 .camp-plan-temoin em { font-style: normal; color: var(--text3, #8a8f98); }
+/* ⚠️ Cette capsule ne sert PLUS au temoignage depuis le 01/09 — il a SA ligne dans le programme
+   (`.camp-plan-row--temoin`, ci-dessous). Elle reste vivante pour la VARIANTE DU PARRAINAGE, qui
+   est bien une etiquette de sa ligne : verifie avant retrait (admin.js, ligne du parrainage). */
+
+/* LA LIGNE DU TEMOIGNAGE (01/09, demande utilisateur : « ajoute une ligne pour temoignage membre
+   comme les autres car ca reste un template comme un autre »). Meme gabarit que ses voisines : elle
+   se lit dans la meme colonne, a la meme hauteur, avec la meme graisse. Un seul ecart, et il porte
+   du sens : un liseré or a gauche, parce que cet envoi s AJOUTE a la semaine au lieu de la remplacer
+   — il n est pas dans la rotation, et la colonne de droite le dit en toutes lettres. */
+.camp-plan-row--temoin { border-left: 3px solid rgba(227, 178, 58, .45); }
+.camp-plan-row--temoin .camp-plan-wk { color: var(--orange); }
+.camp-plan-hors {
+  /* Occupe la place du selecteur des autres lignes, pour que les colonnes restent alignees. */
+  flex: 0 0 auto; min-width: 172px; font-size: var(--fs-label); color: var(--text3); text-align: center;
+}

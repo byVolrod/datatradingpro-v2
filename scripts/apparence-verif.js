@@ -71,6 +71,31 @@ function lum(css) {
   v('… et ses styles ont quitté la feuille', !/\.pd-candle-(?:select-wrap|preview)\s*[,{]/.test(css));
   v('… et plus aucune option de bougie ne traîne', html.indexOf('Vert / 🔴 Rouge') < 0);
 
+  /* ── LA PÉRIODE ACTIVE SE VOIT (01/09, demande utilisateur, capture à l'appui : « la timeframe
+     sélectionnée doit avoir un fond coloré... mais pour le DTP, remplace le fond orange par notre
+     doré DTP »). Le modèle unifié des onglets ne posait qu'un soulignement de 2 px : lisible de
+     près, invisible dans une barre de sept boutons. On éprouve donc les trois points qui font la
+     demande — un fond OR, un texte contrasté, et le soulignement retiré pour ne pas dire deux fois
+     la même chose. Les hauteurs et paddings, eux, ne doivent PAS avoir bougé (« garde exactement
+     les mêmes dimensions, espacements, bordures et alignements »). ─────────────────────────── */
+  const _pastille = (css.match(/\.stf-btn--active,\s*\n?\s*\.stf-btn\.stf-btn--active \{[^}]*\}/) || [''])[0];
+  v('la période active porte un FOND or DTP', /background:\s*var\(--orange,\s*#e3b23a\)/.test(_pastille), _pastille.slice(0, 140));
+  v('… avec un texte sombre, contrasté sur l\'or', /color:\s*#1a1205/.test(_pastille), _pastille.slice(0, 140));
+  v('… et le soulignement disparaît (le fond le remplace, il ne s\'y ajoute pas)',
+    /\.stf-btn--active::after \{ display: none/.test(css));
+  v('… le survol ne reprend pas le fond translucide des boutons inactifs',
+    /\.stf-btn--active:hover \{ background: var\(--orange/.test(css));
+  /* La demande insiste : mêmes dimensions. La règle de la pastille ne doit toucher NI la hauteur,
+     NI les paddings — sinon la barre se déforme et sept boutons cessent d'être alignés. */
+  v('… et elle ne redéfinit ni hauteur ni padding (le gabarit ne bouge pas)',
+    !/(?:^|[^-\w])(?:height|padding|font-size|margin)\s*:/.test(_pastille), _pastille.slice(0, 200));
+  /* SYNCHRONE AVEC LE MAIL : la même pastille existe dans le widget de courriel de la force des
+     devises. Deux valeurs qui divergeraient feraient deux produits. */
+  const _srv = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
+  v('… et le widget de courriel porte EXACTEMENT la même pastille',
+    /\.stf-p\.on\{[^}]*background:#e3b23a/.test(_srv) && /\.stf-p\.on\{[^}]*color:#1a1205/.test(_srv),
+    (_srv.match(/\.stf-p\.on\{[^}]*\}/) || [''])[0]);
+
   const bin = trouverNavigateur();
   if (!bin) { console.log('\n[Apparence] aucun Chromium → phase navigateur abstenue.\n'); process.exit(ko ? 1 : 0); }
   let pp; try { pp = require('puppeteer-core'); }

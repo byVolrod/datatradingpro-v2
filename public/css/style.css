@@ -19689,10 +19689,11 @@ html[data-theme="light"] .rxg-b--impact  { color: #00783d; }
 .ana-carte-c p { margin: 0 0 7px; }
 .ana-carte-c p:last-child { margin-bottom: 0; }
 .ana-carte-c strong { color: var(--text, #e8e9ed); font-weight: 600; }
-/* LE DÉTAIL, derrière la synthèse : présent, mais qui ne se lit plus en premier. */
-.ana-detail { margin-top: 10px; }
-.ana-detail-t { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-  color: var(--text3, #6b7280); padding: 2px 0 4px; }
+/* LE DÉTAIL en six rubriques (Chiffres clés, Ce qui a surpris, Réaction de marché…) sous le tag
+   Analyse a été RETIRÉ le 01/09 (demande utilisateur, capture à l'appui : « très simplement », pas
+   comme le dossier déroulé) : le tag ne rend plus que la carte de synthèse. `.ana-detail` /
+   `.ana-detail-t` n'ont plus d'appelant (public/js/app.js) et sont retirées avec lui — les données
+   (`item.analyse`, `item.description`) restent produites côté serveur, seul ce rendu a changé. */
 html[data-theme="light"] .ana-carte { background: #f7f7f9; border-color: #e3e3e8; }
 html[data-theme="light"] .ana-carte-t { color: #816521; }
 html[data-theme="light"] .ana-carte-c { color: #3f4149; }
@@ -21655,3 +21656,27 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
 /* Repère de la poignée d'élargissement (`.wdg-resize-e`) sur écran tactile : voir le contour de
    `.wdg-card` et son `@media (hover: none)`, à côté de la règle `.wdg-card:has(.wdg-resize-e:hover)`
    — c'est là que vit désormais toute cette histoire, contour compris. Rien à faire ici. */
+
+/* ═══ PÉRIODE ACTIVE : PASTILLE OR PLEINE (01/09, demande utilisateur, capture à l'appui) ═══════════
+   « Quand on sélectionne une timeframe (TD, TW, 8H, 1D, 5D, 7D, 1M), la timeframe sélectionnée doit
+   avoir un fond coloré pour indiquer clairement qu'elle est active. Mais pour le DTP, remplace le
+   fond orange par notre doré DTP, en restant sobre. »
+   CE QUI CHANGE, ET RIEN D'AUTRE : la couleur. Le modèle unifié des onglets (plus haut) marquait la
+   période active d'un simple soulignement or de 2 px — lisible de près, mais noyé dans une barre de
+   sept boutons vue de loin, où l'utilisateur ne retrouvait pas d'un coup d'œil la période affichée.
+   La pastille pleine règle ça. Les dimensions, espacements, alignements et hauteurs (24 px dans
+   `.strength-tf-bar`, 22 px dans les cartes, les paddings des deux paliers responsive) ne sont PAS
+   touchés : aucune de ces règles n'est redéfinie ici, la pastille se pose sur le gabarit existant.
+   Le soulignement est retiré POUR CES BOUTONS SEULEMENT : garder les deux marqueurs sur la même
+   commande, c'est dire deux fois la même chose. Les autres micro-onglets (`.cot-type-btn`,
+   `.dmx-tf-btn`) gardent le soulignement — la demande porte sur les périodes.
+   SYNCHRONE AVEC LE MAIL : mêmes valeurs que la pastille `.stf-p.on` du widget de courriel
+   (fond `#e3b23a`, texte `#1a1205`), pour que le desk et le rapport envoyé montrent la même chose. */
+.stf-btn--active,
+.stf-btn.stf-btn--active {
+  background: var(--orange, #e3b23a) !important;
+  color: #1a1205 !important;                 /* contraste franc sur l'or, dans les deux thèmes */
+  border-radius: 4px !important;             /* sobre : un coin doux, pas une gélule */
+}
+.stf-btn--active::after { display: none !important; }   /* le fond REMPLACE le soulignement, il ne s'y ajoute pas */
+.stf-btn--active:hover { background: var(--orange, #e3b23a) !important; color: #1a1205 !important; }

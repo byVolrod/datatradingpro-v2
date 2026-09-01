@@ -76,8 +76,33 @@ const WK_CCY = { title: 'Weekly Market Recap : test', weekEnding: '28.08.2026',
     CHF: {},   // aucune matiere → pas de bloc, donc pas d'image
   } };
 const wkC = M.buildWeeklyDigest({ name: '', email: 'a@b.com', campaign: 'st', weekly: WK_CCY });
-const imgsF = (wkC && wkC.html.match(/api\/email-widget\/strength\.png[^"]*/g)) || [];
+/* ⚠️ ON COMPTE LES COURBES DE DEVISE, PAS TOUTES LES IMAGES DE FORCE (01/09). Le Hebdo porte
+   desormais AUSSI une vue d'ensemble sous la Geopolitique (demande utilisateur : « met une partie
+   force des devises sous geopolitique »), qui est une image de force SANS `ccy`. La compte parmi
+   les courbes par devise faisait rougir un controle qui parle d'autre chose. On distingue donc les
+   deux familles par ce qui les distingue vraiment : la presence du parametre `ccy`. */
+const imgsTouteForce = (wkC && wkC.html.match(/api\/email-widget\/strength\.png[^"]*/g)) || [];
+const imgsF = imgsTouteForce.filter(u => /[?&]ccy=/.test(u));
+const imgsGlob = imgsTouteForce.filter(u => !/[?&]ccy=/.test(u));
 ok('Hebdo : une courbe de force PAR devise avec matiere (USD + NZD = 2)', imgsF.length === 2, 'trouvees=' + imgsF.length);
+/* LA VUE D'ENSEMBLE, sa place et sa periode. Elle complete le VIX au meme endroit et pour la meme
+   raison : la semaine geopolitique vient d'etre racontee, le VIX dit la prime de risque qu'elle a
+   produite, la force des devises dit QUI en a profite. Elle doit donc se lire entre la Geopolitique
+   et le premier bloc devise, sur la SEMAINE (le Recap Quotidien, lui, sert la meme image en TD). */
+ok('Hebdo : une vue d\'ensemble de la force sous la Geopolitique (une seule, sans ccy)',
+  imgsGlob.length === 1, 'trouvees=' + imgsGlob.length);
+ok('Hebdo : … reglee sur la SEMAINE, comme le rapport', imgsGlob.length === 1 && /period=week/.test(imgsGlob[0]), imgsGlob[0]);
+/* On repere sa place par le VIX plutot que par le titre « Geopolitique » : ce titre ne s'ecrit que
+   si le rapport porte de la matiere geopolitique, ce que cette piece n'a pas — le controle aurait
+   compare a -1 et serait passe pour de mauvaises raisons. Le VIX, lui, est toujours rendu, et il
+   marque exactement la frontiere voulue : geopolitique racontee, puis les deux lectures de marche,
+   puis les devises. */
+const iVix = wkC.html.indexOf('email-widget/vix.png');
+ok('Hebdo : … posee juste APRES le VIX (donc sous la Geopolitique) et AVANT le premier bloc devise',
+  imgsGlob.length === 1 && iVix > 0
+  && iVix < wkC.html.indexOf(imgsGlob[0])
+  && wkC.html.indexOf(imgsGlob[0]) < wkC.html.indexOf('period=week&ccy=USD'),
+  'vix=' + iVix + ' force=' + wkC.html.indexOf(imgsGlob[0] || 'x') + ' usd=' + wkC.html.indexOf('period=week&ccy=USD'));
 ok('Hebdo : chaque courbe est CELLE de sa devise (ccy distincts, periode semaine)',
   imgsF.some(u => /period=week&ccy=USD/.test(u)) && imgsF.some(u => /period=week&ccy=NZD/.test(u)));
 ok('Hebdo : la courbe est a la position du desk (apres le resume executif, avant les rubriques)',

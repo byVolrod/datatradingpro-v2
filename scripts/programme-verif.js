@@ -81,6 +81,34 @@ v('… et distingue une date FORCÉE de la cadence automatique', /Témoignage fo
 v('la variante n\'est étiquetée que sur le PROCHAIN témoignage', /i === _temPrem/.test(ADM));
 v('… « prochain » voulant dire : le premier pas encore parti', /x\.temoignageLe && !x\.envoye/.test(ADM));
 
+/* ⚠️ LE TÉMOIGNAGE A SA LIGNE (01/09, demande utilisateur : « ajoute une ligne pour témoignage
+   membre comme les autres car ça reste un template comme un autre »). Il était rendu en étiquette
+   accrochée à la ligne d'une AUTRE semaine — seul envoi du programme à ne pas se lire comme les
+   autres, donc facile à manquer sur l'écran qui sert justement à savoir ce qui part. */
+v('le témoignage a sa PROPRE ligne dans le programme',
+  /camp-plan-row camp-plan-row--temoin/.test(ADM) && /<strong>Témoignage membre<\/strong>/.test(ADM),
+  (ADM.match(/.{0,60}camp-plan-row--temoin.{0,40}/) || [''])[0]);
+v('… et n\'est plus une étiquette collée à la semaine d\'un autre envoi',
+  !/camp-plan-temoin">\+ Témoignage membre/.test(ADM),
+  (ADM.match(/.{0,50}camp-plan-temoin">\+ Témoignage.{0,30}/) || [''])[0]);
+/* ⚠️ IL RESTE HORS ROTATION, et sa ligne doit le dire : lui donner le sélecteur « Auto (rotation) »
+   des autres lignes laisserait croire qu'on peut lui substituer un autre contenu — ce qui n'existe
+   pas côté serveur (le témoignage s'AJOUTE à la semaine, il ne la remplace pas). */
+v('… sa ligne annonce « hors rotation » au lieu du sélecteur de contenu',
+  /camp-plan-hors/.test(ADM) && /hors rotation/.test(ADM),
+  (ADM.match(/.{0,40}camp-plan-hors.{0,50}/) || [''])[0]);
+/* Le jour se calcule depuis la date servie : le serveur décale le témoignage au jeudi quand le
+   mardi est déjà pris. Un libellé figé annoncerait le mauvais jour (leçon du 31/08). */
+v('… et son jour vient toujours de la DATE, jamais d\'un libellé figé',
+  /JOURS\[_tDate\.getUTCDay\(\)\]/.test(ADM),
+  (ADM.match(/.{0,60}_tJour =.{0,60}/) || [''])[0]);
+/* La capsule `.camp-plan-temoin` sert ENCORE à la variante du parrainage : la retirer de la feuille
+   de style casserait cette ligne-là. Le contrôle empêche un nettoyage trop zélé. */
+const CSS_ADM = fs.readFileSync(path.join(RACINE, 'public/css/admin.css'), 'utf8');
+v('la capsule du parrainage garde son style (elle n\'était pas propre au témoignage)',
+  /camp-plan-temoin/.test(ADM) && /\.camp-plan-temoin\s*\{/.test(CSS_ADM));
+v('… et la nouvelle ligne a bien le sien', /\.camp-plan-row--temoin/.test(CSS_ADM) && /\.camp-plan-hors/.test(CSS_ADM));
+
 /* ⚠️ UN SEUL RÉGLAGE POUR UNE SEULE CHOSE (09/09). Le témoignage ayant sa ligne dans le programme,
    le programmateur de date manuel qui vivait juste en dessous faisait doublon : deux réglages pour
    le même envoi, côte à côte, sans qu'on sache lequel fait foi. */

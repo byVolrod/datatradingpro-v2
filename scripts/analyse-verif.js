@@ -3,6 +3,11 @@
    27/08, référence fournie en capture : « le tag analyse doit ressembler à l'image 2 ». Le panneau
    déroulait le rapport entier — six intertitres, une quinzaine de puces — là où la référence tient
    en UNE carte : une pastille, le libellé, l'heure, et un paragraphe de prose.
+   ⚠️ CETTE RÈGLE A FAILLI, PUIS ÉTÉ RÉAFFIRMÉE (01/09). Entre-temps, le panneau avait pris
+   l'habitude de remettre le dossier en six rubriques DERRIÈRE la carte (« la synthèse d'abord, le
+   dossier derrière ») : la carte seule redevenait donc, avec le temps, un simple en-tête d'un
+   panneau qui redéroulait tout en dessous. Nouvelle capture, même verdict que le 27/08 : la carte
+   EST le panneau, rien d'autre ne s'affiche sous ce bouton.
 
    ⚠️ CE BANC EXTRAIT LES VRAIES FONCTIONS d'app.js et de style.css. Il n'en recopie aucune : une
    copie resterait verte le jour où l'original change, et c'est précisément ce qu'on veut voir. */
@@ -59,37 +64,40 @@ if (srcCarte && srcProse) {
   v('… sans casser le gras légitime', /<strong>gras<\/strong>/.test(inj) && /<strong>gras<\/strong>/.test(inj2), inj + ' || ' + inj2);
 }
 
-console.log('\n── 2. Le panneau ouvre sur la synthèse, le détail derrière ──');
+console.log('\n── 2. Le panneau ne rend QUE la synthèse, plus aucun dossier derrière ──');
+/* 01/09, capture utilisateur, cette fois dans l'autre sens que le 27/08 : « le tag analyse doit
+   ressembler à cette structure… très simplement… et non comme sur la 2ème image » — la 2ème image
+   étant justement la carte SUIVIE du dossier en six rubriques (« Le détail »). Ce que le 27/08 avait
+   posé comme concession (le dossier reste, mais derrière) est retiré : le tag ne rend plus QUE la
+   carte de synthèse. */
 const pan = (/if \(tab === 'analysis'\) \{[\s\S]*?\n    \}/.exec(APP) || [''])[0];
 v('le panneau Analyse est repérable', pan.length > 200);
-/* ⚠️ LA CARTE PORTE LA SYNTHÈSE, PAS L'ACCROCHE — et ce banc l'a exigé à l'envers dans son premier
-   jet. L'accroche (`d.lead`) est le texte du tag INFO depuis le 31/08, à la demande de
-   l'utilisateur, et desk-verif l'éprouve dans un vrai navigateur : la reprendre ici remettait le
-   même paragraphe sur deux boutons. Deux textes distincts, un par surface. */
+/* ⚠️ LA CARTE PORTE LA SYNTHÈSE, PAS L'ACCROCHE. L'accroche (`d.lead`) est le texte du tag INFO
+   depuis le 31/08, à la demande de l'utilisateur, et desk-verif l'éprouve dans un vrai navigateur :
+   la reprendre ici remettrait le même paragraphe sur deux boutons. Deux textes distincts, un par
+   surface — cette séparation-là ne change pas avec le retrait du dossier. */
 v('la carte est alimentée par la synthèse du desk', /_anaProse\(item\._evaSynth \? \[item\._evaSynth\] : \[\]\)/.test(pan), pan.slice(0, 300));
 v('… et JAMAIS par l\'accroche, qui appartient à Info', !/_anaProse\(d\.lead\)/.test(pan));
-/* ⚠️ CE CONTRÔLE LISAIT LE TEXTE DU FICHIER, et il était VIDE : pris à la mutation, remplacer
-   `= carte` par `= !carte` — qui inverse l'ordre rendu — le laissait vert, puisque la sous-chaîne
-   « carte + (dossier.length » survit dans « !carte + (dossier.length ». On ÉVALUE donc désormais
-   la vraie expression de composition, et on regarde ce qui sort. */
+/* LE DOSSIER (Chiffres clés, Ce qui a surpris, Réaction de marché…) N'EST PLUS CONSTRUIT DU TOUT
+   dans ce panneau : ni `_evaDecoupe`, ni la boucle qui range ses rubriques sous « Le détail ». */
+v('`_evaDecoupe` n\'est plus appelé dans ce panneau (le dossier n\'est plus construit ici)', !/_evaDecoupe\(item\.description\)/.test(pan), pan);
+v('aucun bloc « Le détail » ne peut plus être rendu (`ana-detail` absent du panneau)', !/ana-detail/.test(pan), pan);
+/* ⚠️ CE CONTRÔLE ÉVALUE LA VRAIE EXPRESSION DE COMPOSITION plutôt que de lire le texte du fichier
+   (leçon du 27/08 : une sous-chaîne peut survivre à une mutation qui inverse le sens). */
 const mComp = /expandEl\.innerHTML = carte[\s\S]*?;\n/.exec(pan);
 v('l\'expression de composition est extractible', !!mComp);
 if (mComp) {
-  const rendu = new Function('carte', 'dossier', '_anaTs', '_puces', '_nrxQuand', '_renderInfoBullets',
+  const rendu = new Function('carte', '_anaTs', '_puces', '_nrxQuand', '_renderInfoBullets',
     'const expandEl = {};' + mComp[0] + 'return expandEl.innerHTML;'
-  )('[[CARTE]]', ['x'], 1, [], () => '[[QUAND]]', () => '[[PUCES]]');
-  v('la carte est rendue', rendu.indexOf('[[CARTE]]') >= 0, rendu);
-  v('le dossier suit la carte, pas l\'inverse',
-    rendu.indexOf('[[CARTE]]') >= 0 && rendu.indexOf('ana-detail') > rendu.indexOf('[[CARTE]]'), rendu);
-  /* ET SANS DOSSIER, la carte reste seule — pas d'intitulé « Le détail » suspendu dans le vide. */
-  const seule = new Function('carte', 'dossier', '_anaTs', '_puces', '_nrxQuand', '_renderInfoBullets',
+  )('[[CARTE]]', 1, ['x'], () => '[[QUAND]]', () => '[[PUCES]]');
+  v('avec une synthèse, la carte est rendue SEULE (rien d\'autre accolé)', rendu === '[[CARTE]]', rendu);
+  /* SANS SYNTHÈSE (`carte` vide) : repli sur les puces déjà chargées, comme avant l'introduction
+     de la synthèse — jamais un cadre vide, jamais le dossier en six rubriques. */
+  const repli = new Function('carte', '_anaTs', '_puces', '_nrxQuand', '_renderInfoBullets',
     'const expandEl = {};' + mComp[0] + 'return expandEl.innerHTML;'
-  )('[[CARTE]]', [], 1, [], () => '[[QUAND]]', () => '[[PUCES]]');
-  v('sans dossier, la carte reste seule', seule.indexOf('[[CARTE]]') >= 0 && seule.indexOf('ana-detail') < 0, seule);
+  )('', 1, ['x'], () => '[[QUAND]]', () => '[[PUCES]]');
+  v('sans synthèse, repli sur les puces (`_puces`), pas sur un dossier', repli === '[[QUAND]][[PUCES]]', repli);
 }
-v('… sous son propre intitulé', /ana-detail-t">Le détail</.test(pan));
-/* LE REPLI : une analyse sans accroche garde le comportement d'avant, dossier compris. */
-v('sans accroche, le dossier reprend sa place', /: _nrxQuand\('Analyse', _anaTs\) \+ _renderInfoBullets\(dossier\.length \? dossier : _puces\)/.test(pan), pan.slice(-400));
 /* ET LES NEWS ORDINAIRES NE CHANGENT PAS : la carte est réservée aux analyses d'événement. */
 v('une news ordinaire garde son rendu à puces', /expandEl\.innerHTML = _nrxQuand\('Analyse', _anaTs\) \+ _renderInfoBullets\(_puces\);/.test(pan));
 

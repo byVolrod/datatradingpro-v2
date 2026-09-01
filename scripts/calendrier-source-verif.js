@@ -235,9 +235,6 @@ verif('… et une ligne encore à venir ne peut pas ressortir avec un résultat 
   verif('la liste fusionnée sort en ordre chronologique', croissant);
 }
 
-if (ko) { console.log('\n✗ ' + ko + ' ÉCHEC(S)\n'); process.exit(1); }
-console.log('\n✓ LA SOURCE DU CALENDRIER EST FOREXFACTORY\n');
-
 // ── 10. GARDE-FOU : UNE LIGNE À VENIR NE PORTE JAMAIS DE RÉSULTAT ────────────────────────────────
 /* 01/09, capture utilisateur : « JOLTS Job Openings » à 16h00 (passé, résultat 7,271M) et une
    seconde ligne « JOLTS Job Openings » à 20h00 — ENCORE À VENIR, marquée « prochaine échéance »
@@ -309,3 +306,113 @@ console.log('\n── 10. Une ligne à venir ne porte jamais de résultat publi�
       !!p20 && (p20.actual === '' || p20.actual == null), p20 && JSON.stringify(p20.actual));
   } finally { Date.now = _ancienNow2; }
 }
+
+// ── 11. L'ARCHIVE NE RESSUSCITE JAMAIS UN RÉSULTAT ENCORE À VENIR ───────────────────────────────
+/* 01/09, SECONDE capture utilisateur, APRÈS déploiement du garde-fou de la section 10 : le JOLTS de
+   20h était bien redevenu vide (le correctif marchait), mais « ISM Manufacturing PMI · 20:00 »
+   affichait TOUJOURS 53.9 à 16h45. Cause racine : `/api/calendar-events` ne sert pas la sortie de
+   `_calFusionFF` telle quelle, il la passe ENSUITE dans `_calHistMerge`, qui réinjecte l'archive
+   persistée (`calhist:events`, Supabase). Cette archive avait absorbé le 53.9 AVANT le correctif ;
+   elle survit donc aux redémarrages, et la ligne fraîchement nettoyée n'entrant plus dans l'ensemble
+   « déjà publié » (son résultat est désormais vide), rien n'empêchait la ligne d'archive de repasser
+   devant. Pire, la clé d'archive ne remplaçant une entrée que sur un horodatage STRICTEMENT plus
+   récent, la valeur bidon horodatée 20h ne pouvait jamais être corrigée par le vrai chiffre de 20h.
+   Trois verrous éprouvés ici : ne rien absorber du futur, réparer sur place à horodatage égal,
+   n'émettre que du passé. */
+console.log('\n── 11. L\'archive ne ressuscite jamais un résultat encore à venir ──');
+{
+  let blocH;
+  try { blocH = ['_calHistKey', '_calHistAbsorb', '_calHistMerge'].map(extraire).join('\n'); }
+  catch (e) { verif('le code de l\'archive est extractible de server.js', false, e.message); blocH = null; }
+  if (blocH) {
+    verif('le code de l\'archive (3 déclarations) est extractible de server.js', true);
+    const NOW = Date.UTC(2026, 8, 1, 17, 0);   // 19h Paris — strictement entre 16h et 20h Paris
+    const H = (hh) => Date.UTC(2026, 8, 1, hh - 2, 0);
+    const _ancienNow = Date.now;
+    Date.now = () => NOW;
+    let arch;
+    try {
+      // Doublures : `_calHistDirty` (drapeau de persistance, sans effet ici) et un `setInterval`
+      // neutralisé — le vrai code en pose un pour la sauvegarde Supabase toutes les 5 min.
+      // eslint-disable-next-line no-eval
+      arch = eval('(function(){ let _calHist = new Map(); let _calHistDirty = false;' +
+        blocH + '\nreturn { _calHistAbsorb, _calHistMerge, _calHistKey, hist: () => _calHist, poser: m => { _calHist = m; } };})()');
+    } catch (e) { verif('il s\'évalue sans erreur', false, e.message); }
+    if (arch) {
+      verif('il s\'évalue sans erreur', true);
+      const ligne = (o) => Object.assign({ currency: 'USD', ctry: 'united states', title: 'ISM Manufacturing PMI', impact: 'High', timestamp: 0, actual: '', forecast: '55.2', previous: '55.6' }, o);
+
+      /* a. LE SCÉNARIO EXACT DE LA CAPTURE. L'archive porte déjà le 53.9 horodaté 20h (empoisonnée
+         la veille, avant le correctif, et rechargée depuis Supabase au démarrage). La fenêtre
+         fraîche, elle, est PROPRE : la section 10 a fait son travail, la ligne de 20h y arrive sans
+         résultat. C'est `_calHistMerge` qui remettait le 53.9. */
+      const empoisonnee = ligne({ timestamp: H(20), actual: '53.9' });
+      empoisonnee._k = arch._calHistKey(empoisonnee);
+      empoisonnee._h = [{ t: H(20) - 30 * 86400000, a: '48.0', f: '49', p: '50' }];   // la vraie publication du mois précédent
+      arch.poser(new Map([[empoisonnee._k, empoisonnee]]));
+      const fenetre = [ligne({ timestamp: H(16), actual: '54.6' }), ligne({ timestamp: H(20), actual: '' })];
+      const sortie = arch._calHistMerge(fenetre);
+      const futurAvecResultat = sortie.filter(e => (e.timestamp || 0) > NOW && e.actual != null && e.actual !== '');
+      verif('AUCUNE ligne servie au-delà de « maintenant » ne porte de résultat (le 53.9 de la capture)',
+        futurAvecResultat.length === 0, JSON.stringify(futurAvecResultat.map(e => e.title + '@' + new Date(e.timestamp).toISOString() + ' = ' + e.actual)));
+      verif('… la ligne PASSÉE de la fenêtre est toujours servie avec son résultat',
+        sortie.some(e => e.timestamp === H(16) && e.actual === '54.6'));
+      verif('… et la publication réelle du mois précédent, elle, est bien ressuscitée de l\'archive',
+        sortie.some(e => e.actual === '48.0' && e.timestamp === H(20) - 30 * 86400000));
+
+      /* b. L'ARCHIVE NE S'EMPOISONNE PLUS. Une source qui sert un résultat sur une ligne encore à
+         venir (le cas de la section 10 (b), si jamais un chemin contournait la fusion) ne doit rien
+         laisser dans l'archive — sinon le 53.9 y retomberait à chaque relevé.
+         NOTE HONNÊTE, mesurée au contrôle négatif : ce que cette assertion prouve est le RÉSULTAT
+         (l'archive reste propre), pas le verrou 1 pris isolément. Désarmer le seul verrou 1 laisse
+         le banc vert, parce que la purge (verrou 3) tourne dans le MÊME appel et retire l'entrée
+         aussitôt écrite. Il faut désarmer les deux pour faire rougir — c'est le propre d'une défense
+         en profondeur, et le verrou 1 garde sa raison d'être : ne pas écrire pour purger derrière,
+         donc ne pas lever le drapeau de persistance Supabase à chaque relevé. */
+      arch.poser(new Map());
+      arch._calHistAbsorb([ligne({ timestamp: H(20), actual: '53.9' })]);
+      verif('un résultat daté du FUTUR n\'entre pas dans l\'archive', arch.hist().size === 0, 'taille = ' + arch.hist().size);
+      arch._calHistAbsorb([ligne({ timestamp: H(16), actual: '54.6' })]);
+      verif('… alors qu\'un résultat PASSÉ y entre normalement', arch.hist().size === 1, 'taille = ' + arch.hist().size);
+
+      /* c. RÉPARATION À HORODATAGE ÉGAL. C'est le verrou qui aurait figé le mensonge pour toujours :
+         quand 20h arrive et que le VRAI chiffre tombe, il porte le MÊME horodatage que la valeur
+         bidon — le test « strictement plus récent » le rejetait. */
+      const bidon = ligne({ timestamp: H(20), actual: '53.9' });
+      bidon._k = arch._calHistKey(bidon); bidon._h = [];
+      arch.poser(new Map([[bidon._k, bidon]]));
+      const _n2 = Date.now; Date.now = () => H(21);   // 20h est passé : le vrai chiffre tombe
+      try { arch._calHistAbsorb([ligne({ timestamp: H(20), actual: '48.7' })]); } finally { Date.now = _n2; }
+      const rep = arch.hist().get(bidon._k);
+      verif('à horodatage égal, le vrai chiffre REMPLACE la valeur archivée', !!rep && rep.actual === '48.7', rep && rep.actual);
+      verif('… sans créer de faux point de série (c\'est la même publication, révisée)',
+        !!rep && (rep._h || []).length === 0, rep && JSON.stringify(rep._h));
+
+      /* d. PURGE D'UNE ARCHIVE DÉJÀ ÉCRITE. Le stock persisté hérité d'avant le correctif se répare
+         de lui-même au premier relevé : l'entrée future est remplacée par sa dernière valeur réelle,
+         sans attendre que l'horodatage fautif finisse par entrer dans le passé. */
+      const vieux = ligne({ timestamp: H(20), actual: '53.9' });
+      vieux._k = arch._calHistKey(vieux);
+      vieux._h = [{ t: H(20) - 60 * 86400000, a: '49.1', f: '50', p: '51' }, { t: H(20) - 30 * 86400000, a: '48.0', f: '49', p: '50' }];
+      arch.poser(new Map([[vieux._k, vieux]]));
+      arch._calHistAbsorb([]);   // un simple relevé suffit à déclencher la purge
+      const soigne = arch.hist().get(vieux._k);
+      verif('une entrée d\'archive future est ramenée à sa dernière valeur RÉELLE',
+        !!soigne && soigne.actual === '48.0' && soigne.timestamp === H(20) - 30 * 86400000, soigne && soigne.actual + '@' + (soigne && soigne.timestamp));
+      verif('… en conservant la série antérieure', !!soigne && (soigne._h || []).length === 1 && soigne._h[0].a === '49.1', soigne && JSON.stringify(soigne._h));
+      const orphelin = ligne({ timestamp: H(20), actual: '53.9' });
+      orphelin._k = arch._calHistKey(orphelin); orphelin._h = [];
+      arch.poser(new Map([[orphelin._k, orphelin]]));
+      arch._calHistAbsorb([]);
+      verif('… et une entrée future SANS aucune valeur réelle derrière est simplement supprimée', arch.hist().size === 0, 'taille = ' + arch.hist().size);
+    }
+    Date.now = _ancienNow;
+  }
+}
+
+/* ⚠️ LE BILAN EST À LA FIN, ET IL DOIT Y RESTER (01/09). Il était posé juste après la section 9,
+   donc AVANT les sections 10 et 11 : leurs échecs s'affichaient à l'écran mais le banc sortait
+   quand même en 0 (le `process.exit` était déjà passé) — un banc vert sur un desk cassé, exactement
+   ce que ces bancs existent pour empêcher. Toute nouvelle section s'insère AU-DESSUS de ce bloc. */
+if (ko) { console.log('\n✗ ' + ko + ' ÉCHEC(S)\n'); process.exit(1); }
+console.log('\n✓ LA SOURCE DU CALENDRIER EST FOREXFACTORY, ET AUCUNE LIGNE À VENIR NE PORTE DE RÉSULTAT\n');

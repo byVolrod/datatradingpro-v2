@@ -1615,25 +1615,43 @@
           ? '<span class="camp-plan-sent">✓ parti' + (w.envoyeAt ? ' ' + new Date(w.envoyeAt).toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '')
             + (w.envoyeN ? ' · ' + w.envoyeN + ' destinataire' + (w.envoyeN > 1 ? 's' : '') : '') + '</span>'
           : '';
-        return '<div class="camp-plan-row' + (i === _prochain ? ' camp-plan-row--now' : '') + (w.envoye ? ' camp-plan-row--sent' : '') + '">'
+        const _ligne = '<div class="camp-plan-row' + (i === _prochain ? ' camp-plan-row--now' : '') + (w.envoye ? ' camp-plan-row--sent' : '') + '">'
           + '<div class="camp-plan-wk">' + _lbl
           + '<span>' + _semaineFr(w.debut) + '</span></div>'
           + '<div class="camp-plan-main"><strong>' + w.contenu + '</strong>'
           + (quand ? '<span class="camp-plan-when">' + quand + '</span>' : '')
           + _envInfo
           + (w.force ? '<span class="camp-plan-badge">forcé</span><span class="camp-plan-auto">rotation : ' + w.auto + '</span>' : '')
-          // Le temoignage s AJOUTE a la rotation (1 fois par mois) : il n a pas de ligne a lui, on
-          // l affiche donc sur la semaine qui le porte, pour qu il cesse d etre invisible.
-          // ⚠️ JOUR CALCULÉ DEPUIS LA DATE, PLUS JAMAIS « mardi » EN DUR (31/08, demande user :
-          // « n'envoie jamais 2 mails en même temps... créer un décalage de 2j »). Le serveur décale
-          // le témoignage au jeudi quand le mardi est déjà pris par la rotation hebdomadaire — un
-          // libellé figé aurait continué d'afficher « mardi » alors que l'envoi réel a bougé.
-          + (w.temoignageLe ? '<span class="camp-plan-temoin">+ Témoignage membre <em>'
-              + (JOURS[new Date(w.temoignageLe + 'T12:00:00Z').getUTCDay()] || 'mardi') + ' 18h</em>'
-              + (_temLbl ? ' · ' + _temLbl : '') + '</span>' : '')
           + '</div>'
           + '<select class="camp-plan-input" data-wk="' + w.cle + '" onchange="campPlanForcer(this.value, this.dataset.wk)">'
           + '<option value="">Auto (rotation)</option>' + opts + '</select>'
+          + '</div>';
+        /* ⚠️ LE TÉMOIGNAGE A SA PROPRE LIGNE (01/09, demande utilisateur : « ajoute une ligne pour
+           témoignage membre comme les autres car ça reste un template comme un autre »).
+           Il était rendu en ÉTIQUETTE accrochée à la ligne d'une AUTRE semaine — le seul envoi du
+           programme à ne pas se lire comme les autres, alors qu'il en est un : son gabarit, son
+           objet, ses cinq variantes. Sur un écran dont le rôle est de dire ce qui part et quand,
+           faire d'un envoi la note de bas de page d'un autre le rendait facile à manquer.
+           CE QUI NE CHANGE PAS : il reste HORS ROTATION (mensuel, il s'AJOUTE au contenu de la
+           semaine au lieu de le remplacer). Sa ligne n'a donc pas de sélecteur « Auto (rotation) » —
+           l'y mettre laisserait croire qu'on peut lui substituer un autre contenu, ce qui n'existe
+           pas côté serveur. La colonne de droite dit sa cadence à la place.
+           ⚠️ JOUR CALCULÉ DEPUIS LA DATE, PLUS JAMAIS « mardi » EN DUR (31/08, demande user :
+           « n'envoie jamais 2 mails en même temps... créer un décalage de 2j »). Le serveur décale
+           le témoignage au jeudi quand le mardi est déjà pris par la rotation hebdomadaire — un
+           libellé figé aurait continué d'afficher « mardi » alors que l'envoi réel a bougé. */
+        if (!w.temoignageLe) return _ligne;
+        const _tDate = new Date(w.temoignageLe + 'T12:00:00Z');
+        const _tJour = JOURS[_tDate.getUTCDay()] || 'mardi';
+        return _ligne
+          + '<div class="camp-plan-row camp-plan-row--temoin">'
+          + '<div class="camp-plan-wk">' + (i === _temPrem ? 'Prochain témoignage' : 'Mensuel')
+          + '<span>' + _tDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' }) + '</span></div>'
+          + '<div class="camp-plan-main"><strong>Témoignage membre</strong>'
+          + '<span class="camp-plan-when">' + _tJour + ' 18h</span>'
+          + (_temLbl ? '<span class="camp-plan-badge">' + _temLbl + '</span>' : '')
+          + '</div>'
+          + '<span class="camp-plan-hors">Mensuel · hors rotation</span>'
           + '</div>';
       }).join('') + '</div>';
     } catch (e) { body.innerHTML = '<div class="camp-note">Programme indisponible.</div>'; }

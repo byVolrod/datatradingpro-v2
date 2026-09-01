@@ -377,10 +377,63 @@ const CAS = [
 
 module.exports = { JEUX, CAS, SONDE, SONDE_GRILLE, SONDE_OPACITES, SONDE_POS_LEGENDE, SONDE_POS_TRACE, serveur, trouverNavigateur, PORT, _regimes, _bornesPaquetReel };
 
+/* ══ LE RAFRAÎCHISSEMENT NE SE VOIT PAS ══════════════════════════════════════════════════════════
+   01/09, demande utilisateur : « parfois le widget Force de la devise se refresh tout seul :
+   l'affichage disparaît, ça recharge, puis les courbes réapparaissent. Évite complètement ce
+   rechargement visuel. »
+   CAUSE RACINE, lue dans le code : le minuteur de 60 s de la carte appelait `dessine()`, soit
+   `disposeRoot` puis `buildIsolatedStrength` — laquelle ÉCRIT UN LOADER dans le cadre avant même de
+   lancer sa requête. Chaque minute, le graphe était donc détruit, remplacé par « Chargement… »,
+   puis rebâti de zéro. Le commentaire du minuteur annonçait pourtant l'inverse (« sans remonter la
+   carte… ce qui ferait clignoter l'écran ») : il décrivait l'intention, pas le code.
+   CE CONTRÔLE EST STATIQUE ET SANS NAVIGATEUR, donc il tourne TOUJOURS — y compris sur un poste
+   sans Chromium, là où la partie visuelle ci-dessous s'abstient. Il lit le VRAI widgets.js. */
+function _rafraichissementSilencieux() {
+  console.log('\n── Le rafraîchissement de la carte ne détruit plus le graphe ──');
+  const W = fs.readFileSync(path.join(PUB, 'js/widgets.js'), 'utf8');
+  const i = W.indexOf("id: 'force-devises'");
+  const mount = i < 0 ? '' : W.slice(i, W.indexOf("id: 'barometre'", i));
+  v('la carte « Force des Devises » est retrouvée dans widgets.js', !!mount.length);
+  if (!mount.length) return;
+  const tic = (mount.match(/setInterval\(function \(\) \{[\s\S]{0,700}?\}, 60 \* 1000\)/) || [''])[0];
+  v('son minuteur de 60 s est retrouvé', !!tic);
+  v('le tour de minuteur ne RECONSTRUIT plus (plus d\'appel à `dessine`)',
+    !!tic && !/\bdessine\(/.test(tic), tic.slice(0, 160));
+  v('… il met à jour EN PLACE (`rafraichir`)', !!tic && /\brafraichir\(/.test(tic), tic.slice(0, 160));
+  const raf = (mount.match(/function rafraichir\(p\) \{[\s\S]*?\n        \}/) || [''])[0];
+  v('`rafraichir` existe', !!raf);
+  v('… et passe les données au contrôleur vivant, sans rien détruire',
+    !!raf && /ctl\.update\(d\)/.test(raf) && !/disposeRoot/.test(raf) && !/buildIsolatedStrength/.test(raf),
+    raf.slice(0, 200));
+  /* Le repli reste indispensable : sans graphe vivant (premier rendu, échec précédent, période
+     changée), il FAUT reconstruire — sinon la carte resterait vide pour toujours. */
+  v('… mais il reconstruit quand il n\'y a pas de graphe vivant à mettre à jour',
+    !!raf && /if \(!ctl \|\| !ctl\.update \|\| p !== perCourante\) \{ dessine\(p\); return; \}/.test(raf), raf.slice(0, 200));
+  /* Une réponse vide ou hors-sujet ne doit RIEN écraser : garder la dernière courbe valide à
+     l'écran vaut mieux que la remplacer par une erreur — c'est le même principe que le repli. */
+  v('… et ne touche à rien si la réponse est inexploitable ou la période a changé',
+    !!raf && /if \(!d \|\| !d\.currencies \|\| p !== perCourante/.test(raf), raf.slice(0, 260));
+  /* Le contrôleur ne peut être gardé que si le constructeur le rend : `buildIsolatedStrength` est
+     asynchrone, donc la carte doit attendre sa promesse. Sans ça, `ctl` resterait nul et chaque
+     tour retomberait sur la reconstruction — le banc serait vert et le clignotement intact. */
+  v('le contrôleur est bien récupéré à la construction (promesse attendue)',
+    /r\.then\(function \(c\) \{ if \(perCourante === p\) ctl = c \|\| null; \}\)/.test(mount),
+    (mount.match(/.{0,80}buildIsolatedStrength\(id.{0,160}/) || [''])[0]);
+  const CH = fs.readFileSync(path.join(PUB, 'js/charts.js'), 'utf8');
+  v('… et `buildStrengthChart` le rend toujours, avec sa mise à jour en place',
+    /return \{ root, seriesMap, update \};/.test(CH));
+}
+
 if (require.main === module) {
   (async () => {
+    _rafraichissementSilencieux();
     const bin = trouverNavigateur();
-    if (!bin) { console.log('\n[Force] aucun Chromium trouvé → contrôle abstenu (ce n\'est pas un échec).\n'); process.exit(0); }
+    if (!bin) {
+      console.log('\n[Force] aucun Chromium trouvé → la partie VISUELLE s\'abstient (ce n\'est pas un échec).');
+      if (ko) { console.log(`\n✗ ${ko} ÉCHEC(S) — ${ok} contrôle(s) OK\n`); process.exit(1); }
+      console.log('');
+      process.exit(0);
+    }
     let puppeteer;
     try { puppeteer = require('puppeteer-core'); }
     catch { console.log('\n[Force] puppeteer-core absent → contrôle abstenu.\n'); process.exit(0); }
@@ -421,7 +474,11 @@ if (require.main === module) {
         await page.close();
       }
       if (mesures.every(m => (m.r.err || []).some(e => /amCharts absent/.test(e)))) {
-        console.log('\n[Force] amCharts injoignable (CDN bloqué, pas de DTP_AM5_BUNDLE) → contrôle abstenu.\n');
+        // C'est la partie VISUELLE qui s'abstient : les contrôles statiques déjà passés, eux,
+        // comptent. Sortir en 0 sans les regarder rendrait ce banc vert sur un défaut avéré.
+        console.log('\n[Force] amCharts injoignable (CDN bloqué, pas de DTP_AM5_BUNDLE) → partie visuelle abstenue.');
+        if (ko) { console.log(`\n✗ ${ko} ÉCHEC(S) — ${ok} contrôle(s) OK\n`); process.exit(1); }
+        console.log('');
         process.exit(0);
       }
       controler(mesures);

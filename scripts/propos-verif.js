@@ -25,6 +25,13 @@ const CSS = fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8');
 const SRV = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
 let ok = 0, ko = 0;
 const v = (n, c, d) => { if (c) { ok++; console.log('  ✓ ' + n); } else { ko++; console.log('  ✗ ' + n + (d ? '\n      → ' + String(d).slice(0, 400) : '')); } };
+/* ⚠️ LE BILAN DOIT ATTENDRE LES CONTRÔLES ASYNCHRONES (01/09). Le corps de ce banc tourne dans une
+   IIFE asynchrone qui se termine par `process.exit` ; le code posé APRÈS elle s'exécute d'abord,
+   mais un contrôle qui rend une PROMESSE (la course de traduction, section 5) se résout, lui, après
+   ce `process.exit` : ses assertions ne s'affichaient pas et ne comptaient pas. Un banc vert sur un
+   défaut avéré, exactement ce qu'on cherche à empêcher. Toute vérification asynchrone se déclare
+   donc ici, et le bilan l'attend. */
+let _attenteAsync = null;
 const extraire = (src, nom) => {
   const m = new RegExp('function ' + nom + '\\([\\s\\S]*?\\n\\}').exec(src);
   return m ? m[0] : null;
@@ -330,6 +337,7 @@ const nouv = (o) => Object.assign({ id: Math.random().toString(36).slice(2), tim
     !/propos \(titres VO, jamais traduits/.test(CHARTS),
     'le commentaire périmé est revenu — il contredit le comportement réel depuis le 17/07');
 
+  if (_attenteAsync) { try { await _attenteAsync; } catch (e) { v('les contrôles asynchrones s\'exécutent', false, e.message); } }
   console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec' : '✓ ' + ok + ' contrôles au vert'));
   process.exit(ko ? 1 : 0);
 })();
@@ -364,3 +372,60 @@ v('le titre traduit est mis en réserve tant qu\'un panneau est ouvert',
   /_titreFrEnAttente = inc\._titreFr/.test(APP));
 v('… et promu à la fermeture du dernier panneau', /_titreFr = it\._titreFrEnAttente/.test(APP));
 
+
+/* ── LE REPLI DE TRADUCTION NE FIGE PLUS L'ANGLAIS ─────────────────────────────────────────────
+   01/09, capture utilisateur : un panneau de propos dont la PREMIÈRE ligne était en français et
+   les six suivantes en anglais (« I think that that Japan is taking right steps for the economy »),
+   avec la consigne « faut pas que ça se reproduise à l'avenir, tout doit être bien traduit dans le
+   fil d'actualités ».
+   CAUSE RACINE, dans `_dtpTranslateQuotes` : le repli de 2,5 s révélait la source ET posait
+   `trFige`. Or `applyCache` saute les lignes figées. Une réponse arrivée à 4 s — le cas ordinaire
+   quand la cascade IA gratuite est lente — était donc reçue, mise en cache… et jamais peinte.
+   L'anglais restait pour toute la session, sans le moindre signe d'erreur. La première ligne, elle,
+   était en français parce qu'elle tenait sa traduction du SERVEUR (`_hlFr`), sans passer par ce
+   chemin : d'où le mélange exact de la capture.
+   On éprouve la mécanique sur le VRAI code, en la faisant tourner : un serveur lent qui répond
+   APRÈS le délai de repli doit quand même repeindre la ligne. */
+console.log('\n── 5. Une traduction en retard repeint quand même la ligne ──');
+{
+  const src = extraire(APP, '_dtpTranslateQuotes');
+  v('`_dtpTranslateQuotes` est extractible d\'app.js', !!src);
+  if (src) {
+    /* Lecture du code : le repli de DÉLAI ne doit pas figer, la passe FINALE doit figer. Les deux
+       assertions vont ensemble — figer partout, c'est le défaut ; ne figer nulle part laisserait un
+       squelette repeindre indéfiniment. */
+    v('le repli de délai révèle SANS figer', /setTimeout\(\(\) => _repli\(false\), _TR_ATTENTE_MS\)/.test(src), src.slice(0, 0) || 'repli de délai introuvable');
+    v('… et la passe finale, elle, fige (plus rien n\'est en vol)', /_repli\(true\)/.test(src));
+    v('… « figer » est bien devenu un choix, pas un effet de bord', /const _reveler = \(li, fige\) =>/.test(src) && /if \(fige\) li\.dataset\.trFige = '1'/.test(src));
+    v('… et une ligne TRADUITE reste définitive', /_traduire = \(li, fr\) => \{ li\.textContent = fr; _reveler\(li, true\); \}/.test(src));
+
+    /* ── ET ON LE FAIT TOURNER. La lecture de code ci-dessus dirait « vert » sur une mécanique qui
+       ne marche pas ; ici on rejoue la course réelle : délai de repli à 20 ms, serveur qui répond à
+       120 ms. Avant le correctif, la ligne restait à l'anglais. Doublures minimales : un `document`
+       réduit à ce que la fonction touche, un `fetch` lent, et le cache client. */
+    const noeud = (txt) => ({ _t: txt, dataset: {}, classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); } },
+      get textContent() { return this._t; }, set textContent(v2) { this._t = v2; },
+      setAttribute() {}, removeAttribute() {} });
+    const lignes = [noeud('I think that Japan is taking the right steps for the economy.'),
+      noeud('I expect everyone to come along with us on Iran.')];
+    const conteneur = { querySelectorAll: () => lignes };
+    const bacs = {
+      _TR_ATTENTE_MS: 20,
+      _trClient: new Map(),
+      fetch: () => new Promise(r => setTimeout(() => r({
+        json: () => Promise.resolve({ translations: lignes.map((l, i) => i === 0
+          ? 'Je pense que le Japon prend les bonnes mesures pour son économie.'
+          : "Je m'attends à ce que tout le monde nous suive sur l'Iran.") }),
+      }), 120)),
+    };
+    /* ⚠️ `extraire` démarre au mot `function` : il laisse donc le `async` sur le carreau, et le
+       corps extrait contient des `await`. On le remet, sinon `new Function` refuse le code. */
+    const f = new Function('_TR_ATTENTE_MS', '_trClient', 'fetch', 'async ' + src + '\nreturn _dtpTranslateQuotes;')(bacs._TR_ATTENTE_MS, bacs._trClient, bacs.fetch);
+    _attenteAsync = f(conteneur).then(() => {
+      v('une réponse arrivée APRÈS le repli repeint quand même la ligne (le défaut de la capture)',
+        lignes.every(l => /^Je /.test(l.textContent)), JSON.stringify(lignes.map(l => l.textContent)));
+      v('… et plus aucune ligne ne reste en anglais', !lignes.some(l => /\b(the|that|everyone)\b/i.test(l.textContent)),
+        JSON.stringify(lignes.map(l => l.textContent)));
+    }).catch(e => { v('le scénario de course s\'exécute', false, e.message); });
+  }
+}

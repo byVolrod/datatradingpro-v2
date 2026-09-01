@@ -1714,6 +1714,19 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   S('Volatilité · VIX', _widgetImg('vix', 'VIX de la semaine — bougies 2 h, traits rouges aux lundis',
     532, null, null, { alt: 'VIX de la semaine (bougies 2 h) — DataTradingPro' }));
 
+  /* ── FORCE DES DEVISES DE LA SEMAINE, DANS LA MÊME FOULÉE (01/09, demande utilisateur : « met une
+     partie force des devises sous géopolitique »). ────────────────────────────────────────────────
+     Elle complète le VIX au même endroit et pour la même raison : la semaine géopolitique vient
+     d'être racontée, le VIX dit la prime de risque qu'elle a produite, la force des devises dit
+     QUI en a profité et qui en a souffert — les deux lectures de marché, ensemble, avant d'entrer
+     dans la macro puis dans le détail de chaque devise.
+     PÉRIODE `week`, pas `today` : ce rapport couvre la semaine (le Récap Quotidien, lui, sert la
+     même image en `today`). Et c'est déjà celle qu'embarque `sendWeeklyDigest` (`strength:week`),
+     donc aucune image supplémentaire n'est fabriquée : la vue d'ensemble et les mini-courbes par
+     devise plus bas partagent le même rendu. */
+  S('Force des Devises', _widgetImg('strength', 'Force des devises de la semaine', 532, 'week',
+    null, { alt: 'Force des devises de la semaine — DataTradingPro' }));
+
   // ── BANQUES CENTRALES : la section ABSENTE du mail envoyé jusqu'ici (le bloc existait,
   //    il n'était jamais injecté). Elle porte ce que le desk range par devise plus bas :
   //    posture, décision, orientation, effet devise, probabilités du marché.
@@ -1844,11 +1857,23 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     // Un print sans réel ne s'affiche pas (règle du desk). _num, pas la véracité JS : un
     // réel « 0 » est une valeur légitime, il ne doit pas disparaître comme un champ absent.
     if (!pr || !_md(pr.label) || !_num(pr.actual)) return '';
-    const nums = [`publié <b style="color:#e6e6ea;">${_esc(_num(pr.actual))}</b>`,
+    /* ⚠️ LE CHIFFRE PUBLIÉ EST COLORÉ, COMME SUR LE DESK (01/09, demande utilisateur : « met les
+       couleurs des résultats des datas comme on a fait dans le desk… pour le template mail récap
+       hebdo, point marché etc., en gros que ce soit synchro »).
+       Il était peint en #e6e6ea EN DUR, c'est-à-dire toujours neutre : le même chiffre ressortait
+       vert ou rouge sur le desk et blanc dans le courriel. Le rendu du desk (`printRow`, app.js)
+       passe par `deviationClass` ; le mail en a le miroir exact depuis le 25/08 (`_cvCol`, plus
+       haut, polarité inversée pour le chômage comprise) — il ne s'en servait simplement pas ICI.
+       `_actCol` retombe sur le blanc neutre quand il n'y a pas de consensus à comparer : un réel
+       sans prévision reste blanc, on ne déduit JAMAIS un signal du précédent (règle du 12/08).
+       La lecture « → au-dessus des attentes » suit la même couleur : elle dit la même chose que le
+       chiffre, la peindre autrement ferait deux signaux pour une seule information. */
+    const _col = _actCol(pr.actual, pr.forecast, pr.label);
+    const nums = [`publié <b style="color:${_col};">${_esc(_num(pr.actual))}</b>`,
       _num(pr.forecast) ? `attendu ${_esc(_num(pr.forecast))}` : '',
       _num(pr.previous) ? `préc. ${_esc(_num(pr.previous))}` : ''].filter(Boolean).join(' · ');
     const ctry = (pr.ctry && _CTRY_FR[pr.ctry]) ? `<span style="color:${TOK.grisDoux};">${_CTRY_FR[pr.ctry]}</span> ` : '';
-    const lean = _md(pr.lean) ? ` <span style="color:#cbd5e1;">→ ${_esc(_md(pr.lean))}</span>` : '';
+    const lean = _md(pr.lean) ? ` <span style="color:${_cvCol(pr.actual, pr.forecast, pr.label) || '#cbd5e1'};">→ ${_esc(_md(pr.lean))}</span>` : '';
     const dt = _md(pr.date) ? ` <span style="color:#6b7280;">(${_esc(_md(pr.date))})</span>` : '';
     return _puce(`${ctry}<span style="color:#cbd5e1;font-weight:600;">${_esc(_md(pr.label))}</span> : ${nums}${lean}${dt}`);
   };
@@ -1989,7 +2014,17 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
      Cet ordre unique sert correctement les deux rapports : chaque rubrique absente est sautée. */
   // Les deux branches réunies : sur un rapport donné, la moitié est naturellement absente et
   // se saute. GEW → L'essentiel, Synthèse, Calendrier. Recap → Géopolitique, devise par devise.
-  const _ORDRE_DESK = ['Ouverture', "L'essentiel", 'Géopolitique',
+  /* ⚠️ LE VIX N'ÉTAIT PAS OÙ SON COMMENTAIRE LE DISAIT (trouvé le 01/09 en posant la Force des
+     Devises à côté de lui). Il est poussé juste après la Géopolitique, et son commentaire explique
+     longuement pourquoi cette place-là : « la géopolitique vient d'être racontée, le VIX dit ce que
+     le marché en a fait ». Mais l'assemblage final ne suit PAS l'ordre des poussées — il suit cette
+     liste, et tout ce qui n'y figure pas est recollé À LA FIN. Le VIX n'y figurait pas : depuis le
+     31/08, il s'affichait donc après les huit blocs devise, à la toute fin du courriel. Sur le
+     desk, au même moment, il est bien entre Géopolitique et Macro : les deux surfaces ne montraient
+     pas le même rapport, et rien ne le signalait.
+     Les deux lectures de marché sont donc inscrites ici, à leur place : la prime de risque (VIX)
+     puis qui en a profité (Force des Devises), entre le récit géopolitique et la macro. */
+  const _ORDRE_DESK = ['Ouverture', "L'essentiel", 'Géopolitique', 'Volatilité · VIX', 'Force des Devises',
     _titreSynthese, 'Calendrier économique', 'La semaine devise par devise'];
   const _vus = new Set();
   const corpsRapport = _ORDRE_DESK.map(t => { const e = P.find(x => x && x.t === t); if (!e) return ''; _vus.add(t); return e.h; }).join('')
@@ -2351,57 +2386,14 @@ function _lignesDonnees(rows) {
       + `</div>`;
   }).join('');
 }
-/* ÉTIQUETTES DU RAPPORT = la rangée `.arlib-rtag` du lecteur (app.js 9910, style.css 5280) :
-   « Fed », « BoJ », « PMI », « Géopolitique Moyen-Orient »... Le mail n'en portait aucune. Elles
-   ne répètent rien : ce sont les thèmes de la journée, lus d'un coup d'oeil avant le texte, et
-   elles font partie du rapport (`_fxr.tags`), pas du décor du lecteur. Même traitement qu'au
-   desk : on éclate sur les virgules et points-virgules, on écarte les étiquettes de service
-   (`_ARLIB_TAG_HIDE`) et on met la première lettre en capitale.
-   Ne pas confondre avec le TITRE du rapport, retiré le 24/08 parce qu'il redisait mot pour mot
-   la première phrase de la Synthèse : une étiquette ne redit aucune phrase. */
-const _TAGS_MUETS = new Set(['fx flows', 'flux fx', 'energy & power', 'énergie', 'energie', 'global news', 'actualités mondiales', 'actualites mondiales']);
-/* ÉTIQUETTES COURTES (24/08, demande user sur pièce). L'IA écrit les thèmes en toutes lettres —
-   « Rachat de bons du Trésor américain », « Ventes au détail néo-zélandaises », « Sanctions
-   américaines contre l'Iran » — et sept étiquettes prenaient TROIS LIGNES sous la date. Or une
-   étiquette se SCANNE, elle ne se lit pas : trois lignes de thèmes avant le texte, c'est un
-   paragraphe de plus, pas un repère.
-   Raccourci par RÈGLES DÉTERMINISTES, jamais par troncature : couper « Politique monétai… »
-   serait pire que long. Trois passes dans cet ordre — gentilé → code court, tournure longue →
-   forme courte, puis retrait des mots de liaison devenus inutiles. Une étiquette déjà courte
-   ressort intacte, et si les règles la vidaient on garde l'originale : mieux vaut une étiquette
-   longue qu'une étiquette fausse. */
-const _TAG_GENTILE = [
-  [/\b[ée]tats[-\s]unis\b/gi, 'US'], [/\bam[ée]ricain(?:e|s|es)?\b/gi, 'US'],
-  [/\bbritanniques?\b/gi, 'UK'], [/\bn[ée]o[-\s]?z[ée]landais(?:e|es)?\b/gi, 'NZ'],
-  [/\bcanadien(?:ne|s|nes)?\b/gi, 'Canada'], [/\baustralien(?:ne|s|nes)?\b/gi, 'Australie'],
-  [/\bjaponais(?:e|es)?\b/gi, 'Japon'], [/\bchinois(?:e|es)?\b/gi, 'Chine'],
-  [/\beurop[ée]en(?:ne|s|nes)?\b/gi, 'Europe'], [/\ballemand(?:e|s|es)?\b/gi, 'Allemagne'],
-  [/\bfran[çc]ais(?:e|es)?\b/gi, 'France'], [/\bsuisses?\b/gi, 'Suisse'],
-];
-const _TAG_COURT = [
-  [/\bpolitique mon[ée]taire\b/gi, 'Politique'], [/\bbons du tr[ée]sor\b/gi, 'Trésor'],
-  [/\bventes au d[ée]tail\b/gi, 'Ventes détail'], [/\bguerre commerciale\b/gi, 'Commerce'],
-  [/\bmarch[ée] du travail\b/gi, 'Emploi'], [/\btaux d['’]int[ée]r[êe]t\b/gi, 'Taux'],
-  [/^prix (?:du|de la|des|de l['’])\s*/i, ''],
-  [/\s+(?:contre|envers|vis-à-vis de)\s+/gi, ' '],
-  [/\s+(?:de la|de l['’]|des|du|de|aux|au|à la)\s+/gi, ' '],
-  [/\bl['’]/gi, ''],
-];
-function _tagCourt(s) {
-  let t = s;
-  [_TAG_GENTILE, _TAG_COURT].forEach(regles => regles.forEach(([rx, par]) => { t = t.replace(rx, par); }));
-  t = t.replace(/\s{2,}/g, ' ').trim();
-  return t.length >= 2 ? t : s;   // une règle qui vide l'étiquette n'a pas lieu de s'appliquer
-}
-function _tagsRapport(tags) {
-  const l = (Array.isArray(tags) ? tags : []).flatMap(t => String(t == null ? '' : t).split(/\s*[,;]\s*/))
-    .map(s => s.trim()).filter(s => s && !_TAGS_MUETS.has(s.toLowerCase()))
-    .map(_tagCourt)
-    .map(s => s.charAt(0).toUpperCase() + s.slice(1));
-  if (!l.length) return '';
-  return `<p style="margin:0 0 14px;line-height:2;">` + l.map(t =>
-    `<span style="display:inline-block;font-size:11px;font-weight:500;color:#a3a3a3;background:#141416;border:1px solid #262626;border-radius:4px;padding:2px 10px;margin:0 6px 0 0;white-space:nowrap;">${_esc(t)}</span>`).join('') + `</p>`;
-}
+/* ⚠️ TOUTE LA MACHINERIE DES ÉTIQUETTES A ÉTÉ RETIRÉE ICI LE 01/09, avec le seul appel qui s'en
+   servait (`buildCampaignPointMarche`, demande utilisateur « enlève les tags du template point
+   marché »). Elle comptait cinq déclarations — la liste des étiquettes de service à taire, deux
+   tables de raccourcis (gentilé vers code court, tournure longue vers forme courte), le
+   raccourcisseur et le rendu de la rangée. Les garder sans appelant aurait laissé du code que
+   personne n'exécute et que personne ne vérifie : la prochaine lecture y aurait cherché un sens.
+   Le desk, lui, garde ses étiquettes : elles servent à repérer un rapport dans une LISTE
+   (`.arlib-rtag`, app.js), ce qui n'est pas le rôle d'un courriel qui se lit de haut en bas. */
 /* Ligne d'indicateur du bloc « Données du jour » = `.wr-bullet.wr-cat` (app.js 9995) : une PUCE,
    pas une ligne de tableau. Le libellé est en blanc semi-gras, le réel aussi (`.wr-cat b`,
    style.css 5459) sauf quand l'écart au consensus le colore, et la lecture ferme la puce derrière
@@ -3944,8 +3936,14 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const _dateTitre = dateLbl ? dateLbl.charAt(0).toLowerCase() + dateLbl.slice(1) : '';
   const entete = `${_H1}Votre Récap Quotidien`
     + (_dateTitre ? `<span style="font-weight:500;font-size:15px;color:${TOK.grisDoux};letter-spacing:0;"> — ${_esc(_dateTitre)}</span>` : '')
-    + `</p>`
-    + (full ? _tagsRapport(full.tags) : '');
+    + `</p>`;
+  /* ⚠️ ÉTIQUETTES DU RAPPORT RETIRÉES (01/09, demande utilisateur : « enlève les tags du template
+     point marché »). Elles avaient été posées le 24/08 pour donner les thèmes du jour d'un coup
+     d'oeil avant le texte. Sur pièce, la rangée s'intercalait entre le titre daté et l'ouverture,
+     et redisait en mots-clés ce que la Synthèse dit juste après en phrases : deux lectures du même
+     contenu, dont l'une n'apporte rien à un courriel qui se lit de haut en bas.
+     Ce qui NE change pas : les étiquettes restent dans le rapport (`_fxr.tags`) et sur le desk, où
+     elles servent à repérer un rapport dans une LISTE — c'est là qu'un mot-clé a du sens. */
 
   // La synthèse ne s'écrit ici QUE si la rubrique « Synthèse » ne l'a pas déjà écrite. Le test
   // portait avant sur la présence d'un CORPS : dès que le repli `sections` produisait quelque
