@@ -16885,10 +16885,22 @@ body.dtp-premium #view-widgets .wdg-card:hover {
   box-shadow: 0 10px 30px -14px rgba(0, 0, 0, .8), 0 4px 18px rgba(0, 0, 0, .35);
 }
 
-/* ── EN-TÊTES : la même respiration que les panneaux de l'accueil ───────────────────────────── */
+/* ── EN-TÊTES : la même respiration que les panneaux de l'accueil ─────────────────────────────
+   ⚠️ `background-image`, JAMAIS le raccourci `background` (corrigé le 02/09, mesuré au rendu).
+   Écrit en raccourci, ce voile EFFAÇAIT la couleur de fond de la barre : `--head-bg` (#101012) est
+   posé par `.panel-header` cent lignes plus haut, et le raccourci le remplace par un dégradé qui
+   finit en `transparent` — donc par le fond du panneau. Mesuré en 1920x1080 : l'en-tête du fil (à
+   gauche) ressortait en rgba(0,0,0,0) pendant que `.chart-header` (à droite) tenait son #101012,
+   alors que les DEUX règles de base déclarent exactement le même fond. Deux familles de bandeaux
+   pour un seul rôle, sans que rien ne le signale : la feuille de style disait l'harmonie et le
+   rendu la démentait.
+   Sa règle sœur (« .panel-header,.chart-header,… » plus haut) fait déjà la chose juste avec
+   `background-image` : le voile se SUPERPOSE à la couleur au lieu de la remplacer. On s'aligne
+   dessus. Le voile reste identique à l'œil sur les cartes de Mon Desk, qui n'ont pas de couleur de
+   barre à préserver. */
 body.dtp-premium #view-widgets .wdg-head,
 body.dtp-premium .view-panel > .panel > .panel-header {
-  background: linear-gradient(180deg, rgba(255, 255, 255, .022), transparent);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .022), transparent);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════

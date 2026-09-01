@@ -126,6 +126,43 @@ function lum(css) {
   try {
     nav = await pp.launch({ executablePath: bin, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 
+    /* ══ LES BARRES D'EN-TÊTE SE RESSEMBLENT-ELLES VRAIMENT ? (02/09) ═════════════════════════════
+       Demande utilisateur d'harmonisation visuelle (« une vraie cohérence entre les panneaux »).
+       Mesuré en 1920x1080 : `.panel-header` (le bandeau du fil, à gauche) sortait en rgba(0,0,0,0)
+       pendant que `.chart-header` (les bandeaux de droite) tenait son #101012 — alors que les DEUX
+       règles de base déclarent le même `background: var(--head-bg)`. La cause vivait cent lignes
+       plus bas : un voile « premium » écrit avec le RACCOURCI `background` remplaçait la couleur au
+       lieu de se poser dessus. La feuille de style disait l'harmonie, le rendu la démentait.
+       ⚠️ CE CONTRÔLE SE FAIT SUR DES PIXELS CALCULÉS, PAS SUR UNE DÉCLARATION. Chercher
+       « background-image » dans la feuille resterait vert le jour où un autre raccourci, ailleurs,
+       refait le même écrasement : c'est la cascade qui tranche, donc c'est elle qu'on interroge. */
+    {
+      const page = await nav.newPage();
+      await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+      await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await new Promise((r) => setTimeout(r, 2400));
+      const b = await page.evaluate(() => {
+        const un = (sel) => {
+          const e = [...document.querySelectorAll(sel)].find((x) => x.getBoundingClientRect().height > 4);
+          if (!e) return null;
+          const c = getComputedStyle(e);
+          return { h: Math.round(e.getBoundingClientRect().height), bg: c.backgroundColor };
+        };
+        return { fil: un('.panel-header'), vue: un('.chart-header') };
+      }).catch(() => null);
+      await page.close();
+      v('les deux familles de bandeaux sont mesurables', !!(b && b.fil && b.vue), JSON.stringify(b));
+      if (b && b.fil && b.vue) {
+        /* Un bandeau TRANSPARENT est le défaut exact qu'on a corrigé : il laisse voir le corps du
+           panneau et casse la séparation en-tête/contenu que l'autre colonne, elle, montre bien. */
+        v('le bandeau du fil n\'est pas transparent (le voile n\'écrase plus sa couleur)',
+          !/rgba\(0, 0, 0, 0\)|transparent/.test(b.fil.bg), b.fil.bg);
+        v('… et il porte EXACTEMENT le même fond que les bandeaux de vue',
+          b.fil.bg === b.vue.bg, 'fil ' + b.fil.bg + '  ≠  vue ' + b.vue.bg);
+        v('… à la même hauteur', b.fil.h === b.vue.h, 'fil ' + b.fil.h + 'px ≠ vue ' + b.vue.h + 'px');
+      }
+    }
+
     for (const theme of ['dark', 'light']) {
       const page = await nav.newPage();
       await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
