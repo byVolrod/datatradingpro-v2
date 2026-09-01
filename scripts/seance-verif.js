@@ -622,12 +622,34 @@ if (_SRC_EMP) {
   const emp = _emphaser();
   v('une heure n\'est PAS coupée en deux', emp('14h15 USD') === '14h15 USD', emp('14h15 USD'));
   v('… ni « 9h30 »', emp('9h30 début de séance') === '9h30 début de séance', emp('9h30 début de séance'));
+  /* ⚠️ MÊME DÉFAUT, ÉCRITURE « HH:MM » (01/09, trouvé sur une VRAIE puce de calendrier — le format
+     que rend `toLocaleTimeString('fr-FR', …)`, utilisé partout côté serveur pour horodater un
+     événement). « 14h15 » était protégé par accident (le « h » est un caractère de mot) ; le
+     deux-points ne l'est pas, rien ne protégeait donc « 03:30 ». */
+  v('une heure « HH:MM » (deux-points) n\'est pas coupée non plus',
+    emp('03:30 CNY') === '03:30 CNY', emp('03:30 CNY'));
+  v('… même en tête de puce de calendrier',
+    emp('14:00 **EUR** · **Allemagne**') === '14:00 <strong>EUR</strong> · <strong>Allemagne</strong>',
+    emp('14:00 **EUR** · **Allemagne**'));
   v('un écart garde son unité DANS le gras', emp('(+0,3 pt)') === '(<strong>+0,3 pt</strong>)', emp('(+0,3 pt)'));
   v('le gras ne finit jamais sur une espace', !/ <\/strong>/.test(emp('14h00 **EUR** · **CPI** : 0,4% contre 0,1% attendu (+0,3 pt), préc. 0,3%')),
     emp('14h00 **EUR** · **CPI** : 0,4% contre 0,1% attendu (+0,3 pt), préc. 0,3%'));
+  /* ⚠️ NI SUR UN NOMBRE SANS UNITÉ (01/09, trouvé sur « 51,7 (vs 51,5 prélim.) ») : l'espace et
+     l'unité formaient deux groupes optionnels SÉPARÉS dans `_VD_NUM` — un nombre SANS unité suivi
+     d'une espace se faisait quand même absorber l'espace dans le gras/la couleur. */
+  v('un nombre SANS unité ne traîne pas l\'espace qui le suit',
+    !/ <\/strong>/.test(emp('51,7 (vs 51,5 prélim.)')), emp('51,7 (vs 51,5 prélim.)'));
   // Ce que la mise en gras doit CONTINUER de faire.
   v('un pourcentage reste mis en gras', emp('0,4%') === '<strong>0,4%</strong>', emp('0,4%'));
   v('un millier aussi', emp('652K') === '<strong>652K</strong>', emp('652K'));
+  /* ⚠️ « B » ET « T » MANQUAIENT DE LA LISTE D'UNITÉS DU GRAS (01/09, trouvé sur « 4,29B », un
+     Mortgage Lending GBP réel) : `_VD_NUM` les porte, la liste de la mise en gras ne les portait
+     pas — deux listes de la MÊME notion de nombre, divergentes. Le nombre entier se faisait
+     grignoter jusqu'à ne garder que son premier chiffre : « <strong>4</strong>,29B ». */
+  v('un montant en MILLIARDS (« B ») reste entier dans le gras',
+    emp('4,29B') === '<strong>4,29B</strong>', emp('4,29B'));
+  v('… un montant en « T » (billion anglo-saxon) aussi',
+    emp('1,2T') === '<strong>1,2T</strong>', emp('1,2T'));
   v('le gras du modèle est respecté', emp('**USD**') === '<strong>USD</strong>');
   v('un trimestre n\'est pas coupé', emp('T2 2026') === 'T2 <strong>2026</strong>', emp('T2 2026'));
   v('la ligne entière du calendrier rend juste',
@@ -1554,6 +1576,49 @@ console.log('\n── La synthèse d\'un récap ne se colorie pas ──');
   v('la branche SYNTHÈSE passe bien le drapeau au rendu',
     /_emphasize\(t, \{ sansCouleur: true \}\)/.test(APP),
     'la fonction sait ne pas colorier, mais personne ne le lui demande');
+}
+
+/* ══ UNE PUCE DE DONNÉE COURTE SE COLORIE AUSSI ═════════════════════════════════════════════════
+   01/09, capture utilisateur : deux rapports côte à côte, une puce « PMI manufacturier Royaume-Uni :
+   51,7 (vs 51,5 prélim.) » blanche dans l'un, colorée dans l'autre — « met les datas en couleurs …
+   pr la 1ère image des recap sessions ».
+   CAUSE RACINE, TROUVÉE EN REJOUANT LE RENDU : le lecteur de rapports (app.js, la fabrique de puces
+   `arlib-…`, commune à tous les récaps) NE fait passer par `_emphasize` (donc par `_verdictColore`)
+   que les paragraphes assez LONGS pour être découpés en plusieurs puces (> 230 caractères,
+   `_emitBullets`). Une ligne de donnée — « Indicateur : réel contre attendu, préc. Y » — tient
+   presque toujours sur UNE seule puce, courte : exactement le cas que l'ancien code ne coloriait
+   jamais, quel que soit le récap. Le défaut ne distinguait donc pas les récaps entre eux ; il
+   touchait TOUTE puce courte de TOUT rapport, y compris le Quotidien — seule la longueur du texte
+   source, par hasard, faisait la différence entre les deux captures.
+   LE CORRECTIF reprend la garde déjà posée sur la branche <li> juste à côté (un VRAI lien HTML
+   garde son HTML brut, sinon `_emphasize` s'applique) — même règle, à l'endroit qui en manquait. */
+console.log('\n── Une puce de donnée COURTE se colorie aussi (pas seulement les longs pavés) ──');
+{
+  const dP = _APP.indexOf("} else if (tag === 'p') {");
+  const fP = dP < 0 ? -1 : _APP.indexOf("} else if (tag === 'li') {", dP);
+  v('la branche <p> du lecteur de rapports est extractible', dP >= 0 && fP > dP);
+  if (dP >= 0 && fP > dP) {
+    const brP = _APP.slice(dP, fP);
+    v('une puce SANS lien passe par `_emphasize` (donc par le verdict coloré)',
+      /const t = \/<a\\s\/i\.test\(el\.innerHTML\) \? fixLinks\(el\.innerHTML\.trim\(\)\) : _emphasize\(text\);/.test(brP),
+      'sans ce branchement, une puce courte reste blanche quel que soit son contenu');
+    v('… mais une puce qui porte un VRAI lien garde son HTML brut (le lien ne doit pas se perdre)',
+      /<a\\s\/i\.test\(el\.innerHTML\)/.test(brP) && /fixLinks\(el\.innerHTML\.trim\(\)\)/.test(brP));
+  }
+  /* Rejoue le texte EXACT de la capture (celle qui restait blanche) à travers le VRAI `_emphasize` :
+     la garde de la branche <p> ne sert à rien si la fonction qu'elle appelle ne colorie pas ce cas. */
+  if (dE >= 0 && fE > dE) {
+    const E2 = _emphaser();
+    const couleurs2 = h => (String(h).match(/dtp-val-(?:pos|neg|neu)/g) || []);
+    v('« PMI manufacturier Royaume-Uni : 51,7 (vs 51,5 prélim.) » se colorie une fois passée par `_emphasize`',
+      couleurs2(E2('PMI manufacturier Royaume-Uni : 51,7 (vs 51,5 prélim.)')).length > 0);
+    v('« 14:00 EUR · Allemagne · CPI m/m : 0,2% contre 0,3% attendu → surprise baissière » aussi',
+      couleurs2(E2('14:00 EUR · Allemagne · CPI m/m : 0,2% contre 0,3% attendu → surprise baissière')).length > 0);
+    v('… et reste ROUGE (baissier), pas vert : 0,2 < 0,3 est bien une surprise à la baisse',
+      couleurs2(E2('14:00 EUR · Allemagne · CPI m/m : 0,2% contre 0,3% attendu → surprise baissière'))[0] === 'dtp-val-neg');
+    v('une puce SANS comparaison ni verdict reste blanche (rien à colorier, honnêtement)',
+      couleurs2(E2('10h30 GBP · Mortgage Lending : 4,29B')).length === 0);
+  }
 }
 
 

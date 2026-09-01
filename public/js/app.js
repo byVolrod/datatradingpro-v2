@@ -3163,8 +3163,14 @@ function _assetBadgePrefix(text) {
    (_SEA.INVERSES) — leur identité est contrôlée par scripts/seance-verif.js. */
 var _VD_INVERSES = /unemployment|jobless|claimant|claims|inventories|stocks? change|deficit|ch[oô]mage|inscriptions|demandes d.allocation|stocks|d[ée]ficit/i;
 var _VD_MULT = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 };
-// Un nombre du desk : signe, décimale à la virgule OU au point, unité collée ou espacée.
-var _VD_NUM = "[+\\-−]?\\d+(?:[.,]\\d+)?\\s?(?:%|K|M|B|T|bn|bln|mln|bps|pts?)?";
+/* Un nombre du desk : signe, décimale à la virgule OU au point, unité collée ou espacée.
+   ⚠️ L'ESPACE ET L'UNITÉ FORMENT UN SEUL GROUPE (01/09, trouvé en vérifiant le correctif de
+   coloration ci-dessus, sur « 51,7 (vs 51,5 prélim.) ») : écrits séparément (`\s?` PUIS un groupe
+   d'unité optionnel), le moteur consommait l'espace même sans unité derrière — un nombre SANS
+   unité suivi d'un espace ressortait « <strong>51,7 </strong> », l'espace figé dans le gras/la
+   couleur. Un seul groupe optionnel (espace + unité ENSEMBLE) : l'espace n'est capturé que s'il
+   introduit vraiment une unité, jamais seul. */
+var _VD_NUM = "[+\\-−]?\\d+(?:[.,]\\d+)?(?:\\s?(?:%|K|M|B|T|bn|bln|mln|bps|pts?))?";
 function _vdNombre(t) {
   var m = /^([+\-−]?)(\d+(?:[.,]\d+)?)\s?([KMBT])?/.exec(String(t || '').trim());
   if (!m) return null;
@@ -3302,8 +3308,26 @@ function _emphasize(text, opts) {
        — l'heure coupée en deux, moitié grasse moitié pas — et « +0,3 pt » en
        « <strong>+0,3 </strong>pt », le gras s'arrêtant sur une espace avant son unité. On exige
        donc qu'aucune lettre ne suive le nombre ET SON UNITÉ ; « pt » rejoint la liste des unités,
-       où il manquait à côté de « pts ». */
-    .replace(/(?<![\w>+\-.,])([+\-]?\d[\d.,]*(?:\s?(?:%|K|M|bln|bn|mln|bps|pts?))?)(?![\wÀ-ÿ])/g, '<strong>$1</strong>')
+       où il manquait à côté de « pts ».
+       ⚠️ MÊME DÉFAUT, DEUX ÉCRITURES DE L'HEURE (01/09, trouvé en vérifiant le correctif de
+       coloration des puces courtes ci-dessus, sur une VRAIE puce de calendrier : « 03:30 CNY · … »
+       sortait « <strong>03</strong>:<strong>30</strong> »). Le format « 14h15 » était protégé
+       par accident : le « h » est un caractère de MOT, donc déjà couvert par `\w` de part et
+       d'autre. Mais `toLocaleTimeString('fr-FR', …)` — utilisé PARTOUT côté serveur pour horodater
+       un événement de calendrier (_buildTVCalendar, _calFusionFF, les puces de séance…) — rend
+       l'heure avec un DEUX-POINTS (« 03:30 »), pas un « h » : la ponctuation n'est pas un
+       caractère de mot, rien ne protégeait donc ce format-là. Le deux-points rejoint les deux
+       sentinelles, pour la même raison que le « h » les couvrait déjà : une heure ne se scinde
+       jamais en deux gras.
+       ⚠️ « B » ET « T » MANQUAIENT DE LA LISTE D'UNITÉS (01/09, même vérification, sur « 4,29B ») :
+       la liste ici (%, K, M, bln, bn, mln, bps, pt/pts) n'a jamais porté les lettres seules « B »
+       (milliard) et « T » (billion anglo-saxon), alors que `_VD_NUM` — la même notion de nombre,
+       utilisée juste au-dessus pour repérer une comparaison — les porte bien : deux listes qui
+       auraient dû être une seule ont divergé. Sans « B » dans l'alternative, `[\d.,]*` engloutissait
+       toute la partie numérique de « 4,29B », la garde de fin voyait un « B » (lettre) juste après
+       et refusait le nombre entier, jusqu'à ce que le moteur recule chiffre par chiffre et ne
+       retienne que le premier : « <strong>4</strong>,29B ». Alignée sur `_VD_NUM`. */
+    .replace(/(?<![\w>+\-.,:])([+\-]?\d[\d.,]*(?:\s?(?:%|K|M|B|T|bln|bn|mln|bps|pts?))?)(?![\wÀ-ÿ:])/g, '<strong>$1</strong>')
     // Verdicts clés
     .replace(/\b(beat|beats|miss|misses|above|below|in-line|in line|stronger|weaker|slowdown|acceleration|rebound|contraction|expansion|highest|lowest|record)\b/gi, '<strong>$1</strong>');
 }
@@ -11269,7 +11293,20 @@ function renderArlibReader(item) {
           _poserRubrique(text);
           return;
         }
-        const t = fixLinks(el.innerHTML.trim());
+        /* ⚠️ LE VERDICT COLORÉ NE COLORAIT QUE LES LONGS PAVÉS (01/09, capture utilisateur : les
+           puces de données d'un récap de séance restaient blanches — « PMI manufacturier Royaume-
+           Uni : 51,7 (vs 51,5 prélim.) » — alors que la même comparaison, dans un pavé assez long
+           pour être découpé en plusieurs puces, ressortait en vert/rouge). La cause : `_emitBullets`
+           ne fait passer par `_emphasize` (donc par `_verdictColore`) que les paragraphes DÉCOUPÉS
+           en plusieurs phrases (> 230 caractères) — la branche à une seule puce rendait le HTML BRUT
+           du paragraphe, jamais coloré. Or une ligne de donnée (« Indicateur : réel contre attendu,
+           préc. Y ») tient quasiment toujours sur UNE seule puce, courte : c'est exactement le cas
+           que la branche courte ne traitait pas. Même garde que la branche <li> juste en dessous :
+           un paragraphe qui porte un VRAI lien garde son HTML tel quel (un lien perdrait sa cible en
+           repassant par le texte brut) ; sinon `_emphasize` s'applique — elle ne colore que ce
+           qu'elle reconnaît comme une comparaison ou un verdict, une prose ordinaire n'en gagne
+           qu'un gras de chiffres, comme partout ailleurs dans ce même rendu. */
+        const t = /<a\s/i.test(el.innerHTML) ? fixLinks(el.innerHTML.trim()) : _emphasize(text);
         if (text.length > 5) _emitBullets(t, text);             // pavé multi-phrases → 1 puce par phrase
       } else if (tag === 'li') {
         const a = el.querySelector('a[href]');
