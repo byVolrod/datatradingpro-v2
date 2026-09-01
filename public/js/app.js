@@ -10033,19 +10033,22 @@ function _renderWeeklyRecap(item) {
         body += `<div class="wr-bullet"><span class="wr-gt-jour">${_wrEsc(j.jour)} :</span> ${pts}</div>`;
       });
     }
-    /* ══ LE VIX DE LA SEMAINE, ENTRE GÉOPOLITIQUE ET MACRO (01/09, demande user : « n'oublie pas
-       d'ajouter le VIX juste en dessous entre la partie géopolitique et macro, du récap hebdo »).
-       Il vivait déjà dans le mail depuis le 31/08 (mailer.js, juste après la section Géopolitique :
-       « la géopolitique de la semaine vient d'être racontée, le VIX dit ce que le marché en a fait »)
-       mais jamais sur le desk — le rendu HTML de app.js n'avait pas reçu le même bloc. On réutilise
-       l'IMAGE déjà servie au mail (`/api/email-widget/vix.png`, bougies 2 h + traits rouges aux
-       lundis) plutôt que de reconstruire un second graphique amCharts en direct : c'est le même
-       widget partout, donc la même image que celle validée par l'utilisateur sur le mail — et zéro
-       code de graphique de plus à maintenir. Route déjà PUBLIQUE (server.js, _PUBLIC_PREFIXES) et à
-       l'épreuve des pannes (`renderWidgetPngSafe` ne jette jamais : cache frais → dernière bonne
-       image → placeholder), donc rien à bouchonner côté desk. */
-    body += `<div class="wr-macro-heading">Volatilité · VIX</div>`
-      + `<img class="dtp-report-img" src="/api/email-widget/vix.png?t=${w.weekEnding ? _wrEsc(w.weekEnding) : Date.now()}" alt="VIX de la semaine (bougies 2 h) — DataTradingPro" loading="lazy">`;
+    /* ══ LA FORCE DES DEVISES DE LA SEMAINE, ENTRE GÉOPOLITIQUE ET MACRO ═══════════════════════════
+       Cette place est celle que le VIX occupait depuis le 01/09, et pour la même raison : la semaine
+       géopolitique vient d'être racontée, une image dit ce que le marché en a fait, avant d'entrer
+       dans la macro puis dans le détail de chaque devise.
+       ⚠️ LE VIX A ÉTÉ RETIRÉ D'ICI LE 02/09 (demande utilisateur : « dans le récap hebdo enlève le
+       VIX, mets la force des devises à la place en TF TW »). Ce qu'il montrait — la prime de risque —
+       reste une lecture de marché, mais elle ne nomme aucune devise ; la force des huit, elle, dit
+       QUI a profité de la semaine et qui l'a subie, ce qui enchaîne directement sur les blocs devise
+       qui suivent. La route `/api/email-widget/vix.png` et son widget ne sont PAS supprimés : ils
+       restent servis et prêts, seul ce rapport ne les affiche plus.
+       PÉRIODE `week` (« TW ») : ce rapport couvre la semaine. Le Récap Quotidien, lui, sert la même
+       image en `today` (« TD »). Même widget, même rendu, deux fenêtres.
+       ⚠️ PAS DE TITRE DE RUBRIQUE au-dessus (demande du même jour : « enlève le titre catégorie
+       Force des Devises ») : l'image porte déjà son propre bandeau « FORCE DES DEVISES » avec ses
+       périodes. Un intertitre juste au-dessus l'aurait écrit deux fois, à 20 px d'écart. */
+    body += `<img class="dtp-report-img" src="/api/email-widget/strength.png?period=week&t=${w.weekEnding ? _wrEsc(w.weekEnding) : Date.now()}" alt="Force des devises de la semaine — DataTradingPro" loading="lazy">`;
     /* ══ LA MACRO REVIENT, ENTRE LA GÉOPOLITIQUE ET LES DEVISES (04/09, demande user : « il manque
        la partie macro avant la partie devises ») ══════════════════════════════════════════════════
        Elle avait été retirée du rendu le 11/08 au motif qu'elle répétait les blocs devises. Le motif
@@ -10786,9 +10789,11 @@ function _renderFXDailyRecap(item) {
      Même widget que celui déjà posé sous chaque bloc devise du Récap Hebdo et dans le mail
      (`/api/email-widget/strength.png`) — période `today` (« TD », la séance en cours), pas
      `week` : le Quotidien raconte LA journée, sa courbe de force doit être celle du jour, pas
-     celle de la semaine. Route publique, jamais cassée (`renderWidgetPngSafe` ne jette jamais). */
-  body += _sec('Force des Devises')
-    + `<img class="dtp-report-img" src="/api/email-widget/strength.png?period=today&t=${item.timestamp || Date.now()}" alt="Force des devises du jour — DataTradingPro" loading="lazy">`;
+     celle de la semaine. Route publique, jamais cassée (`renderWidgetPngSafe` ne jette jamais).
+     ⚠️ PLUS DE TITRE DE RUBRIQUE au-dessus (02/09, demande utilisateur : « enlève le titre catégorie
+     Force des Devises ») : l'image porte déjà son propre bandeau « FORCE DES DEVISES » avec ses
+     périodes. L'intertitre écrivait donc le même mot deux fois, à 20 px d'écart. */
+  body += `<img class="dtp-report-img" src="/api/email-widget/strength.png?period=today&t=${item.timestamp || Date.now()}" alt="Force des devises du jour — DataTradingPro" loading="lazy">`;
 
   /* ── Géopolitique (v19, structure du mentor) : note de renseignement exhaustive. ──
      « POINTS CLÉS À RETENIR » RETIRÉ DU RENDU (24/08, demande user). La rubrique distillait en

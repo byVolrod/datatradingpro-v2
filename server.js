@@ -1073,6 +1073,9 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260902-fil-propos-titre-fr', ts: Date.UTC(2026, 8, 2, 4, 0), title: 'Fil d’actualités : les dépêches de propos s’affichent enfin en français dans la liste', desc: 'Vous nous avez montré une ligne restée en anglais dans le fil, avec ses « +4 propos ». La dépêche était pourtant bien traduite : mais dans le mauvais champ. Une dépêche de propos possède deux textes. Celui du panneau, débarrassé du nom de celui qui parle, parce qu’une fois la fiche ouverte le locuteur est déjà annoncé. Et celui de la liste, entier, qui doit garder ce nom. Le desk ne remplissait que le premier. Résultat : du français dès qu’on ouvrait la dépêche, et de l’anglais tant qu’on ne l’ouvrait pas, c’est-à-dire dans le fil, qui est justement ce qu’on regarde le plus. Et c’était définitif : le cycle de traduction considère une dépêche comme traitée dès que le premier champ est rempli, il ne repassait donc jamais. Les deux textes sont désormais posés ensemble, sans payer de traduction supplémentaire : le nom du locuteur est simplement recollé devant la phrase traduite. Les dépêches déjà traduites avant ce correctif récupèrent leur ligne de la même façon, sans nouvel appel.' },
+  { id: 'dtpu-20260902-widget-mail-cache', ts: Date.UTC(2026, 8, 2, 3, 30), title: 'Les images des courriels suivent enfin les changements d’apparence', desc: 'Vous avez signalé deux fois que la nouvelle pastille dorée des périodes n’apparaissait pas sur le graphique de la force des devises envoyé par courriel. Le desk était pourtant à jour. La cause : les images des courriels sont fabriquées une fois puis conservées, et leur identifiant décrit ce qu’on demande (le type de graphique, la période, la devise) sans jamais dire comment on le dessine. Une image déjà fabriquée restait donc valable après un changement d’apparence. Et pas seulement quelques minutes : la dernière bonne image est gardée sur disque, elle survit aux mises en ligne, et elle peut être servie jusqu’à trois jours. Un correctif visuel pouvait donc mettre trois jours à vous parvenir, sans que rien ne le signale. La version du dessin fait maintenant partie de l’identifiant : dès qu’on touche à l’apparence d’un widget, toutes ses images sont refaites. Et pour que personne n’oublie de le déclarer, un contrôle de livraison prend l’empreinte des gabarits et refuse de passer si elle change sans que la version bouge.' },
+  { id: 'dtpu-20260902-hebdo-force-remplace-vix', ts: Date.UTC(2026, 8, 2, 3, 0), title: 'Récap Hebdo : la force des devises de la semaine remplace le VIX, sur le desk comme par courriel', desc: 'Sous la partie Géopolitique, le graphique du VIX cède sa place à celui de la force des devises, réglé sur la semaine. L’intention de l’emplacement ne change pas : la semaine géopolitique vient d’être racontée, une image dit ce que le marché en a fait. Mais là où le VIX donnait la prime de risque sans nommer aucune devise, la force des huit dit qui a profité de la semaine et qui l’a subie, ce qui enchaîne directement sur les blocs par devise juste en dessous. Le graphique du VIX n’est pas supprimé du desk : il reste disponible, c’est ce rapport qui ne l’affiche plus. Au passage, le titre de rubrique « Force des Devises » disparaît au-dessus de l’image, dans le Récap Hebdo comme dans le Récap Quotidien : l’image porte déjà son propre bandeau avec ses périodes, l’intertitre écrivait le même mot deux fois à vingt pixels d’écart.' },
   { id: 'dtpu-20260902-force-pastille-point', ts: Date.UTC(2026, 8, 2, 2, 0), title: 'Force des Devises : chaque pastille montre désormais où sa courbe se termine', desc: 'Quand les huit devises finissent dans un mouchoir, les pastilles ne peuvent pas rester chacune au bout de sa courbe : elles se recouvriraient. Le desk les écarte donc juste ce qu’il faut, et les relie à leur courbe par un fin trait de rappel. Ce trait s’arrêtait dans le vide, au milieu de sept autres de la même épaisseur : impossible de savoir sur quelle courbe il atterrit. Chaque trait porte maintenant un point à son extrémité, dans la couleur de la devise, posé exactement à la fin de sa courbe, avec un liseré sombre qui le détache de ses voisins quand deux devises terminent collées. Le trait, lui, s’affine et s’efface : c’est le point qui désigne, la ligne ne fait que conduire l’œil. Aucune pastille n’a bougé d’un pixel, aucun écart n’a changé, la gouttière garde sa largeur : seule la lecture du lien change.' },
   { id: 'dtpu-20260902-analyse-sans-cadre', ts: Date.UTC(2026, 8, 2, 1, 30), title: 'Le bouton Analyse : plus de cadre ni d’en-tête, juste le texte', desc: 'Suite de la simplification du tag Analyse. La synthèse était posée dans un encadré au fond plus clair, ouvert par une pastille dorée, le mot « Analyse » et l’heure. Trois couches d’habillage autour de quelques phrases, dans un panneau qui est déjà lui-même un cadre. L’en-tête ne disait d’ailleurs rien de neuf : le bouton qu’on vient de cliquer s’appelle « Analyse », et l’heure est déjà portée par la ligne du fil juste au-dessus. Il ne reste que le texte, sur le fond du panneau, comme les autres lectures du desk. Une analyse ancienne, produite avant l’existence de la synthèse, continue de s’ouvrir sur son contenu habituel plutôt que sur un panneau vide.' },
   { id: 'dtpu-20260902-periode-active-teintee', ts: Date.UTC(2026, 8, 2, 1, 0), title: 'Période active : la pastille dorée s’affine', desc: 'Ajustement de la pastille posée un peu plus tôt sur les barres de périodes (TD, TW, 8H, 1D, 5D, 7D, 1M). L’aplat doré plein cédait la place : il criait plus fort que les titres de la barre qu’il côtoie. La période active porte désormais un fond sourd dans la teinte, un cadre fin dans la teinte, et son texte en doré. L’or désigne au lieu de recouvrir, et la lecture y gagne. Les dimensions ne bougent toujours pas d’un pixel : le cadre est dessiné à l’intérieur du bouton plutôt qu’ajouté autour, sinon la barre entière se décalerait à chaque changement de période. Même pastille sur le desk et dans les graphiques envoyés par courriel.' },
@@ -20233,6 +20236,24 @@ async function _prechaufferProposFr() {
       try { saveHistory(); } catch (e) {}
       console.log('[TitresFR] ' + _repares + ' traduction(s) NON FRANÇAISES retirées de l\'historique (retraduites au prochain lot)');
     }
+    /* ⚠️ RÉPARATION DU STOCK DÉJÀ TRADUIT (02/09, avec le correctif ci-dessous). Les dépêches de
+       propos traduites AVANT ce jour portent `_hlFr` mais pas `_titreFr` : la boucle qui suit les
+       saute (« déjà traduit »), donc leur ligne du fil serait restée en anglais POUR TOUJOURS, y
+       compris celle de la capture. On leur pose `_titreFr` sans le moindre appel d'IA, par le même
+       recollage de préfixe que plus bas — c'est de la donnée qu'on a déjà payée. */
+    let _recolles = 0;
+    for (const it of allNews) {
+      if (!it || !it._propos || !it._hlFr || it._titreFr) continue;
+      const brut = String(it.headline || '');
+      const nu = _proposSansPrefixe(brut);
+      const prefixe = (nu && brut.endsWith(nu)) ? brut.slice(0, brut.length - nu.length) : '';
+      it._titreFr = (prefixe + it._hlFr).trim();
+      _recolles++;
+    }
+    if (_recolles) {
+      try { saveHistory(); } catch (e) {}
+      console.log('[TitresFR] ' + _recolles + ' ligne(s) de propos recollée(s) au fil depuis leur traduction déjà payée');
+    }
     const cibles = [];
     const vus = new Set();
     const _ordre = [...allNews].sort((a, b) =>
@@ -20269,7 +20290,29 @@ async function _prechaufferProposFr() {
          poser une langue étrangère — la ligne garde son titre d'origine et repassera au cycle
          suivant, exactement comme un échec de traduction. */
       if (!_traductionFrValide(fr)) { _trNonFr++; return; }
-      if (c.estPropos) c.it._hlFr = fr; else c.it._titreFr = fr;
+      if (c.estPropos) {
+        c.it._hlFr = fr;
+        /* ⚠️ LE FIL AFFICHE `_titreFr`, PAS `_hlFr` (02/09, capture utilisateur : « US President
+           Trump says US striking Iranian targets near Hormuz » en anglais dans le fil, avec ses
+           « +4 propos »). Une dépêche de propos ne recevait QUE `_hlFr` — le champ que lit le
+           PANNEAU. Sa ligne du fil, elle, n'était traduite NULLE PART : elle restait en anglais pour
+           toujours, puisque la boucle ci-dessus saute un propos dès que `_hlFr` est posé. Le desk
+           montrait donc du français dès qu'on ouvrait la dépêche, et de l'anglais tant qu'on ne
+           l'ouvrait pas, c'est-à-dire dans le fil, qui est ce qu'on regarde le plus. C'est le même
+           défaut que celui corrigé le 27/08 pour les titres ordinaires, resté entier sur les propos.
+           ON NE PAIE PAS UNE SECONDE TRADUCTION : `_hlFr` est le propos ÉBARBÉ de son locuteur, on
+           lui rend son préfixe d'origine (« BoE's Mann: », un nom propre et un deux-points : rien à
+           traduire). Quand rien n'a été ébarbé — le cas de la capture, dont le titre ne porte aucun
+           séparateur — le préfixe est vide et `_titreFr` vaut exactement `_hlFr`.
+           `_titreFr` n'est jamais écrasé : s'il existe déjà, il vient d'un chemin qui savait ce
+           qu'il faisait. */
+        if (!c.it._titreFr) {
+          const brut = String(c.it.headline || '');
+          const nu = _proposSansPrefixe(brut);
+          const prefixe = (nu && brut.endsWith(nu)) ? brut.slice(0, brut.length - nu.length) : '';
+          c.it._titreFr = (prefixe + fr).trim();
+        }
+      } else c.it._titreFr = fr;
       poses++;
     });
     _proposFrCount += poses;

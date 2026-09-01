@@ -135,13 +135,25 @@ const CYCLE = (function () {
   return f < 0 ? '' : SRV.slice(d, f + 3);
 })();
 v('le cycle de pré-traduction est extractible de server.js', !!CYCLE);
-/* LE DÉFAUT, NOMMÉ : la garde qui écartait tout ce qui n'était pas un propos. */
-v('il ne s\'arrête plus aux seuls propos', !/if \(!it \|\| !it\._propos/.test(CYCLE),
+/* LE DÉFAUT, NOMMÉ : la garde qui écartait tout ce qui n'était pas un propos.
+   ⚠️ ON REGARDE LA BOUCLE DE SÉLECTION, PAS LE FICHIER (02/09). La formulation précédente cherchait
+   « !it._propos » N'IMPORTE OÙ dans le cycle : elle a rougi le jour où une SECONDE boucle est
+   apparue — celle qui recolle leur ligne du fil aux propos déjà traduits, et qui ne concerne
+   légitimement que les propos. Un contrôle trop large finit par interdire du code correct, et on
+   l'assouplit alors dans la précipitation. On borne donc la lecture à la boucle qui CHOISIT ce qu'on
+   envoie traduire, celle qui part de `_ordre`. */
+const _SELECTION = CYCLE.slice(Math.max(0, CYCLE.indexOf('for (const it of _ordre)')));
+v('il ne s\'arrête plus aux seuls propos', !!_SELECTION && !/if \(!it \|\| !it\._propos/.test(_SELECTION),
   'la garde « !it._propos » écarte encore les titres ordinaires');
 v('… et il vise bien un champ de titre pour les autres', /_titreFr\s*=\s*fr/.test(CYCLE));
-/* DEUX CHAMPS, PAS UN. `_hlFr` porte un propos ÉBARBÉ de son locuteur : le servir comme titre de
-   fil ferait disparaître « BoE's Mann : » de la ligne. Les deux ne doivent jamais se croiser. */
+/* DEUX CHAMPS, PAS UN, ET C'EST TOUJOURS VRAI. `_hlFr` porte le propos ÉBARBÉ de son locuteur (le
+   panneau le veut nu) ; `_titreFr` porte la ligne ENTIÈRE du fil. Ce qui a changé le 02/09, c'est
+   qu'un propos remplit désormais LES DEUX — avant, il ne remplissait que `_hlFr` et sa ligne du fil
+   n'était traduite nulle part. Le recollage du préfixe évite une seconde traduction. */
 v('les propos gardent leur champ à eux (_hlFr)', /_hlFr\s*=\s*fr/.test(CYCLE));
+v('… et leur ligne du fil est remplie SANS repayer une traduction',
+  /c\.it\._titreFr = \(prefixe \+ fr\)\.trim\(\)/.test(CYCLE) && !/_traduireLot[\s\S]{0,200}_titreFr/.test(CYCLE),
+  (CYCLE.match(/.{0,60}_titreFr = \(prefixe.{0,40}/) || [''])[0]);
 v('… et le cycle choisit l\'un OU l\'autre selon la nature de l\'item',
   /estPropos\s*\?[\s\S]{0,40}_hlFr|if \(c\.estPropos\)/.test(CYCLE));
 /* ⚠️ L'ÉBARBAGE DE LOCUTEUR NE DOIT PAS TOUCHER UN TITRE ORDINAIRE. `_proposSansPrefixe` coupe
@@ -219,9 +231,40 @@ const nouv = (o) => Object.assign({ id: Math.random().toString(36).slice(2), tim
      enregistrée. D'où la queue française, qui ne gêne pas l'ancrage en tête. */
   const prop = nouv({ headline: "BoE's Mann: inflation still too high for comfort", _propos: true });
   await jouerCycle([prop], t => 'FR:' + t + ' selon la banque centrale');
-  v('   un propos remplit _hlFr, jamais _titreFr', !!prop._hlFr && !prop._titreFr,
-    '_hlFr = ' + JSON.stringify(prop._hlFr) + ' / _titreFr = ' + JSON.stringify(prop._titreFr));
-  v('   … et sur son texte ÉBARBÉ du locuteur', /^FR:inflation/.test(prop._hlFr || ''), prop._hlFr);
+  v('   un propos remplit _hlFr', !!prop._hlFr, '_hlFr = ' + JSON.stringify(prop._hlFr));
+  v('   … sur son texte ÉBARBÉ du locuteur', /^FR:inflation/.test(prop._hlFr || ''), prop._hlFr);
+  /* ⚠️ ET SA LIGNE DU FIL AUSSI (02/09, capture utilisateur : « US President Trump says US striking
+     Iranian targets near Hormuz » en anglais dans le fil, avec ses « +4 propos »).
+     CE BANC ENCODAIT LE DÉFAUT : il exigeait « un propos remplit _hlFr, JAMAIS _titreFr ». Or le fil
+     n'affiche QUE `_titreFr` (`_newsDisplayTitle`, app.js). Une dépêche de propos n'était donc
+     traduite que dans son PANNEAU, et sa ligne restait en anglais pour toujours — la boucle saute un
+     propos dès que `_hlFr` est posé. Français au clic, anglais dans le fil : c'est-à-dire anglais là
+     où on regarde le plus.
+     La séparation des deux champs, elle, reste juste et le contrôle suivant la garde : `_hlFr` est le
+     propos SANS son locuteur (le panneau le veut nu), `_titreFr` est la ligne ENTIÈRE. On ne paie pas
+     deux traductions : on recolle le préfixe d'origine, qui est un nom propre et un séparateur. */
+  v('   … ET sa ligne du fil est traduite elle aussi (_titreFr)', !!prop._titreFr,
+    '_titreFr = ' + JSON.stringify(prop._titreFr));
+  v('   … en gardant le locuteur, que le panneau retire mais que le fil doit montrer',
+    /^BoE's Mann: FR:inflation/.test(prop._titreFr || ''), prop._titreFr);
+
+  /* 2 bis. AUCUN PRÉFIXE À RECOLLER — le cas EXACT de la capture : « US President Trump says … » ne
+     porte ni deux-points ni tiret, l'ébarbage ne retire donc rien et la ligne entière EST le propos.
+     `_titreFr` doit alors valoir exactement `_hlFr`, sans préfixe fantôme ni espace en trop. */
+  const prop2 = nouv({ headline: 'US President Trump says US striking Iranian targets near Hormuz', _propos: true });
+  await jouerCycle([prop2], () => 'Trump dit que les États-Unis frappent des cibles iraniennes près d\'Ormuz');
+  v('   un propos SANS préfixe : la ligne du fil vaut exactement la traduction',
+    prop2._titreFr === prop2._hlFr && /^Trump dit/.test(prop2._titreFr || ''),
+    '_titreFr = ' + JSON.stringify(prop2._titreFr) + ' / _hlFr = ' + JSON.stringify(prop2._hlFr));
+
+  /* 2 ter. LE STOCK DÉJÀ TRADUIT SE RÉPARE SEUL, sans un seul appel d'IA. Les propos traduits AVANT
+     ce correctif portent `_hlFr` et pas `_titreFr` : la boucle les saute (« déjà traduit »), donc
+     leur ligne serait restée en anglais POUR TOUJOURS — y compris celle de la capture. */
+  const vieux = nouv({ headline: "ECB's Lane: wage growth is decelerating", _propos: true, _hlFr: 'la croissance des salaires ralentit' });
+  await jouerCycle([vieux], () => 'NE DEVRAIT PAS ÊTRE APPELÉ');
+  v('   un propos déjà traduit récupère sa ligne du fil, sans repayer la traduction',
+    vieux._titreFr === "ECB's Lane: la croissance des salaires ralentit",
+    '_titreFr = ' + JSON.stringify(vieux._titreFr));
 
   /* 3. ANTI-POISON — le contrôle qui manquait vraiment. `_traduireLot` REND LA SOURCE quand il
      échoue sur une ligne : la poser figerait l'anglais et la ligne ne serait jamais retentée. */

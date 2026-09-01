@@ -10,6 +10,8 @@ process.env.APP_URL = process.env.APP_URL || 'https://datatradingpro.com';
 process.env.OVH_SMTP_USER = process.env.OVH_SMTP_USER || 'selftest';
 process.env.OVH_SMTP_PASS = process.env.OVH_SMTP_PASS || 'selftest';
 
+const fs = require('fs');
+const path = require('path');
 const PF = require('../campaignPreflight');
 const M = require('../mailer');
 
@@ -92,17 +94,28 @@ ok('Hebdo : une courbe de force PAR devise avec matiere (USD + NZD = 2)', imgsF.
 ok('Hebdo : une vue d\'ensemble de la force sous la Geopolitique (une seule, sans ccy)',
   imgsGlob.length === 1, 'trouvees=' + imgsGlob.length);
 ok('Hebdo : … reglee sur la SEMAINE, comme le rapport', imgsGlob.length === 1 && /period=week/.test(imgsGlob[0]), imgsGlob[0]);
-/* On repere sa place par le VIX plutot que par le titre « Geopolitique » : ce titre ne s'ecrit que
-   si le rapport porte de la matiere geopolitique, ce que cette piece n'a pas — le controle aurait
-   compare a -1 et serait passe pour de mauvaises raisons. Le VIX, lui, est toujours rendu, et il
-   marque exactement la frontiere voulue : geopolitique racontee, puis les deux lectures de marche,
-   puis les devises. */
-const iVix = wkC.html.indexOf('email-widget/vix.png');
-ok('Hebdo : … posee juste APRES le VIX (donc sous la Geopolitique) et AVANT le premier bloc devise',
-  imgsGlob.length === 1 && iVix > 0
-  && iVix < wkC.html.indexOf(imgsGlob[0])
+/* ⚠️ LE VIX A QUITTE CE RAPPORT LE 02/09 (demande utilisateur : « dans le recap hebdo enleve le
+   VIX, mets la force des devises a la place en TF TW »). Ce controle se reperait justement PAR le
+   VIX : il faut donc un autre repere. On prend la borne qui compte vraiment — la vue d'ensemble
+   doit se lire AVANT le premier bloc devise, la ou le rapport passe du marche vu de haut au detail
+   de chaque devise. (Le titre « Geopolitique » ne peut pas servir de borne : il ne s'ecrit que si
+   le rapport porte de la matiere geopolitique, ce que cette piece n'a pas — le controle comparerait
+   a -1 et passerait pour de mauvaises raisons.) */
+ok('Hebdo : … posee AVANT le premier bloc devise (elle se lit avec le marche, pas avec les devises)',
+  imgsGlob.length === 1
   && wkC.html.indexOf(imgsGlob[0]) < wkC.html.indexOf('period=week&ccy=USD'),
-  'vix=' + iVix + ' force=' + wkC.html.indexOf(imgsGlob[0] || 'x') + ' usd=' + wkC.html.indexOf('period=week&ccy=USD'));
+  'force=' + wkC.html.indexOf(imgsGlob[0] || 'x') + ' usd=' + wkC.html.indexOf('period=week&ccy=USD'));
+ok('Hebdo : … et le VIX n\'y est plus du tout', !/email-widget\/vix\.png/.test(wkC.html),
+  (wkC.html.match(/.{0,40}vix\.png.{0,30}/) || [''])[0]);
+/* ⚠️ ET IL N'EST PLUS EMBARQUE NON PLUS : attacher un PNG que plus aucun <img> ne reference le
+   ferait apparaitre dans le message comme « une piece jointe », le defaut deja rencontre. */
+const _MSRC = fs.readFileSync(path.join(__dirname, '..', 'mailer.js'), 'utf8');
+ok('Hebdo : … ni embarque a l\'envoi (pas de piece jointe orpheline)',
+  /sendWeeklyDigest[\s\S]{0,400}?_sendWithInlineWidgets\(d\.to, m\.subject, m\.html, \['strength:week'\]\)/.test(_MSRC));
+/* Le widget VIX lui-meme n'est PAS supprime : sa route et son rendu restent prets. Seul ce rapport
+   ne l'affiche plus. Un controle qui exigerait sa disparition totale interdirait de le remettre. */
+ok('… mais le widget VIX existe toujours (retire du rapport, pas du produit)',
+  /vix\s*:\s*\{/.test(fs.readFileSync(path.join(__dirname, '..', 'emailWidget.js'), 'utf8')));
 ok('Hebdo : chaque courbe est CELLE de sa devise (ccy distincts, periode semaine)',
   imgsF.some(u => /period=week&ccy=USD/.test(u)) && imgsF.some(u => /period=week&ccy=NZD/.test(u)));
 ok('Hebdo : la courbe est a la position du desk (apres le resume executif, avant les rubriques)',
@@ -176,10 +189,15 @@ async function attempt(email, week, providerUp, hang) {
     ok('le filet borne est extractible d\'emailWidget.js', !!SRC && /renderWidgetPngSafe/.test(SRC || ''));
     if (SRC) {
       const PLACEHOLDER = Buffer.from('1x1');
+      /* ⚠️ `WIDGET_VER` EST UNE DEPENDANCE DEPUIS LE 02/09 : la version du DESSIN entre desormais
+         dans la cle de cache (memoire et disque), sans quoi un changement d'apparence n'atteignait
+         jamais les courriels — jusqu'a trois jours de retard, signale deux fois par l'utilisateur.
+         Sans cette doublure, l'extraction leve « WIDGET_VER is not defined » au lieu de rougir. La
+         doublure du `_wk` ci-dessous porte la meme version, pour rester fidele a la vraie cle. */
       const fab = (src, lastGood, render) => new Function(
-        'SPECS', '_FALLBACK_PNG', '_cache', '_lastGood', '_wk', 'TTL', 'renderWidgetPng', '_extraSain', 'console',
+        'SPECS', '_FALLBACK_PNG', '_cache', '_lastGood', '_wk', 'TTL', 'renderWidgetPng', '_extraSain', 'WIDGET_VER', 'console',
         src + '\nreturn renderWidgetPngSafe;'
-      )({ 'week-ahead': {}, strength: {} }, PLACEHOLDER, new Map(), lastGood, (t, p) => (t + '_' + p).replace(/[^a-z0-9]+/gi, '_'), 600000, render, () => '', { error() {} });
+      )({ 'week-ahead': {}, strength: {} }, PLACEHOLDER, new Map(), lastGood, (t, p) => (t + '_' + p).replace(/[^a-z0-9]+/gi, '_'), 600000, render, () => '', 1, { error() {} });
       const VIEILLE = Buffer.from('CARTES-DU-17-AOUT');
       const FRAICHE = Buffer.from('CARTES-DU-31-AOUT');
       const lgAge = h => new Map([['week_ahead_week', { png: VIEILLE, ts: Date.now() - h * 3600e3 }]]);

@@ -38,7 +38,24 @@ try { _fs.mkdirSync(_WCACHE_DIR, { recursive: true }); } catch {}
    péremption : elle a resservi telle quelle, mail après mail. Une image périmée qui MENT sur des
    dates est PIRE qu'un espace vide. Le filet est donc borné (par type), et la panne se CRIE. */
 const _lastGood = new Map();      // wk -> { png, ts } — l'âge est porté et BORNÉ par _ageMax
-function _wk(type, period) { return (String(type) + '_' + String(period)).replace(/[^a-z0-9]+/gi, '_'); }
+/* ══ LA VERSION DU RENDU ENTRE DANS LA CLÉ (02/09) ═══════════════════════════════════════════════
+   DÉFAUT MESURÉ, ET IL EST SILENCIEUX. Le 01/09, la pastille de période active du widget « Force
+   des Devises » est passée de l'aplat d'or plein à la pastille teintée. Le code servi a changé le
+   jour même ; l'image envoyée dans les courriels, non — l'utilisateur l'a signalée deux fois.
+   Pourquoi : la clé de cache décrit ce qu'on DEMANDE (type, période, devise, paramètres) et jamais
+   comment on le DESSINE. Une image déjà rendue restait donc valable après un changement de rendu.
+   Et ce n'est pas une affaire de dix minutes : le cache mémoire expire vite, mais le « dernier bon »
+   vit sur le disque, dans un volume monté qui SURVIT aux déploiements, et il est servi tant qu'il
+   n'a pas atteint `_ageMax` — jusqu'à trois jours. Un correctif visuel pouvait donc mettre trois
+   jours à atteindre un client, sans que rien ne le signale.
+   `WIDGET_VER` fait partie de la clé, mémoire ET disque : le bump rend d'un coup toutes les images
+   du stock caduques, sans rien effacer (les anciennes s'éteignent d'elles-mêmes à la purge d'âge).
+   ⚠️ À BUMPER À CHAQUE FOIS QU'ON TOUCHE AU DESSIN D'UN WIDGET — le gabarit HTML/CSS des routes
+   `/internal/email-widget/*` de server.js, ou les dimensions de `SPECS` ci-dessus. Ce n'est pas une
+   consigne qu'on se rappelle : `scripts/widget-cache-verif.js` empreinte ces gabarits et rougit si
+   l'empreinte bouge sans que ce nombre bouge. */
+const WIDGET_VER = 2;
+function _wk(type, period) { return (String(type) + '_v' + WIDGET_VER + '_' + String(period)).replace(/[^a-z0-9]+/gi, '_'); }
 function _diskPath(wk) { return _path.join(_WCACHE_DIR, wk + '.png'); }
 try { for (const f of _fs.readdirSync(_WCACHE_DIR)) if (f.endsWith('.png')) { try { const p = _path.join(_WCACHE_DIR, f); _lastGood.set(f.slice(0, -4), { png: _fs.readFileSync(p), ts: _fs.statSync(p).mtimeMs }); } catch {} } } catch {}
 function _saveLastGood(wk, png) { _lastGood.set(wk, { png, ts: Date.now() }); try { _fs.writeFile(_diskPath(wk), png, () => {}); } catch {} }
@@ -128,7 +145,7 @@ async function renderWidgetPng(type, opts = {}) {
   // vedette du calendrier). Ils entrent dans la CLÉ DE CACHE, sinon deux événements différents
   // partageraient une seule image, exactement le piège déjà rencontré avec les huit devises ci-dessus.
   const extra = _extraSain(opts.extra);
-  const key = type + ':' + period + (ccy ? ':' + ccy : '') + (extra ? ':' + extra : '');
+  const key = type + ':v' + WIDGET_VER + ':' + period + (ccy ? ':' + ccy : '') + (extra ? ':' + extra : '');
 
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.ts < TTL) return hit.png;
@@ -197,7 +214,7 @@ async function renderWidgetPngSafe(type, opts = {}) {
   // Même raison pour `extra` : deux événements vedettes différents ne doivent jamais partager une
   // entrée de cache NI un « dernier bon » sur disque.
   const extra = _extraSain(opts && opts.extra);
-  const key = type + ':' + period + (ccy ? ':' + ccy : '') + (extra ? ':' + extra : '');
+  const key = type + ':v' + WIDGET_VER + ':' + period + (ccy ? ':' + ccy : '') + (extra ? ':' + extra : '');
   const wk = _wk(type, period + (ccy ? '_' + ccy : '') + (extra ? '_' + extra : ''));
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.ts < TTL) return hit.png;
@@ -215,4 +232,4 @@ async function prewarm(types) {
     try { await renderWidgetPng(t, {}); } catch (e) { console.warn('[widget prewarm]', t, ':', e && e.message); }
   }
 }
-module.exports = { renderWidgetPng, renderWidgetPngSafe, prewarm, SPECS, CHROME_PATH };
+module.exports = { renderWidgetPng, renderWidgetPngSafe, prewarm, SPECS, CHROME_PATH, WIDGET_VER };

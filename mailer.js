@@ -1704,28 +1704,28 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       + gt.map(j => _puce(`<span style="color:#ffffff;font-weight:700;">${_esc(j.jour)}</span> : ${_esc(j.pts.join(' ; '))}`)).join('') : '');
   S('Géopolitique', geoHtml);
 
-  /* ── VIX DE LA SEMAINE, JUSTE APRÈS LA GÉOPOLITIQUE (31/08, demande user, rapport de son mentor à
-     l'appui : « un graphique screenshot comme on a fait pour la force des devises mais pour le VIX,
-     en H2, avec les traits qui séparent les semaines du lundi 00h au lundi 00h ») ─────────────────
-     Sa place n'est pas décorative : la géopolitique de la semaine vient d'être racontée, le VIX dit
-     ce que le marché en a fait — la prime de risque, chiffrée, avant d'entrer dans la macro puis
-     dans les devises. Le mentor colle une capture d'écran à la main ; ici l'image se fabrique à
-     chaque envoi sur les vraies bougies (widget `vix`, cf. /internal/email-widget/vix). */
-  S('Volatilité · VIX', _widgetImg('vix', 'VIX de la semaine — bougies 2 h, traits rouges aux lundis',
-    532, null, null, { alt: 'VIX de la semaine (bougies 2 h) — DataTradingPro' }));
-
-  /* ── FORCE DES DEVISES DE LA SEMAINE, DANS LA MÊME FOULÉE (01/09, demande utilisateur : « met une
-     partie force des devises sous géopolitique »). ────────────────────────────────────────────────
-     Elle complète le VIX au même endroit et pour la même raison : la semaine géopolitique vient
-     d'être racontée, le VIX dit la prime de risque qu'elle a produite, la force des devises dit
-     QUI en a profité et qui en a souffert — les deux lectures de marché, ensemble, avant d'entrer
+  /* ── LA FORCE DES DEVISES DE LA SEMAINE, JUSTE APRÈS LA GÉOPOLITIQUE ────────────────────────────
+     Cette place est celle que le VIX occupait depuis le 31/08, et pour la même raison : la semaine
+     géopolitique vient d'être racontée, une image dit ce que le marché en a fait, avant d'entrer
      dans la macro puis dans le détail de chaque devise.
-     PÉRIODE `week`, pas `today` : ce rapport couvre la semaine (le Récap Quotidien, lui, sert la
-     même image en `today`). Et c'est déjà celle qu'embarque `sendWeeklyDigest` (`strength:week`),
-     donc aucune image supplémentaire n'est fabriquée : la vue d'ensemble et les mini-courbes par
-     devise plus bas partagent le même rendu. */
-  S('Force des Devises', _widgetImg('strength', 'Force des devises de la semaine', 532, 'week',
-    null, { alt: 'Force des devises de la semaine — DataTradingPro' }));
+     ⚠️ LE VIX A ÉTÉ RETIRÉ D'ICI LE 02/09 (demande utilisateur : « dans le récap hebdo enlève le
+     VIX, mets la force des devises à la place en TF TW »). Ce qu'il montrait — la prime de risque —
+     reste une lecture de marché, mais elle ne nomme aucune devise ; la force des huit, elle, dit QUI
+     a profité de la semaine et qui l'a subie, ce qui enchaîne directement sur les blocs devise qui
+     suivent. Le widget `vix` et sa route ne sont PAS supprimés : ils restent servis et prêts, seul
+     ce rapport ne les affiche plus (`sendWeeklyDigest` cesse simplement de l'embarquer).
+     PÉRIODE `week` (« TW ») : ce rapport couvre la semaine. Le Récap Quotidien sert la même image en
+     `today` (« TD »). Même widget, deux fenêtres.
+     ⚠️ POUSSÉE SANS TITRE DE RUBRIQUE (même demande : « enlève le titre catégorie Force des
+     Devises ») : l'image porte déjà son bandeau « FORCE DES DEVISES » et ses périodes ; un
+     intertitre juste au-dessus écrivait le même mot deux fois. On pousse donc l'entrée À LA MAIN
+     plutôt que par `S(...)` — la clé `t` reste nécessaire, c'est elle qui donne sa place à la
+     rubrique dans `_ORDRE_DESK`, mais son en-tête n'est pas rendu. */
+  {
+    const _force = _widgetImg('strength', 'Force des devises de la semaine', 532, 'week',
+      null, { alt: 'Force des devises de la semaine — DataTradingPro' });
+    if (_force) P.push({ t: 'Force des Devises', h: _force });
+  }
 
   // ── BANQUES CENTRALES : la section ABSENTE du mail envoyé jusqu'ici (le bloc existait,
   //    il n'était jamais injecté). Elle porte ce que le desk range par devise plus bas :
@@ -2076,7 +2076,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
 // `vix` s'ajoute à `strength:week` (31/08) : le graphique du VIX posé après la Géopolitique doit être
 // EMBARQUÉ en pièce inline comme les autres, sinon Outlook et Gmail bloquent l'image distante — c'est
 // la raison même d'exister de ce mécanisme (preuve par logs du 08/07, cf. commentaire de _sendWithInlineWidgets).
-async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:week', 'vix']); }
+async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:week']); }   // le VIX a quitte ce rapport le 02/09 : l'embarquer attacherait un PNG que plus aucun <img> ne reference
 
 // ── DÉCRYPTAGE — e-mail ÉDUCATIF évergreen (S2 de la séquence). Décode les grandes annonces éco (macro US)
 // que les abonnés voient chaque semaine dans le calendrier : sigles (CPI, NFP, PCE, FOMC…) rendus lisibles,
@@ -2620,7 +2620,12 @@ function _recapQuotidienFull(fx) {
      Même image que le desk (app.js, `_renderFXDailyRecap`) : période `today` (« TD »), la séance
      en cours — le Quotidien raconte LA journée, sa courbe doit être celle du jour, pas de la
      semaine (le Récap Hebdo, lui, la sert déjà par bloc devise en `period` implicite = semaine). */
-  S('Force des Devises', _widgetImg('strength', 'Force des devises du jour', 532, 'today'));
+  /* ⚠️ SANS TITRE DE RUBRIQUE (02/09, demande utilisateur : « enlève le titre catégorie Force des
+     Devises ») : l'image porte déjà son bandeau « FORCE DES DEVISES » et ses périodes. */
+  {
+    const _force = _widgetImg('strength', 'Force des devises du jour', 532, 'today');
+    if (_force) P.push(_force);
+  }
 
   /* 3) GÉOPOLITIQUE. Le sous-titre « Points clés à retenir » suit le desk, où il vient d'être
         retiré (app.js, 24/08) : il distillait en 3-5 lignes les puces géopolitiques qui le
