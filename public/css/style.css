@@ -12043,7 +12043,16 @@ html[data-theme="light"] {
      281 px CSS de contenu pour 267 disponibles — quatorze pixels coupés, donc une dernière place
      tronquée en permanence. 380 px laissent la marge sans retomber dans la « mince bande vide »
      que ce plancher évitait déjà. */
-  .wdg-card:not(.wdg-card--tabs):has(.wdg-clockwrap), .wdg-card:not(.wdg-card--tabs):has(.risk-gauge-stage) { min-height: 380px; }
+  /* ⚠️ LE SENTIMENT DE RISQUE SORT DE CETTE EXCEPTION (02/09, relevé en LIVRAISON, pas ici).
+     Le nouveau balayage de toute la bibliothèque au format téléphone l'a pris à 25 px de contenu
+     coupé — et il ne pouvait PAS le voir en bac à sable : sans réseau, amCharts ne charge pas, la
+     carte affiche « Jauge indisponible » et il n'y a plus rien à couper. Même angle mort que la
+     carte du monde le 02/09 au matin, et il a coûté un déploiement de la même façon.
+     Cette exception a été écrite pour l'HORLOGE (« mince bande vide », puis 380 px mesurés sur ses
+     cinq lignes) ; la jauge y avait été ajoutée par association, sans mesure propre. Elle rejoint
+     donc le plancher commun des cartes, qui lui laisse la place qui manquait. L'horloge, elle,
+     garde ses 380 px : ils sont mesurés sur son contenu, et le balayage la passe au vert. */
+  .wdg-card:not(.wdg-card--tabs):has(.wdg-clockwrap) { min-height: 380px; }
 }
 /* Plein écran : la carte recouvre toute la zone de travail (overlay), les autres sont figées derrière. */
 .wdg-grid.wdg-fs-mode { overflow: hidden; }

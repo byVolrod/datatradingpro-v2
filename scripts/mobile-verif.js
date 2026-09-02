@@ -475,15 +475,24 @@ function phaseServiceWorker() {
               const coupes = [];
               document.querySelectorAll('#view-widgets .wdg-card').forEach(c => {
                 const nom = ((c.querySelector('.wdg-title') || {}).textContent || '?').trim();
-                let pire = 0;
+                let pire = 0, ou = '';
                 c.querySelectorAll('*').forEach(e => {
                   const d = e.scrollHeight - e.clientHeight;
                   if (d <= 8 || e.clientHeight <= 40) return;
                   const oy = getComputedStyle(e).overflowY;
                   if (oy === 'auto' || oy === 'scroll') return;      // ascenseur assumé, pas une coupure
-                  if (pire < d) pire = d;
+                  /* LA CARTE À TUILES DÉBORDE PAR CONSTRUCTION, et son conteneur est en
+                     `overflow: hidden` — le filtre par ascenseur ne l'écarte donc pas. Leaflet peint
+                     AUTOUR de la zone visible pour qu'un glissement n'affiche jamais de vide ; ce
+                     n'est pas de l'information perdue. Elle est nommée, comme dans le contrôle du
+                     desk plus haut, et pour la même raison. Une exclusion nommée, jamais large. */
+                  if (/leaflet-container|wdg-lfmap/.test(String(e.className || ''))) return;
+                  if (pire < d) { pire = d; ou = String(e.className || e.tagName).trim().slice(0, 30); }
                 });
-                if (pire > 0) coupes.push(nom + ' : ' + pire + ' px');
+                /* ON NOMME L'ÉLÉMENT COUPÉ, pas seulement le widget. Le premier jet ne rendait que
+                   « Sentiment de Risque : 25 px » : le banc échouait en livraison, et il fallait
+                   deviner OÙ. Un banc qui ne dit pas où regarder coûte un cycle de déploiement. */
+                if (pire > 0) coupes.push(nom + ' : ' + pire + ' px sur `' + ou + '`');
               });
               return { n: document.querySelectorAll('#view-widgets .wdg-card').length, coupes };
             });
