@@ -829,35 +829,38 @@
 .dk-bias-head{display:flex;align-items:baseline;gap:7px;margin:0 1px 8px}
 .dk-bias-ttl{font-family:var(--tight,'Inter Tight',sans-serif);font-size:11.5px;font-weight:700;color:#f4f4f6;letter-spacing:.01em}
 .dk-bias-sub{font-size:8.5px;color:#62656e;font-family:var(--mono,monospace)}
+/* TABLEAU MACRO : les DEVISES en LIGNES, les categories en COLONNES — la forme rendue par
+   _sbRenderMacroTable (app.js). L ancienne maquette montrait l inverse (indicateurs en lignes,
+   devises en colonnes), une matrice que l onglet ne dessine plus du tout. */
 .dk-bias-tbl{width:100%;border-collapse:collapse;table-layout:fixed}
-.dk-bias-tbl th,.dk-bias-tbl td{border:1px solid #232429}
-.dk-bias-th-ind{width:34%;background:#101012;color:#8a93a3;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:600;text-align:left;padding:4px 6px;letter-spacing:.02em}
-.dk-bias-th-cur{background:#101012;padding:4px 2px}
-.dk-bias-cur-in{display:flex;align-items:center;gap:3px;justify-content:center}
-.dk-bias-cur-in span{font-family:var(--mono,monospace);font-size:8px;font-weight:700;color:#9ea4ae;letter-spacing:.01em}
-.dk-bias-flag{width:12px;height:12px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 1px rgba(255,255,255,.08);overflow:hidden}
+.dk-bias-tbl th,.dk-bias-tbl td{border-bottom:1px solid #17181c}
+.dk-bias-tbl th{background:transparent;color:#8a93a3;font-family:var(--tight,'Inter Tight',sans-serif);font-size:7px;font-weight:600;text-align:left;padding:0 3px 4px;letter-spacing:.03em;text-transform:uppercase;line-height:1.25}
+.dk-bias-th-cur{width:22%}
+.dk-bias-cur-in{display:flex;align-items:center;gap:4px}
+.dk-bias-cur-in b{font-family:var(--mono,monospace);font-size:8px;font-weight:700;color:#e6e8ec;letter-spacing:.01em}
+.dk-bias-flag{width:11px;height:11px;border-radius:50%;flex:0 0 11px;box-shadow:0 0 0 1px rgba(255,255,255,.08);overflow:hidden}
 .dk-bias-fl-us{background:linear-gradient(180deg,#b22234 0 33%,#fff 33% 66%,#3c3b6e 66%)}
 .dk-bias-fl-eu{background:radial-gradient(circle,#ffcc00 0 22%,#003399 22%)}
 .dk-bias-fl-gb{background:conic-gradient(from 45deg,#012169 0 25%,#c8102e 25% 50%,#012169 50% 75%,#c8102e 75%)}
 .dk-bias-fl-jp{background:radial-gradient(circle,#bc002d 0 34%,#fff 34%)}
-.dk-bias-fl-au{background:linear-gradient(135deg,#00247d 0 55%,#fff 55% 62%,#00247d 62%)}
-.dk-bias-ind{background:#0d0e11;color:#cbd5e1;text-align:left;padding:3px 6px;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dk-bias-cell{text-align:center;padding:3px 2px;font-size:7.5px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
-.dk-bias-vbull{background:#0b7a40}
-.dk-bias-bull{background:#1a9d54}
-.dk-bias-neut{background:#2b2b31}
-.dk-bias-bear{background:#9b3328}
-.dk-bias-vbear{background:#dc2626}
-.dk-bias-over .dk-bias-ind{background:#1a1a1f;color:#fff;font-weight:700;border-left:3px solid #e3b23a}
-.dk-bias-over .dk-bias-cell{font-size:8px;font-weight:700}
-.dk-bias-arr{margin-right:1px;font-weight:800}
-.dk-bias-sum{margin-top:9px;border-top:1px solid #232429;padding-top:9px}
-.dk-bias-sum-h{display:flex;align-items:center;justify-content:space-between;font-family:var(--tight,'Inter Tight',sans-serif);font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:#cfd2d8;margin-bottom:6px}
+.dk-bias-fl-ch{background:linear-gradient(0deg,#d52b1e,#d52b1e)}
+.dk-bias-td{padding:2.5px 3px;vertical-align:middle}
+/* PUCE : exactement la grammaire de .mt-tag du desk — fond TRANSLUCIDE et texte colore, jamais un
+   aplat plein. L ancienne maquette peignait des cellules pleines vert/rouge, ce que le desk ne fait
+   plus. Teintes reprises telles quelles de style.css (.mt-tag.sbm-*). */
+.dk-bias-p{display:inline-block;padding:1.5px 5px;font-family:var(--tight,'Inter Tight',sans-serif);font-size:7px;font-weight:600;line-height:1.5;border-radius:4px;white-space:nowrap}
+.dk-bias-vbull{color:#2ae389;background:rgba(0,230,118,.11)}
+.dk-bias-bull{color:#14d3a1;background:rgba(0,204,153,.10)}
+.dk-bias-neut{color:#ffc44f;background:rgba(255,179,0,.10)}
+.dk-bias-bear{color:#ff7259;background:rgba(255,61,0,.10)}
+.dk-bias-vbear{color:#ff5233;background:rgba(255,61,0,.13)}
+.dk-bias-sum{margin-top:7px;border-top:1px solid #232429;padding-top:7px}
+.dk-bias-sum-h{display:flex;align-items:center;justify-content:space-between;font-family:var(--tight,'Inter Tight',sans-serif);font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#cfd2d8;margin-bottom:5px}
 .dk-bias-sum-cur{display:inline-flex;align-items:center;gap:5px;font-size:9px;color:#9ea4ae;text-transform:none;letter-spacing:0;font-weight:600}
-.dk-bias-sum-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3.5px 0;border-bottom:1px solid #121215;font-size:9.5px;color:#9aa0aa}
+.dk-bias-sum-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2.5px 0;border-bottom:1px solid #121215;font-size:8.5px;color:#9aa0aa}
 .dk-bias-sum-over{font-weight:700;color:#f4f4f6;border-bottom:0;margin-top:2px}
-.dk-bias-sb{font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:700;color:#fff;padding:2px 7px;border-radius:0;white-space:nowrap}
-.dk-bias-sum-narr{margin-top:8px;font-size:9.5px;line-height:1.5;color:#8a909a}
+.dk-bias-sb{font-family:var(--tight,'Inter Tight',sans-serif);font-size:7.5px;font-weight:700;padding:1.5px 6px;border-radius:4px;white-space:nowrap}
+.dk-bias-sum-narr{margin-top:6px;font-size:8.5px;line-height:1.45;color:#8a909a}
 .dk-ai-screen{background:#0d0e11;border:1px solid #232429;border-radius:4px;padding:0;overflow:hidden;font-family:var(--font,'Inter',sans-serif);width:100%;max-width:430px;box-sizing:border-box}
 .dk-ai-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px 10px;border-bottom:1px solid #232429}
 .dk-ai-titlewrap{display:flex;align-items:center;gap:7px;min-width:0}
@@ -977,14 +980,29 @@
   .dk-cs2-tf{display:flex;gap:1px;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:700}
   .dk-cs2-tf b{padding:2px 5px;color:#6f6f79;border-radius:0}
   .dk-cs2-tf b.on{background:transparent;color:#fff;box-shadow:inset 0 -2px 0 #e3b23a}
-  .dk-cs2-chart{flex:1;min-height:150px;margin:8px 0 4px;display:flex;gap:6px;position:relative}
+  /* LEGENDE, comme dans le widget livre : un tiret plat dans la couleur de la serie puis le code,
+     dans la teinte de texte des graphiques du desk (#cbd5e1). C est elle qui fait la correspondance
+     couleur -> devise sur toute la duree du trace. */
+  .dk-cs2-leg{display:flex;flex-wrap:wrap;gap:3px 9px;margin-top:7px;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:600;letter-spacing:.03em;color:#cbd5e1}
+  .dk-cs2-leg span{display:inline-flex;align-items:center;gap:3px}
+  .dk-cs2-leg i{width:7px;height:2px;border-radius:1px;display:block;flex:0 0 7px}
+  .dk-cs2-chart{flex:1;min-height:130px;margin:6px 0 2px;display:flex;gap:0;position:relative}
   .dk-cs2-chart svg{flex:1;min-width:0;height:100%;display:block}
-  .dk-cs2-ln{fill:none;stroke-width:1.7;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
-  .dk-cs2-ends{position:relative;flex:0 0 58px;width:58px;align-self:stretch}
-  .dk-cs2-ends .dk-cs2-b{position:absolute;right:0;transform:translateY(-50%)}
-  .dk-cs2-b{display:inline-flex;border-radius:0;overflow:hidden;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:800;line-height:1}
-  .dk-cs2-b b{padding:2px 4px;color:#1a1206}
-  .dk-cs2-b i{padding:2px 4px;color:#1a1206;font-style:normal;font-family:var(--mono,monospace);font-weight:700;font-size:7.5px}
+  .dk-cs2-ln{fill:none;stroke-width:1.5;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+  .dk-cs2-ends{position:relative;flex:0 0 33px;width:33px;align-self:stretch}
+  /* La pastille est ancree A GAUCHE de la gouttiere, c est-a-dire PILE ou le trace s arrete : c est
+     ce qui fait que l etiquette prolonge la courbe au lieu de flotter a cote. */
+  .dk-cs2-ends .dk-cs2-b{position:absolute;left:0;transform:translateY(-50%);display:inline-flex;padding-left:3px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+  /* UN SEUL PAVE (02/09) : le code sur la couleur pleine de la courbe. La maquette montrait encore
+     deux pavés accolés, code + valeur sur une teinte eclaircie — une forme qui n existe plus dans le
+     produit. Meme rayon (3px) et meme largeur plancher que le desk en mode compact. */
+  .dk-cs2-p{display:inline-flex;align-items:center;justify-content:center;border-radius:3px;padding:1px 3px;min-width:3.3em;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:800;line-height:1.35}
+  /* FILET DE RAPPEL + POINT D ARRIVEE : quand l anti-collision ecarte une pastille du bout de sa
+     courbe, un trait dans la couleur de la devise relie les deux et un point ferme le trajet. */
+  .dk-cs2-lnk{position:absolute;left:0;width:1px;bottom:50%;opacity:.5;border-radius:1px}
+  .dk-cs2-lnk--bas{bottom:auto;top:50%}
+  .dk-cs2-lnk b{position:absolute;left:-2px;top:-2.5px;width:5px;height:5px;border-radius:50%;box-shadow:0 0 0 1.5px #16171b}
+  .dk-cs2-lnk--bas b{top:auto;bottom:-2.5px}
   .dk-anl-more{margin-top:0;background:#16171b;border:1px solid #232429;border-top:1px solid #232429;border-radius:0 0 9px 9px;padding:6px 11px 8px;display:flex;flex-direction:column;gap:1px;flex:1}
   .dk-anl-more-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #232429;font-size:10px;color:#9aa0aa}
   .dk-anl-more-row:last-child{border-bottom:0}
@@ -1534,6 +1552,13 @@
           <div class="lead"><div class="bic"><i class="fa-solid fa-bolt"></i></div><h3><a href="/documentation/news.html">Actus en temps réel</a></h3></div>
           <p class="one">Le flux filtré : ce qui bouge les marchés.</p>
           <div class="vis">
+<!-- REPLI STATIQUE DU FIL : il doit rendre EXACTEMENT ce que rend la version live quelques
+     centaines de millisecondes plus tard (voir plus bas, l'appel a /api/hero-news). Il montrait
+     trois etiquettes en anglais (« Fed / Rates / USD ») la ou le widget en pose DEUX : le tag court
+     d'abord — la devise derivee de la banque centrale, ou Oil / Or / BTC — puis la CATEGORIE, que
+     l'API traduit en francais (_HERO_CAT_FR). Corrige ici, meme ordre, meme nombre, memes mots.
+     Les titres, eux, restent dans leur langue d'origine : c'est ce que sert l'API, et la decision
+     de traduire les surfaces PUBLIQUES (contenu indexe) n'a pas ete prise — cf. CLAUDE.md. -->
 <div class="dk-news-feed">
   <div class="dk-news-head">
     <span class="dk-news-title">Titres en temps réel</span>
@@ -1543,35 +1568,35 @@
     <span class="dk-news-ico"></span><span class="dk-news-time">14:32</span>
     <div class="dk-news-body">
       <div class="dk-news-text">Fed holds rates, signals two cuts as inflation cools</div>
-      <div class="dk-news-meta"><span class="dk-news-tag">Fed</span><span class="dk-news-tag">Rates</span><span class="dk-news-tag">USD</span></div>
+      <div class="dk-news-meta"><span class="dk-news-tag">USD</span><span class="dk-news-tag">Fed</span></div>
     </div>
   </div>
   <div class="dk-news-row">
     <span class="dk-news-ico"></span><span class="dk-news-time">14:18</span>
     <div class="dk-news-body">
       <div class="dk-news-text">ECB's Lagarde: disinflation on track, data-dependent</div>
-      <div class="dk-news-meta"><span class="dk-news-tag">ECB</span><span class="dk-news-tag">Inflation</span></div>
+      <div class="dk-news-meta"><span class="dk-news-tag">EUR</span><span class="dk-news-tag">ECB</span></div>
     </div>
   </div>
   <div class="dk-news-row">
     <span class="dk-news-ico"></span><span class="dk-news-time">13:57</span>
     <div class="dk-news-body">
       <div class="dk-news-text">Brent crude jumps 3% on Middle East supply fears</div>
-      <div class="dk-news-meta"><span class="dk-news-tag">Energy</span><span class="dk-news-tag">Geopolitical</span></div>
+      <div class="dk-news-meta"><span class="dk-news-tag">Oil</span><span class="dk-news-tag">Énergie</span></div>
     </div>
   </div>
   <div class="dk-news-row">
     <span class="dk-news-ico"></span><span class="dk-news-time">13:41</span>
     <div class="dk-news-body">
       <div class="dk-news-text">USD/JPY tops 158 as BoJ leaves policy unchanged</div>
-      <div class="dk-news-meta"><span class="dk-news-tag">BoJ</span><span class="dk-news-tag">JPY</span></div>
+      <div class="dk-news-meta"><span class="dk-news-tag">JPY</span><span class="dk-news-tag">BoJ</span></div>
     </div>
   </div>
   <div class="dk-news-row">
     <span class="dk-news-ico"></span><span class="dk-news-time">13:22</span>
     <div class="dk-news-body">
       <div class="dk-news-text">BoE holds Bank Rate, warns on sticky services inflation</div>
-      <div class="dk-news-meta"><span class="dk-news-tag">BoE</span><span class="dk-news-tag">Inflation</span></div>
+      <div class="dk-news-meta"><span class="dk-news-tag">GBP</span><span class="dk-news-tag">BoE</span></div>
     </div>
   </div>
 </div>
@@ -1581,64 +1606,71 @@
           <div class="lead"><div class="bic"><i class="fa-solid fa-compass"></i></div><h3><a href="/documentation/smart-bias-forex.html">Radar de Biais</a></h3></div>
           <p class="one">Le biais des 8 devises, chaque semaine.</p>
           <div class="vis">
+<!-- RADAR DE BIAIS — CALE SUR CE QUE L ONGLET REND AUJOURD HUI (02/09).
+     La maquette montrait une matrice « indicateurs en lignes x devises en colonnes », avec une ligne
+     « Sentiment », et une synthese portant « Positionnement Hedge Funds ». Les trois ont disparu du
+     produit : renderBiasView (app.js) rend desormais _sbRenderMacroTable — les DEVISES en lignes,
+     les categories macro en colonnes — et le serveur ne calcule plus que QUATRE piliers
+     (server.js : Fundamental Data, Bank Overview, Monetary Policy, Trend ; Hedge Funds, Particuliers,
+     Saisonnalite et Cross-Asset retires a la demande de l utilisateur).
+     Vocabulaire et couleurs repris tels quels de MT_LBL / MT_BIAS_LBL / .mt-tag.sbm-*. Les colonnes
+     Croissance, Emploi, Driver et Taux directeur existent aussi sur le desk : la carte n en montre
+     que trois, faute de largeur — c est une coupe, pas une autre forme. -->
 <div class="dk-bias-wrap">
   <div class="dk-bias-head">
     <span class="dk-bias-ttl">Radar de Biais</span>
-    <span class="dk-bias-sub">15-21/06</span>
+    <span class="dk-bias-sub">15–21 juin 2026</span>
   </div>
   <table class="dk-bias-tbl">
     <thead>
       <tr>
-        <th class="dk-bias-th-ind">Indicateurs</th>
-        <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-us"></span><span>USD</span></span></th>
-        <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-eu"></span><span>EUR</span></span></th>
-        <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-gb"></span><span>GBP</span></span></th>
-        <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-jp"></span><span>JPY</span></span></th>
-        <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-au"></span><span>AUD</span></span></th>
+        <th class="dk-bias-th-cur">Devise</th>
+        <th>Politique monétaire</th>
+        <th>Inflation</th>
+        <th>Biais</th>
       </tr>
     </thead>
     <tbody>
-      <tr>
-        <td class="dk-bias-ind">Fondamental</td>
-        <td class="dk-bias-cell dk-bias-vbull">T.Hauss</td>
-        <td class="dk-bias-cell dk-bias-bear">Baiss</td>
-        <td class="dk-bias-cell dk-bias-neut">Neut</td>
-        <td class="dk-bias-cell dk-bias-vbear">T.Baiss</td>
-        <td class="dk-bias-cell dk-bias-bull">Hauss</td>
-      </tr>
-      <tr>
-        <td class="dk-bias-ind">Monétaire</td>
-        <td class="dk-bias-cell dk-bias-bull">Hauss</td>
-        <td class="dk-bias-cell dk-bias-neut">Neut</td>
-        <td class="dk-bias-cell dk-bias-bear">Baiss</td>
-        <td class="dk-bias-cell dk-bias-vbear">T.Baiss</td>
-        <td class="dk-bias-cell dk-bias-bull">Hauss</td>
-      </tr>
-      <tr>
-        <td class="dk-bias-ind">Sentiment</td>
-        <td class="dk-bias-cell dk-bias-bull">Hauss</td>
-        <td class="dk-bias-cell dk-bias-bear">Baiss</td>
-        <td class="dk-bias-cell dk-bias-neut">Neut</td>
-        <td class="dk-bias-cell dk-bias-bear">Baiss</td>
-        <td class="dk-bias-cell dk-bias-vbull">T.Hauss</td>
-      </tr>
-      <tr class="dk-bias-over">
-        <td class="dk-bias-ind">Conclusion</td>
-        <td class="dk-bias-cell dk-bias-vbull"><span class="dk-bias-arr">&#9650;</span>Hauss</td>
-        <td class="dk-bias-cell dk-bias-bear"><span class="dk-bias-arr">&#9660;</span>Baiss</td>
-        <td class="dk-bias-cell dk-bias-neut">Neut</td>
-        <td class="dk-bias-cell dk-bias-vbear"><span class="dk-bias-arr">&#9660;</span>Baiss</td>
-        <td class="dk-bias-cell dk-bias-bull"><span class="dk-bias-arr">&#9650;</span>Hauss</td>
-      </tr>
+        <tr>
+          <td class="dk-bias-td"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-us"></span><b>USD</b></span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-vbull">Restrictive</span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-vbull">Élevée</span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-vbull">Haussier</span></td>
+        </tr>
+        <tr>
+          <td class="dk-bias-td"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-eu"></span><b>EUR</b></span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-neut">Neutre</span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-neut">Modérée</span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-neut">Neutre</span></td>
+        </tr>
+        <tr>
+          <td class="dk-bias-td"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-jp"></span><b>JPY</b></span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-vbear">Accommodante</span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-bull">Hausse</span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-vbear">Baissier</span></td>
+        </tr>
+        <tr>
+          <td class="dk-bias-td"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-gb"></span><b>GBP</b></span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-vbull">Restrictive</span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-bear">Baisse</span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-bull">Haussier</span></td>
+        </tr>
+        <tr>
+          <td class="dk-bias-td"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-ch"></span><b>CHF</b></span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-vbear">Accommodante</span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-vbear">Basse</span></td>
+          <td class="dk-bias-td"><span class="dk-bias-p dk-bias-vbear">Baissier</span></td>
+        </tr>
     </tbody>
   </table>
   <div class="dk-bias-sum">
     <div class="dk-bias-sum-h"><span>Synthèse de Biais</span><span class="dk-bias-sum-cur"><span class="dk-bias-flag dk-bias-fl-us"></span>USD · semaine</span></div>
-    <div class="dk-bias-sum-row"><span>Données fondamentales</span><span class="dk-bias-sb dk-bias-vbull">Très Haussier</span></div>
-    <div class="dk-bias-sum-row"><span>Politique monétaire</span><span class="dk-bias-sb dk-bias-bull">Haussier</span></div>
-    <div class="dk-bias-sum-row"><span>Positionnement Hedge Funds</span><span class="dk-bias-sb dk-bias-bull">Haussier</span></div>
-    <div class="dk-bias-sum-row dk-bias-sum-over"><span>Conclusion globale</span><span class="dk-bias-sb dk-bias-vbull">Très Haussier</span></div>
-    <div class="dk-bias-sum-narr">USD porté par une Fed patiente mais ferme et des données solides ; le positionnement spéculatif conforte le biais haussier.</div>
+    <div class="dk-bias-sum-row"><span>Données fondamentales</span><span class="dk-bias-sb dk-bias-vbull">Haussier</span></div>
+    <div class="dk-bias-sum-row"><span>Vue des banques</span><span class="dk-bias-sb dk-bias-bull">Haussier</span></div>
+    <div class="dk-bias-sum-row"><span>Politique monétaire</span><span class="dk-bias-sb dk-bias-vbull">Haussier</span></div>
+    <div class="dk-bias-sum-row"><span>Tendance</span><span class="dk-bias-sb dk-bias-neut">Neutre</span></div>
+    <div class="dk-bias-sum-row dk-bias-sum-over"><span>Conclusion globale</span><span class="dk-bias-sb dk-bias-vbull">Haussier</span></div>
+    <div class="dk-bias-sum-narr">USD porté par une Fed patiente mais ferme et des données solides ; les positions publiées par les banques confortent le biais haussier.</div>
   </div>
 </div>
           </div>
@@ -1651,8 +1683,13 @@
   <div class="dk-cs2-head"><span class="dk-cs2-title">Force des devises</span>
     <span class="dk-cs2-tf"><b>TD</b><b class="on">TW</b><b>8H</b><b>1D</b><b>7D</b><b>1M</b></span>
   </div>
+  <div class="dk-cs2-leg">
+    <span><i style="background:#e8eaed"></i>USD</span><span><i style="background:#ff3b30"></i>EUR</span><span><i style="background:#22d3ee"></i>JPY</span><span><i style="background:#2bee6b"></i>GBP</span><span><i style="background:#3b82f6"></i>AUD</span><span><i style="background:#ffd60a"></i>CHF</span><span><i style="background:#be8bff"></i>CAD</span><span><i style="background:#ff5cae"></i>NZD</span>
+  </div>
   <div class="dk-cs2-chart">
-    <svg viewBox="0 0 300 200" preserveAspectRatio="none">
+    <!-- viewBox cale sur la DONNEE (x de 6 a 294), pas sur un canevas de 300 : sinon le trace
+           s arretait 5 px avant la gouttiere et l etiquette ne prolongeait plus sa courbe. -->
+      <svg viewBox="6 0 288 200" preserveAspectRatio="none">
       <line x1="0" y1="60" x2="300" y2="60" stroke="#141419" stroke-width="1" stroke-dasharray="3 4"/>
       <line x1="0" y1="100" x2="300" y2="100" stroke="#1f1f27" stroke-width="1" stroke-dasharray="4 4"/>
       <line x1="0" y1="140" x2="300" y2="140" stroke="#141419" stroke-width="1" stroke-dasharray="3 4"/>
@@ -1665,15 +1702,19 @@
       <polyline class="dk-cs2-ln" stroke="#ff5cae" points="6,100 10.9,100.4 15.8,114 20.6,116.8 25.5,125.2 30.4,121 35.3,127.9 40.2,119 45.1,110.5 49.9,111 54.8,99.1 59.7,104 64.6,94.4 69.5,88.7 74.3,91.7 79.2,92.2 84.1,92.5 89,79.5 93.9,75.3 98.7,76.4 103.6,80.3 108.5,86.5 113.4,80.9 118.3,75.6 123.2,77.7 128,71.2 132.9,74.1 137.8,72.4 142.7,71.4 147.6,73.7 152.4,69.6 157.3,69.6 162.2,65.9 167.1,64.1 172,67.3 176.8,70.8 181.7,72.9 186.6,66.8 191.5,62.7 196.4,64.5 201.3,64.6 206.1,56.6 211,58.5 215.9,45.2 220.8,46 225.7,44.3 230.5,33.4 235.4,32 240.3,40.6 245.2,39.5 250.1,36.5 254.9,45.9 259.8,47.6 264.7,37.3 269.6,40.2 274.5,34.6 279.4,38.9 284.2,40.1 289.1,45.3 294,45.2"/>
       <polyline class="dk-cs2-ln" stroke="#22d3ee" points="6,100 10.9,97.1 15.8,88.3 20.6,93.8 25.5,89.1 30.4,91.9 35.3,86.9 40.2,93.8 45.1,93.2 49.9,90.9 54.8,97 59.7,96.5 64.6,104.9 69.5,104.4 74.3,101.1 79.2,101.5 84.1,98.1 89,111.1 93.9,119.5 98.7,113.5 103.6,113.4 108.5,112 113.4,115.4 118.3,117.2 123.2,114.8 128,117.4 132.9,117 137.8,112.3 142.7,111.9 147.6,105.9 152.4,108.3 157.3,106.7 162.2,112.1 167.1,113.1 172,111.3 176.8,108.9 181.7,109.8 186.6,116 191.5,113.1 196.4,114.8 201.3,120.6 206.1,124.6 211,126 215.9,134 220.8,132.1 225.7,136.8 230.5,145.1 235.4,152.3 240.3,150.8 245.2,152.9 250.1,159.6 254.9,158.3 259.8,154.1 264.7,154.5 269.6,151.8 274.5,158.9 279.4,152.5 284.2,143.8 289.1,141.6 294,143.4"/>
     </svg>
+    <!-- ETIQUETTES POSEES AU BOUT DE LEUR COURBE, pas sur une echelle reguliere (02/09). Le `top`
+         de chacune vient de la DERNIERE ordonnee de sa polyline ci-dessus (y/200), puis d un
+         ecartement symetrique quand deux voisines se chevauchent — exactement ce que fait le widget.
+         Le filet et son point disent alors de combien elle a ete ecartee, et vers ou. -->
     <div class="dk-cs2-ends">
-      <span class="dk-cs2-b" style="top:10%"><b style="background:#ff5cae">NZD</b><i style="background:#ffaed6">+0.18</i></span>
-      <span class="dk-cs2-b" style="top:21%"><b style="background:#ff3b30">EUR</b><i style="background:#ff9d97">+0.08</i></span>
-      <span class="dk-cs2-b" style="top:32%"><b style="background:#ffd60a">CHF</b><i style="background:#ffea84">+0.05</i></span>
-      <span class="dk-cs2-b" style="top:43%"><b style="background:#2bee6b">GBP</b><i style="background:#95f6b5">+0.03</i></span>
-      <span class="dk-cs2-b" style="top:55%"><b style="background:#3b82f6">AUD</b><i style="background:#9dc0fb">-0.05</i></span>
-      <span class="dk-cs2-b" style="top:66%"><b style="background:#be8bff">CAD</b><i style="background:#dec5ff">-0.06</i></span>
-      <span class="dk-cs2-b" style="top:77%"><b style="background:#e8eaed">USD</b><i style="background:#cfd3d9">-0.09</i></span>
-      <span class="dk-cs2-b" style="top:88%"><b style="background:#22d3ee">JPY</b><i style="background:#90e9f6">-0.14</i></span>
+      <span class="dk-cs2-b" style="top:22.60%"><span class="dk-cs2-p" style="background:#ff5cae;color:#ffffff">NZD</span></span>
+      <span class="dk-cs2-b" style="top:33.69%"><i class="dk-cs2-lnk dk-cs2-lnk--bas" style="height:7px;background:#ff3b30"><b style="background:#ff3b30"></b></i><span class="dk-cs2-p" style="background:#ff3b30;color:#ffffff">EUR</span></span>
+      <span class="dk-cs2-b" style="top:40.43%"><i class="dk-cs2-lnk dk-cs2-lnk--bas" style="height:3px;background:#ffd60a"><b style="background:#ffd60a"></b></i><span class="dk-cs2-p" style="background:#ffd60a;color:#0c0c0e">CHF</span></span>
+      <span class="dk-cs2-b" style="top:47.17%"><i class="dk-cs2-lnk" style="height:3px;background:#2bee6b"><b style="background:#2bee6b"></b></i><span class="dk-cs2-p" style="background:#2bee6b;color:#0c0c0e">GBP</span></span>
+      <span class="dk-cs2-b" style="top:53.91%"><i class="dk-cs2-lnk dk-cs2-lnk--bas" style="height:6px;background:#3b82f6"><b style="background:#3b82f6"></b></i><span class="dk-cs2-p" style="background:#3b82f6;color:#ffffff">AUD</span></span>
+      <span class="dk-cs2-b" style="top:60.64%"><i class="dk-cs2-lnk" style="height:3px;background:#be8bff"><b style="background:#be8bff"></b></i><span class="dk-cs2-p" style="background:#be8bff;color:#ffffff">CAD</span></span>
+      <span class="dk-cs2-b" style="top:67.38%"><i class="dk-cs2-lnk" style="height:6px;background:#e8eaed"><b style="background:#e8eaed"></b></i><span class="dk-cs2-p" style="background:#e8eaed;color:#0c0c0e">USD</span></span>
+      <span class="dk-cs2-b" style="top:74.12%"><i class="dk-cs2-lnk" style="height:4px;background:#22d3ee"><b style="background:#22d3ee"></b></i><span class="dk-cs2-p" style="background:#22d3ee;color:#0c0c0e">JPY</span></span>
     </div>
   </div>
 </div>

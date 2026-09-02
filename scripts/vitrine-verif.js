@@ -133,6 +133,106 @@ v('la section porte bien des textes à traduire', textes.length >= 8, textes.len
 const orphelins = textes.filter(t => !dico.has(t));
 v('chaque texte de la section a sa traduction EN', !orphelins.length, orphelins.slice(0, 3).join(' | '));
 
+/* ══ 3 quater. LES MAQUETTES DE WIDGETS SUIVENT LE PRODUIT ═════════════════════════════════════
+   POURQUOI CETTE SECTION EXISTE (02/09, constat utilisateur : « met à jour le site vitrine sur les
+   widgets affichés, ils ne sont pas à jour »). Les cartes de l'accueil REDESSINENT le desk en HTML
+   statique (classes .dk-*). C'est fidèle et c'est coûteux : chaque refonte du desk les périme une
+   par une, en silence — aucun banc ne les reliait à quoi que ce soit. Trois dérives réelles avaient
+   ainsi survécu des semaines : une pastille de Force des Devises à DEUX pavés (forme supprimée du
+   produit le jour même), une matrice de Radar de Biais que l'onglet ne dessine plus du tout, et un
+   pilier « Positionnement Hedge Funds » que le serveur ne calcule plus.
+   LA MÉTHODE : on ne compare pas la maquette à une copie de règles écrite ici — on la compare à la
+   SOURCE. Les piliers viennent de server.js, le vocabulaire des puces de app.js, les couleurs de
+   charts.js. Le jour où le produit change, c'est la vitrine qui rougit. */
+console.log('\n── 3 quater. Les maquettes de widgets suivent le produit ──');
+{
+  const SERVEUR = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
+  const APP = fs.readFileSync(path.join(RACINE, 'public', 'js', 'app.js'), 'utf8');
+  const CHARTS = fs.readFileSync(path.join(RACINE, 'public', 'js', 'charts.js'), 'utf8');
+
+  /* ── Force des Devises ────────────────────────────────────────────────────────────────────── */
+  const cs2 = (/<div class="dk-cs2">[\s\S]*?\n<\/div>/.exec(IDX) || [''])[0];
+  v('la maquette Force des Devises est repérable', cs2.length > 500, cs2.length + ' caractère(s)');
+  /* LA DÉRIVE DU JOUR : le produit ne rend plus JAMAIS deux pavés accolés (code + valeur). Une
+     pastille est un pavé unique — soit le code, soit la valeur quand le réglage est coché. */
+  const pavesParPastille = [...cs2.matchAll(/<span class="dk-cs2-b"[\s\S]*?<\/span>\s*<\/span>/g)];
+  v('chaque pastille ne porte qu\'UN pavé', !/dk-cs2-b"[^>]*>(?:(?!<\/span>).)*<b[^>]*>[A-Z]{3}<\/b>\s*<i/.test(cs2),
+    'la forme « code + valeur accolés » a été retirée du produit');
+  v('la pastille est une pastille, pas un rectangle vif (rayon 3px comme .cs-badge-ccy)',
+    /\.dk-cs2-p\{[^}]*border-radius:3px/.test(IDX));
+  /* Les huit teintes sont celles du produit, pas une copie qui dérive. */
+  const csCol = {};
+  const mCol = /const CS_COLORS\s*=\s*\{([\s\S]*?)\}/.exec(CHARTS);
+  if (mCol) [...mCol[1].matchAll(/([A-Z]{3})\s*:\s*0x([0-9a-fA-F]{6})/g)].forEach(m => { csCol[m[1]] = '#' + m[2].toLowerCase(); });
+  v('CS_COLORS est lisible dans charts.js', Object.keys(csCol).length === 8, Object.keys(csCol).join(' '));
+  const manquantes = Object.entries(csCol).filter(([c, h]) => !new RegExp('background:' + h + ';color:[^"]*">' + c + '<').test(cs2));
+  v('les huit pastilles portent EXACTEMENT la teinte de leur courbe',
+    !manquantes.length, manquantes.map(x => x[0] + ' ≠ ' + x[1]).join(', '));
+  /* La légende du widget existe dans le produit : la maquette doit la montrer. */
+  /* ⚠️ CLASSE EXACTE, PAS UNE SOUS-CHAÎNE. Écrit d'abord en /dk-cs2-leg/, ce contrôle restait VERT
+     quand on renommait la classe en « dk-cs2-leg-off » — le motif se retrouvait dans le nouveau nom.
+     Un contrôle-témoin l'a montré ; sans lui il aurait dormi jusqu'au jour où il aurait compté. */
+  v('la maquette porte la légende des huit devises',
+    /class="dk-cs2-leg"/.test(cs2) && (cs2.match(/<i style="background:#/g) || []).length >= 8,
+    'légende absente : la couleur d\'une courbe ne dit plus quelle devise elle porte');
+  /* LE POINT DE LA DEMANDE DU 01-02/09 : l'étiquette est reliée au bout de sa courbe. */
+  v('les étiquettes écartées portent leur filet de rappel', /dk-cs2-lnk/.test(cs2),
+    'aucun filet : les pastilles flottent sans lien avec leur courbe');
+  /* TÉMOIN NÉGATIF : l'ancienne rédaction devait, elle, faire rougir le contrôle des deux pavés. */
+  const avantCs = '<span class="dk-cs2-b" style="top:10%"><b style="background:#ff5cae">NZD</b><i style="background:#ffaed6">+0.18</i></span>';
+  v('[témoin] la maquette d\'avant serait bien refusée',
+    /dk-cs2-b"[^>]*>(?:(?!<\/span>).)*<b[^>]*>[A-Z]{3}<\/b>\s*<i/.test(avantCs));
+
+  /* ── Radar de Biais : les piliers viennent du SERVEUR ──────────────────────────────────────── */
+  const bias = (/<div class="dk-bias-wrap">[\s\S]*?\n<\/div>/.exec(IDX) || [''])[0];
+  v('la maquette Radar de Biais est repérable', bias.length > 500, bias.length + ' caractère(s)');
+  /* Les rangées RÉELLEMENT servies par /api/smart-bias, lues dans server.js. */
+  const mRows = /\/\/ Ordre : Fundamental[\s\S]*?const rows = \[([\s\S]*?)\n  \];/.exec(SERVEUR);
+  const clesServeur = mRows ? [...mRows[1].matchAll(/key:\s*'([a-zA-Z]+)'/g)].map(m => m[1]) : [];
+  v('les piliers servis par le serveur sont lisibles', clesServeur.length >= 3, clesServeur.join(', '));
+  /* Leur libellé FRANÇAIS, lu dans app.js — jamais recopié ici. */
+  const mFr = /const _rowFr = \{([^}]*)\}/.exec(APP);
+  const rowFr = {};
+  if (mFr) [...mFr[1].matchAll(/(\w+):\s*'([^']+)'/g)].forEach(m => { rowFr[m[1]] = m[2]; });
+  v('les libellés français des piliers sont lisibles', Object.keys(rowFr).length >= 4, Object.keys(rowFr).length + ' libellé(s)');
+  const attendus = clesServeur.map(k => rowFr[k]).filter(Boolean);
+  const absentsBias = attendus.filter(l => !bias.includes(l));
+  v('la synthèse annonce TOUS les piliers que le serveur calcule',
+    !absentsBias.length, 'absent(s) de la vitrine : ' + absentsBias.join(', '));
+  /* L'AUTRE MOITIÉ, CELLE QUI A MORDU : un pilier RETIRÉ du produit ne doit plus être annoncé. */
+  const retires = Object.entries(rowFr).filter(([k]) => !clesServeur.includes(k)).map(([, l]) => l);
+  const fantomes = retires.filter(l => bias.includes(l));
+  v('… et AUCUN pilier que le serveur ne calcule plus',
+    !fantomes.length, 'encore annoncé(s) alors que retiré(s) : ' + fantomes.join(', '));
+  /* Le vocabulaire des puces vient de MT_LBL : une maquette qui invente ses mots ment sur le produit. */
+  const mLbl = /const MT_LBL = \{([\s\S]*?)\n\};/.exec(APP);
+  const motsProduit = new Set(mLbl ? [...mLbl[1].matchAll(/:\s*'((?:[^'\\]|\\.)+)'/g)].map(m => m[1].replace(/\\'/g, "'")) : []);
+  const mBias = /const MT_BIAS_LBL = \{([^}]*)\}/.exec(APP);
+  if (mBias) [...mBias[1].matchAll(/:\s*'([^']+)'/g)].forEach(m => motsProduit.add(m[1]));
+  v('le vocabulaire du produit est lisible', motsProduit.size >= 10, motsProduit.size + ' terme(s)');
+  const puces = [...bias.matchAll(/class="dk-bias-p[^"]*">([^<]+)</g)].map(m => m[1].trim());
+  v('la maquette porte bien des puces', puces.length >= 8, puces.length + ' puce(s)');
+  const inventes = [...new Set(puces)].filter(t => !motsProduit.has(t));
+  v('chaque puce emploie un mot que le desk emploie vraiment',
+    !inventes.length, 'introuvable(s) dans MT_LBL / MT_BIAS_LBL : ' + inventes.join(', '));
+  /* Le desk range ses devises dans un ordre FIXE : la vitrine le suit. */
+  const mOrdre = /const _MT_ORDRE = \[([^\]]*)\]/.exec(APP);
+  const ordre = mOrdre ? [...mOrdre[1].matchAll(/'([A-Z]{3})'/g)].map(m => m[1]) : [];
+  const ordreVitrine = [...bias.matchAll(/<b>([A-Z]{3})<\/b>/g)].map(m => m[1]);
+  v('l\'ordre des devises est celui du desk (ordre de liquidité)',
+    ordre.length === 8 && ordreVitrine.length >= 3
+    && ordreVitrine.every((c, i) => ordre.indexOf(c) > (i ? ordre.indexOf(ordreVitrine[i - 1]) : -1)),
+    'vitrine : ' + ordreVitrine.join(' ') + ' · desk : ' + ordre.join(' '));
+
+  /* ── Fil d'actualités : le repli statique rend ce que rend la version live ─────────────────── */
+  const fil = (/<div class="dk-news-feed">[\s\S]*?\n<\/div>/.exec(IDX) || [''])[0];
+  const lignes = [...fil.matchAll(/<div class="dk-news-meta">([\s\S]*?)<\/div>/g)]
+    .map(m => (m[1].match(/dk-news-tag/g) || []).length);
+  v('le repli du fil porte bien des lignes', lignes.length >= 4, lignes.length + ' ligne(s)');
+  v('aucune ligne ne porte plus de deux étiquettes (le rendu live en pose deux au plus)',
+    lignes.every(n => n <= 2), 'étiquettes par ligne : ' + lignes.join(' '));
+}
+
 console.log('\n── 4. Rendu réel, dans un navigateur ──');
 (async () => {
   let pp = null;
