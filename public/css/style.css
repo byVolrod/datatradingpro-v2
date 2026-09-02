@@ -7317,6 +7317,12 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
   user-select: none;
 }
 .cal-title-icon:hover { color: #888; background: var(--bg2); }
+/* Variante DESSINEE de la meme pastille (02/09) : le bandeau Liste FX portait le glyphe
+   texte « engrenage », dependant de la police emoji du systeme et etranger au trait DTP.
+   Le SVG herite de `currentColor`, donc du meme gris et du meme survol que les glyphes
+   voisins : seule la forme change, jamais l'etat. */
+.cal-title-icon--svg svg { display: block; }
+
 
 /* Row 2: Filters + Search + LIVE pushed right */
 .cal-filter-row {

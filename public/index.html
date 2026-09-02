@@ -39,7 +39,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260902bbg1114" />
+  <link rel="stylesheet" href="/css/style.css?v=20260902bbg1115" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -92,7 +92,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260902bbg1114"></script>
+  <script defer src="/js/noinspect.js?v=20260902bbg1115"></script>
 </head>
 <body>
 
@@ -526,14 +526,17 @@
         <div class="fxl-title chart-header-title">Aperçu</div>
         <!-- REGLAGES DE COLONNES (01/09, demande user « ajoute un icone reglages pour pouvoir
              masquer une colonne ou l afficher comme on le souhaite »). Meme grammaire que le volet
-             du calendrier (icone ⚙ dans le bandeau, interrupteurs, memoire par COMPTE) : le desk ne
-             doit pas parler deux langues pour un meme geste. La colonne « Symbole » n y figure pas
+             du calendrier (icone de reglages dans le bandeau, interrupteurs, memoire par COMPTE) :
+             le desk ne doit pas parler deux langues pour un meme geste. L icone elle-meme est
+             desormais celle, DESSINEE, de tout le desk (trois curseurs, cf. ICO.gear de widgets.js)
+             et non plus le glyphe texte « engrenage » (02/09, demande user).
+             La colonne « Symbole » n y figure pas
              volontairement : c est l identite de la ligne, la masquer donnerait un tableau de
              chiffres sans paire en face. -->
         <div class="fxl-title-icons">
-          <span class="cal-title-icon" title="Colonnes affichées" role="button" tabindex="0"
+          <span class="cal-title-icon cal-title-icon--svg" title="Colonnes affichées" role="button" tabindex="0"
                 onclick="_fxlToggleReglages()"
-                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxlToggleReglages();}">⚙</span>
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_fxlToggleReglages();}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 7h4M12 7h8M4 12h10M18 12h2M4 17h6M14 17h6"/><circle cx="10" cy="7" r="1.9"/><circle cx="16" cy="12" r="1.9"/><circle cx="12" cy="17" r="1.9"/></svg></span>
           <div class="fxl-set-pop" id="fxl-set-pop" hidden></div>
         </div>
       </div>
@@ -985,16 +988,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260902bbg1114"></script>
-<script defer src="/js/app.js?v=20260902bbg1114"></script>
-<script defer src="/js/charts.js?v=20260902bbg1114"></script>
-<script defer src="/js/sessionmap.js?v=20260902bbg1114"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260902bbg1115"></script>
+<script defer src="/js/app.js?v=20260902bbg1115"></script>
+<script defer src="/js/charts.js?v=20260902bbg1115"></script>
+<script defer src="/js/sessionmap.js?v=20260902bbg1115"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260902bbg1114"></script>
-<script defer src="/js/home.js?v=20260902bbg1114"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260902bbg1114"></script>
-<script defer src="/js/i18n.js?v=20260902bbg1114"></script>
+<script defer src="/js/widgets.js?v=20260902bbg1115"></script>
+<script defer src="/js/home.js?v=20260902bbg1115"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260902bbg1115"></script>
+<script defer src="/js/i18n.js?v=20260902bbg1115"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>

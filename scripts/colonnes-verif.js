@@ -30,20 +30,30 @@ let ok = 0, ko = 0;
 const v = (n, c, d) => { if (c) { ok++; console.log('  ✓ ' + n); } else { ko++; console.log('  ✗ ' + n + (d ? '\n      → ' + d : '')); } };
 
 /* ── Extraction : du début d'une déclaration jusqu'à sa fermeture, en comptant les accolades.
-   Les chaînes et les gabarits sont ignorés pour ne pas prendre une accolade de texte pour du code. */
+   Les chaînes et les gabarits sont ignorés pour ne pas prendre une accolade de texte pour du code.
+   ⚠️ LES COMMENTAIRES AUSSI, ET CE N'EST PAS DU CONFORT (02/09). Ils ne l'étaient pas : la moindre
+   APOSTROPHE française dans un commentaire de la fonction visée (« d'un coup d'œil ») ouvrait une
+   fausse chaîne, qui avalait toutes les accolades jusqu'à la suivante. `extraire` rendait alors
+   `null` — et les sections gardées par `if (SRC_RENDER)` se SAUTAIENT, en silence, sans un seul
+   contrôle rouge. Un banc qui se désarme lui-même parce qu'on a commenté en français est pire que
+   pas de banc du tout. */
 function extraire(src, depart) {
   const d = src.indexOf(depart);
   if (d < 0) return null;
   let i = src.indexOf('{', d), prof = 0, ch = null;
   for (; i < src.length; i++) {
-    const c = src[i], p = src[i - 1];
+    const c = src[i], p = src[i - 1], n = src[i + 1];
     if (ch) { if (c === ch && p !== '\\') ch = null; continue; }
+    if (c === '/' && n === '/') { const f = src.indexOf('\n', i); if (f < 0) return null; i = f; continue; }
+    if (c === '/' && n === '*') { const f = src.indexOf('*/', i + 2); if (f < 0) return null; i = f + 1; continue; }
     if (c === '"' || c === "'" || c === '`') { ch = c; continue; }
     if (c === '{') prof++;
     else if (c === '}') { prof--; if (prof === 0) return src.slice(d, i + 1); }
   }
   return null;
 }
+/* Contrôle-témoin de l'extracteur lui-même : une apostrophe en commentaire ne doit plus le perdre. */
+const _TEMOIN_EXTRACT = extraire("function z() {\n  // ce qu'on écrit d'habitude\n  return { a: 1 };\n}", 'function z(');
 
 /* ══ 1. LE CODE RÉEL EST EXTRACTIBLE ═══════════════════════════════════════════════════════════ */
 console.log('\n── Extraction du vrai code de charts.js ──');
@@ -57,6 +67,9 @@ v('FXL_COLS extractible', !!SRC_COLS);
 v('_fxlColVisible / _fxlColsVisibles / _fxlColSet extractibles', !!SRC_VIS && !!SRC_LOT && !!SRC_SET);
 v('_fxlMajReglages extractible', !!SRC_MAJ);
 v('renderFxList extractible', !!SRC_RENDER);
+v('[témoin] une apostrophe en commentaire ne casse plus l\'extracteur',
+  !!_TEMOIN_EXTRACT && /return \{ a: 1 \};/.test(_TEMOIN_EXTRACT),
+  'extrait : ' + JSON.stringify(_TEMOIN_EXTRACT));
 
 /* Bac à sable FIDÈLE. ⚠️ Le premier jet passait `window = {}` : tout le code produit est gardé par
    `if (window.DTPPref)`, donc AUCUNE écriture ne s'exécutait et les contrôles d'écriture passaient
@@ -147,13 +160,54 @@ if (SRC_RENDER) {
   v('_cols est bien issu de _fxlColsVisibles()', /const _cols = _fxlColsVisibles\(\)/.test(SRC_RENDER));
 }
 
+/* ══ 4 bis. LA FLÈCHE DE TRI NE S'AFFICHE QUE SUR LA COLONNE TRIÉE ═════════════════════════════
+   02/09, demande user (« cache cette icône », capture du chevron double). Le chevron « ⇅ » se posait
+   AU REPOS sur SYMBOLE et FORCE : deux glyphes gris permanents qui n'apprenaient rien — la colonne
+   triée, elle, se lit à sa flèche pleine. Le piège de ce retrait est ailleurs : la flèche vivait dans
+   la même expression que `data-sort` et `fxl-th--sortable`. Retirer un caractère de trop et le
+   tableau devient INTRIABLE, sans la moindre erreur en console. Ce banc sépare les deux : plus de
+   chevron au repos, mais toutes les colonnes triables le restent. */
+console.log('\n── La flèche de tri : sur la colonne triée, et nulle part ailleurs ──');
+if (SRC_RENDER) {
+  v('plus aucun chevron « ⇅ » n\'est écrit dans l\'en-tête', !/\u21c5/.test(SRC_RENDER),
+    'le chevron de repos est encore rendu');
+  v('la flèche n\'est construite que sous la condition « colonne active »',
+    /const arrow = active \? /.test(SRC_RENDER),
+    'la flèche dépend encore d\'autre chose que du tri actif');
+  v('les deux sens du tri restent distingués (▲ / ▼)',
+    /\u25b2/.test(SRC_RENDER) && /\u25bc/.test(SRC_RENDER));
+  /* LE CONTRÔLE QUI PROTÈGE LE RESTE : le tri lui-même n'a pas été emporté. */
+  v('toutes les colonnes triables gardent leur data-sort et leur classe cliquable',
+    /c\.sortable \? `data-sort="\$\{c\.key\}"` : ''/.test(SRC_RENDER)
+    && /c\.sortable \? 'fxl-th--sortable' : ''/.test(SRC_RENDER),
+    'le retrait du chevron a emporté le câblage du tri');
+  /* TÉMOIN NÉGATIF : la source d'AVANT devait, elle, faire rougir le premier contrôle. Sans ça,
+     un `SRC_RENDER` vide passerait tous les contrôles ci-dessus au vert. */
+  const avant = "const arrow = showArrow ? `<span class=\"fxl-sort\">\u21c5</span>` : '';";
+  v('[témoin] la rédaction d\'avant serait bien refusée par ce banc', /\u21c5/.test(avant));
+}
+
 /* ══ 5. L'ICÔNE EXISTE ET EST RELIÉE ═══════════════════════════════════════════════════════════ */
-console.log('\n── L\'icône ⚙ de l\'onglet Liste FX ──');
+console.log('\n── L\'icône de réglages de l\'onglet Liste FX ──');
 const zoneFxl = (() => { const d = HTML.indexOf('id="view-fxlist"'); const f = HTML.indexOf('<!-- ══ VIEW: INSTITUTION', d); return d < 0 ? '' : HTML.slice(d, f < 0 ? d + 4000 : f); })();
 v('l\'onglet Liste FX porte une icône de réglages', /_fxlToggleReglages\(\)/.test(zoneFxl));
 v('l\'icône est atteignable au clavier (role=button + tabindex + Entrée/Espace)',
   /role="button"/.test(zoneFxl) && /tabindex="0"/.test(zoneFxl) && /event\.key===.Enter./.test(zoneFxl));
 v('le volet #fxl-set-pop existe et démarre fermé', /id="fxl-set-pop" hidden/.test(zoneFxl));
+/* L'ICÔNE EST DESSINÉE, PAS ÉCRITE (02/09, demande user « met cet icône de réglages pour le widget
+   Liste FX au lieu de celui actuel »). Le bandeau portait le glyphe texte « engrenage » : rendu par
+   la police emoji du système, il ne ressemblait à aucune autre commande du desk, qui sont toutes des
+   SVG au trait DTP. On exige le dessin ET l'absence du glyphe — sans le second contrôle, ajouter le
+   SVG à côté du glyphe passerait au vert en laissant les DEUX à l'écran. */
+v('l\'icône de réglages de la Liste FX est le dessin DTP (trois curseurs), pas un glyphe texte',
+  /_fxlToggleReglages\(\)[^]{0,400}<svg /.test(zoneFxl) && /<circle cx="16" cy="12" r="1\.9"\/>/.test(zoneFxl),
+  'le SVG des réglages est introuvable dans le bandeau Liste FX');
+v('… et le glyphe « engrenage » a bien disparu du bandeau', !/\u2699/.test(zoneFxl),
+  'les deux icônes coexistent');
+v('le dessin hérite de la couleur de la pastille (currentColor), donc de son survol',
+  /_fxlToggleReglages\(\)[^]{0,400}stroke="currentColor"/.test(zoneFxl));
+v('.cal-title-icon--svg pose le dessin en bloc (sinon la ligne de base décale l\'icône)',
+  /\.cal-title-icon--svg svg \{ display: block; \}/.test(CSS));
 v('_fxlToggleReglages est publié sur window (l\'attribut onclick ne voit que le global)',
   /window\._fxlToggleReglages =/.test(CHARTS));
 v('_fxlColSet est publié sur window (les interrupteurs du volet l\'appellent en onclick)',
@@ -205,9 +259,13 @@ async function auNavigateur() {
     await new Promise(r => setTimeout(r, 2200));
     const cellules = () => page.evaluate(() => {
       const tr = document.querySelector('#fxl-body tr');
+      const fl = [...document.querySelectorAll('#fxl-head .fxl-sort')];
       return { th: document.querySelectorAll('#fxl-head th').length, td: tr ? tr.querySelectorAll('td').length : 0,
                lignes: document.querySelectorAll('#fxl-body tr').length,
-               sym: tr ? tr.querySelector('td').textContent.trim() : '' };
+               sym: tr ? tr.querySelector('td').textContent.trim() : '',
+               // Fleches de tri REELLEMENT peintes (02/09) : leur nombre et leurs glyphes.
+               fleches: fl.length, glyphes: fl.map(e => e.textContent.trim()).join(''),
+               triables: document.querySelectorAll('#fxl-head th[data-sort]').length };
     });
     const depart = await cellules();
     await page.evaluate(() => document.querySelector('#view-fxlist .cal-title-icon').click());
@@ -380,6 +438,14 @@ async function auChargement() {
     v('Échap referme le volet', R.ferme === true);
     v('rallumer une colonne la fait revenir des deux côtés', R.rallume.th === 11 && R.rallume.td === 11,
       R.rallume.th + ' <th> / ' + R.rallume.td + ' <td>');
+    /* PEINT POUR DE VRAI : une seule flèche dans tout l'en-tête, celle de la colonne triée, et le
+       tri toujours câblé sur les mêmes colonnes qu'avant le retrait du chevron. */
+    v('une seule flèche de tri est peinte dans l\'en-tête', R.depart.fleches === 1,
+      R.depart.fleches + ' flèche(s) : « ' + R.depart.glyphes + ' »');
+    v('… et c\'est bien une flèche de sens, pas le chevron de repos',
+      /^[\u25b2\u25bc]$/.test(R.depart.glyphes), 'glyphe(s) : « ' + R.depart.glyphes + ' »');
+    v('le tableau reste triable sur toutes ses colonnes triables', R.depart.triables >= 10,
+      R.depart.triables + ' colonne(s) portant data-sort');
     v('aucune exception de page pendant toute la manipulation', R.errs.length === 0, R.errs.slice(0, 2).join(' | '));
   }
 

@@ -4475,9 +4475,13 @@ function renderFxList() {
   const _cols = _fxlColsVisibles();
   head.innerHTML = _cols.map(c => {
     const active = _fxlSort.key === c.key;
-    // Flèche de tri ⇅ visible sur SYMBOL et STRENGTH (et sur la colonne triée active) ; les autres trient en silence
-    const showArrow = c.sortable && (c.key === 'symbol' || c.key === 'strength' || active);
-    const arrow = showArrow ? `<span class="fxl-sort${active ? ' active' : ''}">${active ? (_fxlSort.dir > 0 ? '▲' : '▼') : '⇅'}</span>` : '';
+    // Flèche de tri : UNIQUEMENT sur la colonne triée (▲/▼). Le chevron double de repos (U+21C5, le
+    // glyphe n'est pas réécrit ici : le banc colonnes-verif refuse sa présence dans cette fonction,
+    // commentaires compris) se posait sur SYMBOLE et FORCE (02/09, « cache cette icône ») : deux gris
+    // permanents dans un bandeau déjà dense, qui ne disaient rien de l'état du tableau — le tri
+    // actif, lui, se lit d'un coup d'œil. Les colonnes restent TOUTES triables au clic
+    // (`fxl-th--sortable` + `data-sort` inchangés) ; elles trient simplement en silence.
+    const arrow = active ? `<span class="fxl-sort active">${_fxlSort.dir > 0 ? '▲' : '▼'}</span>` : '';
     return `<th class="fxl-th fxl-th--${c.align} ${c.sortable ? 'fxl-th--sortable' : ''}" ${c.sortable ? `data-sort="${c.key}"` : ''}>${c.label}${arrow}</th>`;
   }).join('');
 
