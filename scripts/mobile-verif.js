@@ -334,7 +334,9 @@ function phaseServiceWorker() {
         }
       } catch (e) { R = null; }
       await page.close();
-      srvAdmin.close();
+      /* ⚠️ LE BOUCHON RESTE OUVERT JUSQU'À LA FIN DE LA SECTION. Il était fermé ICI, avant les
+         contrôles : la page ouverte plus bas pour mesurer la chaîne de défilement ne pouvait donc
+         rien charger et le contrôle s'abstenait — vert, sans avoir rien regardé. */
       if (!R) console.log('\n  ~ Mon Desk indisponible dans ce jeu d\'essai → section abstenue.');
       else {
         console.log('\n  · Mon Desk sur téléphone : ' + R.nCartes + ' carte(s), hauteurs ' + R.hauteurs.join('/') + ' px écran');
@@ -358,6 +360,145 @@ function phaseServiceWorker() {
           R.coupes.length === 0,
           R.coupes.map(x => x.cls + ' : ' + x.cache + ' px cachés').join(' · '));
       }
+      /* ══ LE DOIGT N'EST PAS ENFERMÉ DANS UN WIDGET (02/09, capture user) ═══════════════════════
+         « Je ne peux pas descendre plus bas dans le fil d'actualité, ça me bloque. »
+         RELEVÉ, en remontant la chaîne depuis le fil : le vrai ascenseur de la page est
+         `.wdg-grid` (394 px à parcourir) ; entre lui et le fil, quatre conteneurs n'ont rien à
+         défiler. Et `overscroll-behavior: contain` sur le fil COUPE la chaîne : arrivé au bout de
+         ses 2 183 px, le geste ne passe pas au conteneur suivant. Sur un téléphone la carte occupe
+         presque tout l'écran — il ne reste que deux minces bandeaux pour atteindre le reste.
+         ⚠️ ON MESURE À LA MOLETTE, PAS AU GESTE TACTILE SYNTHÉTIQUE. `Input.synthesizeScrollGesture`
+         est capté par les gestionnaires de glisser de la carte (l'en-tête et la piste d'onglets
+         SONT des zones de saisie) : mon premier relevé ne bougeait ni avec le défaut ni sans lui,
+         et ne prouvait donc rien. La molette suit la même chaîne de défilement et n'est captée par
+         personne ici. */
+      if (APPAREILS.length) {
+        const pageD = await nav.newPage();
+        await pageD.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+        let D = null;
+        try {
+          await pageD.goto(`http://localhost:${PORT + 1}/index.html`, { waitUntil: 'networkidle0', timeout: 45000 });
+          await new Promise(r => setTimeout(r, 2400));
+          const ok = await pageD.evaluate(() => { const b = document.getElementById('widgets-btn'); if (!b) return false; b.click(); return true; });
+          if (ok) {
+            await new Promise(r => setTimeout(r, 2800));
+            await pageD.keyboard.press('Escape');
+            await new Promise(r => setTimeout(r, 1500));
+            const pret = await pageD.evaluate(() => {
+              const l = document.querySelector('#view-widgets .news-list');
+              const g = document.querySelector('#view-widgets .wdg-grid');
+              if (!l || !g) return null;
+              l.scrollTop = l.scrollHeight; g.scrollTop = 0;       // fil en bout de course, grille au départ
+              const r = l.getBoundingClientRect();
+              return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2),
+                       reste: Math.round(g.scrollHeight - g.clientHeight) };
+            });
+            if (pret && pret.reste > 40) {
+              for (let i = 0; i < 5; i++) {
+                await pageD.mouse.move(pret.x, pret.y);
+                await pageD.mouse.wheel({ deltaY: 260 });
+                await new Promise(r => setTimeout(r, 350));
+              }
+              D = await pageD.evaluate(() => {
+                const g = document.querySelector('#view-widgets .wdg-grid');
+                const l = document.querySelector('#view-widgets .news-list');
+                return { y: Math.round(g.scrollTop), max: Math.round(g.scrollHeight - g.clientHeight),
+                         ob: getComputedStyle(l).overscrollBehaviorY };
+              });
+            }
+          }
+        } catch (e) { D = null; }
+        await pageD.close();
+        if (!D) console.log('\n  ~ Chaîne de défilement non mesurable dans ce jeu d\'essai → contrôle abstenu.');
+        else {
+          console.log('\n  · Défilement : le fil est en bout de course, on continue le geste dessus — la grille avance de '
+            + D.y + ' px sur ' + D.max + ' (overscroll du fil : ' + D.ob + ')');
+          v('arrivé au bout du fil, le geste passe au desk au lieu de rester bloqué',
+            D.y > D.max * 0.5,
+            'la grille n\'a bougé que de ' + D.y + ' px sur ' + D.max + ' — le doigt reste enfermé dans le widget');
+        }
+      }
+
+      /* ══ TOUTE LA BIBLIOTHÈQUE AU FORMAT TÉLÉPHONE (02/09) ═══════════════════════════════════
+         « Revoir les blocs sur mobile pour que ce soit adapté en fonction du widget. »
+         J'ai commencé par vouloir tirer la hauteur du bloc de la hauteur NOMINALE que chaque
+         widget déclare. La mesure a écarté cette piste : la nominale ne prédit rien. Le Compte à
+         rebours en déclare 186 et le Sentiment de risque 460, alors que sur téléphone ils perdent
+         de l'information au même endroit ; les écarts entre nominale et besoin réel vont de −220
+         à +176 px. Une formule assise sur ce nombre aurait rétréci des blocs qui n'en avaient pas
+         besoin et laissé courts ceux qui en avaient.
+         CE QUE LA MESURE DIT VRAIMENT : au plancher en production, AUCUN widget de la
+         bibliothèque ne perd d'information. Les trois plus gourmands demandent 280, 300 et 340 px,
+         les trente-sept autres tiennent en 240. Le manque de hauteur n'était donc pas le problème
+         — c'était l'EXCÈS (760 px imposés à un widget d'une seule information) et une hauteur vue
+         à zéro par les requêtes de conteneur. Les deux sont traités ailleurs.
+         Reste à ce que cela DURE : ce contrôle monte les widgets de la bibliothèque un par un au
+         format téléphone et refuse qu'un seul soit coupé. Le prochain widget trop gourmand sera
+         donc arrêté ici, et non par une capture d'écran d'un client.
+         ⚠️ ON NE COMPTE QUE LES VRAIES COUPURES : un élément dont l'`overflow-y` calculé vaut
+         `auto` ou `scroll` est un ASCENSEUR, son contenu est FAIT pour défiler. Le compter
+         reviendrait à exiger qu'une liste de soixante dépêches tienne en entier dans la carte —
+         c'est ce que faisait mon premier relevé, qui « trouvait » cinq widgets trop courts et
+         n'en avait vu aucun. */
+      if (APPAREILS.length) {
+        const LIB = ('amplitude-jour amplitude-seance bandeau-ticker barometre calculatrice calendrier-jour '
+          + 'correlations cot-devise cot-inst courbe-taux-us distribution-variations dmx-paire dmx-retail '
+          + 'dmx-stats ecart-consensus evenement-rebours force-devises frequence-amplitude graphique hauts-bas '
+          + 'heatmap-seance horloge indices-matieres journal-mini matrice-croisee notes perf-semaine radar-biais '
+          + 'reunion-bc risque-historique risque-jauge saison saison-courbe serie-indicateur sessions '
+          + 'stats-volatilite taux-cb taux-diff ticklist vol-horaire').split(' ');
+        const CFG = { cfg: { active: 'b', gap: 'tight', gapV: 2, deskV: 99, tipSeen: 1, layouts: [{ id: 'b', name: 'Banc', fav: true,
+          items: LIB.map(id => ({ w: id, gw: 12, gh: 10 })) }] } };
+        const srvLib = require('http').createServer((rq, rs) => {
+          const u = rq.url.split('?')[0];
+          if (u === '/api/me' || u === '/api/auth/me' || u === '/api/session' || u === '/api/user') {
+            rs.writeHead(200, { 'Content-Type': 'application/json' });
+            return rs.end(JSON.stringify({ ok: true, loggedIn: true, authenticated: true, role: 'admin',
+              user: { id: 'u1', email: 'banc@datatradingpro.com', name: 'Banc', role: 'admin', plan: 'professionnel', active: true } }));
+          }
+          if (u === '/api/widgets') { rs.writeHead(200, { 'Content-Type': 'application/json' }); return rs.end(JSON.stringify(CFG)); }
+          srv.emit('request', rq, rs);
+        });
+        await new Promise(r => srvLib.listen(PORT + 2, r));
+        const pageL = await nav.newPage();
+        await pageL.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+        let L = null;
+        try {
+          await pageL.goto(`http://localhost:${PORT + 2}/index.html`, { waitUntil: 'networkidle0', timeout: 60000 });
+          await new Promise(r => setTimeout(r, 2400));
+          const ok = await pageL.evaluate(() => { const b = document.getElementById('widgets-btn'); if (!b) return false; b.click(); return true; });
+          if (ok) {
+            await new Promise(r => setTimeout(r, 4000));
+            await pageL.keyboard.press('Escape');
+            await new Promise(r => setTimeout(r, 3000));
+            L = await pageL.evaluate(() => {
+              const coupes = [];
+              document.querySelectorAll('#view-widgets .wdg-card').forEach(c => {
+                const nom = ((c.querySelector('.wdg-title') || {}).textContent || '?').trim();
+                let pire = 0;
+                c.querySelectorAll('*').forEach(e => {
+                  const d = e.scrollHeight - e.clientHeight;
+                  if (d <= 8 || e.clientHeight <= 40) return;
+                  const oy = getComputedStyle(e).overflowY;
+                  if (oy === 'auto' || oy === 'scroll') return;      // ascenseur assumé, pas une coupure
+                  if (pire < d) pire = d;
+                });
+                if (pire > 0) coupes.push(nom + ' : ' + pire + ' px');
+              });
+              return { n: document.querySelectorAll('#view-widgets .wdg-card').length, coupes };
+            });
+          }
+        } catch (e) { L = null; }
+        await pageL.close();
+        srvLib.close();
+        if (!L || L.n < 20) console.log('\n  ~ Bibliothèque non montable dans ce jeu d\'essai → contrôle abstenu.');
+        else {
+          console.log('\n  · Bibliothèque au format téléphone : ' + L.n + ' widget(s) montés, ' + L.coupes.length + ' coupure(s)');
+          v('aucun widget de la bibliothèque ne perd d\'information sur téléphone',
+            L.coupes.length === 0, L.coupes.slice(0, 8).join(' · '));
+        }
+      }
+      srvAdmin.close();
     }
   } finally {
     if (nav) await nav.close();

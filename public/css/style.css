@@ -20653,6 +20653,28 @@ html[data-theme="light"] .panel-header, html[data-theme="light"] .chart-header, 
   overscroll-behavior: contain;
 }
 
+/* ⚠️ MAIS SUR TÉLÉPHONE, CE CONFINEMENT ENFERME LE DOIGT (02/09, capture user : « je ne peux pas
+   descendre plus bas dans le fil d'actualité, ça me bloque »).
+   RELEVÉ, à 390x844, en remontant la chaîne depuis le fil : le VRAI ascenseur de la page est
+   `.wdg-grid`, avec 394 px à parcourir. Entre lui et le fil il y a cinq conteneurs, dont quatre
+   n'ont RIEN à défiler (`.wdgt-mount`, `.wdgt-body`, `.wdg-body`, `.view-panel`, tous à 0 px).
+   Et le fil lui-même porte `overscroll-behavior: contain`, ce qui COUPE la chaîne à la racine :
+   arrivé au bout de ses 2 183 px, le geste ne passe pas au conteneur suivant. Il ne reste, pour
+   atteindre le reste du desk, que les deux minces bandeaux de la carte — sur un téléphone, la
+   carte occupe presque tout l'écran. D'où « ça bloque », qui n'était pas une impression.
+   L'ACCUEIL avait DÉJÀ tranché cette question, et sa note le dit mot pour mot : « comme
+   `overscroll-behavior: contain` a été retiré (lot A), arrivé en bout de course le geste passe à
+   la page : on ne se retrouve jamais bloqué dans un widget ». Mon Desk n'avait simplement pas
+   suivi. On aligne — sur téléphone UNIQUEMENT : sur un grand écran, plusieurs ascenseurs
+   cohabitent côte à côte et le confinement garde tout son sens.
+   `.wdg-aide-corps` N'EST PAS dans la liste, et c'est délibéré : c'est un volet d'aide POSÉ
+   PAR-DESSUS le desk. Laisser le geste s'échapper vers la page ferait défiler ce qu'on ne voit
+   pas, sous un panneau ouvert. Un calque se confine, une carte de la page non. */
+@media (max-width: 560px) {
+  .news-list, .wdg-body, .wdgt-body, .wdgt-mount, .view-panel, .np-scroll,
+  .wdgt-mount > .wdg-rb, .wdg-body > .wdg-rb { overscroll-behavior: auto; }
+}
+
 /* ═══ TAG INDICATEUR (22/08, demande user) : drapeau du pays + nom de l'indicateur sur les
    publications chiffrées (🇦🇺 Taux de chômage, 🇺🇸 CPI…). Grammaire DTP sobre : c'est un tag
    INFORMATIF (non cliquable), il nomme le SUJET de la news — un cran plus présent que les tags
