@@ -590,6 +590,40 @@ function controler(mesures) {
     v('les huit devises ont leur pastille', r.nPastilles === attendu, r.nPastilles + '/' + attendu + ' — manque : ' + attendu);
     v('aucune pastille n\'en recouvre une autre', (r.heurtees || []).length === 0, (r.heurtees || []).join(' · '));
     v('aucune pastille ne sort du cadre', (r.debordent || []).length === 0, (r.debordent || []).join(' · '));
+    /* ══ INVARIANT 1 bis — LA COLONNE EST DROITE (02/09, demande utilisateur sur capture) ═════════
+       « tous les labels parfaitement alignés sur le même axe vertical… un rendu propre, symétrique
+       et parfaitement homogène. »
+       CE QUE DIT LE CODE, et pourquoi ça ne suffit pas : les pastilles sont posées avec
+       `centerX: percent(0)` et `paddingLeft: 0`, donc ancrées par leur bord GAUCHE sur l'axe — en
+       théorie, la même abscisse pour les huit. Aucune règle de la feuille ne décale une pastille
+       horizontalement (`--cs-badge-x` est une valeur unique et globale). La lecture du code conclut
+       donc « c'est déjà aligné », et l'utilisateur voit le contraire : c'est exactement le genre de
+       désaccord qu'une MESURE tranche et qu'une relecture ne tranchera jamais.
+       ⚠️ CE CONTRÔLE NE PEUT PAS TOURNER SANS RÉSEAU : amCharts vient du CDN. En bac à sable il
+       s'abstient avec tout le reste de cette section ; il travaille dans le workflow de livraison,
+       qui a le réseau. C'est là qu'il dira si l'écart existe vraiment, et de combien.
+       DEUX GRANDEURS. Les bords gauches d'abord : c'est « le même axe vertical ». Les largeurs
+       ensuite : à bord gauche commun, deux pastilles de largeurs différentes donnent des bords
+       DROITS en escalier — et le chevron « hors cadre » est précisément ce qui élargit une pastille.
+       On tolère 1 px (arrondi de rendu), pas plus. */
+    {
+      const xs = (r.pastilles || []).map(p => p.x);
+      const ws = (r.pastilles || []).map(p => p.w);
+      const etendue = a => a.length ? Math.max.apply(null, a) - Math.min.apply(null, a) : 0;
+      if (xs.length >= 2) {
+        v('les pastilles partagent toutes le même bord gauche (le même axe vertical)',
+          etendue(xs) <= 1,
+          'écart de ' + etendue(xs) + ' px entre la plus à gauche et la plus à droite : '
+            + (r.pastilles || []).map(p => p.ccy + '@' + p.x).join(' '));
+        /* La largeur ne peut être uniforme que si AUCUNE pastille ne porte de chevron : une devise
+           hors cadre en porte un, légitimement, et il l'élargit. On ne compare donc les largeurs que
+           dans ce cas — sinon on exigerait une chose fausse, et le banc rougirait sur du code juste. */
+        if (!(r.chevrons || []).length) {
+          v('… et la même largeur (bords droits alignés eux aussi)', etendue(ws) <= 1,
+            'écart de ' + etendue(ws) + ' px : ' + (r.pastilles || []).map(p => p.ccy + '=' + p.w).join(' '));
+        }
+      }
+    }
     /* INVARIANT 2 — LES COURBES OCCUPENT LA HAUTEUR. L'autre moitié de la demande : « je ne vois pas
        toutes les COURBES ». Mesuré avant correction : 0,7 px entre deux fins de courbe voisines, pour
        un trait de 1,3 px — deux courbes qui se touchent ne sont pas deux courbes.
