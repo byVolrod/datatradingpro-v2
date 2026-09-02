@@ -240,6 +240,52 @@ async function attempt(email, week, providerUp, hang) {
   ok('... et la copie durable porte sa date de memorisation (filet quand weekEnding manque)',
     /w\._memAt = Date\.now\(\)/.test(SRVD));
 
+  /* ══ [E] LE MAIL « SEMAINE A VENIR » NE PART PLUS AVEC UN TROU (02/09, capture user) ═══════════
+     Le mail recu n'affichait PAS son widget : a la place, un simple trait fin. La chaine complete :
+     `renderWidgetPngSafe` rend un PLACEHOLDER quand elle echoue ; _sendWithInlineWidgets refuse
+     alors de substituer le `cid:` et laisse l'URL DISTANTE ; or cette URL appelle le MEME moteur et
+     renvoie, en filet ultime, un PNG TRANSPARENT DE 1x1 ; etire par `width:100%;height:auto`, il se
+     reduit au filet de sa propre bordure. L'URL distante n'a donc jamais ete un repli.
+     Et le contenu suivait : depuis le 23/08 le texte par journee a ete retire de ce mail PARCE QUE
+     le widget le portait. Widget absent = agenda absent. C'est exactement la capture. */
+  console.log('\n[E] Semaine a venir — l\'agenda ne disparait pas avec l\'image');
+  {
+    const CTX = { upcoming: [{ title: 'CPI', impact: 'High' }], weekAhead: { week: '31-4 septembre', days: [
+      { dow: 'Monday', title: 'PMI Manufacturing CNY + CPI DE', impact: 'HIGH', description: 'Au programme lundi.' },
+      { dow: 'Wednesday', title: 'RBNZ + BoC', impact: 'HIGH', description: 'Deux banques centrales.' },
+      { dow: 'Friday', title: 'NFP', impact: 'HIGH', description: 'Le rapport emploi.' } ] } };
+    const repli = (/function _waAgendaRepli[\s\S]{0,2600}?\n\}/.exec(_MSRC) || [''])[0];
+    ok('le repli d\'agenda existe dans mailer.js', /function _waAgendaRepli/.test(repli));
+    if (repli) {
+      const f = new Function('_esc', 'TOK', repli + '\nreturn _waAgendaRepli;')(
+        (x) => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
+        { or: '#f3c344' });
+      const h = f(CTX);
+      ok('le repli rend les journees de la semaine', /NFP/.test(h) && /Vendredi/.test(h) && /RBNZ/.test(h), h.slice(0, 120));
+      ok('le repli ne contient AUCUNE image (rien qui puisse echouer au rendu)', !/<img/.test(h));
+      ok('le repli traduit les jours en francais', /Lundi/.test(h) && !/Monday/.test(h));
+      /* LA MOITIE QUI COMPTE : sans journees, pas de tableau vide a la place de l'image. */
+      ok('sans donnees, le repli est VIDE (pas de cadre vide dans le mail)', f({}) === '' && f({ weekAhead: { days: [] } }) === '');
+    }
+    /* Le cablage : l'envoi passe bien le repli, et l'echec de rendu retire la balise <img>. */
+    ok('sendCampaignOutlook fournit le repli a l\'envoi',
+      /_sendWithInlineWidgets\(d\.to, m\.subject, m\.html, \['week-ahead'\], \{ 'week-ahead': repli \}\)/.test(_MSRC));
+    ok('un rendu rate REMPLACE la balise <img> (au lieu de laisser l\'URL distante, qui rend un 1x1)',
+      /const rxImg = new RegExp\('<img\[\^>\]\*'/.test(_MSRC) && /html = html\.replace\(rxImg, repli\)/.test(_MSRC));
+    ok('... et le journal nomme le widget en cause (fini l\'echec muet)',
+      /widget « ' \+ wt \+ ' » non rendu/.test(_MSRC));
+    /* Et on eprouve le remplacement pour de vrai, sur le HTML du VRAI mail. */
+    const m2 = M.buildCampaignOutlook({ name: '', email: 'a@b.com', campaign: 'st', context: CTX, isMember: false });
+    ok('le mail reference bien le widget week-ahead', !!m2 && /email-widget\/week-ahead\.png/.test(m2.html));
+    if (m2) {
+      const u = (m2.html.match(/https?:\/\/[^"]*\/api\/email-widget\/week-ahead\.png[^"]*/) || [''])[0];
+      const rxImg = new RegExp('<img[^>]*' + u.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '[^>]*>', 'g');
+      const apres = m2.html.replace(rxImg, '<!--REPLI-->');
+      ok('la balise <img> du widget est bien remplacable en entier (bordure comprise)',
+        apres !== m2.html && !/email-widget\/week-ahead\.png/.test(apres) && /<!--REPLI-->/.test(apres));
+    }
+  }
+
   // ── Bilan ──
   console.log('\n' + '='.repeat(52));
   console.log('RESULTAT : ' + pass + ' PASS / ' + fail + ' FAIL');

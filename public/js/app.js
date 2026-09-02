@@ -938,6 +938,26 @@ function init() {
   (window.requestIdleCallback || function (f) { return setTimeout(f, 150); })(function () {
     try { drawWorldMap(); } catch (e) {}
     try { startSessionMarkers(); } catch (e) {}
+    /* PRÉCHAUFFAGE DE LA LISTE FX (02/09, demande user : « le widget fx view prend du temps à se
+       charger »). Le tableau ne demandait ses données qu'au moment où l'on CLIQUE sur l'onglet :
+       l'utilisateur regardait donc systématiquement le squelette pendant l'aller-retour, même quand
+       le serveur avait la réponse toute prête. On la demande maintenant en temps IDLE, une fois le
+       fil peint — l'onglet s'ouvre alors sur des données déjà là.
+       Trois précautions, parce qu'un préchauffage mal posé coûte plus qu'il ne rapporte :
+         · en temps IDLE et APRÈS la carte du monde : il ne retarde pas le premier affichage du fil,
+           qui reste ce que l'utilisateur regarde en arrivant ;
+         · SILENCIEUX et sans dessin (`_fxlData` est simplement rempli) : aucun squelette ne
+           s'affiche, aucune vue ne bouge tant qu'on n'a pas ouvert l'onglet ;
+         · UNE SEULE FOIS, et jamais si l'onglet a déjà chargé de son côté — sinon on doublerait la
+           requête au lieu de l'anticiper.
+       La doctrine du desk est déjà celle-là partout ailleurs : ne jamais générer quand
+       l'utilisateur ouvre. Cet onglet y échappait. */
+    try {
+      if (!window._fxlPrechauffe && typeof loadFxListView === 'function' && !window._fxlistTabInited) {
+        window._fxlPrechauffe = true;
+        loadFxListView(false, true);   // silencieux : remplit le cache, ne vide ni ne redessine rien
+      }
+    } catch (e) {}
   });
 
   // ── Hydratation INSTANTANÉE depuis le cache local (avant toute réponse serveur) ──

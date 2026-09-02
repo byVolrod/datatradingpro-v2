@@ -313,6 +313,53 @@ async function auDeskAOnglets() {
   } finally { await nav.close(); srv.close(); }
 }
 
+/* ══ 10. L'ONGLET N'AFFICHE PLUS DE SQUELETTE QUAND LA DONNÉE EST DÉJÀ LÀ ═══════════════════════
+   Demande user (02/09) : « le widget fx view prend du temps à se charger ». La donnée n'était
+   demandée qu'au CLIC sur l'onglet : l'utilisateur regardait donc l'aller-retour à chaque fois.
+   ⚠️ CE QUE LE CONTRÔLE NÉGATIF A CORRIGÉ DANS MA PROPRE EXPLICATION : j'avais écrit que la garde
+   `!_fxlData` ajoutée dans `loadFxListView` faisait la moitié du travail. C'est FAUX — en la
+   retirant, ce banc reste vert, parce que `renderFxList` garde déjà son squelette derrière un
+   `if (!_fxlData)`. Le seul correctif qui compte est le PRÉCHAUFFAGE (app.js, temps idle) ; la
+   garde n'est qu'une économie de rendu. C'est ce que ces contrôles éprouvent, ni plus ni moins.
+   On mesure ce que l'utilisateur voit, pas ce que le code fait : API volontairement ralentie de
+   1,2 s, puis échantillonnage toutes les 40 ms du contenu du tableau après le clic.
+   Avant : squelette visible 1120 ms, premières lignes à 1246 ms. Après : 0 ms et 2 ms. */
+async function auChargement() {
+  let outils; try { outils = require('./mobile-apercu.js'); } catch { return null; }
+  const bin = outils.trouverNavigateur(); if (!bin) return null;
+  let pp; try { pp = require('puppeteer-core'); } catch { return null; }
+  const http = require('http');
+  const base = outils.serveur();
+  const LENT = 1200;
+  const srv = http.createServer((req, res) => {
+    if (req.url.split('?')[0] === '/api/fxlist') return setTimeout(() => base.emit('request', req, res), LENT);
+    base.emit('request', req, res);
+  });
+  await new Promise(r => srv.listen(4937, r));
+  const nav = await pp.launch({ executablePath: bin, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  try {
+    const page = await nav.newPage();
+    await page.setViewport({ width: 1600, height: 950 });
+    await page.goto('http://localhost:4937/index.html', { waitUntil: 'networkidle0', timeout: 60000 });
+    await new Promise(r => setTimeout(r, 3000));            // laisse le temps IDLE préchauffer
+    const avant = await page.evaluate(() => ({
+      prechauffe: !!window._fxlPrechauffe,
+      lignes: document.querySelectorAll('#fxl-body tr:not(.fxl-skel-row)').length }));
+    await page.evaluate(() => document.querySelector('.nav-item[data-view="fxlist"]').click());
+    let squelette = 0, premieres = null;
+    const t0 = Date.now();
+    while (Date.now() - t0 < 2600) {
+      const e = await page.evaluate(() => ({
+        sk: document.querySelectorAll('#fxl-body tr.fxl-skel-row').length,
+        vr: document.querySelectorAll('#fxl-body tr:not(.fxl-skel-row)').length }));
+      if (e.sk > 0) squelette += 40;
+      if (e.vr > 0 && premieres === null) premieres = Date.now() - t0;
+      await new Promise(r => setTimeout(r, 40));
+    }
+    return { avant, squelette, premieres, LENT };
+  } finally { await nav.close(); srv.close(); }
+}
+
 (async () => {
   console.log('\n── Dans un vrai Chromium : on clique, et on compte ──');
   let R = null;
@@ -334,6 +381,22 @@ async function auDeskAOnglets() {
     v('rallumer une colonne la fait revenir des deux côtés', R.rallume.th === 11 && R.rallume.td === 11,
       R.rallume.th + ' <th> / ' + R.rallume.td + ' <td>');
     v('aucune exception de page pendant toute la manipulation', R.errs.length === 0, R.errs.slice(0, 2).join(' | '));
+  }
+
+  console.log('\n── Ouverture de l\'onglet : combien de temps voit-on le squelette ? ──');
+  let C = null;
+  try { C = await auChargement(); } catch (e) { console.log('  ⚠️ ' + String(e).slice(0, 120)); }
+  if (!C) console.log('  ~ aucun Chromium → section abstenue (ce n\'est pas un échec).');
+  else {
+    v('la Liste FX est préchauffée en temps idle, sans attendre le clic',
+      C.avant.prechauffe === true && C.avant.lignes > 0,
+      'préchauffé=' + C.avant.prechauffe + ', ' + C.avant.lignes + ' ligne(s) déjà en place');
+    v('à l\'ouverture, AUCUN squelette ne s\'affiche (la donnée est déjà là)',
+      C.squelette === 0,
+      'squelette visible ' + C.squelette + ' ms alors que le tableau était déjà rempli — '
+        + 'activateView le vide sans la garde `!_fxlData`');
+    v('… et les lignes sont visibles tout de suite, malgré une API ralentie de ' + C.LENT + ' ms',
+      C.premieres != null && C.premieres < 300, 'premières lignes à ' + C.premieres + ' ms');
   }
 
   console.log('\n── Dans une carte à onglets de Mon Desk : l\'engrenage répond-il au clic ? ──');

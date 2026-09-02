@@ -4367,7 +4367,16 @@ function renderFxList() {
 }
 
 async function loadFxListView(force = false, silent = false) {
-  if (!silent) { _fxlLoading = true; renderFxList(); }   // silent = auto-refresh → on ne vide pas la table
+  /* ON NE REMPLACE PAS DES DONNÉES PAR UN SQUELETTE — mais ce n'est PAS ce qui corrige l'attente
+     signalée le 02/09, et il faut le dire ici plutôt que de laisser croire l'inverse.
+     Le contrôle négatif l'a établi : en retirant `!_fxlData` de cette ligne, le banc reste VERT,
+     parce que `renderFxList` garde déjà son squelette derrière un `if (!_fxlData)`. Le vrai
+     correctif est le PRÉCHAUFFAGE posé dans app.js : la donnée est là avant le clic, donc plus
+     personne ne voit d'écran d'attente.
+     Cette garde reste parce qu'elle évite un rendu complet pour rien à chaque ouverture d'onglet
+     (on a déjà le tableau, on le garde tel quel jusqu'à la réponse). C'est une économie, pas la
+     réparation — un commentaire périmé mentirait avec l'autorité du code. */
+  if (!silent && !_fxlData) { _fxlLoading = true; renderFxList(); }
   try {
     const r = await fetch('/api/fxlist' + (force ? '?force=1' : ''));
     if (!r.ok) throw new Error('HTTP ' + r.status);

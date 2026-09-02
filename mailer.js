@@ -1190,7 +1190,53 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
 // Envoie un mail campagne en EMBARQUANT un ou plusieurs widgets en inline (cid:) — affichage garanti Outlook.
 // Chaque type liste est rendu FRAIS (renderWidgetPngSafe, pre-chauffe) et son URL distante est remplacee par
 // son cid. Repli : si le rendu echoue, l'URL distante reste dans le HTML. types = ['meter','calendar',...].
-async function _sendWithInlineWidgets(to, subject, html, types) {
+/* Repli du widget « Semaine à venir » : les MÊMES journées, en tableau HTML. Aucun rendu
+   navigateur, donc rien qui puisse échouer — c'est tout l'intérêt d'un repli. On reprend la
+   grammaire de `_agendaTable` (jour en intertitre, impact en pastilles) sans passer par elle : elle
+   attend des ÉVÉNEMENTS (heure, devise, prévision), alors que le widget montre des JOURNÉES. */
+function _waAgendaRepli(context) {
+  const ctx = context || {};
+  const jours = (ctx.weekAhead && Array.isArray(ctx.weekAhead.days)) ? ctx.weekAhead.days : [];
+  const forts = jours.filter(d => d && (d.title || d.headline)).slice(0, 6);
+  if (!forts.length) return '';
+  const DOW = { Monday: 'Lundi', Tuesday: 'Mardi', Wednesday: 'Mercredi', Thursday: 'Jeudi', Friday: 'Vendredi', Saturday: 'Samedi', Sunday: 'Dimanche' };
+  const pastilles = (imp) => {
+    const n = String(imp || '').toUpperCase() === 'HIGH' ? 3 : String(imp || '').toUpperCase() === 'MEDIUM' ? 2 : 1;
+    const col = n === 3 ? '#ff3d00' : n === 2 ? '#ffb300' : '#6b7280';
+    let o = '';
+    for (let i = 0; i < 3; i++) o += `<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:${i < n ? col : '#3a3a42'};margin-right:2px;"></span>`;
+    return o;
+  };
+  const lignes = forts.map(d => {
+    const jour = DOW[d.dow] || d.dow || '';
+    const titre = _esc(String(d.title || d.headline || '').split(' · ')[0]);
+    return `<tr>
+      <td style="padding:9px 10px;border-top:1px solid #232429;color:${TOK.or};font-size:11.5px;font-weight:700;white-space:nowrap;vertical-align:top;">${_esc(jour)}</td>
+      <td style="padding:9px 10px;border-top:1px solid #232429;color:#ffffff;font-size:12.5px;font-weight:600;">${titre}</td>
+      <td style="padding:9px 10px;border-top:1px solid #232429;text-align:right;white-space:nowrap;vertical-align:top;">${pastilles(d.impact)}</td>
+    </tr>`;
+  }).join('');
+  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;border-collapse:collapse;background:#101014;border:1px solid #232429;border-radius:6px;margin:16px 0;">${lignes}</table>`;
+}
+
+/* ── QUAND L'IMAGE NE PEUT PAS ÊTRE RENDUE, ON NE LAISSE PAS UN TROU (02/09) ─────────────────────
+   Signalement user, capture à l'appui : le mail « Semaine à venir » n'affichait PAS son widget.
+   Diagnostic, de bout en bout :
+     · `renderWidgetPngSafe` ne jette jamais — en dernier recours elle rend un PLACEHOLDER ;
+     · ici, un placeholder (< 2000 octets) fait sauter la substitution en `cid:` et l'URL DISTANTE
+       reste dans le HTML ;
+     · sauf que cette URL (`/api/email-widget/<type>.png`) appelle EXACTEMENT le même moteur, et
+       renvoie en filet ultime un PNG TRANSPARENT DE 1×1 PIXEL ;
+     · étiré par `width:100%; height:auto`, ce 1×1 se réduit à un filet — le trait fin qu'on voit
+       sur la capture, entre le sommaire et « Le détail de chaque journée ».
+   Autrement dit l'URL distante n'a jamais été un vrai repli : c'est le même rendu, donc le même
+   échec. On remplace donc la balise `<img>` par un REPLI HTML fourni par l'appelant (un tableau
+   d'agenda, par exemple, qui ne demande aucun rendu) ; à défaut de repli, on retire l'image, parce
+   qu'un trou franc vaut mieux qu'un trait qui ressemble à un défaut d'affichage.
+   ⚠️ ET C'EST SURTOUT UNE QUESTION DE CONTENU. Depuis le 23/08, le texte par journée a été retiré
+   de ce mail PARCE QUE le widget portait déjà l'information. Quand le widget manque, le mail perd
+   donc l'agenda tout entier — c'est précisément ce que montre la capture. Le repli le rétablit. */
+async function _sendWithInlineWidgets(to, subject, html, types, replis) {
   const att = [];
   try {
     const ew = require('./emailWidget');   // meme process que server.js → cache/prewarm partages
@@ -1228,6 +1274,17 @@ async function _sendWithInlineWidgets(to, subject, html, types) {
             const cid = wt + (period ? '-' + period : '') + suff + '@datatradingpro';
             att.push({ filename: wt + (period ? '-' + period : '') + suff + '.png', content: png, cid, contentType: 'image/png' });
             html = html.split(u).join('cid:' + cid);   // remplacement EXACT de cette URL (pas la regex : elle avalerait les sœurs)
+          } else {
+            /* Rendu impossible : on ÔTE la balise entière (pas seulement son `src`), sinon il reste
+               une bordure vide. `[^>]*` s'arrête au premier `>` : l'URL est déjà dans l'attribut,
+               elle ne contient pas de chevron. */
+            const repli = (replis && replis[wt]) || '';
+            const rxImg = new RegExp('<img[^>]*' + u.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '[^>]*>', 'g');
+            const avant = html;
+            html = html.replace(rxImg, repli);
+            console.warn('[Mailer] widget « ' + wt + ' » non rendu (' + (png ? png.length : 0)
+              + ' octets) → ' + (repli ? 'repli HTML posé' : 'image retirée')
+              + (avant === html ? ' ⚠️ balise <img> INTROUVABLE dans le HTML' : ''));
           }
         }
       } catch (e) { console.warn('[Mailer] widget inline indisponible (' + t + ') → URL distante:', e.message); }
@@ -4094,7 +4151,17 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
   const subject = _subsO[_wkO % _subsO.length];
   return { subject, html: _campaignLayout('Semaine à venir', body, unsub) };
 }
-async function sendCampaignOutlook(d) { d = d || {}; const m = buildCampaignOutlook({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['week-ahead']); }
+/* Le repli de CE mail est l'agenda en tableau HTML : mêmes événements que le widget, aucun rendu
+   navigateur, donc il ne peut pas échouer. Sans lui, un widget manquant vidait le mail de son
+   agenda (cf. la refonte du 23/08 qui avait retiré le texte par journée au profit de l'image). */
+async function sendCampaignOutlook(d) {
+  d = d || {};
+  const m = buildCampaignOutlook({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember });
+  if (!m) return false;
+  let repli = '';
+  try { repli = _waAgendaRepli(d.context); } catch (e) { repli = ''; }
+  return _sendWithInlineWidgets(d.to, m.subject, m.html, ['week-ahead'], { 'week-ahead': repli });
+}
 
 // (Template « Alerte macro / banque centrale » supprime a la demande user — 2026-07-12.)
 
