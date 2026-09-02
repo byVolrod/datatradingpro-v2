@@ -1,0 +1,22 @@
+# Toutes les 6 heures : quatre passages par jour, vingt-huit par fenêtre de sept jours.
+#
+# POURQUOI SI SOUVENT, pour une pause qui ne tombe qu'au bout de sept jours sans activité : la marge
+# est le sujet. Un passage par jour laisse sept occasions de manquer le rendez-vous ; à six heures,
+# il faudrait vingt-huit échecs d'affilée pour que la fenêtre se referme. Le coût est nul — un
+# upsert d'une ligne, en INGRESS, non compté dans l'égress.
+#
+# ⚠️ Persistent=true : un serveur redémarré pendant le créneau rattrape le passage manqué. Sans lui,
+# un redémarrage silencieux peut faire sauter un cycle — et c'est en série que ces sauts tuent.
+[Unit]
+Description=DTP keep-alive Supabase : un passage toutes les 6 h, rattrape ceux qu'un redemarrage fait sauter
+
+[Timer]
+OnBootSec=180
+OnCalendar=*-*-* 01,07,13,19:20:00
+Persistent=true
+RandomizedDelaySec=300
+AccuracySec=1min
+Unit=dtp-keepalive.service
+
+[Install]
+WantedBy=timers.target

@@ -1921,11 +1921,17 @@
       const DB = d.db; if (!DB || !DB.nodes || !DB.nodes.length) return '<div class="aim-j-empty">sondes en cours…</div>';
       const col = s => s === 'ok' ? '#22c55e' : s === 'restreint' ? '#ef4444' : '#ffb300';
       const lbl = s => s === 'ok' ? 'OK ✓' : s === 'restreint' ? 'RESTREINT' : 'erreur';
-      const rows = DB.nodes.map(n => `<div class="aim-kv"><span title="${_esc2(n.host)}">${_esc2(n.name)}</span><b style="color:${col(n.state)}">${lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.ms} ms</span></b></div>`).join('');
+      /* UNE BASE PEUT RÉPONDRE « OK » ET N ÊTRE POURTANT PAS PRÊTE À SERVIR (02/09). Après une
+         absence, elle a raté des écritures : elle reste écartée des LECTURES de `users` jusqu à ce
+         que la convergence l ait resynchronisée (cf. la quarantaine de lecture dans auth.js). La
+         sonde, elle, ne teste que la joignabilité — elle dirait « OK ✓ » pendant ce temps, et on
+         croirait l incident clos alors que le rattrapage court encore. On l affiche donc. */
+      const rows = DB.nodes.map(n => `<div class="aim-kv"><span title="${_esc2(n.host)}">${_esc2(n.name)}</span><b style="color:${n.quarLect ? '#ffb300' : col(n.state)}">${n.quarLect ? 'RESYNCHRO…' : lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.ms} ms</span></b></div>`).join('');
       const KA = DB.keepalive;   // anti-pause free-tier : WRITE sur chaque base /12 h (ingress → marche même en 402)
       const kaLine = (KA && KA.last) ? `<div class="aim-kv"><span>Keep-alive</span><b style="color:${KA.ok >= DB.count ? '#22c55e' : '#ffb300'}">${KA.ok}/${DB.count} <span style="color:#6b7280;font-weight:400">il y a ${(() => { const m = Math.round((Date.now() - KA.last) / 60000); return m < 1 ? '<1 min' : m < 60 ? m + ' min' : Math.round(m / 60) + ' h'; })()}</span></b></div>` : '';
       return `<div class="aim-kv"><span>Projets joignables</span><b style="color:${DB.okCount >= DB.count ? '#22c55e' : '#ffb300'}">${DB.okCount}/${DB.count}</b></div>` + rows + kaLine
-        + (DB.nodes.some(n => n.state === 'restreint') ? '<div style="font-size:10.5px;color:#ef4444;margin-top:6px;line-height:1.5">⚠ Restreint = quota/égress mensuel dépassé → revient au rollover (le keep-alive ne lève pas un 402).</div>' : '');
+        + (DB.nodes.some(n => n.state === 'restreint') ? '<div style="font-size:10.5px;color:#ef4444;margin-top:6px;line-height:1.5">⚠ Restreint = quota/égress mensuel dépassé → revient au rollover (le keep-alive ne lève pas un 402).</div>' : '')
+        + (DB.nodes.some(n => n.quarLect) ? '<div style="font-size:10.5px;color:#ffb300;margin-top:6px;line-height:1.5">⏳ Resynchro = la base est joignable mais a raté des écritures pendant son absence. Elle reçoit les écritures et se recomplète, mais ne sert AUCUNE lecture de comptes tant que le rattrapage n\'a pas réussi : sans ça, elle rendrait des mots de passe et des échéances périmés. Levée automatique (≤ 20 min).</div>' : '');
     })();
   }
   function aimRenderJournal(d) {

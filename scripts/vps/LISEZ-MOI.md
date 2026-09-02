@@ -103,7 +103,25 @@ est pas. Le découvrir le jour de la panne serait le pire moment.
 
 ## Sauvegarde quotidienne automatique
 
-Pour que la sauvegarde existe sans qu'on y pense, ajouter à la crontab du serveur :
+**Une seule commande, à lancer une fois sur le serveur :**
+
+```
+cd /opt/datatradingpro && bash scripts/vps-resilience-installer.sh
+```
+
+Elle pose deux minuteurs systemd : la **sauvegarde à 04h10** (archive chiffrée, **3 versions
+conservées**) et le **keep-alive Supabase toutes les 6 h** (qui relance en prime un projet mis en
+pause). Elle fabrique la phrase secrète si le `.env` n'en a pas, et l'affiche **une fois**.
+
+> ⚠️ **CETTE SECTION DONNAIT AUPARAVANT UNE LIGNE DE CRONTAB À RECOPIER À LA MAIN.** On a mesuré ce
+> que vaut une étape manuelle documentée : le keep-alive, lui, vivait dans GitHub Actions avec des
+> secrets qu'il fallait poser de la même façon. Ils ne l'ont jamais été. Le job a tourné 142 fois,
+> **vert à chaque passage**, en affichant « 0 projet(s) Supabase détecté(s) » — et le projet
+> principal est resté en pause **du 14 juin au 2 septembre**. La ligne de crontab est donc remplacée
+> par un installateur, et le keep-alive **sort désormais en erreur** quand il n'a rien à pinguer.
+
+L'ancienne ligne de crontab reste valable si l'on préfère cron à systemd — mais elle ne rattrape pas
+un passage manqué lors d'un redémarrage, là où le minuteur le fait (`Persistent=true`) :
 
 ```
 0 4 * * * DTP_BACKUP_PASS='votre-phrase' /usr/local/bin/dtp-sauvegarde.sh >> /var/log/dtp-sauvegarde.log 2>&1

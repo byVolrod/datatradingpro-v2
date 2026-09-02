@@ -31,7 +31,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 // fichier (login/sessions survivent au blackout). Zéro risque côté auth.
 function _mkClient(url, key) { return createClient(url, key, { auth: { persistSession: false } }); }
 const _dbNodes = [];
-function _addNode(name, url, key) { if (!url || !key) return; try { _dbNodes.push({ name, url, client: _mkClient(url, key), downUntil: 0 }); } catch (e) { console.error(`[Auth] base ${name} IGNORÉE (URL/clé invalide → ne crashe pas le boot) :`, e.message); } }
+function _addNode(name, url, key) { if (!url || !key) return; try { _dbNodes.push({ name, url, client: _mkClient(url, key), downUntil: 0, quarLect: false }); } catch (e) { console.error(`[Auth] base ${name} IGNORÉE (URL/clé invalide → ne crashe pas le boot) :`, e.message); } }
 _addNode('primary', SUPABASE_URL, SUPABASE_KEY);
 _addNode('db2', process.env.SUPABASE_URL_2, process.env.SUPABASE_KEY_2);
 _addNode('db3', process.env.SUPABASE_URL_3, process.env.SUPABASE_KEY_3);
@@ -54,6 +54,22 @@ function _markDown(node, err) {
   const cooldown = capped ? 2 * 60 * 60 * 1000 : 10 * 60 * 1000;
   if (node.downUntil <= Date.now()) console.warn(`[DB] ${node.name} indisponible ${capped ? '2 h (quota egress mensuel — bascule sur bases saines)' : '10 min (egress/réseau)'} :`, err && err.message);
   node.downUntil = Date.now() + cooldown;
+  /* ⚠️ QUARANTAINE DE LECTURE — LE DÉFAUT LE PLUS COÛTEUX DE CETTE COUCHE (02/09/2026).
+     Une base muette RATE les écritures qui tombent pendant son absence. À son retour, elle est
+     réintégrée au pool et `_runMulti` la relit comme n'importe quelle autre : elle répond « non
+     vide », donc la boucle S'ARRÊTE SUR ELLE — et `verifyLogin` fait pire encore, il RECOPIE cette
+     ligne périmée dans le miroir local (`_mirrorPut`), détruisant la version fraîche.
+     MESURÉ, PAS SUPPOSÉ : le projet Supabase principal est resté en pause du 14/06 au 02/09. Sa
+     table `users` porte 29 comptes ; le desk en a 50, dont 21 avec une échéance déjà dépassée dans
+     l'instantané de juin. Le laisser répondre aux lectures, c'était rendre à 29 clients leur mot de
+     passe de juin, leur ancien plan et leur ancienne échéance — et bloquer hors du desk ceux qui
+     avaient renouvelé depuis.
+     LA RÈGLE : une base marquée muette ne sert plus aucune lecture de `users` tant que la
+     convergence (miroir → base) n'a pas RÉUSSI sur elle. Les ÉCRITURES ne sont pas quarantainées :
+     c'est par elles que la resynchronisation passe. Et si toutes les bases sont en quarantaine, la
+     lecture rend NODESDOWN — cas déjà géré partout, qui bascule sur le miroir, c'est-à-dire sur le
+     superset à jour. Le pire cas de cette garde est donc l'état le plus sûr. */
+  node.quarLect = true;
 }
 function _applyOps(client, table, ops) { let qb = client.from(table); for (const [m, a] of ops) qb = qb[m](...a); return qb; }
 
@@ -88,13 +104,28 @@ function _egTripped() {
 }
 function getEgressStats() { return { bytes1h: _egSum(60), bytes24h: _egSum(1440), cap1h: _EG_CAP_1H, cap24h: _EG_CAP_24H, tripped: Date.now() < _egTripUntil, trippedUntil: _egTripUntil || 0, info: _egTripInfo }; }
 let _rr = 0;
+/* Tables dont une ligne PÉRIMÉE cause un dommage visible par le client (cf. la quarantaine de
+   lecture dans _markDown). `chat_messages` n'y est pas : un message manquant se rattrape, il ne
+   ferme la porte à personne. */
+const _TABLES_SENSIBLES = new Set(['users']);
 async function _runMulti(table, ops, kind) {
   const now = Date.now();
   // GARDE-FOU EGRESS : en LECTURE, si le plafond glissant est dépassé, on renvoie « toutes bases muettes »
   // (code NODESDOWN, déjà géré partout) → les appelants basculent sur RAM/miroir/fichier. Écritures épargnées.
   if (kind !== 'write' && _egTripped()) return { data: null, error: { message: 'egress guard (anti-fuite) actif', code: 'NODESDOWN' } };
-  const healthy = _dbNodes.filter(n => n.downUntil <= now);
+  let healthy = _dbNodes.filter(n => n.downUntil <= now);
   if (!healthy.length) return { data: null, error: { message: 'all DB nodes down', code: 'NODESDOWN' } };
+  /* QUARANTAINE DE LECTURE (cf. _markDown) : sur les tables où une ligne périmée FAIT DU MAL, on
+     écarte les bases revenues tant que la convergence ne les a pas resynchronisées. Restreint à
+     `users` À DESSEIN — c'est là qu'une valeur de la semaine dernière refuse une connexion, rend un
+     ancien plan ou une échéance dépassée. Un `ai_cache` périmé se recalcule, un `weekly_reports`
+     ancien porte une semaine close, un `email_log` en retard fait au pire taire un envoi : aucune
+     de ces trois lectures ne mérite qu'on se prive d'une base. */
+  if (kind !== 'write' && _TABLES_SENSIBLES.has(table)) {
+    const frais = healthy.filter(n => !n.quarLect);
+    if (frais.length) healthy = frais;
+    else return { data: null, error: { message: 'toutes les bases sont en quarantaine de lecture (resynchronisation en cours)', code: 'NODESDOWN' } };
+  }
   if (!_MULTI_TABLES.has(table)) {
     // users / chat_messages : ids AUTO → pas de dual-write (ids divergents entre bases). On bascule sur le
     // PREMIER nœud SAIN (primary si dispo, sinon db2/db3/db4) : quand la primaire est bloquée (egress), les
@@ -237,6 +268,23 @@ try {
   const _arr = JSON.parse(fs.readFileSync(USERS_MIRROR_FILE, 'utf8'));
   if (Array.isArray(_arr)) { _arr.forEach(_mirrorIndex); console.log(`[Auth] miroir local : ${_arr.length} compte(s) chargé(s) (repli si Supabase bloqué)`); }
 } catch {}
+/* ⚠️ QUARANTAINE AU DÉMARRAGE — LE TROU QUE LA QUARANTAINE SEULE NE BOUCHAIT PAS (02/09).
+   `_markDown` ne peut quarantainer qu'un incident vu par CE processus. Or un déploiement redémarre
+   le conteneur : une base restée en retard pendant des semaines repart alors « saine », sans avoir
+   jamais été marquée muette ici — et elle est de nouveau la première interrogée. Le scénario n'a
+   rien de théorique, c'est EXACTEMENT celui du 02/09 : le projet principal a été sorti de pause à la
+   main, il répondait donc parfaitement, avec 29 comptes là où le desk en a 50.
+   Aucun processus qui vient de naître ne peut savoir ce qu'une base a manqué pendant qu'il n'existait
+   pas. On part donc du principe qu'elle a manqué quelque chose : toutes les bases démarrent
+   quarantainées, et la première convergence (boot + 30 s) les libère l'une après l'autre.
+   ⚠️ SAUF SI LE MIROIR EST VIDE, et cette exception n'est pas un détail : sur une installation
+   NEUVE il n'y a rien à propager, `_usersConverge` sort immédiatement, la quarantaine ne serait donc
+   jamais levée — et comme le repli est ce miroir vide, PLUS PERSONNE ne pourrait se connecter. Sans
+   miroir, la base est la seule source de vérité : la quarantaine n'a aucun sens et ne se pose pas. */
+if (_usersMirror.size) {
+  _dbNodes.forEach(n => { n.quarLect = true; });
+  console.log(`[Auth] démarrage : ${_dbNodes.length} base(s) en quarantaine de lecture jusqu'à la première convergence (le miroir, à jour, sert les comptes d'ici là)`);
+}
 
 // ─── Pierres tombales : ids de comptes SUPPRIMÉS. Garantit qu'un compte effacé ne RÉAPPARAÎT jamais (ni dans la
 //     liste, ni au login), même si la primaire — en blackout au moment du delete — le renvoie à son retour (le
@@ -333,7 +381,13 @@ setInterval(() => { _pendingFlush().catch(() => {}); }, 5 * 60 * 1000);   // re-
 // quelle base sert n'importe quel login) + primaire recomplétée dès son retour.
 let _convBusy = false, _convLast = 0, _convTimer = null;
 async function _usersConverge(reason = '') {
-  if (_convBusy || _dbNodes.length < 2 || !_usersMirror.size) return;
+  /* ⚠️ LE SEUIL « AU MOINS DEUX BASES » ÉTAIT JUSTE POUR SA RAISON D'ORIGINE, ET FAUX POUR CELLE-CI.
+     Il visait la DIVERGENCE entre nœuds (le failover écrit sur le premier sain, les autres l'ignorent) :
+     sans second nœud, rien à faire converger. Mais depuis la quarantaine de lecture, cette fonction a
+     un SECOND rôle — c'est elle qui resynchronise une base revenue en retard, et c'est elle seule qui
+     lève sa quarantaine. Avec une base unique, le seuil la laissait donc quarantainée POUR TOUJOURS :
+     toutes les lectures de `users` seraient tombées sur le miroir, définitivement. Une base suffit. */
+  if (_convBusy || !_dbNodes.length || !_usersMirror.size) return;
   const now = Date.now();
   const healthy = _dbNodes.filter(n => n.downUntil <= now);
   if (!healthy.length) return;
@@ -355,11 +409,22 @@ async function _usersConverge(reason = '') {
       if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); return false; }
       return true;
     };
-    let okNodes = 0;
+    let okNodes = 0, leves = 0;
     for (const node of healthy) {
-      try { const a = await _up(node, uuidRows, 'id'); const b = await _up(node, legacyRows, 'email'); if (a && b) okNodes++; }
+      try {
+        const a = await _up(node, uuidRows, 'id'); const b = await _up(node, legacyRows, 'email');
+        if (a && b) {
+          okNodes++;
+          /* C'EST ICI, ET NULLE PART AILLEURS, QUE LA QUARANTAINE SE LÈVE. Le nœud vient de recevoir
+             TOUS les comptes complets du miroir : sa table `users` n'est plus en retard, il peut
+             donc reprendre les lectures. Lever la quarantaine ailleurs — au retour du keep-alive,
+             par exemple — rouvrirait précisément la fenêtre que cette garde ferme. */
+          if (node.quarLect) { node.quarLect = false; leves++; console.log(`[Auth] ${node.name} resynchronisée (${all.length} compte(s)) → quarantaine de lecture LEVÉE`); }
+        }
+      }
       catch (e) { _markDown(node, e); }
     }
+    void leves;
     _convLast = now;
     if (okNodes) console.log(`[Auth] convergence users${reason ? ' (' + reason + ')' : ''} : ${all.length} compte(s) complet(s) → ${okNodes}/${healthy.length} base(s)`);
   } finally { _convBusy = false; }
@@ -1010,7 +1075,11 @@ async function _dbHealthProbe() {
       else if (status === 404 || status === 416) state = 'ok';     // projet vivant, table vide/absente
       else if (r.error) err = String(r.error.message || r.error).slice(0, 90);
     } catch (e) { err = (e && e.message ? e.message : String(e)).slice(0, 90); }
-    return { name: n.name, host, state, status, ms: Date.now() - t0, downUntil: n.downUntil > Date.now() ? n.downUntil : 0, err };
+    /* `quarLect` REMONTE JUSQU AU PANNEAU ADMIN (02/09). Une base peut repondre « ok » a cette sonde
+       tout en etant ecartee des lectures de `users` parce qu elle est en retard — c est meme l etat
+       normal des premieres minutes apres son retour. Sans ce champ, le panneau afficherait « OK » et
+       laisserait croire que tout est rentre dans l ordre alors que la resynchronisation court encore. */
+    return { name: n.name, host, state, status, ms: Date.now() - t0, downUntil: n.downUntil > Date.now() ? n.downUntil : 0, quarLect: !!n.quarLect, err };
   }));
   const data = { count: nodes.length, okCount: nodes.filter(n => n.state === 'ok').length, nodes, keepalive: { last: _kaLast, ok: _kaOk } };
   _dbHealthCache = { at: Date.now(), data };

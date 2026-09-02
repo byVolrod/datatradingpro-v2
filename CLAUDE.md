@@ -109,6 +109,42 @@ exécuté passe par `developer`, qui garde tous ses outils — il doit écrire E
 chiffre »). Un skill tiers contenant « 50 % » ferait rougir `npm run check` et **bloquerait un
 déploiement**. Les trois posés ont été vérifiés ; refaire ce contrôle avant d'en ajouter un.
 
+## Bases de données : quatre projets, une quarantaine, et deux minuteurs (02/09)
+
+Les comptes vivent sur **quatre projets Supabase** (`primary` + `db2/db3/db4`, `auth.js`), plus un
+**miroir local** (`data/app/users_mirror.json`, volume persistant) qui est le **superset à jour**.
+
+⚠️ **UNE BASE REVENUE NE SERT AUCUNE LECTURE DE `users` AVANT D'ÊTRE RESYNCHRONISÉE.** Mesuré :
+`primary` est resté en pause du 14/06 au 02/09 ; sa table portait **29 comptes** quand le desk en
+avait **50**, dont 21 à échéance dépassée dans l'instantané de juin. Or `_runMulti` lit le premier
+nœud au résultat NON VIDE, et `primary` est le premier de la liste : à son retour il aurait servi
+des mots de passe et des échéances de juin — et `verifyLogin` aurait **recopié** cette ligne périmée
+dans le miroir (`_mirrorPut`), détruisant la bonne. `_markDown` pose donc `node.quarLect` ; seule
+`_usersConverge` la lève, après propagation réussie. Les **écritures** ne sont pas quarantainées :
+c'est par elles que le rattrapage passe. Toutes en quarantaine → `NODESDOWN` → repli miroir, donc le
+pire cas est l'état le plus sûr. Banc : `scripts/bases-verif.js` (dans `npm run check`).
+Le panneau admin affiche « RESYNCHRO… » pendant ce temps, au lieu d'un « OK » trompeur.
+
+⚠️ **POURQUOI LA PAUSE EST ARRIVÉE, ET CE QUI L'EMPÊCHE DE REVENIR.** Le keep-alive vivait
+UNIQUEMENT dans GitHub Actions, avec des secrets **jamais posés**, et sa branche « aucun projet
+configuré » rendait **0**. Bilan : 142 passages verts, zéro ping, deux mois et demi de pause sous
+une coche verte quotidienne. Corrigé en trois points :
+1. le script **sort en erreur** quand il n'a rien à pinguer (`scripts/supabase-keepalive.js`) ;
+2. il tourne **depuis le VPS**, où les clés vivent déjà — plus de second endroit à tenir à jour ;
+3. il **relance** un projet en pause via l'API de gestion, mais **uniquement** sur un statut
+   `INACTIVE` (un ping raté peut venir du réseau, d'un 402 ou du DNS). Jeton `SUPABASE_ACCESS_TOKEN`,
+   par nœud au besoin (`_2/_3/_4` : un jeton n'a de droits que sur ses organisations).
+
+```bash
+cd /opt/datatradingpro && bash scripts/vps-resilience-installer.sh   # UNE fois, pose les 2 minuteurs
+```
+Sauvegarde **04h10**, archive **chiffrée**, **3 versions** (`DTP_BACKUP_GARDER` pour surcharger) ;
+keep-alive **toutes les 6 h**. Les deux en `Persistent=true` : un redémarrage ne fait pas sauter un
+passage. La sauvegarde embarque l'export de la base et **refuse une archive sans `dump/users.json`**.
+Banc : `scripts/resilience-verif.js` — il EXÉCUTE le keep-alive pour vérifier son code de sortie.
+⚠️ La phrase secrète des archives doit **aussi** vivre hors du serveur : archive et clé sur le même
+disque ne protègent de rien.
+
 ## Design : High-Density Fintech HUD
 - Fond sombre **`#0c0c0e`** / `#0a0a0c`, dense (cockpit / salle de marché), mais **habillage landing** : **accents or**, titres **Fraunces** (serif) / **Inter Tight**, cartes à **coins doux** (`--radius` = `6px`) + bordures fines + **hover doré** sur les cartes. Garder la **densité HUD** dans l'habillage or propre à DTP.
 - Lignes de séparation fines : `border-b` très sombre (≈ `neutral-900/60`, token `--hud-line`).

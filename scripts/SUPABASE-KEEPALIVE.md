@@ -4,6 +4,34 @@ Empêche la **mise en pause automatique** des projets Supabase **free-tier** (Su
 projet après ≈ **7 jours sans activité**). On envoie chaque jour une **requête légère** à *chaque*
 projet → l'inactivité ne dépasse jamais 1 jour.
 
+> ## ⚠️ CE QUI A ÉCHOUÉ, ET CE QUI L'A REMPLACÉ (02/09/2026)
+>
+> **Ce dispositif n'a jamais tourné.** Les secrets décrits plus bas n'ont pas été posés, et la
+> branche « aucun projet configuré » du script rendait **0** pour ne pas faire de bruit. Résultat
+> mesuré : **142 passages, tous verts**, tous affichant « 0 projet(s) Supabase détecté(s) » — que
+> personne n'a lu, puisqu'un job vert ne se lit pas. Le projet principal est resté **en pause du
+> 14 juin au 2 septembre**, soit deux mois et demi, avec une coche verte chaque jour.
+>
+> **Deux corrections.** (1) Le script **sort maintenant en erreur** quand il n'a rien à pinguer :
+> une tâche qui ne peut pas faire son travail le dit. (2) Le keep-alive tourne **d'abord depuis le
+> VPS**, où les quatre URL et les quatre clés vivent déjà dans le `.env` — rien à recopier, donc
+> rien qui puisse diverger. Une commande :
+>
+> ```
+> cd /opt/datatradingpro && bash scripts/vps-resilience-installer.sh
+> ```
+>
+> Le job GitHub Actions **reste en place** comme ceinture-bretelles (utile si le VPS est arrêté),
+> mais il ne peut plus être vert en ne faisant rien. Poser ses secrets reste donc utile ; tant
+> qu'ils manquent, il rougira — et c'est l'effet recherché.
+>
+> **En prime, la reprise automatique.** Un projet en pause refuse *toute* requête, keep-alive
+> compris : il ne peut pas se réveiller seul. Le script interroge désormais l'API de gestion
+> Supabase et, **uniquement si elle répond `INACTIVE`**, demande la restauration. Cela demande
+> `SUPABASE_ACCESS_TOKEN` (jeton personnel `sbp_…`), et au besoin `SUPABASE_ACCESS_TOKEN_2/_3/_4`
+> si les bases secondaires vivent sous d'autres comptes — un jeton n'a de droits que sur ses
+> propres organisations.
+
 ## Pourquoi GitHub Actions (et pas l'app)
 
 | Option | Verdict |

@@ -1,0 +1,28 @@
+# Sauvegarde quotidienne DTP : .env, nginx, crontab, états métier ET l'export de la base Supabase
+# (dtp-sauvegarde.sh appelle dtp-export-bdd.js, puis REFUSE de valider une archive qui ne contient
+# pas donnees/dump/users.json — une sauvegarde sans les comptes n'en est pas une).
+#
+# ExecStart pointe la COPIE DU DÉPÔT, comme le tireur d'auto-déploiement : le script se met donc à
+# jour tout seul à chaque déploiement, sans qu'on ait à recopier quoi que ce soit dans /usr/local/bin.
+#
+# ⚠️ LA PHRASE SECRÈTE VIENT DU .env, ET ELLE N'EST PAS LUE PAR systemd. Un EnvironmentFile pointé
+# sur notre .env serait un piège : systemd n'interprète NI les guillemets NI les échappements du
+# shell, et nos quatre-vingts clés en contiennent. Une seule valeur mal relue et le service part
+# avec une phrase tronquée — l'archive serait chiffrée avec une clé que personne ne connaît, et on
+# ne s'en apercevrait qu'au moment de la restaurer. On passe donc par bash, qui lit le .env avec
+# EXACTEMENT la même grammaire que le script de sauvegarde lui-même.
+[Unit]
+Description=DTP sauvegarde quotidienne (config, etats metier, export Supabase) — archive chiffree
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/datatradingpro
+# `set -a` exporte tout ce que le .env déclare ; `set +a` referme aussitôt.
+ExecStart=/usr/bin/bash -lc 'set -a; . /opt/datatradingpro/.env; set +a; exec /opt/datatradingpro/scripts/vps/dtp-sauvegarde.sh'
+# Une sauvegarde qui traîne est une sauvegarde qui a échoué : l'export pagine la base et le
+# chiffrement lit tout le dossier de données. Une heure est large ; au-delà, quelque chose est bloqué.
+TimeoutStartSec=3600
+Nice=10
+IOSchedulingClass=idle

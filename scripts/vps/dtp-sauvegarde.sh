@@ -44,7 +44,14 @@ DEST=/root/sauvegardes
 HORO=$(date +%Y%m%d-%H%M)
 NOM="dtp-$HORO"
 TMP=$(mktemp -d)
-GARDER=7          # nombre d'archives conservées sur la machine (le disque est étroit)
+# NOMBRE DE VERSIONS CONSERVÉES SUR LA MACHINE. Ramené de 7 à 3 (02/09, demande utilisateur :
+# « conservation de versionning jusqu'à 3 »). Le disque est étroit — il était déjà à 84 % — et
+# trois générations couvrent le cas qui compte : la sauvegarde d'hier, celle d'avant-hier au cas
+# où celle d'hier aurait capturé un état déjà abîmé, et une troisième de marge.
+# ⚠️ CONSÉQUENCE AU PREMIER PASSAGE : si la machine porte déjà sept archives, la rotation en
+# supprimera quatre. C'est le comportement demandé, pas un effet de bord — mais il est définitif.
+# Surchargeable sans toucher au script : DTP_BACKUP_GARDER=5 dtp-sauvegarde.sh
+GARDER="${DTP_BACKUP_GARDER:-3}"
 
 msg() { echo "$(date '+%F %T') $*"; }
 # ⚠️ Le nettoyage retire AUSSI l'archive en cours d'ecriture. Une interruption (Ctrl-C, session SSH

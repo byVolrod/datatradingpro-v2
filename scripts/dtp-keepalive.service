@@ -1,0 +1,28 @@
+# Keep-alive Supabase — DEPUIS LE VPS, pas depuis GitHub Actions.
+#
+# ⚠️ POURQUOI ON DÉPLACE CETTE TÂCHE (02/09/2026). Elle vivait UNIQUEMENT dans GitHub Actions, et
+# elle y dépendait de secrets qui n'ont JAMAIS été posés : 142 passages, tous verts, tous affichant
+# « 0 projet(s) Supabase détecté(s) ». Personne ne lit le journal d'un job vert. Pendant ce temps le
+# projet principal est resté sans activité, Supabase l'a mis en pause, et il y est resté du 14 juin
+# au 2 septembre. Le VPS, lui, porte DÉJÀ les quatre URL et les quatre clés dans son .env : il n'y a
+# rien à recopier, rien à tenir à jour dans un second endroit, et donc rien qui puisse diverger.
+# Le job CI reste en place comme ceinture-bretelles (utile si le VPS est arrêté) — mais il ROUGIT
+# désormais quand il n'a rien à pinguer, au lieu de rassurer.
+#
+# CE QUE FAIT LE SCRIPT, en plus du ping : si une base ne répond pas, il interroge l'API de gestion
+# Supabase et — SEULEMENT si elle répond textuellement INACTIVE — demande la restauration du projet.
+# Un projet en pause refuse toute requête, keep-alive compris : il ne peut pas se réveiller seul.
+# Cela demande SUPABASE_ACCESS_TOKEN dans le .env (jeton personnel sbp_…), et au besoin
+# SUPABASE_ACCESS_TOKEN_2/_3/_4 si les bases secondaires vivent sous d'autres comptes.
+[Unit]
+Description=DTP keep-alive Supabase (ecrit sur chaque base ; relance celles qui sont en pause)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/datatradingpro
+# bash lit le .env avec EXACTEMENT la grammaire du shell — systemd, lui, n'interprète ni les
+# guillemets ni les échappements, et nos quatre-vingts clés en contiennent.
+ExecStart=/usr/bin/bash -lc 'set -a; . /opt/datatradingpro/.env; set +a; exec /usr/bin/node /opt/datatradingpro/scripts/supabase-keepalive.js'
+TimeoutStartSec=300

@@ -1,0 +1,21 @@
+# Une fois par jour, à 04h10 (heure du serveur) : le desk est au calme, les récaps de la nuit sont
+# passés, et le déploiement du matin n'a pas encore lieu.
+#
+# ⚠️ Persistent=true N'EST PAS UN DÉTAIL. Sans lui, un serveur redémarré à 04h05 et revenu à 04h20
+# SAUTE la sauvegarde du jour, en silence — et c'est précisément le jour où l'on redémarre qu'on en
+# a le plus besoin. Avec, systemd rattrape le passage manqué au démarrage suivant.
+#
+# RandomizedDelaySec évite que la sauvegarde parte à la seconde où d'autres tâches se réveillent ;
+# AccuracySec desserre la contrainte pour ne pas réveiller la machine pour rien.
+[Unit]
+Description=DTP sauvegarde : un passage par jour, rattrape celui qu'un redemarrage aurait fait sauter
+
+[Timer]
+OnCalendar=*-*-* 04:10:00
+Persistent=true
+RandomizedDelaySec=600
+AccuracySec=1min
+Unit=dtp-sauvegarde.service
+
+[Install]
+WantedBy=timers.target
