@@ -168,8 +168,31 @@ function lum(css) {
           return { h: Math.round(e.getBoundingClientRect().height), bg: c.backgroundColor };
         };
         const cur = (sel) => { const e = document.querySelector(sel); return e ? getComputedStyle(e).cursor : null; };
+        /* UN TITRE QUI NE DÉPLIE RIEN : app.js ne pose `--clickable` que s'il y a un panneau. On en
+           fabrique un ici plutôt que d'espérer en trouver un dans le jeu d'essai — sinon le contrôle
+           passerait au vert faute de sujet, ce qui est pire que pas de contrôle du tout. */
+        let inerte = null;
+        const modele = document.querySelector('.news-headline');
+        if (modele) {
+          const faux = modele.cloneNode(true);
+          faux.classList.remove('news-headline--clickable');
+          modele.parentNode.appendChild(faux);
+          inerte = getComputedStyle(faux).cursor;
+          faux.remove();
+        }
+        /* LA MAIN SUIT-ELLE LE TEXTE ? On compare la largeur de la boîte à celle des lettres. */
+        let remplissage = null;
+        const t = document.querySelector('.news-headline--clickable');
+        if (t) {
+          const b = t.getBoundingClientRect(), rg = document.createRange();
+          rg.selectNodeContents(t);
+          const rs = [...rg.getClientRects()];
+          const large = rs.length ? Math.max(...rs.map(r => r.width)) : 0;
+          remplissage = b.width > 0 ? Math.round(large / b.width * 100) : 0;
+        }
         return { fil: un('.panel-header'), vue: un('.chart-header'),
-          curseurs: { ligne: cur('.news-item'), titre: cur('.news-headline--clickable'), etiquette: cur('.news-tags .tag') } };
+          curseurs: { ligne: cur('.news-item'), titre: cur('.news-headline--clickable'),
+                      etiquette: cur('.news-tags .tag'), inerte: inerte, remplissage: remplissage } };
       }).catch(() => null);
       await page.close();
       v('les deux familles de bandeaux sont mesurables', !!(b && b.fil && b.vue), JSON.stringify(b));
@@ -196,6 +219,22 @@ function lum(css) {
         v('… mais le TITRE, lui, garde la main : c\'est lui qui porte le clic',
           b.curseurs.titre === 'pointer', 'curseur = ' + b.curseurs.titre);
         v('… et les étiquettes aussi', b.curseurs.etiquette === 'pointer', 'curseur = ' + b.curseurs.etiquette);
+        /* ══ ET LES DEUX MOITIÉS OUBLIÉES (01/09, photo user : la main dans le vide) ══════════════
+           Le correctif du 02/09 n'avait fait que la moitié du chemin, et l'utilisateur a dû le
+           signaler une seconde fois. Ces deux contrôles disent pourquoi :
+             · `.news-headline` portait `cursor: pointer` SANS CONDITION, cent lignes plus haut que
+               la règle `--clickable` ajoutée ensuite. Un titre qui ne déplie rien gardait donc la
+               main. Le contrôle précédent ne pouvait pas le voir : il n'interroge que des titres
+               CLIQUABLES, qui doivent porter la main dans les deux cas.
+             · la main couvrait la LIGNE ENTIÈRE, pas le texte : boîte de 508 px pour 107 à 167 px de
+               lettres, soit près de trois quarts de surface vide. Cliquer y marchait — mais ce que
+               l'utilisateur VOIT, c'est une main au milieu de rien. */
+        v('un titre qui ne déplie rien rend le curseur classique',
+          b.curseurs.inerte === 'default', 'curseur = ' + b.curseurs.inerte
+            + ' (si « pointer » : la règle sans condition de .news-headline est revenue)');
+        v('la main couvre le TEXTE du titre, pas toute la largeur de la ligne',
+          b.curseurs.remplissage != null && b.curseurs.remplissage >= 90,
+          'les lettres n\'occupent que ' + b.curseurs.remplissage + ' % de la boîte qui affiche la main');
       }
     }
 

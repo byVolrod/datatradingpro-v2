@@ -5085,7 +5085,15 @@ async function _calValueBlockHtml(ev) {
     // à 0 % sont masquées (un « baisse 0 % » calculé laissait croire à une certitude de marché).
     const _pv = v => (v != null && Math.round(v) > 0) ? Math.round(v) : null;
     const _parts = [_pv(_sc.hold) ? `maintien ${_pv(_sc.hold)}%` : '', _pv(_sc.cut) ? `baisse ${_pv(_sc.cut)}%` : '', _pv(_sc.hike) ? `hausse ${_pv(_sc.hike)}%` : ''].filter(Boolean);
-    const _probs = _parts.length ? _parts.join(' · ') + (bank && bank.source === 'market' ? ' · pricing de marché' : ' · estimation DTP (pricing indisponible)') : '';
+    /* « (PRICING INDISPONIBLE) » RETIRÉ LE 01/09 (demande user, capture à l'appui). C'était du
+       diagnostic de fournisseur écrit sur la fiche d'un client : dire qu'une donnée qu'on n'affiche
+       pas est indisponible n'apprend rien à qui lit une probabilité. La MENTION DE SOURCE, elle,
+       RESTE — et ce n'est pas une demi-mesure : sans elle, « maintien 7% · hausse 93% » se lirait
+       comme un pricing de marché alors que c'est le modèle du desk, ce qui EST l'incident client du
+       29/08, signalé preuves en main. Le texte dit maintenant exactement la même chose que la ligne
+       jumelle du bloc « banque centrale » plus bas, qui portait déjà « · estimation DTP » tout court :
+       les deux surfaces cessent au passage de dire la même chose de deux façons. */
+    const _probs = _parts.length ? _parts.join(' · ') + (bank && bank.source === 'market' ? ' · pricing de marché' : ' · estimation DTP') : '';
 
     // AVANT la réunion : le ton et sa portée disent la même chose → UNE ligne. Le badge porte le
     // ton, la phrase ce qu'il implique, et le pricing n'est rappelé que s'il n'apparaît nulle part

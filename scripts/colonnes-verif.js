@@ -239,6 +239,80 @@ async function auNavigateur() {
   } finally { await nav.close(); srv.close(); }
 }
 
+/* ══ 9. L'ENGRENAGE EST-IL ATTEIGNABLE DANS UNE CARTE À ONGLETS ? ═══════════════════════════════
+   Dans « Mon Desk », l'en-tête d'une carte à onglets est un CALQUE posé par-dessus, et sa plaque de
+   commandes (↑↓ ? ×) flotte en haut à droite. L'engrenage posé aujourd'hui à droite du bandeau de
+   la Liste FX tombait PILE dessous : mesuré à x=816 dans une barre qui s'étend jusqu'à 843 — donc
+   parfaitement visible, pas coupé par le défilement — pendant que la plaque commence à 696.
+   `elementFromPoint` rendait une icône de la plaque : le réglage était INCLIQUABLE là où il venait
+   d'être ajouté, et rien à l'écran ne le disait.
+   ⚠️ CE CONTRÔLE A EU DEUX VERSIONS FAUSSES AVANT CELLE-CI, les deux VERTES à tort :
+     · comparer les rectangles ne prouve rien (un onglet sorti du champ « chevauche » la plaque tout
+       en étant clippé, donc absent, pas caché dessous) ;
+     · tester `plaque.contains(elementFromPoint(...))` ne trouvait jamais rien, parce que le clic
+       atterrit sur le calque d'en-tête, jamais sur la plaque elle-même.
+   La seule question qui vaut : à l'endroit de l'engrenage, EST-CE LUI qui répond au clic ? */
+async function auDeskAOnglets() {
+  let outils; try { outils = require('./mobile-apercu.js'); } catch { return null; }
+  const bin = outils.trouverNavigateur(); if (!bin) return null;
+  let pp; try { pp = require('puppeteer-core'); } catch { return null; }
+  const http = require('http');
+  const base = outils.serveur();
+  /* L'onglet « Mon Desk » n'est créé que pour un compte ADMIN : on dérive le bouchon commun plutôt
+     que d'en écrire un second qui divergerait. */
+  const srv = http.createServer((req, res) => {
+    const u = req.url.split('?')[0];
+    if (u === '/api/me' || u === '/api/auth/me' || u === '/api/session' || u === '/api/user') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: true, loggedIn: true, authenticated: true, role: 'admin',
+        user: { id: 'u1', email: 'banc@datatradingpro.com', name: 'Banc', role: 'admin', plan: 'professionnel', active: true } }));
+    }
+    base.emit('request', req, res);
+  });
+  await new Promise(r => srv.listen(4935, r));
+  const nav = await pp.launch({ executablePath: bin, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  try {
+    const page = await nav.newPage();
+    await page.setViewport({ width: 1700, height: 1000 });
+    await page.goto('http://localhost:4935/index.html', { waitUntil: 'networkidle0', timeout: 45000 });
+    await new Promise(r => setTimeout(r, 2400));
+    const ouvert = await page.evaluate(() => { const b = document.getElementById('widgets-btn'); if (!b) return false; b.click(); return true; });
+    if (!ouvert) return { absent: 'icone Mon Desk' };
+    await new Promise(r => setTimeout(r, 3000));
+    /* Le voile du gestionnaire recouvre TOUTE la page : sans le refermer, la mesure dirait « tout
+       est masqué » — par le voile, ce qui ne renseigne sur rien. */
+    await page.keyboard.press('Escape');
+    await new Promise(r => setTimeout(r, 600));
+    const carte = await page.evaluate(() => !!document.querySelector('.wdg-card--tabs'));
+    if (!carte) return { absent: 'carte a onglets' };
+    const alle = await page.evaluate(() => {
+      const c = document.querySelector('.wdg-card--tabs');
+      const ts = [...c.querySelectorAll('.wdgt-bar .wdgt-tab')];
+      const t = ts.find(x => /LISTE FX/i.test(x.textContent || ''));
+      if (!t) return false; t.click(); return true;
+    });
+    if (!alle) return { absent: 'onglet Liste FX' };
+    await new Promise(r => setTimeout(r, 1800));
+    return await page.evaluate(() => {
+      const c = document.querySelector('.wdg-card--tabs');
+      const plaque = c.querySelector(':scope > .wdg-head .wdg-actions');
+      const hote = c.querySelector('.wdgt-host, .wdg-vuehost') || c;
+      const g = hote.querySelector('.fxl-title-icons .cal-title-icon');
+      if (!plaque || !g) return { absent: !plaque ? 'plaque' : 'engrenage' };
+      const rg = g.getBoundingClientRect(), rp = plaque.getBoundingClientRect();
+      const barre = g.closest('.fxl-toolbar'), rb = barre ? barre.getBoundingClientRect() : null;
+      const dessus = document.elementFromPoint(rg.left + rg.width / 2, rg.top + rg.height / 2);
+      /* TÉMOIN : la plaque doit répondre chez elle. Sinon le test ne peut RIEN détecter, et son
+         « aucun problème » serait vide de sens — c'est exactement ce qui est arrivé deux fois. */
+      const auCentre = document.elementFromPoint(rp.left + rp.width / 2, rp.top + rp.height / 2);
+      return { visible: !!(rb && rg.right <= rb.right + 1 && rg.width > 2),
+               atteignable: !!(dessus && (dessus === g || g.contains(dessus))),
+               gearX: Math.round(rg.left), plaqueX: Math.round(rp.left),
+               temoinPlaqueRepond: !!(auCentre && plaque.contains(auCentre)) };
+    });
+  } finally { await nav.close(); srv.close(); }
+}
+
 (async () => {
   console.log('\n── Dans un vrai Chromium : on clique, et on compte ──');
   let R = null;
@@ -260,6 +334,22 @@ async function auNavigateur() {
     v('rallumer une colonne la fait revenir des deux côtés', R.rallume.th === 11 && R.rallume.td === 11,
       R.rallume.th + ' <th> / ' + R.rallume.td + ' <td>');
     v('aucune exception de page pendant toute la manipulation', R.errs.length === 0, R.errs.slice(0, 2).join(' | '));
+  }
+
+  console.log('\n── Dans une carte à onglets de Mon Desk : l\'engrenage répond-il au clic ? ──');
+  let D = null;
+  try { D = await auDeskAOnglets(); } catch (e) { console.log('  ⚠️ ' + String(e).slice(0, 120)); }
+  if (!D) console.log('  ~ aucun Chromium → section abstenue (ce n\'est pas un échec).');
+  else if (D.absent) console.log('  ~ ' + D.absent + ' introuvable dans ce jeu d\'essai → section abstenue.');
+  else {
+    v('[témoin] la plaque de commandes répond bien chez elle',
+      D.temoinPlaqueRepond === true,
+      'sans ça le contrôle suivant ne peut RIEN détecter et son vert ne vaut rien');
+    v('l\'engrenage est visible dans son bandeau (non coupé par le défilement)', D.visible === true);
+    v('l\'engrenage RÉPOND AU CLIC : il ne passe pas sous la plaque de commandes',
+      D.atteignable === true,
+      'engrenage à x=' + D.gearX + ', plaque à partir de x=' + D.plaqueX
+        + ' → la réserve --wdgt-cmd manque sur .fxl-toolbar');
   }
 
 /* ══ RÉSUMÉ ═══ (⚠️ TOUJOURS EN DERNIER : un process.exit placé plus haut rendrait muettes toutes

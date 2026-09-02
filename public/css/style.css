@@ -1602,11 +1602,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   word-break: break-word;
   margin-bottom: 5px;
   font-family: var(--font-ui);
-  cursor: pointer;
+  /* ⚠️ PAS DE `cursor: pointer` ICI (01/09). Il y était sans condition, donc AUSSI sur les titres
+     qui ne déplient rien : `--clickable` n'est posée que lorsqu'il y a un panneau à ouvrir
+     (app.js, `if (expandEl)`). Le correctif du 02/09 avait ajouté la main sur la classe
+     `--clickable`… sans retirer celle-ci, qui la donnait déjà à tout le monde : la moitié du
+     travail, et l'utilisateur a dû le signaler une seconde fois. */
   transition: color 0.15s ease-in-out;
 }
-/* Survol du titre → s'éclaircit légèrement (pas de soulignement) */
-.news-headline:hover {
+/* Survol du titre → s'éclaircit légèrement (pas de soulignement), UNIQUEMENT s'il répond au clic :
+   éclaircir un titre inerte est la même promesse fausse que la main. */
+.news-headline--clickable:hover {
   color: #ffffff;
 }
 /* ── Expand panel — clean bullet list, no tabs, no source header ── */
@@ -1669,7 +1674,20 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    droite, sans rien aligner. Les puces ayant été retirées le 14/08 (list-style: none), ce retrait ne
    servait plus à loger un marqueur : il ne produisait qu'un désalignement. */
 .news-description.visible .article-points { padding-left: 0; }
-.news-headline--clickable { cursor: pointer; }
+/* LA MAIN SUIT LE TEXTE, PAS LA LIGNE (01/09, photo user : le curseur main dans le vide).
+   Le titre est un bloc : sa boîte occupait les 508 px de la colonne alors que le texte n'en remplit
+   que 107 à 167 — MESURÉ dans un vrai navigateur, sur huit titres : 68 à 79 % de la surface qui
+   affichait la main ne portait AUCUNE lettre. Cliquer y fonctionne, certes, mais ce n'est pas ce
+   que l'utilisateur voit : il voit une main au milieu du vide, et sur une soixantaine de lignes ça
+   revient à l'afficher partout — la plainte exacte, formulée deux fois.
+   `width: fit-content` fait rétrécir la boîte sur ses propres lettres sans la sortir du flux (elle
+   reste un bloc, la description dépliée continue de se placer dessous). `max-width: 100%` garde le
+   retour à la ligne des titres longs. */
+.news-headline--clickable {
+  cursor: pointer;
+  width: fit-content;
+  max-width: 100%;
+}
 .news-headline--clickable:hover { text-decoration: none; }   /* pas de soulignement au survol */
 
 /* Bullet list inside expand panel */
@@ -4710,7 +4728,29 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 /* Logos banque sur fond TRANSPARENT (pas de plaque claire — demande user). */
 
 /* Reader */
-.br-rnav { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border2); flex-shrink: 0; background: var(--bg2); }
+/* ── LECTEUR DE RAPPORT, ONGLET INSTITUTIONS (01/09) ────────────────────────────────────────────
+   Le 02/09 j'ai réparé « la barre du lecteur » sur signalement de l'utilisateur… mais sur
+   `.arlib-rnav`, celle de l'onglet ANALYSTES. Le lecteur des INSTITUTIONS, celui de sa capture,
+   porte une AUTRE classe (`.br-rnav`) et n'a rien reçu : deux barres qui font exactement le même
+   travail, écrites deux fois, dont une seule corrigée — le défaut classique du copier-coller, et
+   la raison pour laquelle l'utilisateur a dû le signaler une seconde fois.
+   Les deux mêmes manques que sur l'autre barre, donc les deux mêmes réponses :
+     · le fond et le filet de TOUS les bandeaux du desk (`--head-bg` / `--border`), au lieu d'un
+       `--bg2` qui ne se distingue pas du contenu, et une hauteur alignée sur les 44 px communs ;
+     · la RÉSERVE des commandes flottantes quand la barre vit dans une carte à onglets : sans elle,
+       « Masquer les éclairages » et le badge passent SOUS la plaque ↑↓ ? × — la collision de la
+       capture. `--wdgt-cmd` est mesurée par widgets.js sur la plaque réelle. */
+.br-rnav { display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--head-bg); }
+.wdg-card--tabs .br-rnav { padding-right: calc(16px + var(--wdgt-cmd, 148px)); }
+/* MÊME RÉSERVE POUR LA BARRE DE LA LISTE FX (01/09). L'engrenage des colonnes, posé aujourd'hui à
+   droite de ce bandeau, tombait PILE sous la plaque de commandes dans une carte à onglets : mesuré
+   à x=816 dans une barre qui va jusqu'à 843 (donc bien visible, pas coupé par le défilement) alors
+   que la plaque commence à 696 — `elementFromPoint` rendait une icône de la plaque, pas
+   l'engrenage. Il était INCLIQUABLE là où il venait d'être ajouté.
+   La règle est la même que pour les deux barres de lecteur : la seule chose qui change d'une barre
+   à l'autre est son nom de classe, et c'est bien le problème — quatre classes pour un seul
+   comportement. Regroupées ici pour qu'on n'en oublie pas une cinquième. */
+.wdg-card--tabs .fxl-toolbar { padding-right: calc(16px + var(--wdgt-cmd, 148px)); }
 .br-back-btn { background: transparent; border: 1px solid var(--border2); border-radius: 4px; padding: 4px 10px; font-size: 11px; color: var(--text2); cursor: pointer; font-family: var(--font-ui); }
 .br-back-btn:hover { color: var(--text); border-color: var(--border3); }
 .br-rnav-title { flex: 1; font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

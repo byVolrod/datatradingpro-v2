@@ -197,9 +197,26 @@ function decouper(src, entete, fin) {
     const _bloc = (rx) => (rx.exec(HTML) || [''])[0];
     const mgr = _bloc(/<div class="wdg-lib" id="wdg-mgr">[\s\S]*?\n    <\/div>/);
     const lib = _bloc(/<div class="wdg-lib" id="wdg-lib">[\s\S]*?\n    <\/div>/);
-    v('le réglage d\'espacement est dans le gestionnaire de layouts', /id="wdg-density"/.test(mgr), mgr.slice(0, 120) || '(panneau introuvable)');
-    v('… et plus dans la bibliothèque de widgets', !/id="wdg-density"/.test(lib), (lib.match(/.{0,60}wdg-density.{0,20}/) || [''])[0]);
-    v('… il n\'existe qu\'à UN endroit (pas de copie oubliée)', (HTML.match(/id="wdg-density"/g) || []).length === 1);
+    /* ⚠️ LA RÈGLE A CHANGÉ LE 01/09, ET CES DEUX CONTRÔLES DISAIENT L'INVERSE. Ils exigeaient que
+       le réglage d'espacement SOIT dans le gestionnaire de layouts — l'emplacement demandé le
+       09/09. L'utilisateur l'a fait retirer (« enlève Espacés / Collés du layout, c'est pas à la
+       bonne place », puis « et Espacement du desk ») : les boutons ne sont plus nulle part, et
+       aucun troisième emplacement n'a été deviné.
+       Ce qu'on éprouve désormais, c'est CE QUI RESTE VRAI : les boutons ont disparu des DEUX
+       panneaux, et le moteur (réglage mémorisé, grille qui le suit) est intact — sinon la
+       disposition perdrait l'espacement déjà choisi par les utilisateurs, ce que personne n'a
+       demandé. Les contrôles de `_syncDensity` plus bas gardent tout leur sens : ils protègent le
+       jour où l'on reposera un bouton quelque part. */
+    v('les boutons d\'espacement ont quitté le gestionnaire de layouts', !/id="wdg-density"/.test(mgr), (mgr.match(/.{0,60}wdg-density.{0,20}/) || [''])[0]);
+    v('… et ne sont pas non plus revenus dans la bibliothèque de widgets', !/id="wdg-density"/.test(lib), (lib.match(/.{0,60}wdg-density.{0,20}/) || [''])[0]);
+    v('… ils n\'ont pas non plus été reposés ailleurs au hasard', (HTML.match(/id="wdg-density"/g) || []).length === 0,
+      (HTML.match(/id="wdg-density"/g) || []).length + ' occurrence(s)');
+    /* LA MOITIÉ QUI COMPTE : retirer des boutons ne doit pas emporter la fonction. */
+    v('le moteur d\'espacement est CONSERVÉ (la disposition garde le réglage choisi)',
+      /setGap: function/.test(WDG) && /_syncDensity/.test(WDG),
+      'sans lui, retirer deux boutons supprimerait silencieusement une fonction du desk');
+    v('… et _syncDensity tolère l\'absence des boutons (querySelectorAll vide, aucune exception)',
+      /querySelectorAll\('#wdg-density/.test(WDG));
     /* L'état actif doit suivre le panneau, sinon le réglage s'ouvre sans être allumé. */
     const openMgr = (/openManager: function \(\)[\s\S]{0,700}/.exec(WDG) || [''])[0];
     const openLib = (/openLib: function \(\)[\s\S]{0,500}/.exec(WDG) || [''])[0];
