@@ -528,10 +528,80 @@ function _rattacherPastilles() {
   v('… la largeur de la gouttière, elle, n\'a pas bougé', /_avecValeur \? \(_csEtroit \? 84 : 70\) : \(_csEtroit \? 56 : 50\)/.test(CH));
 }
 
+function _densiteEtIntegrite() {
+  /* ══ LA DENSITÉ DE TRACÉ, ET CE QU'ELLE COÛTE À LA LECTURE (02/09) ═══════════════════════════════
+     « Les courbes sont très irrégulières… sur PMT elles sont beaucoup plus fluides » — et, dans la
+     même demande, « ne cherche pas simplement à lisser artificiellement les données ».
+     « Fluide » se mesure. Sur une série tracée dans un cadre donné : la DENSITÉ (points par pixel de
+     largeur) et le nombre de CHANGEMENTS DE SENS pour 100 px. Au-delà d'un point par colonne de
+     pixels, chaque colonne reçoit deux valeurs : le trait ne dessine plus une courbe mais une bande
+     de bruit. La référence tient ~0,55 point par pixel ; notre TW montait à 1,6.
+     `_csLTTB` ramène la densité à celle de la référence en NE GARDANT QUE DES POINTS RÉELS. Ce banc
+     rejoue la VRAIE fonction de charts.js, et il vérifie les deux choses qui comptent : le rendu
+     est-il devenu lisible, ET la donnée est-elle restée intacte. Le second contrôle est le plus
+     important : c'est lui qui distingue ce qu'on fait d'un lissage. */
+  console.log('\n── La densité de tracé, et l\'intégrité de la donnée ──');
+  {
+    const src = fs.readFileSync(path.join(RACINE, 'public/js/charts.js'), 'utf8');
+    const d = src.indexOf('  function _csLTTB(pts, cible) {');
+    const f = src.indexOf('\n  }\n', d);
+    let LTTB = null;
+    try { if (d >= 0) LTTB = new Function(src.slice(d, f + 4) + '\nreturn _csLTTB;')(); } catch (e) { LTTB = null; }
+    v('`_csLTTB` est retrouvée dans charts.js et s\'évalue', typeof LTTB === 'function');
+    const cible = String(src.match(/CS_PT_PAR_PX\s*=\s*([0-9.]+)/) ? RegExp.$1 : '');
+    v('la densité visée est celle mesurée sur la référence (0,55 pt/px)', cible === '0.55', 'lu : ' + cible);
+    if (LTTB) {
+      // Série réaliste, graine fixe : un banc ne dépend pas du hasard.
+      let g = 7; const r = () => (g = (g * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+      const brut = []; let val = 0, vit = 0;
+      for (let i = 0; i < 1416; i++) { vit = vit * 0.92 + (r() - 0.5) * 0.9; val += vit + Math.sin(i / 240) * 0.35; brut.push({ t: i * 60000, v: val + (r() - 0.5) * 1.2 }); }
+      const W = 880, but = Math.max(60, Math.round(W * 0.55));
+      const red = LTTB(brut, but);
+      const dents = (pts) => {
+        const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+        let lo = Infinity, hi = -Infinity; pts.forEach(p => { if (p.v < lo) lo = p.v; if (p.v > hi) hi = p.v; });
+        const py = p => 300 - (p.v - lo) / (hi - lo) * 300;
+        let n = 0, sens = 0;
+        for (let i = 1; i < pts.length; i++) { const sn = Math.sign(py(pts[i]) - py(pts[i - 1])); if (sn && sens && sn !== sens) n++; if (sn) sens = sn; }
+        return +(n / W * 100).toFixed(1);
+      };
+      const dAvant = dents(brut), dApres = dents(red);
+      console.log('  · ' + brut.length + ' points sur ' + W + ' px (' + (brut.length / W).toFixed(2) + ' pt/px, '
+        + dAvant + ' changements de sens/100 px) → ' + red.length + ' points ('
+        + (red.length / W).toFixed(2) + ' pt/px, ' + dApres + ')');
+      v('la densité tracée descend à celle de la référence', Math.abs(red.length / W - 0.55) < 0.05,
+        (red.length / W).toFixed(2) + ' pt/px');
+      v('… et la courbe cesse d\'être une bande de bruit', dApres < dAvant * 0.6, dAvant + ' → ' + dApres + ' changements de sens/100 px');
+      /* ⚠️ LES TROIS CONTRÔLES QUI SUIVENT SONT LES PLUS IMPORTANTS DU LOT. Ils disent que ce n'est
+         PAS un lissage : aucun point calculé, les extrêmes tenus, et la dernière valeur — celle que
+         lit l'étiquette de droite et que le trader relève — rigoureusement identique. */
+      const cle = new Set(brut.map(p => p.t + '|' + p.v));
+      const inventes = red.filter(p => !cle.has(p.t + '|' + p.v)).length;
+      v('aucun point n\'est calculé, moyenné ni inventé', inventes === 0, inventes + ' point(s) absent(s) de la série servie');
+      const ex = (pts) => { let lo = Infinity, hi = -Infinity; pts.forEach(p => { if (p.v < lo) lo = p.v; if (p.v > hi) hi = p.v; }); return [lo, hi]; };
+      const a = ex(brut), b = ex(red), amp = a[1] - a[0];
+      v('les extrêmes de la courbe sont conservés', Math.abs(a[0] - b[0]) < amp * 0.01 && Math.abs(a[1] - b[1]) < amp * 0.01,
+        'avant [' + a[0].toFixed(1) + ' ; ' + a[1].toFixed(1) + '] · après [' + b[0].toFixed(1) + ' ; ' + b[1].toFixed(1) + ']');
+      v('la DERNIÈRE valeur est rigoureusement intacte',
+        red[red.length - 1].t === brut[brut.length - 1].t && red[red.length - 1].v === brut[brut.length - 1].v);
+      v('… et la première aussi', red[0].t === brut[0].t && red[0].v === brut[0].v);
+      /* Un cadre assez large n'a rien à réduire : on ne doit pas jeter de points quand la densité est
+         déjà bonne. C'est ce qui garantit qu'un graphique en plein écran montre TOUT. */
+      const large = LTTB(brut.slice(0, 400), Math.max(60, Math.round(1800 * 0.55)));
+      v('un cadre assez large garde TOUS les points', large.length === 400, large.length + '/400');
+    }
+  }
+}
+
 if (require.main === module) {
   (async () => {
     _rafraichissementSilencieux();
     _rattacherPastilles();
+    /* ⚠️ LA DENSITÉ SE CONTRÔLE SANS NAVIGATEUR, DONC AVANT LUI. Posé d'abord dans `controler()`,
+       ce lot ne tournait qu'avec amCharts joignable — c'est-à-dire jamais en développement, et
+       seulement à la livraison. Or il n'éprouve que de l'arithmétique sur une série : il n'a aucune
+       raison d'attendre un rendu, et toutes les raisons de rougir tôt. */
+    _densiteEtIntegrite();
     const bin = trouverNavigateur();
     if (!bin) {
       console.log('\n[Force] aucun Chromium trouvé → la partie VISUELLE s\'abstient (ce n\'est pas un échec).');
@@ -621,6 +691,7 @@ function controler(mesures) {
     v('… sans jamais descendre sous la moitié de présence',
       rg.echappee && rg.echappee.presenceMin >= 50, JSON.stringify(rg.echappee));
     v('« quatre décrochent » : la règle renonce', rg.ecrase && !rg.ecrase.compresse, JSON.stringify(rg.ecrase));
+
     /* L'INVARIANT, sur TOUS les régimes : quand le cadre se resserre, aucune devise ne peut y être
        présente moins de la moitié du temps. C'est la règle elle-même, éprouvée sur les quatre jeux
        plutôt que sur celui qui l'illustre — un seuil qui bouge dans charts.js le fera rougir ici. */

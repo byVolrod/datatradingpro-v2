@@ -1023,9 +1023,16 @@ function buildStrengthChart(containerId, data, opts = {}) {
   yAxisRenderer.grid.template.setAll(Object.assign({ visible: true }, _csGrille));   // MÊME style que la verticale : un quadrillage uniforme, pas deux demi-grilles
 
   const yAxis = chart.yAxes.push(
-    // extraMin/Max = marge HAUT/BAS (~7%) → la devise la plus forte/faible (ex. USD au sommet) et son
-    // étiquette ne sont JAMAIS coupées au bord du graphique. maxDeviation 0 = zoom Y rigide (drag net).
-    am5xy.ValueAxis.new(root, { renderer: yAxisRenderer, numberFormat: '#0.00', maxDeviation: 0, extraMin: 0.07, extraMax: 0.07 })
+    /* ⚠️ UNE SEULE MARGE, ET C'EST LA NÔTRE (02/09). `extraMin/Max` ajoutait 7 % en haut et en bas
+       — la même marge que `bornesPleines` et `bornesPaquet` calculent DÉJÀ dans les bornes qu'elles
+       posent juste après. Deux marges empilées, c'est jusqu'à un quart de la hauteur rendu à du
+       vide, et c'est de la hauteur prise aux courbes : elles se tassent, leurs fins se rapprochent,
+       et l'anti-collision doit alors écarter les huit pastilles à l'espacement minimal — d'où des
+       étiquettes régulièrement espacées qui ne pointent plus leur courbe (constat utilisateur :
+       « des labels à droite bien alignés avec chaque courbe »).
+       Les bornes viennent maintenant d'un seul endroit, celui qui les calcule. `maxDeviation: 0`
+       reste : zoom Y rigide, glisser net. */
+    am5xy.ValueAxis.new(root, { renderer: yAxisRenderer, numberFormat: '#0.00', maxDeviation: 0, extraMin: 0, extraMax: 0 })
   );
 
   // Zero reference line : gris clair UNI (c'est désormais la SEULE horizontale du graphique)
@@ -1064,7 +1071,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       .sort((a, b) => a - b);
     const ref    = abs.length > 10 ? abs[Math.floor(abs.length * 0.99)] : (abs[abs.length - 1] || 0.01);
     const refMax = ref * BASE;
-    const CAP    = 70;   // GBP atteint ~±48 → cap large : compression SEULEMENT sur extrêmes rares, amplitude réelle préservée (l'axe Y auto-scale + extraMin/Max 0.07 absorbent)
+    const CAP    = 70;   // GBP atteint ~±48 → cap large : compression SEULEMENT sur extrêmes rares, amplitude réelle préservée (le cadrage pose lui-même sa marge de 7 %, cf. `bornesPleines`)
     return refMax > CAP ? (BASE * CAP / refMax) : BASE;
   }
   /* ══ CADRAGE VERTICAL SUR LE PAQUET (06/08) ══════════════════════════════════════════════════════
@@ -1339,6 +1346,61 @@ function buildStrengthChart(containerId, data, opts = {}) {
   data = _couperQueueGelee(data);
   let scaleFactor = computeScale(data);
 
+  /* ══ DENSITÉ DE TRACÉ CALÉE SUR LA RÉFÉRENCE (02/09, demande utilisateur, capture PMT à l'appui) ══
+     « Les courbes sont très irrégulières, avec énormément de petites variations… sur PMT elles sont
+     beaucoup plus fluides, propres et lisibles, tout en conservant les mouvements du marché. » Et,
+     dans la même demande : « ne cherche pas simplement à lisser artificiellement les données ».
+     CE QUI SÉPARE VRAIMENT LES DEUX RENDUS, mesuré sur la capture de référence elle-même : ce n'est
+     pas le lissage, c'est la DENSITÉ AU PIXEL. La référence montre ~17 h de pas 1 min sur ~1 850 px
+     de tracé, soit **0,55 point par pixel**. Notre desk sert la même minute dans un widget de ~880 px
+     de tracé : 0,95 point par pixel en TD, et jusqu'à 1,7 en TW. À plus d'un point par colonne de
+     pixels, chaque colonne reçoit deux valeurs et le trait ne dessine plus une courbe mais une bande
+     de bruit. La même donnée, deux fois plus serrée, ne peut pas avoir l'air de la même courbe.
+     CE QU'ON FAIT : on ramène la densité de TRACÉ à celle de la référence, en NE GARDANT QUE DES
+     POINTS RÉELS. `_csLTTB` (Largest Triangle Three Buckets) choisit, dans chaque tranche, le point
+     qui porte le plus de forme — c'est l'algorithme standard de réduction pour l'affichage, utilisé
+     par les terminaux de marché. Aucune valeur n'est calculée, moyennée ni inventée : chaque point
+     tracé est un point servi par la source, aux mêmes date et valeur. Les extrêmes sont conservés
+     par construction (un sommet est toujours le point le plus « portant » de sa tranche), et le
+     premier comme le dernier point sont gardés tels quels — la fin de courbe, celle que lit
+     l'étiquette de droite, reste exacte à la valeur près.
+     CE QU'ON NE FAIT PAS, et c'est la consigne : aucune moyenne mobile, aucune spline, aucune
+     tension. Une moyenne mobile aurait rendu une courbe plus douce que le marché ; ici la courbe
+     reste EXACTEMENT celle du marché, simplement dessinée à une densité que l'œil peut lire.
+     ⚠️ CECI RENVERSE L'ARBITRAGE DU 21/08 (« le user trouve nos courbes trop lisses, on dessine donc
+     plus de points »), pris devant une autre référence, très nerveuse. L'utilisateur tranche
+     aujourd'hui dans l'autre sens, capture à l'appui. Les traces de l'ancienne règle sont réécrites
+     dans le même commit ; `minDistance` d'amCharts n'a plus de rôle (il sautait des points au hasard
+     du zoom, ce qui produisait le moiré qu'on cherchait à éviter) et repasse à 0 : on trace
+     désormais TOUS les points qu'on a choisi de garder. */
+  var CS_PT_PAR_PX = 0.55;                                   // densité mesurée sur la référence
+  function _csLTTB(pts, cible) {
+    var n = pts.length;
+    if (!(cible > 2) || n <= cible) return pts;
+    var out = [pts[0]];
+    var pas = (n - 2) / (cible - 2);
+    var aX = 0;                                              // indice du point déjà retenu
+    for (var i = 0; i < cible - 2; i++) {
+      // Barycentre de la tranche SUIVANTE : c'est lui qui donne au triangle son troisième sommet.
+      var d0 = Math.floor((i + 1) * pas) + 1, d1 = Math.min(Math.floor((i + 2) * pas) + 1, n);
+      var mx = 0, my = 0, mn = d1 - d0;
+      if (mn <= 0) { d1 = Math.min(d0 + 1, n); mn = d1 - d0; }
+      for (var j = d0; j < d1; j++) { mx += pts[j].t; my += pts[j].v; }
+      mx /= mn; my /= mn;
+      var r0 = Math.floor(i * pas) + 1, r1 = Math.floor((i + 1) * pas) + 1;
+      var aXv = pts[aX].t, aYv = pts[aX].v, meilleur = -1, iMeilleur = r0;
+      for (var k = r0; k < r1 && k < n; k++) {
+        // Deux fois l'aire du triangle (point retenu, candidat, barycentre suivant) : le candidat
+        // qui « porte » le plus de forme est celui qui s'écarte le plus de la corde.
+        var aire = Math.abs((aXv - mx) * (pts[k].v - aYv) - (aXv - pts[k].t) * (my - aYv));
+        if (aire > meilleur) { meilleur = aire; iMeilleur = k; }
+      }
+      out.push(pts[iMeilleur]); aX = iMeilleur;
+    }
+    out.push(pts[n - 1]);                                    // la DERNIÈRE valeur, jamais approchée
+    return out;
+  }
+
   // ÉPAISSEUR SELON LA DENSITÉ MESURÉE, jamais selon la période. 1,8 px pour un pas de 3 px (TD) est
   // juste ; le MÊME 1,8 px pour un pas de 0,65 px (TW) donne un trait trois fois plus large que le
   // pas — les segments se recouvrent et les huit courbes s'empâtent en une seule masse. On mesure le
@@ -1347,40 +1409,41 @@ function buildStrengthChart(containerId, data, opts = {}) {
   const _plotW = Math.max(200, ((container && container.clientWidth) || 900) - _gouttiere);
   const _nPts = Math.max.apply(null, (data.currencies || []).map(function (c) { return (data.series[c] || []).length; }).concat([0]));
   const _ptPx = _nPts / _plotW;
-  const _sw = _ptPx > 0.9 ? 1.3 : _ptPx > 0.5 ? 1.5 : 1.8;
+  /* La densité TRACÉE est désormais bornée à `CS_PT_PAR_PX` quelle que soit la période : l'ancien
+     escalier d'épaisseurs (1,3 / 1,5 / 1,8 px selon les points par pixel) n'a plus d'objet, il
+     compensait une densité qui variait du simple au triple. Un trait unique, FIN, comme sur la
+     référence : c'est lui qui donne la sensation de propreté, un trait large sur une courbe dense
+     empâtant les huit devises en une seule masse. 1,4 px sur un écran ordinaire ; 1,6 px sur
+     téléphone, où le trait doit rester visible à bout de bras. */
+  const _sw = _csEtroit ? 1.6 : 1.4;
+  const _cible = Math.max(60, Math.round(_plotW * CS_PT_PAR_PX));   // points à tracer, densité de la référence
 
   for (const ccy of data.currencies) {
     const dim      = _focus && ccy !== _focus;            // courbe à estomper (devise non sélectionnée)
     const hexColor = dim ? 0x5b6471 : _csCouleur(ccy);
     const hexStr   = '#' + hexColor.toString(16).padStart(6, '0');
     const color    = am5.color(hexColor);
-    const pts      = (data.series[ccy] || [])
+    const pts      = _csLTTB((data.series[ccy] || [])
       .filter(d => d.v != null && d.t != null)
-      .map(d => ({ ...d, v: d.v * scaleFactor }));
+      .map(d => ({ ...d, v: d.v * scaleFactor })), _cible);
 
     const series = chart.series.push(
       am5xy.LineSeries.new(root, {
         name: ccy, xAxis, yAxis,
         valueXField: 't', valueYField: 'v',
         stroke: color, connect: true,
-        // DECIMATION AU TRACE (06/08) — PAS dans la donnee. amCharts ignore les points distants de
-        // moins de 2 px au zoom courant. Mesure : TW = bins de 5 min sur jusqu a 118 h, soit 1416
-        // points pour ~848 px de trace = 1,5 point PAR PIXEL — chaque colonne de pixels en recevait
-        // une et demie, ce qui ne dessine plus une courbe mais du moire. C est la cause du « c est
-        // hache », pas la qualite de la donnee. Le defaut amCharts (0,5 px) etait inoperant a 0,65 px
-        // d espacement. La donnee reste ENTIERE : zoomer ou faire un panoramique la restitue toute.
-        // TD (0,2 a 0,35 pt/px) n est pas concerne : rien n y est saute.
-        // ⚠️ CONDITIONNELLE, et c est essentiel. En TD la densite est deja bonne (0,2 a 0,35 pt/px) :
-        // la decimation n y apportait rien et y creait un ARTEFACT — sur une fin de serie sans
-        // nouveaux points, sauter les intermediaires donne un long segment droit qui file jusqu au
-        // bord du graphe (constat user). On ne l applique donc QUE la ou le probleme existe : au-dela
-        // de 0,9 point par pixel, c est-a-dire le TW et lui seul aujourd hui.
-        /* ⚠️ DECIMATION REDUITE (21/08) : le user trouve nos courbes TROP LISSES compare a la
-           reference, qui est tres nerveuse. On dessine donc PLUS de points. 2 px -> 1 px sur les TF
-           denses (TW) : on garde le detail nerveux tout en evitant le moire pur du 0 px (constat
-           « c est hache » d avant). 0,5 -> 0 sur les TF peu denses (TD) : on trace TOUT, aucune
-           perte. La donnee etait deja entiere ; c est le RENDU qui montre desormais sa nervosite. */
-        minDistance: _ptPx > 0.9 ? 1 : 0,
+        /* ⚠️ LA DÉCIMATION D'amCHARTS EST RETIRÉE (02/09), ET VOICI CE QU'ELLE A APPRIS.
+           Elle a été posée le 06/08 contre le moiré du TW (1 416 points pour ~848 px de tracé,
+           1,7 point par pixel : chaque colonne en recevait deux, ce qui dessine une bande de bruit
+           et non une courbe), puis assouplie le 21/08 pour rendre les courbes plus nerveuses. Elle
+           n'a jamais bien marché, pour une raison de principe : `minDistance` saute les points trop
+           rapprochés AU ZOOM COURANT. Le choix dépend donc du cadrage et non de la forme de la
+           courbe, et rien n'empêche qu'un sommet tombe précisément dans ce qui est sauté. Elle
+           produisait ainsi le moiré qu'elle devait supprimer, et un artefact bien visible en TD :
+           sur une fin de série sans nouveaux points, un long segment droit filant jusqu'au bord.
+           La densité est désormais choisie EN AMONT et sur la FORME (cf. `_csLTTB`), donc ce
+           réglage repasse à 0 : on trace tous les points qu'on a retenus, et rien d'autre. */
+        minDistance: 0,                                   // on trace TOUS les points retenus (cf. `_csLTTB`)
         tooltip: am5.Tooltip.new(root, {
           labelText: `[bold ${hexStr}]${ccy}[/]: {valueY.formatNumber("+#.##;-#.##;0.00")}`,
           getFillFromSprite: false,
@@ -1390,10 +1453,12 @@ function buildStrengthChart(containerId, data, opts = {}) {
         }),
       })
     );
-    series.strokes.template.setAll({ strokeWidth: _sw, strokeOpacity: dim ? 0 : 1 });   // 1.8 px : un poil plus large pour ressortir, tout en gardant la haute fréquence/nervosité. (Le « mou » d'avant venait du lissage _smoothCS dans update(), pas de l'épaisseur : corrigé.)
-    // PAS de lissage : on trace les points BRUTS (moyenne mobile 3 pts retirée) + LineSeries amCharts = segments
-    // LINÉAIRES point-à-point (aucune tension/spline) → cassures et dents de scie visibles. La densité
-    // vient des bougies fines côté serveur (today=1 m, week=15 m, 1d=5 m dans CS_PERIOD_CFG / _computeStrengthFresh).
+    series.strokes.template.setAll({ strokeWidth: _sw, strokeOpacity: dim ? 0 : 1 });
+    /* TOUJOURS AUCUN LISSAGE, et c'est la consigne : aucune moyenne mobile, aucune spline, aucune
+       tension. `LineSeries` relie les points par des segments DROITS, et chaque point tracé est un
+       point servi par la source, à sa date et à sa valeur. Ce qui a changé le 02/09 n'est pas la
+       nature du tracé mais son NOMBRE DE POINTS PAR PIXEL, ramené à celui de la référence : la
+       courbe reste exactement celle du marché, dessinée à une densité que l'œil peut lire. */
     const cleanPts = pts;
     series.data.setAll(cleanPts);
 
@@ -1823,10 +1888,19 @@ function buildStrengthChart(containerId, data, opts = {}) {
     for (const ccy of newData.currencies) {
       const s = seriesMap[ccy];
       if (!s) continue;
-      const pts = (newData.series[ccy] || [])
+      /* ⚠️ LA MÊME DENSITÉ QU'À LA CONSTRUCTION, sans quoi la première actualisation ramènerait la
+         courbe à sa densité brute et le rendu changerait sous les yeux de l'utilisateur au bout de
+         trente secondes. La largeur du tracé est relue au moment du rafraîchissement : une carte
+         redimensionnée entre-temps reçoit le nombre de points qui lui revient. */
+      const _cibleMaj = Math.max(60, Math.round(
+        Math.max(200, ((container && container.clientWidth) || 900) - _gouttiere) * CS_PT_PAR_PX));
+      const pts = _csLTTB((newData.series[ccy] || [])
         .filter(d => d.v != null && d.t != null)
-        .map(d => ({ ...d, v: d.v * scaleFactor }));
-      const cleanPts = pts;   // ⚠️ PAS de _smoothCS : la mise à jour live RÉÉCRIVAIT les points avec une moyenne mobile 3 pts → la courbe brute (nerveuse) du 1er rendu devenait molle en quelques secondes. Points BRUTS = nervosité conservée.
+        .map(d => ({ ...d, v: d.v * scaleFactor })), _cibleMaj);
+      /* PAS de moyenne mobile ici non plus : la mise à jour live RÉÉCRIVAIT autrefois les points
+         avec une moyenne 3 points, et la courbe du premier rendu devenait molle en quelques
+         secondes. Ce qui est appliqué ci-dessus n'est pas un lissage mais un CHOIX de points réels. */
+      const cleanPts = pts;
       s.data.setAll(cleanPts);                      // animation fluide intégrée amCharts
       // Repositionner + retexter le badge flottant
       const lp = cleanPts[cleanPts.length - 1];
@@ -1904,11 +1978,20 @@ function buildStrengthChart(containerId, data, opts = {}) {
             _lastCalW = wNow;
             const dd = _dernieresDonnees || {};
             const nPts = Math.max.apply(null, ((dd.currencies) || []).map(function (c) { return ((dd.series || {})[c] || []).length; }).concat([0]));
-            const ptPx = nPts / wNow;
-            const sw = ptPx > 0.9 ? 1.3 : ptPx > 0.5 ? 1.5 : 1.8;
-            const md = ptPx > 0.9 ? 2 : 0.5;
+            /* ⚠️ ON RE-CHOISIT LES POINTS, ON NE RETOUCHE PLUS UN SEUIL DE DÉCIMATION. Élargir la
+               carte (splitter, plein écran) donne droit à plus de points, la rétrécir en demande
+               moins : c'est la même règle qu'à la construction, appliquée à la largeur du moment.
+               L'épaisseur, elle, ne dépend plus de la densité — celle-ci est constante par
+               construction — donc il n'y a plus rien à y recalculer. */
+            const cible = Math.max(60, Math.round(wNow * CS_PT_PAR_PX));
+            const fact = scaleFactor;
             chart.series.each(function (s) {
-              try { s.set('minDistance', md); s.strokes.template.set('strokeWidth', sw); } catch (e) {}
+              try {
+                var c = s.get('name');
+                var src = ((dd.series || {})[c] || []).filter(function (d2) { return d2.v != null && d2.t != null; })
+                  .map(function (d2) { return { t: d2.t, v: d2.v * fact }; });
+                if (src.length) s.data.setAll(_csLTTB(src, cible));
+              } catch (e) {}
             });
           }
         } catch (e) {}
