@@ -8204,7 +8204,30 @@ html[data-theme="light"] .cal-day-sep td {
 /* Deux pavés ACCOLÉS : code sur la couleur pleine, valeur sur la même teinte éclaircie. L'ombre est
    portée par `.cs-badge` en `drop-shadow` — elle épouse alors les pixels visibles et ignore le calage
    transparent, là où un `box-shadow` sur chaque pavé aurait dessiné une couture au milieu. */
-.cs-badge-ccy { color: var(--bg); padding: 3px 4px 3px 5px; letter-spacing: .02em; border-radius: 3px 0 0 3px; }
+/* ── TOUTES LES PASTILLES ONT LA MÊME LARGEUR (02/09, demande user : « un rendu propre, symétrique
+   et parfaitement homogène ») ────────────────────────────────────────────────────────────────────
+   MESURÉ EN LIVRAISON, pas supposé. Le contrôle d'alignement posé la veille a répondu à la question
+   que la lecture du code ne pouvait pas trancher : le bord GAUCHE est parfait (les huit pastilles
+   sont ancrées à l'axe, `centerX: 0`), mais les LARGEURS varient —
+   « USD=38 AUD=39 GBP=39 CAD=39 JPY=35 NZD=37 EUR=38 CHF=37 », soit 4 px d'écart. Les codes ISO
+   font tous trois lettres, mais la police est proportionnelle : un JPY est plus étroit qu'un GBP.
+   Les bords droits dessinaient donc un escalier, et c'est ce que l'œil lit comme « mal alignées ».
+   Une largeur PLANCHER en `em` (donc solidaire de la taille de police) plus un centrage : toutes
+   les pastilles atteignent le même plancher, les bords droits s'alignent, et aucune n'est tronquée
+   puisque c'est un minimum et non une largeur fixe. Le mode compact a sa propre valeur : sa police
+   et ses marges sont plus petites, un plancher unique l'épaissirait pour rien.
+   ⚠️ LA VALEUR NE S'INVENTE PAS — ET MON PREMIER CALCUL ÉTAIT FAUX. J'avais posé 3,3em en
+   raisonnant sur la largeur du TEXTE (28 px mesurés). Or la feuille déclare `box-sizing:
+   border-box` en tête de fichier : `min-width` englobe donc les marges intérieures. Il faut
+   comparer au plancher à la largeur de la BOÎTE, pas du texte.
+   Le calcul juste : la pastille la plus large mesure 39 px, dont 2 px de calage porté par le
+   parent → 37 px pour cette boîte. 4,4em à 9 px font 39,6 px : au-dessus, donc TOUTES atteignent le
+   plancher et s'égalisent. À 3,3em (29,7 px), les plus larges seraient restées à leurs 37 px
+   naturels et l'escalier serait revenu — sur les seules devises larges, c'est-à-dire à moitié
+   corrigé, ce qui est pire que pas corrigé du tout puisqu'on l'aurait cru réglé.
+   Même calcul en compact : boîte la plus large 24 px pour une police de 8 px → 3,3em (26,4 px). */
+.cs-badge-ccy { color: var(--bg); padding: 3px 4px 3px 5px; letter-spacing: .02em; border-radius: 3px 0 0 3px;
+  min-width: 4.4em; display: inline-flex; align-items: center; justify-content: center; }
 .cs-badge-val { color: var(--bg); padding: 3px 5px 3px 4px; font-variant-numeric: tabular-nums; border-radius: 0 3px 3px 0; }
 .cs-badge-ccy:last-child { border-radius: 3px; }   /* pas de valeur (mode isolé) → pastille seule */
 /* CHEVRON « AU-DELÀ DU CADRE » (29/08, demande user : « je ne vois pas à vu d'œil toutes les courbes
@@ -8219,6 +8242,7 @@ html[data-theme="light"] .cal-day-sep td {
    voit pas. Sur une carte de 150 px, le tracé fait 105 px et huit pastilles de 15 px espacées de 17
    en demandent 134 : aucun placement ne peut les y loger, il faut réduire l'objet. */
 .cs-dense .cs-badge-ccy, .cs-dense .cs-badge-val { font-size: 8px; padding: 1px 3px; }
+.cs-dense .cs-badge-ccy { min-width: 3.3em; }   /* cf. le bloc ci-dessus : plancher propre au mode compact */
 .cs-dense .cs-badge-hors { font-size: 6px; margin-right: 1px; }
 /* La mise en avant au survol (pastille visée franche, les sept autres estompées) est retirée le
    30/08 avec son pendant sur les courbes : dans ce panneau on compare les huit devises, le curseur

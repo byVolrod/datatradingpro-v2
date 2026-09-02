@@ -290,10 +290,20 @@ function phaseServiceWorker() {
                    classe de TOUTE zone à défilement stylé du desk — dont l'horloge mondiale. Le
                    contrôle négatif l'a montré : en remettant le plancher de l'horloge à 320 px,
                    ses quatorze pixels coupés revenaient et le banc restait VERT, parce qu'il
-                   s'était interdit de la regarder. On ne nomme donc plus qu'un seul élément : le
-                   fil. Une exclusion large est une aveuglement large. */
+                   s'était interdit de la regarder. On ne nomme donc que les éléments dont le
+                   débordement EST le comportement voulu. Une exclusion large est un aveuglement
+                   large.
+                   ⚠️ ET LA CARTE DU MONDE A DÛ REJOINDRE LA LISTE — au prix de TROIS déploiements
+                   bloqués (02/09). Une carte à tuiles glissante déborde son cadre PAR CONSTRUCTION :
+                   Leaflet peint autour de la zone visible pour qu'un glissement n'affiche jamais de
+                   vide. Le contrôle relevait donc « 34 px cachés » qui sont le fonctionnement normal
+                   du composant, pas une information perdue.
+                   ET CE DÉFAUT NE POUVAIT PAS SE VOIR EN BAC À SABLE : sans réseau, Leaflet ne
+                   charge pas ses tuiles et la carte reste plate. C'est la livraison, qui a le
+                   réseau, qui l'a révélé. Leçon retenue : un banc écrit sans réseau ne voit qu'une
+                   partie du produit, et ce qu'il ne voit pas peut bloquer la mise en ligne. */
                 const cls = String(e.className || '');
-                if (d > 8 && e.clientHeight > 40 && !/news-list/.test(cls)) {
+                if (d > 8 && e.clientHeight > 40 && !/news-list|leaflet-container|wdg-lfmap/.test(cls)) {
                   coupes.push({ cls: cls.trim().slice(0, 26), cache: d });
                 }
               });
