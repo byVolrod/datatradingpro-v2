@@ -2071,6 +2071,60 @@
     });
   }
 
+  /* ══ UN BLOC QUI NE PEINT RIEN NE DOIT PAS RESTER MUET (02/09) ═══════════════════════════════════
+     Capture utilisateur : le Compte à rebours, dans un onglet, sur téléphone, entièrement vide —
+     ni chiffre, ni intitulé, ni même le message de repli. Le squelette est pourtant posé au montage
+     (`batir()` s'exécute avant tout appel réseau), donc un blanc total veut dire que le contenu
+     existe et n'est pas peint.
+     ⚠️ CE N'EST PAS LA CORRECTION DE CE DÉFAUT-LÀ, ET IL NE FAUT PAS LE CROIRE. Je ne l'ai pas
+     reproduit : huit configurations éprouvées dans un vrai Chromium — onglet simple, onglet
+     composite à deux puis quatre cases, sept tailles de téléphone, carte à hauteur de contenu,
+     carte écrasée à 200 px, API vide, API en erreur, API qui ne répond jamais — et le widget
+     s'affiche dans toutes. La cause reste inconnue.
+     CE QUE ÇA FAIT : ça rend le symptôme VISIBLE. Un bloc qui n'a rien peint au bout de trois
+     secondes et demie affiche l'état de repli commun, avec son bouton « Réessayer ». L'utilisateur
+     récupère une action au lieu d'un rectangle noir, et le prochain signalement arrivera avec un
+     message plutôt qu'avec un vide — c'est-à-dire avec de quoi chercher.
+     TROIS GARDES, pour ne pas crier à tort :
+       · on ne regarde QUE si l'hôte a lui-même une boîte (un onglet inactif, une carte repliée ou
+         un panneau fermé ont des boîtes nulles : ce n'est pas le widget qui est en cause) ;
+       · on ne touche pas à un hôte qui affiche DÉJÀ un état (repli, vide, chargement) ;
+       · trois secondes et demie, parce que plusieurs widgets peuplent leur corps en asynchrone —
+         sonder juste après `mount()` les prendrait tous pour des blocs vides. */
+  function _veilleMontageVide(hote) {
+    if (!hote) return;
+    setTimeout(function () {
+      try {
+        if (!hote.isConnected) return;
+        var rh = hote.getBoundingClientRect();
+        if (rh.width < 4 || rh.height < 4) return;                 // l'hôte n'a pas de place : pas son procès
+        if (hote.querySelector('.wdg-state, .wdg-empty, .wdg-load')) return;
+        var enf = hote.querySelectorAll('*');
+        for (var i = 0; i < enf.length; i++) {
+          var r = enf[i].getBoundingClientRect();
+          if (r.width > 2 && r.height > 2) return;                 // quelque chose est peint : rien à dire
+        }
+        fallback(hote, 'Ce widget n\'a rien pu afficher.');
+        /* ⚠️ ET IL FAUT UNE ACTION, PAS SEULEMENT UN CONSTAT. `fallback` ne pose son bouton
+           « Réessayer » que s'il sait à quel emplacement de la grille il s'adresse — or l'hôte d'un
+           onglet est un `<div class="wdgt-mount">` SANS id, et `_hostIdx` rend donc null. Mesuré :
+           le message s'affichait, le bouton non. On reprend l'index sur la CARTE, qui le porte en
+           `data-idx`, et on relance la carte : un panneau à onglets se reconstruit avec son onglet
+           actif, ce qui est exactement le geste attendu ici. */
+        if (!hote.querySelector('.wdg-state-btn')) {
+          var carte = hote.closest ? hote.closest('.wdg-card') : null;
+          var idx = carte ? parseInt(carte.getAttribute('data-idx'), 10) : NaN;
+          var etat = hote.querySelector('.wdg-state');
+          if (etat && isFinite(idx)) {
+            var b = document.createElement('button');
+            b.className = 'wdg-state-btn'; b.textContent = 'Réessayer';
+            b.addEventListener('click', function () { try { API.refresh(idx); } catch (e) {} });
+            etat.appendChild(b);
+          }
+        }
+      } catch (e) {}
+    }, 3500);
+  }
   function fallback(host, msg) {
     if (!host) return;
     var i = _hostIdx(host);
@@ -7883,6 +7937,7 @@
           // exactement comme une carte, sans savoir qu'il vit dans un onglet ni dans une cellule.
           try { var un = w.mount(hote, _tabItem(it, j, c)); if (typeof un === 'function') subCleans.push(un); }
           catch (e) { fallback(hote, 'Widget indisponible.'); }
+          _veilleMontageVide(hote);
         }
         // ENGRENAGE ET CROIX PROPRES AU SOUS-WIDGET (04/08, demande user : « le réglage du widget doit
         // être À DROITE et non dans le widget qui contient les onglets ») : le panneau garde SES

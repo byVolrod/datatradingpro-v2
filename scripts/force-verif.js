@@ -273,6 +273,18 @@ const SONDE = () => {
   // Une pastille dont la courbe sort du cadre porte un chevron : sans lui, elle prétendrait que la
   // devise finit pile au bord.
   const chevrons = [...document.querySelectorAll('.cs-badge--hors')].map(e => (e.textContent || '').replace(/[^A-Z]/g, ''));
+  /* Quelles devises portent RÉELLEMENT une pastille ? On croise avec la légende, seule liste sûre
+     des devises affichées : compter les pastilles dit qu'il en manque une, les nommer dit laquelle. */
+  const pastillesManquantes = (() => {
+    try {
+      const leg = [...document.querySelectorAll('.cs-legend-item, .cs-leg-item, .am5-legend-label')]
+        .map(e => (e.textContent || '').trim().toUpperCase()).filter(t => /^[A-Z]{3}$/.test(t));
+      const vues = new Set([...document.querySelectorAll('.cs-badge')]
+        .map(e => (e.textContent || '').replace(/[^A-Z]/g, '')).filter(Boolean));
+      const src = leg.length ? leg : ['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CHF', 'CAD', 'NZD'];
+      return src.filter(c => !vues.has(c));
+    } catch (e) { return []; }
+  })();
 
   /* Une graduation TRANCHÉE par une pastille est le défaut visible de la capture : on compare la
      bande verticale de chaque graduation à celle de chaque pastille. Les graduations sont dessinées
@@ -317,7 +329,7 @@ const SONDE = () => {
   } catch (e) {}
 
   return { banc: { w: Math.round(banc.width), h: Math.round(banc.height) }, pastilles, nPastilles: pastilles.length,
-    heurtees: paires, debordent, chevrons, tranchees, modele: m, err: window.__err.slice(0, 4) };
+    heurtees: paires, debordent, chevrons, pastillesManquantes, tranchees, modele: m, err: window.__err.slice(0, 4) };
 };
 
 /* LE SURVOL MET UNE COURBE EN AVANT. On ne simule pas un vrai pointeur (headless, canvas) : on
@@ -397,15 +409,15 @@ const CAS = [
   { nom: 'fenêtre étroite, séance ordinaire',      w: 400,  h: 300, p: 'paquet' },
   { nom: 'fenêtre étroite, une devise décroche',   w: 400,  h: 300, p: 'fuyarde' },
   { nom: 'fenêtre étroite, quatre décrochent',     w: 400,  h: 300, p: 'ecrase' },
-  { nom: 'carte de tableau de bord',               w: 600,  h: 300, p: 'echappee', survol: true },
+  { nom: 'carte de tableau de bord',               w: 600,  h: 300, p: 'fuyarde', survol: true },
   { nom: 'carte courte',                           w: 600,  h: 150, p: 'fuyarde' },
   { nom: 'carte très courte, fenêtre étroite',     w: 360,  h: 150, p: 'paquet' },
   { nom: 'carte très courte, une décroche',        w: 360,  h: 150, p: 'fuyarde' },
   { nom: 'bandeau large et bas',                   w: 1400, h: 200, p: 'fuyarde' },
   { nom: 'bandeau large et bas, quatre décrochent', w: 1400, h: 200, p: 'ecrase' },
-  { nom: 'onglet du desk, pleine largeur',         w: 1150, h: 300, p: 'echappee' },
+  { nom: 'onglet du desk, pleine largeur',         w: 1150, h: 300, p: 'fuyarde' },
   { nom: 'onglet du desk, quatre décrochent',      w: 1150, h: 300, p: 'ecrase' },
-  { nom: 'avec la valeur dans la pastille',        w: 600,  h: 300, p: 'echappee', o: { avecValeur: true } },
+  { nom: 'avec la valeur dans la pastille',        w: 600,  h: 300, p: 'fuyarde', o: { avecValeur: true } },
   { nom: 'thème clair',                            w: 600,  h: 300, p: 'fuyarde', t: 'light' },
   { nom: 'mode paire (EUR + AUD)',                 w: 600,  h: 300, p: 'fuyarde', o: { onlyCurrencies: ['EUR', 'AUD'] } },
 ];
@@ -745,7 +757,12 @@ function controler(mesures) {
     /* INVARIANT 1 — AUCUNE DEVISE MUETTE. C'est la demande, mot pour mot : « je ne vois pas toutes
        les informations ». Une devise dont la courbe sort du cadre garde sa pastille : c'est elle qui
        porte le nom et la valeur, donc l'information. */
-    v('les huit devises ont leur pastille', r.nPastilles === attendu, r.nPastilles + '/' + attendu + ' — manque : ' + attendu);
+    /* ⚠️ LE MESSAGE NOMMAIT LE NOMBRE ATTENDU, PAS LA DEVISE MANQUANTE (corrigé le 02/09). « 7/8 —
+       manque : 8 » ne dit rien : il a fallu un aller-retour de livraison pour apprendre qu'il en
+       manquait une, et je n'ai toujours pas su LAQUELLE. Un banc qui échoue doit livrer le fait,
+       pas le rappel de son propre seuil. */
+    v('les huit devises ont leur pastille', r.nPastilles === attendu,
+      r.nPastilles + '/' + attendu + ' — absente(s) : ' + ((r.pastillesManquantes || []).join(', ') || '(non identifiée)'));
     v('aucune pastille n\'en recouvre une autre', (r.heurtees || []).length === 0, (r.heurtees || []).join(' · '));
     v('aucune pastille ne sort du cadre', (r.debordent || []).length === 0, (r.debordent || []).join(' · '));
     /* ══ INVARIANT 1 bis — LA COLONNE EST DROITE (02/09, demande utilisateur sur capture) ═════════
