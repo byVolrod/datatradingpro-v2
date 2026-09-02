@@ -19859,12 +19859,20 @@ html[data-theme="light"] .rxg-b--impact  { color: #00783d; }
    `.ana-detail` / `.ana-detail-t` l'ont été plus tôt dans la journée. Les données ne bougent pas :
    `item._evaSynth`, `item.analyse` et `item.description` sont toujours produites côté serveur,
    c'est le RENDU qui va à l'essentiel. */
-.ana-prose { font-size: 12.5px; line-height: 1.6; color: var(--text2, #b9bcc4); }
+/* ⚠️ LA PROSE DE L'ANALYSE S'ÉCRIT DANS LE TEXTE PRINCIPAL, PAS EN GRIS SECONDAIRE (02/09, demande
+   user : « couleur texte tag analyse, même que pour les autres tags, avec leur description en
+   blanc »). MESURÉ dans un vrai navigateur, une ligne portant les trois lectures : les panneaux
+   Info et Impact marché rendent leur texte en rgb(232,234,237) — le token `--text` —, alors que
+   cette prose sortait en `--text2`, un gris secondaire. Le même déplié changeait donc d'encre selon
+   l'onglet ouvert, et l'Analyse était la seule à paraître éteinte.
+   `--text` plutôt qu'une valeur en dur : le token suit déjà le thème clair, ce qui rend les deux
+   surcharges `[data-theme="light"]` inutiles — elles figeaient un gris qui ne suivait rien.
+   Le GRAS garde son rôle : il ne se distingue plus par la couleur (il l'a désormais en commun avec
+   le texte, comme dans les autres panneaux) mais par sa graisse, exactement comme `.market-update-body`. */
+.ana-prose { font-size: 12.5px; line-height: 1.6; color: var(--text, #e8eaed); }
 .ana-prose p { margin: 0 0 7px; }
 .ana-prose p:last-child { margin-bottom: 0; }
-.ana-prose strong { color: var(--text, #e8e9ed); font-weight: 600; }
-html[data-theme="light"] .ana-prose { color: #3f4149; }
-html[data-theme="light"] .ana-prose strong { color: #16171b; }
+.ana-prose strong { color: var(--text, #e8eaed); font-weight: 600; }
 
 .nrx-quand { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--text3, #6b7280); padding: 2px 0 6px; }

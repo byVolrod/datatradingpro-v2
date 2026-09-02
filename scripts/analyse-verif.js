@@ -140,10 +140,27 @@ if (mHas) {
 console.log('\n── 4. L\'habillage : il n\'y en a plus, et c\'est le sujet ──');
 /* Le texte garde sa métrique (taille, interligne, encre) ; tout ce qui l'entourait est parti. */
 v('la prose a sa règle', /\.ana-prose \{/.test(CSS));
-v('… avec sa métrique de lecture (taille, interligne, encre)',
-  /\.ana-prose \{[^}]*font-size: 12\.5px[^}]*line-height: 1\.6[^}]*color: var\(--text2/.test(CSS),
+v('… avec sa métrique de lecture (taille, interligne)',
+  /\.ana-prose \{[^}]*font-size: 12\.5px[^}]*line-height: 1\.6/.test(CSS),
   (CSS.match(/\.ana-prose \{[^}]*\}/) || [''])[0]);
-v('… et son gras plus clair que le corps', /\.ana-prose strong \{[^}]*color: var\(--text,/.test(CSS));
+/* ⚠️ LA RÈGLE A CHANGÉ LE 02/09, ET CE CONTRÔLE DISAIT L'INVERSE. Il exigeait `--text2`, l'encre
+   secondaire, parce que c'est ce que la prose portait à sa création. Demande utilisateur : « couleur
+   texte tag analyse, même que pour les autres tags, avec leur description en blanc ».
+   MESURÉ avant de trancher, dans un vrai navigateur, sur une ligne portant les trois lectures : les
+   panneaux Info et Impact marché rendent leur texte en rgb(232,234,237) tandis que cette prose
+   sortait en gris secondaire. Le même déplié changeait donc d'encre selon l'onglet ouvert, et
+   l'Analyse était la seule à paraître éteinte.
+   On exige désormais le TOKEN de texte principal, et pas une valeur en dur : `--text` suit le thème
+   clair tout seul, ce qui a permis de retirer les deux surcharges `[data-theme="light"]` — elles
+   figeaient un gris qui ne suivait rien. */
+v('… et son encre est celle du texte PRINCIPAL, comme les autres panneaux',
+  /\.ana-prose \{[^}]*color: var\(--text,/.test(CSS) && !/\.ana-prose \{[^}]*color: var\(--text2/.test(CSS),
+  (CSS.match(/\.ana-prose \{[^}]*\}/) || [''])[0]);
+v('… le gras se distingue par sa GRAISSE, plus par sa couleur (elle est commune, maintenant)',
+  /\.ana-prose strong \{[^}]*font-weight: 600/.test(CSS));
+v('… et plus aucune surcharge de thème clair ne fige un gris à part',
+  !/html\[data-theme="light"\] \.ana-prose/.test(CSS),
+  (CSS.match(/html\[data-theme="light"\] \.ana-prose[^}]*\}/) || [''])[0]);
 /* ⚠️ CE QUI DOIT AVOIR DISPARU DE LA FEUILLE, pas seulement du rendu : un style sans appelant
    ressuscite au premier copier-coller, et le prochain lecteur y chercherait un sens.
    On regarde les RÈGLES, pas le fichier entier : le commentaire qui explique le retrait cite
@@ -153,7 +170,18 @@ v('plus aucune règle de carte (fond gris, cadre)', !/\.ana-carte[\s,{]/.test(_R
   (_REGLES.match(/.{0,40}\.ana-carte.{0,40}/) || [''])[0]);
 v('… ni de pastille or en tête', !/\.ana-carte-t/.test(_REGLES));
 v('… ni du dossier retiré plus tôt dans la journée', !/\.ana-detail/.test(_REGLES));
-v('le thème clair suit la prose', /html\[data-theme="light"\] \.ana-prose \{/.test(CSS));
+/* ⚠️ MÊME RÈGLE CHANGÉE, DEUXIÈME TRACE (02/09). Ce contrôle exigeait une surcharge explicite pour
+   le thème clair. Elle n'a plus lieu d'être depuis que la prose emploie le TOKEN `--text`, qui
+   change de valeur avec le thème : la surcharge figeait un gris et empêchait justement la prose de
+   suivre. Ce qu'on vérifie maintenant, c'est le RÉSULTAT — que le thème clair soit servi — et non
+   le moyen par lequel il l'est.
+   Deux contrôles pour une même règle changée, à deux endroits du fichier : c'est exactement ce que
+   le projet redoute quand une décision évolue, d'où la consigne de corriger TOUTES ses traces dans
+   le même commit. */
+v('le thème clair est servi par le token, sans surcharge dédiée',
+  /\.ana-prose \{[^}]*color: var\(--text,/.test(CSS)
+  && /html\[data-theme="light"\][^{]*\{[^}]*--text:/.test(CSS.replace(/\s+/g, ' ')),
+  'la prose doit suivre `--text`, et ce token doit bien être redéfini en thème clair');
 
 console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
 process.exit(ko ? 1 : 0);
