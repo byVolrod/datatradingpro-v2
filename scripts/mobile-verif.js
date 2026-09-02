@@ -234,6 +234,89 @@ function phaseServiceWorker() {
       v('aucune erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
       await page.close();
     }
+    /* ══ LES WIDGETS DE MON DESK MONTRENT-ILS LEUR CONTENU ? (02/09, capture user) ═══════════════
+       « Sur mobile agrandis le bloc ou trouve une solution pour afficher bien le widget, car là on
+       ne voit pas toutes les informations. »
+       CE QUI SE PASSAIT, mesuré à 390x844 (le desk est à 90 % de zoom : 433x938 en pixels CSS) :
+       une carte à onglets porte deux barres EN FLUX avant tout contenu — la piste d'onglets (30 px
+       CSS) et l'en-tête de la vue adoptée (40 px). La plaque de commandes, elle, est un calque
+       `absolute` et ne coûte RIEN en hauteur, contrairement à ce que la capture laisse croire.
+       Restaient 542 px de contenu pour des vues qui en réclament 610 à 684 : Institutions perdait
+       81 px, Analystes 63, Semaine à venir 155.
+       ⚠️ ET LA MÉTRIQUE A DÛ ÊTRE REFAITE : mesurer « ce que le contenu demande » par le
+       `scrollHeight` d'un conteneur qui s'étire AVEC la carte est circulaire — la valeur suit la
+       carte et grandit avec elle. Mon premier relevé montrait ainsi 610 qui devenait 758 dès que
+       j'agrandissais la carte, ce qui ne prouvait rien. On mesure donc le DÉBORDEMENT réel
+       (`scrollHeight - clientHeight`) élément par élément, en les nommant : une liste de dépêches
+       qui déborde est NORMALE (elle défile par nature), un tableau ou un agenda coupés ne le sont
+       pas. C'est cette liste nommée qui est contrôlée ici. */
+    if (APPAREILS.length) {
+      /* L'onglet « Mon Desk » n'est créé que pour un compte ADMIN (widgets.js). Le bouchon commun
+         sert un compte client : on le DÉRIVE le temps de cette section plutôt que d'en écrire un
+         second, qui divergerait — et plutôt que de basculer le bouchon partagé en admin, ce qui
+         changerait le décor de tous les autres bancs. */
+      const srvAdmin = require('http').createServer((rq, rs) => {
+        const u = rq.url.split('?')[0];
+        if (u === '/api/me' || u === '/api/auth/me' || u === '/api/session' || u === '/api/user') {
+          rs.writeHead(200, { 'Content-Type': 'application/json' });
+          return rs.end(JSON.stringify({ ok: true, loggedIn: true, authenticated: true, role: 'admin',
+            user: { id: 'u1', email: 'banc@datatradingpro.com', name: 'Banc', role: 'admin', plan: 'professionnel', active: true } }));
+        }
+        srv.emit('request', rq, rs);
+      });
+      await new Promise(r => srvAdmin.listen(PORT + 1, r));
+      const page = await nav.newPage();
+      await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+      let R = null;
+      try {
+        await page.goto(`http://localhost:${PORT + 1}/index.html`, { waitUntil: 'networkidle0', timeout: 45000 });
+        await new Promise(r => setTimeout(r, 2400));
+        const ouvert = await page.evaluate(() => { const b = document.getElementById('widgets-btn'); if (!b) return false; b.click(); return true; });
+        if (ouvert) {
+          await new Promise(r => setTimeout(r, 2800));
+          await page.keyboard.press('Escape');          // le voile du gestionnaire recouvre la page
+          await new Promise(r => setTimeout(r, 1200));
+          R = await page.evaluate(() => {
+            const cartes = [...document.querySelectorAll('.wdg-card')];
+            if (!cartes.length) return null;
+            const coupes = [];
+            cartes.forEach(c => {
+              c.querySelectorAll('*').forEach(e => {
+                const d = e.scrollHeight - e.clientHeight;
+                /* Le fil d'actualité est EXCLU volontairement : c'est une liste de soixante
+                   dépêches, elle doit défiler. L'exclure n'affaiblit pas le contrôle — c'est le
+                   seul élément dont le débordement est le comportement voulu.
+                   ⚠️ L'EXCLUSION A DÛ ÊTRE RESSERRÉE : elle portait aussi sur `custom-scrollb`, la
+                   classe de TOUTE zone à défilement stylé du desk — dont l'horloge mondiale. Le
+                   contrôle négatif l'a montré : en remettant le plancher de l'horloge à 320 px,
+                   ses quatorze pixels coupés revenaient et le banc restait VERT, parce qu'il
+                   s'était interdit de la regarder. On ne nomme donc plus qu'un seul élément : le
+                   fil. Une exclusion large est une aveuglement large. */
+                const cls = String(e.className || '');
+                if (d > 8 && e.clientHeight > 40 && !/news-list/.test(cls)) {
+                  coupes.push({ cls: cls.trim().slice(0, 26), cache: d });
+                }
+              });
+            });
+            return { nCartes: cartes.length, coupes,
+                     hauteurs: cartes.map(c => Math.round(c.getBoundingClientRect().height)),
+                     minH: cartes.map(c => getComputedStyle(c).minHeight) };
+          });
+        }
+      } catch (e) { R = null; }
+      await page.close();
+      srvAdmin.close();
+      if (!R) console.log('\n  ~ Mon Desk indisponible dans ce jeu d\'essai → section abstenue.');
+      else {
+        console.log('\n  · Mon Desk sur téléphone : ' + R.nCartes + ' carte(s), hauteurs ' + R.hauteurs.join('/') + ' px écran');
+        v('les cartes à onglets ont la hauteur qu\'une vue du desk réclame',
+          R.minH.some(x => parseInt(x, 10) >= 700),
+          'planchers : ' + R.minH.join(' · ') + ' — une vue adoptée demande jusqu\'à 684 px CSS');
+        v('aucun contenu de widget n\'est coupé (hors fil d\'actualité, qui défile par nature)',
+          R.coupes.length === 0,
+          R.coupes.map(x => x.cls + ' : ' + x.cache + ' px cachés').join(' · '));
+      }
+    }
   } finally {
     if (nav) await nav.close();
     srv.close();

@@ -12006,7 +12006,11 @@ html[data-theme="light"] {
   /* :not(.wdg-card--tabs) (25/08, audit) : via :has() DESCENDANT, cette exception attrapait aussi
      le PANNEAU À ONGLETS dès que son onglet RISQUE était monté, et son 0,2,0 battait le plancher
      460px des cartes (spécificité 0,1,0) → la carte à onglets tombait à 320px sur téléphone. */
-  .wdg-card:not(.wdg-card--tabs):has(.wdg-clockwrap), .wdg-card:not(.wdg-card--tabs):has(.risk-gauge-stage) { min-height: 320px; }
+  /* 02/09 : 320 px ne suffisaient pas non plus. Mesuré à 390x844, l'horloge mondiale demandait
+     281 px CSS de contenu pour 267 disponibles — quatorze pixels coupés, donc une dernière place
+     tronquée en permanence. 380 px laissent la marge sans retomber dans la « mince bande vide »
+     que ce plancher évitait déjà. */
+  .wdg-card:not(.wdg-card--tabs):has(.wdg-clockwrap), .wdg-card:not(.wdg-card--tabs):has(.risk-gauge-stage) { min-height: 380px; }
 }
 /* Plein écran : la carte recouvre toute la zone de travail (overlay), les autres sont figées derrière. */
 .wdg-grid.wdg-fs-mode { overflow: hidden; }
@@ -16718,6 +16722,25 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
      (Les planchers de l'ACCUEIL ont quitté ce bloc : ils étaient posés sur `.home-zone-body`, qui
      n'est pas propriétaire de sa hauteur. Voir le bloc « ACCUEIL · LA RANGÉE SUIT SON CONTENU ».) */
   .wdg-card { min-height: 460px; }
+
+  /* ── 5 bis · LA HAUTEUR MESURÉE SUR CE QUE LES VUES DEMANDENT (02/09) ─────────────────────────
+     Capture user : « on ne voit pas toutes les informations ». Relevé dans un vrai Chromium à
+     390x844 (le desk est à 90 % de zoom, donc 433x938 en pixels CSS), carte à onglets, onglet par
+     onglet :
+       · deux barres EN FLUX avant tout contenu — la piste d'onglets (30 px CSS) et l'en-tête de la
+         vue adoptée (40 px CSS) ; la plaque de commandes, elle, est un CALQUE `absolute` et ne
+         coûte rien en hauteur, contrairement à ce que la capture laisse croire ;
+       · la vue adoptée réclame 610 px CSS (Calendrier, Liste FX, Biais, Taux, Banques) et jusqu'à
+         684 px (Semaine à venir) ;
+       · la carte n'en offrait que 612, dont 70 de barres : 542 pour le contenu. Il manquait donc
+         70 à 142 px, et c'est très exactement ce qu'on ne voyait pas.
+     Le plancher des cartes à onglets est porté à 760 px : 684 (le plus gourmand) + 70 de barres,
+     arrondi. Sur un téléphone en colonne unique une carte haute ne coûte rien — on fait défiler la
+     page de toute façon, et c'est le manque de hauteur qui coupait l'information.
+     ⚠️ CE PLANCHER NE VAUT QUE POUR LES CARTES À ONGLETS : elles portent une VUE COMPLÈTE du desk
+     (tableau, filtres, en-tête). Une carte ordinaire garde 460 px — lui imposer 760 étirerait une
+     jauge ou une horloge sur les trois quarts de l'écran pour du vide. */
+  .wdg-card--tabs { min-height: 760px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════
