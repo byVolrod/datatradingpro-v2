@@ -279,7 +279,12 @@ const SONDE = () => {
     try {
       const leg = [...document.querySelectorAll('.cs-legend-item, .cs-leg-item, .am5-legend-label')]
         .map(e => (e.textContent || '').trim().toUpperCase()).filter(t => /^[A-Z]{3}$/.test(t));
-      const vues = new Set([...document.querySelectorAll('.cs-badge')]
+      /* ⚠️ SEULEMENT LES PASTILLES VISIBLES, exactement comme `nPastilles`. Ma première version
+         comptait TOUTES celles du DOM : or le défaut consiste précisément à laisser une pastille
+         vivante dans le document avec son conteneur en `display: none`. La sonde ne trouvait donc
+         aucune absente et rendait « (non identifiée) », pendant que le contrôle, lui, en comptait
+         sept sur huit. Deux mesures du même objet qui se contredisent, c'est la sonde qui a tort. */
+      const vues = new Set([...document.querySelectorAll('.cs-badge')].filter(visible)
         .map(e => (e.textContent || '').replace(/[^A-Z]/g, '')).filter(Boolean));
       const src = leg.length ? leg : ['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CHF', 'CAD', 'NZD'];
       return src.filter(c => !vues.has(c));
@@ -409,15 +414,15 @@ const CAS = [
   { nom: 'fenêtre étroite, séance ordinaire',      w: 400,  h: 300, p: 'paquet' },
   { nom: 'fenêtre étroite, une devise décroche',   w: 400,  h: 300, p: 'fuyarde' },
   { nom: 'fenêtre étroite, quatre décrochent',     w: 400,  h: 300, p: 'ecrase' },
-  { nom: 'carte de tableau de bord',               w: 600,  h: 300, p: 'fuyarde', survol: true },
+  { nom: 'carte de tableau de bord',               w: 600,  h: 300, p: 'echappee', survol: true },
   { nom: 'carte courte',                           w: 600,  h: 150, p: 'fuyarde' },
   { nom: 'carte très courte, fenêtre étroite',     w: 360,  h: 150, p: 'paquet' },
   { nom: 'carte très courte, une décroche',        w: 360,  h: 150, p: 'fuyarde' },
   { nom: 'bandeau large et bas',                   w: 1400, h: 200, p: 'fuyarde' },
   { nom: 'bandeau large et bas, quatre décrochent', w: 1400, h: 200, p: 'ecrase' },
-  { nom: 'onglet du desk, pleine largeur',         w: 1150, h: 300, p: 'fuyarde' },
+  { nom: 'onglet du desk, pleine largeur',         w: 1150, h: 300, p: 'echappee' },
   { nom: 'onglet du desk, quatre décrochent',      w: 1150, h: 300, p: 'ecrase' },
-  { nom: 'avec la valeur dans la pastille',        w: 600,  h: 300, p: 'fuyarde', o: { avecValeur: true } },
+  { nom: 'avec la valeur dans la pastille',        w: 600,  h: 300, p: 'echappee', o: { avecValeur: true } },
   { nom: 'thème clair',                            w: 600,  h: 300, p: 'fuyarde', t: 'light' },
   { nom: 'mode paire (EUR + AUD)',                 w: 600,  h: 300, p: 'fuyarde', o: { onlyCurrencies: ['EUR', 'AUD'] } },
 ];

@@ -1357,7 +1357,25 @@ function buildStrengthChart(containerId, data, opts = {}) {
         if (!o || o.value == null) return;
         var a = o.value, hors = 0;
         if (min != null && max != null && max > min) {
-          var marge = (max - min) * 0.012;                            // un cheveu a l'interieur : au ras du bord, amCharts rogne
+          /* ⚠️ LA MARGE SE COMPTE EN PIXELS DE PASTILLE, PAS EN POURCENTAGE D'AXE (02/09).
+             Elle valait 1,2 % de l'amplitude — sur un tracé de 255 px, trois pixels. Une pastille
+             en fait quinze : ramenée à trois pixels du bord, elle en dépasse sept vers le haut, et
+             amCharts pose alors `display: none` sur le `<div>` qui la porte. Mesuré exactement
+             ainsi : la plage d'axe était juste (valeur bornée à 8,16 pour un cadre [-13,9 ; 8,42]),
+             son étiquette `visible: true`, son `forceHidden: false`, la pastille elle-même en
+             `inline-flex` et pleinement opaque — et son conteneur en `display: none`, boîte 0×0.
+             Sept pastilles sur huit à l'écran, la huitième vivante et invisible.
+             Ce défaut ne se voyait QUE sous compression, sur la devise ramenée au bord : c'est le
+             seul cas où une pastille est posée à un cheveu de la limite. Le régime « échappée
+             tardive », écrit ce matin, est ce qui l'a fait sortir.
+             On borne donc à une demi-pastille plus trois pixels de garde, convertis en unités
+             d'axe. Le pourcentage reste comme plancher quand la hauteur du tracé est inconnue. */
+          var marge = (max - min) * 0.012;                            // plancher : un cheveu a l'interieur
+          try {
+            var hPlot = chart.plotContainer.height();
+            var hbPast = (_hbPlein > 4 ? _hbPlein : 17);
+            if (hPlot > 40) marge = Math.max(marge, (max - min) * ((hbPast / 2 + 3) / hPlot));
+          } catch (e) {}
           if (o.value > max) { a = max - marge; hors = 1; }
           else if (o.value < min) { a = min + marge; hors = -1; }
         }
