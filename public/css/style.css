@@ -8237,7 +8237,7 @@ html[data-theme="light"] .cal-day-sep td {
    Même calcul en compact : boîte la plus large 24 px pour une police de 8 px → 3,3em (26,4 px). */
 .cs-badge-ccy { color: var(--bg); padding: 3px 4px 3px 5px; letter-spacing: .02em; border-radius: 3px 0 0 3px;
   min-width: 4.4em; display: inline-flex; align-items: center; justify-content: center; }
-.cs-badge-val { color: var(--bg); padding: 3px 5px 3px 4px; font-variant-numeric: tabular-nums; border-radius: 0 3px 3px 0; }
+.cs-badge-val { color: var(--bg); padding: 3px 5px 3px 4px; font-variant-numeric: tabular-nums; border-radius: 0 3px 3px 0; display: inline-flex; align-items: center; }
 .cs-badge-ccy:last-child { border-radius: 3px; }   /* pas de valeur (mode isolé) → pastille seule */
 /* CHEVRON « AU-DELÀ DU CADRE » (29/08, demande user : « je ne vois pas à vu d'œil toutes les courbes
    informations de force de devises »). Quand le cadre se resserre sur le paquet, la devise laissée
@@ -16953,10 +16953,25 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
    ══════════════════════════════════════════════════════════════════════════════════════════════ */
 .leaflet-container { zoom: calc(1 / var(--dtp-zoom, 1)); }
 
-/* Étiquette RÉDUITE À SA VALEUR (réglage « Code devise sur les étiquettes », décoché) : la valeur
-   porte la couleur pleine de la courbe et redevient une pastille entière — c'est elle seule qui
-   désigne la devise, la légende du haut servant de table de correspondance. */
-.cs-badge-val--seul { border-radius: 3px; }
+/* Étiquette RÉDUITE À SA VALEUR (réglage « Valeur sur les étiquettes », coché) : la valeur porte la
+   couleur pleine de la courbe et forme une pastille entière — c'est elle seule qui désigne la
+   devise, la légende du haut servant de table de correspondance.
+   ⚠️ LA CLASSE EXISTAIT ICI DEPUIS DES SEMAINES SANS QUE PERSONNE NE L'ÉMETTE (corrigé le 02/09) :
+   `_csBadgeHtml` rendait code + valeur, deux pavés, alors que ce commentaire et le libellé du
+   réglage décrivaient tous deux la valeur SEULE. Trois écrits d'accord, une implémentation qui
+   faisait autre chose ; c'est la capture de référence de l'utilisateur qui l'a mis au jour.
+   ⚠️ PLANCHER DE LARGEUR, comme sur la pastille de code, et pour la MÊME raison (demande du 02/09 :
+   « la taille des labels reste cohérente entre eux »). Un nombre n'a pas de largeur fixe : rendu et
+   mesuré, « 0,00 » fait 30 px et « -100,37 » 44,3 px — quatorze pixels d'écart, une colonne en
+   escalier.
+   ⚠️ LES VALEURS SONT RELEVÉES AU RENDU, PAS CALCULÉES EN EM. Le calcul « boîte la plus large en
+   em » donnait 4,93em ; posé tel quel, il laissait le mode compact en escalier. Les deux modes ne
+   rendent pas la même largeur pour un même em — je n'ai pas cherché plus loin que la mesure, mais
+   je la note pour qu'on ne « corrige » pas ces nombres par le calcul. Constaté : à 5em les huit
+   pastilles sortent toutes à 49,5 px, colonne droite ; en compact il a fallu 4,2em pour qu'elles
+   tombent toutes à 30,2 px. Ces deux nombres viennent d'un navigateur, pas d'une règle de trois. */
+.cs-badge-val--seul { border-radius: 3px; min-width: 5em; justify-content: center; }
+.cs-dense .cs-badge-val--seul { min-width: 4.2em; }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════
    WIDGET HORLOGE MONDIALE SUR TÉLÉPHONE : LA CARTE COMPLÈTE, PAS LA PASTILLE

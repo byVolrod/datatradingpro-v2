@@ -2380,10 +2380,15 @@
           choix: [['today', 'TD · séance'], ['week', 'TW · semaine'], ['8h', '8 heures'], ['1d', '1 jour'], ['7d', '7 jours'], ['1m', '1 mois']] },
         { k: 'focus', lbl: 'Devise', type: 'choix', def: '',
           choix: [['', 'Toutes'], ['USD', 'USD'], ['EUR', 'EUR'], ['GBP', 'GBP'], ['JPY', 'JPY'], ['CHF', 'CHF'], ['CAD', 'CAD'], ['AUD', 'AUD'], ['NZD', 'NZD']] },
-        // Étiquettes de bout de courbe : avec ou sans le code de la devise. Sans lui, la valeur
-        // reprend la couleur PLEINE de la courbe — c'est alors elle seule qui désigne la devise, la
-        // légende du haut restant la table de correspondance. La gouttière se resserre d'autant,
-        // ce qui rend de la largeur au tracé.
+        /* Étiquettes de bout de courbe. DÉCOCHÉ : la pastille porte le CODE de la devise. COCHÉ :
+           elle porte sa VALEUR, seule, dans la couleur pleine de la courbe — c'est alors la couleur
+           qui désigne la devise, la légende du haut restant la table de correspondance. La
+           gouttière se resserre d'autant (58 px au lieu de 70), ce qui rend de la largeur au tracé.
+           ⚠️ CE COMMENTAIRE DÉCRIVAIT DÉJÀ CE COMPORTEMENT AVANT QUE LE CODE NE LE FASSE. Coché, la
+           pastille rendait code PUIS valeur, deux pavés — pendant que ce texte, la classe CSS
+           `.cs-badge-val--seul` et le libellé du réglage annonçaient tous trois la valeur seule.
+           Réparé le 02/09 sur capture de référence de l'utilisateur ; un contrôle de force-verif
+           regarde désormais le HTML rendu dans les deux positions du réglage. */
         { k: 'valeurs', lbl: 'Valeur sur les étiquettes', type: 'bascule', def: false },
       ],
       mount: function (host, it) {

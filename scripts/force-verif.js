@@ -480,9 +480,14 @@ function _rattacherPastilles() {
   let f = null;
   try { f = new Function('_csTexteSur', 'return ' + src.replace(/^function /, 'function ') + ';')(() => '#000'); } catch (e) { v('… et elle s\'évalue', false, e.message); return; }
   v('… et elle s\'évalue', !!f);
-  const ecarte = f('USD', '#ffffff', '#dddddd', '', 34, 0);     // pastille poussée VERS LE BAS
-  const remonte = f('NZD', '#ff3d00', '#ff8a65', '', -21, 0);   // pastille remontée
-  const pile = f('EUR', '#e3b23a', '#f0d089', '', 0, 0);        // pastille pile sur sa courbe
+  /* ⚠️ CINQ ARGUMENTS, PLUS SIX (02/09). La teinte éclaircie a quitté la signature avec le second
+     pavé qu'elle servait. Ces trois appels passaient encore l'ancienne liste : la couleur claire
+     tombait alors dans `valStr`, le décalage dans `dy`, et le banc éprouvait une pastille qui
+     n'existe nulle part — en rougissant sur le filet, c'est-à-dire loin de la cause. Un banc qui
+     appelle le produit doit suivre le produit. */
+  const ecarte = f('USD', '#ffffff', '', 34, 0);     // pastille poussée VERS LE BAS
+  const remonte = f('NZD', '#ff3d00', '', -21, 0);   // pastille remontée
+  const pile = f('EUR', '#e3b23a', '', 0, 0);        // pastille pile sur sa courbe
   v('une pastille écartée porte son filet', /class="cs-link"/.test(ecarte) && /height:34px/.test(ecarte), ecarte);
   v('… et le filet porte un point d\'arrivée, dans la couleur de la devise',
     /<b style="background:#ffffff"><\/b>/.test(ecarte), ecarte);
@@ -525,7 +530,37 @@ function _rattacherPastilles() {
   /* Le minimum, lui, reste la hauteur réelle de la pastille + 2 px de garde : descendre en dessous
      autoriserait le recouvrement par construction, ce que le 29/08 avait déjà mesuré et corrigé. */
   v('… et ce minimum reste la hauteur mesurée de la pastille + 2 px', /const pasMin  = HB \+ 2;/.test(CH));
-  v('… la largeur de la gouttière, elle, n\'a pas bougé', /_avecValeur \? \(_csEtroit \? 84 : 70\) : \(_csEtroit \? 56 : 50\)/.test(CH));
+  /* ⚠️ CE CONTRÔLE CHANGE DE VALEUR LE 02/09, ET C'EST LE POINT DE LA DEMANDE. « Valeur sur les
+     étiquettes » doit rendre une pastille portant le SEUL nombre, dans la couleur pleine de la
+     courbe (capture de référence de l'utilisateur). Elle en portait deux, code puis valeur, d'où
+     une colonne de 70 px. Un pavé unique tient dans 51,5 px mesurés : la colonne descend à 58 et
+     rend douze pixels au tracé. */
+  v('la colonne « valeur » est dimensionnée pour UN pavé, pas deux',
+    /_avecValeur \? \(_csEtroit \? 70 : 58\) : \(_csEtroit \? 56 : 50\)/.test(CH),
+    (CH.match(/_avecValeur \? \([^\n]*/) || [''])[0]);
+
+  /* ══ « VALEUR SUR LES ÉTIQUETTES » : LA VALEUR REMPLACE LE CODE (02/09) ═════════════════════════
+     Le réglage, sa classe CSS et le commentaire du widget décrivaient tous les trois la valeur
+     SEULE ; `_csBadgeHtml` rendait code + valeur. Trois écrits d'accord entre eux, une
+     implémentation qui faisait autre chose — et personne pour s'en apercevoir, faute d'un contrôle
+     qui REGARDE le HTML rendu quand le réglage est coché. Le voici. */
+  const avecVal = f('NZD', '#ff4081', '49,39', 0, 0);
+  const sansVal = f('NZD', '#ff4081', '', 0, 0);
+  v('coché : la pastille porte la VALEUR, dans la couleur pleine de la courbe',
+    /cs-badge-val--seul/.test(avecVal) && /49,39/.test(avecVal) && /background:#ff4081/.test(avecVal), avecVal);
+  v('… et elle NE porte PLUS le code de la devise', !/cs-badge-ccy/.test(avecVal) && !/>NZD</.test(avecVal), avecVal);
+  v('décoché : on retrouve la pastille de code, inchangée',
+    /cs-badge-ccy/.test(sansVal) && />NZD</.test(sansVal) && !/cs-badge-val/.test(sansVal), sansVal);
+  /* Le chevron « au-delà du cadre » qualifie la pastille quelle que soit sa forme : le perdre sur la
+     pastille-valeur ferait croire qu'une devise finit pile au bord du cadre. */
+  v('le chevron « au-delà du cadre » survit à la pastille-valeur',
+    /cs-badge-hors/.test(f('NZD', '#ff4081', '49,39', 0, -1)));
+  /* Un nombre n'a pas de largeur fixe : sans plancher, la colonne part en escalier. Les valeurs sont
+     relevées au rendu (cf. la note de `.cs-badge-val--seul` dans la feuille), pas calculées. */
+  v('la pastille-valeur a un plancher de largeur, comme celle de code',
+    /\.cs-badge-val--seul \{[^}]*min-width: 5em/.test(CSS)
+    && /\.cs-dense \.cs-badge-val--seul \{[^}]*min-width: 4\.2em/.test(CSS),
+    (CSS.match(/\.cs-badge-val--seul \{[^}]*\}/) || [''])[0]);
 }
 
 function _densiteEtIntegrite() {

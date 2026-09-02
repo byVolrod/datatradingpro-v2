@@ -880,17 +880,38 @@ function _csTexteSur(hex) {
    aucune largeur de gouttière n'est touchée. On n'ajoute qu'une marque au bout d'un trait déjà
    tracé. Une pastille pile sur sa courbe (`d === 0`) n'a ni filet ni point : il n'y a rien à
    relier, et un point posé là ferait un artefact sur le tracé. */
-function _csBadgeHtml(ccy, fullHex, lightHex, valStr, dy, hors) {
+function _csBadgeHtml(ccy, fullHex, valStr, dy, hors) {
   const d = Math.round(dy || 0);
   const filet = d
     ? `<i class="cs-link${d > 0 ? '' : ' cs-link--bas'}" style="height:${Math.abs(d)}px;background:${fullHex}"><b style="background:${fullHex}"></b></i>`
     : '';
+  /* ⚠️ LA TEINTE ÉCLAIRCIE A DISPARU DE LA SIGNATURE (02/09), et ce n'est pas un nettoyage
+     cosmétique : elle ne servait qu'au second pavé, celui de la valeur posée À CÔTÉ du code. Ce
+     pavé n'existe plus. Garder le paramètre aurait laissé croire à un futur lecteur qu'une couleur
+     secondaire joue encore un rôle ici — c'est exactement le genre de trace périmée qui fait
+     prendre une mauvaise décision plus tard. */
   const _n = h => (typeof h === 'number') ? h : parseInt(String(h).replace('#', ''), 16);
-  const txtPlein = _csTexteSur(_n(fullHex)), txtClair = _csTexteSur(_n(lightHex));
-  const val = (valStr == null || valStr === '') ? '' :
-    `<span class="cs-badge-val" style="background:${lightHex};color:${txtClair}">${valStr}</span>`;
+  const txtPlein = _csTexteSur(_n(fullHex));
   const chev = hors ? `<i class="cs-badge-hors">${hors > 0 ? '\u25b2' : '\u25bc'}</i>` : '';
-  return `<div class="cs-badge${hors ? ' cs-badge--hors' : ''}">${filet}<span class="cs-badge-ccy" style="background:${fullHex};color:${txtPlein}">${chev}${ccy}</span>${val}</div>`;
+  /* ══ « VALEUR SUR LES ÉTIQUETTES » : LA VALEUR REMPLACE LE CODE, ELLE NE S'Y AJOUTE PAS ══════════
+     (02/09, demande utilisateur, capture de référence à l'appui : « dans le réglage afficher valeur
+     de l'étiquette, quand on coche, ça doit s'afficher comme ceci » — une pastille unique portant le
+     seul nombre, dans la couleur pleine de la courbe.)
+     ⚠️ C'EST CE QUE LE PRODUIT DISAIT DÉJÀ, ET QUE LE CODE NE FAISAIT PAS. Le réglage est décrit
+     dans widgets.js comme « avec ou sans le code de la devise », la feuille de style porte depuis
+     des semaines une classe `.cs-badge-val--seul` documentée « la valeur porte la couleur pleine de
+     la courbe et redevient une pastille entière » — et cette classe n'était émise NULLE PART. On
+     rendait code + valeur : deux pavés, une gouttière deux fois plus large, et de la largeur prise
+     au tracé. Trois écrits d'accord entre eux, une implémentation qui faisait autre chose.
+     CE QUI DÉSIGNE ALORS LA DEVISE : sa COULEUR, et la légende du haut qui en est la table de
+     correspondance — elle liste les huit devises avec leur teinte, en permanence, au-dessus du
+     tracé. L'identité n'est donc jamais portée par la couleur seule.
+     Le chevron « au-delà du cadre » reste : il qualifie la pastille quelle que soit sa forme. */
+  if (valStr != null && valStr !== '') {
+    return `<div class="cs-badge${hors ? ' cs-badge--hors' : ''}">${filet}`
+      + `<span class="cs-badge-val cs-badge-val--seul" style="background:${fullHex};color:${txtPlein}">${chev}${valStr}</span></div>`;
+  }
+  return `<div class="cs-badge${hors ? ' cs-badge--hors' : ''}">${filet}<span class="cs-badge-ccy" style="background:${fullHex};color:${txtPlein}">${chev}${ccy}</span></div>`;
 }
 function buildStrengthChart(containerId, data, opts = {}) {
   // Reglage « Valeur sur les etiquettes » : le badge porte TOUJOURS le code ; la valeur est en option.
@@ -995,11 +1016,17 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // graduation qui tombe à sa hauteur : à cet endroit précis, la devise est l'information utile.
   // (05/08 : j'avais d'abord retiré les graduations en lisant « enlève les chiffres » de travers —
   // c'était la VALEUR dans l'étiquette qui était visée. Les graduations sont rétablies.)
-  // Largeur : l'étiquette réduite au code (« NZD ») tient dans ~46 px, la graduation la plus longue
-  // (« -100,00 ») dans ~44 px ; avec la valeur affichée en option, il faut ~74 px.
+  /* Largeur : l'étiquette réduite au code (« NZD ») tient dans ~46 px, la graduation la plus longue
+     (« -100,00 ») dans ~44 px.
+     ⚠️ LA COLONNE « VALEUR » A RÉTRÉCI (02/09). Elle réservait 70 px (84 sur téléphone) parce que
+     la pastille portait DEUX pavés, le code puis la valeur. La valeur remplace désormais le code :
+     rendue et mesurée, la pastille fait 49,5 px, plus 2 px de calage — 51,5 px. On réserve 58 px,
+     ce qui laisse la marge nécessaire aux graduations qui partagent la colonne (30,4 px pour
+     « -110,00 ») et rend douze pixels au tracé. C'est ce que le libellé du réglage annonçait déjà :
+     « la gouttière se resserre d'autant, ce qui rend de la largeur au tracé ». */
   const _csEtroit = (typeof window !== 'undefined' && window.matchMedia)
     ? window.matchMedia('(max-width: 560px)').matches : false;
-  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: _avecValeur ? (_csEtroit ? 84 : 70) : (_csEtroit ? 56 : 50) });
+  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: _avecValeur ? (_csEtroit ? 70 : 58) : (_csEtroit ? 56 : 50) });
   yAxisRenderer.labels.template.setAll({
     visible: true,
     fill: am5.color(0x94a3b8), fontSize: _csEtroit ? 11 : 9,   // plancher de 11 px sur téléphone
@@ -1405,7 +1432,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // juste ; le MÊME 1,8 px pour un pas de 0,65 px (TW) donne un trait trois fois plus large que le
   // pas — les segments se recouvrent et les huit courbes s'empâtent en une seule masse. On mesure le
   // rapport points/pixel sur la largeur RÉELLE du conteneur, on ne déduit rien de l'onglet choisi.
-  const _gouttiere = _avecValeur ? (_csEtroit ? 84 : 70) : (_csEtroit ? 56 : 50);
+  const _gouttiere = _avecValeur ? (_csEtroit ? 70 : 58) : (_csEtroit ? 56 : 50);
   const _plotW = Math.max(200, ((container && container.clientWidth) || 900) - _gouttiere);
   const _nPts = Math.max.apply(null, (data.currencies || []).map(function (c) { return (data.series[c] || []).length; }).concat([0]));
   const _ptPx = _nPts / _plotW;
@@ -1469,7 +1496,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     const range     = yAxis.createAxisRange(rangeItem);
     const valStr    = lastV.toFixed(2).replace('.', ',');   // valeur SANS "+", décimale FR (façon DTP)
     range.get('label').setAll({
-      html: _csBadgeHtml(ccy, hexStr, _lighten(hexColor, 0.6), _avecValeur ? valStr : '', 0),
+      html: _csBadgeHtml(ccy, hexStr, _avecValeur ? valStr : '', 0),
       centerY: am5.percent(50),
       centerX: am5.percent(0),   // ancré à l'axe → colonne droite parfaitement alignée (aucun décalage horizontal)
       // ⚠️ PIÈGE MESURÉ : une étiquette de PLAGE est créée à partir du gabarit `renderer.labels.template`,
@@ -1811,7 +1838,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
             // la prochaine mise à jour des données, soit jusqu'à 20 s d'étiquettes muettes. Et c'est
             // la VRAIE valeur, jamais l'ancre : l'ancre sert a placer, pas a informer.
             const v = (x.o.value != null ? x.o.value : 0).toFixed(2).replace('.', ',');
-            lbl.set('html', _csBadgeHtml(x.ccy, x.o.hexStr, _lighten(x.o.hexColor, 0.6), _avecValeur ? v : '', d, x.o.hors));
+            lbl.set('html', _csBadgeHtml(x.ccy, x.o.hexStr, _avecValeur ? v : '', d, x.o.hors));
             refait = true;
           }
         } catch {}
@@ -1913,7 +1940,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
         // du cadre, le temps d'une trame — un clignotement a chaque rafraichissement.
         lbl.ancre = null;                                             // force `ancrerBadges` a reposer la plage
         // On repasse le dy courant : sans lui la mise a jour effacerait le filet de rappel jusqu au prochain declutter.
-        try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), _avecValeur ? lv.toFixed(2).replace('.', ',') : '', lbl.dy, lbl.hors)); } catch {}
+        try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _avecValeur ? lv.toFixed(2).replace('.', ',') : '', lbl.dy, lbl.hors)); } catch {}
         // le re-set du html ré-affichait le badge même masqué → on ré-applique l'état caché à chaque update,
         // d'après _hiddenCcy UNIQUEMENT (source de vérité des devises masquées via la légende). On n'utilise plus
         // s.isHidden()/get('visible') : transitoires (animation/course de layout) → ils force-cachaient à tort.
