@@ -3243,15 +3243,33 @@ function _verdictColore(s) {
   // 1) COMPARAISON CHIFFRÉE — le signal le plus sûr : on recalcule l'écart, on n'interprète rien.
   //    Deux tournures, une seule lecture : « 51,7 vs 51,5 attendu » et « 48,7 · attendu 49,0 ».
   //    L'ordre compte : la première pose explicitement sa comparaison, elle a donc la priorité.
-  var m = _VD_CMP.exec(out) || _VD_CMP2.exec(out);
-  if (m) {
-    var a = _vdNombre(m[1]), f = _vdNombre(m[2]);
-    if (a !== null && f !== null) {
-      var seuil = Math.max(Math.abs(f) * 0.005, 1e-9);
-      var d = a - f, inv = _VD_INVERSES.test(out);
+  /* ⚠️ TOUTES LES DONNÉES DE LA PUCE, PAS SEULEMENT LA PREMIÈRE (02/09). L'ancienne version faisait
+     UN `exec` et s'arrêtait là. Sur les puces du récap QUOTIDIEN — qui en portent régulièrement
+     deux ou trois d'affilée, capture user à l'appui : « Flash CPI y/y : +3,3% contre +3,3% attendu
+     et +2,9% précédent ; Core CPI Flash Estimate y/y à +3,3% contre +2,5% attendu » — cela donnait
+     une valeur colorée et la suivante en blanc DANS LA MÊME PHRASE, ce qui se lit comme un oubli
+     plutôt que comme une information. On balaie donc la puce.
+     On reprend après le RÉEL coloré (et non après toute la comparaison) : la référence reste
+     disponible pour la lecture suivante, et le garde-fou de douze tours interdit toute boucle. */
+  var _colorer = function (txt, rx) {
+    var r = new RegExp(rx.source, 'i'), res = '', reste = txt, n = 0, garde = 0, mm;
+    var inv = _VD_INVERSES.test(txt);
+    while ((mm = r.exec(reste)) && garde++ < 12) {
+      var a = _vdNombre(mm[1]), f = _vdNombre(mm[2]);
+      var fin = mm.index + mm[1].length;
+      if (a === null || f === null) { res += reste.slice(0, fin); reste = reste.slice(fin); continue; }
+      var seuil = Math.max(Math.abs(f) * 0.005, 1e-9), d = a - f;
       var k = Math.abs(d) <= seuil ? 'neu' : ((d > 0) !== inv ? 'pos' : 'neg');
-      out = out.slice(0, m.index) + '<strong class="' + _VD_CLS[k] + '">' + m[1] + '</strong>' + out.slice(m.index + m[1].length);
+      res += reste.slice(0, mm.index) + '<strong class="' + _VD_CLS[k] + '">' + mm[1] + '</strong>';
+      reste = reste.slice(fin);
+      n++;
     }
+    return { html: res + reste, n: n };
+  };
+  var _c = _colorer(out, _VD_CMP);
+  if (!_c.n) _c = _colorer(out, _VD_CMP2);
+  if (_c.n) {
+    out = _c.html;
   } else {
     // 2) VERDICT ÉNONCÉ : on colore le premier chiffre de la donnée (celui qui suit son intitulé).
     var k2 = _VD_POS.test(out) ? 'pos' : _VD_NEG.test(out) ? 'neg' : _VD_NEU.test(out) ? 'neu' : '';
@@ -11011,7 +11029,17 @@ function _renderFXDailyRecap(item) {
        au prompt. Le serveur continue de produire `w.autres` (les rapports déjà archivés le portent
        encore), seul l'affichage change — desk et mail. */
     body += _sec('Macro');
-    const _puces = l => { body += '<div class="fxdr-bullets">'; l.forEach(t => { body += `<div class="wr-bullet">${_wrInline(t)}</div>`; }); body += '</div>'; };
+    /* ── LES DONNÉES PUBLIÉES SE COLORENT, COMME DANS LE RÉCAP HEBDO (02/09, demande user) ───────
+       Le hebdo fait passer ses puces par `_emphasize`, donc par `_verdictColore` : le chiffre
+       publié y prend le vert, le rouge ou l'ambre de la charte selon son écart au consensus. Le
+       QUOTIDIEN, lui, s'arrêtait à `_wrInline` — échappement, codes devises, gras des `**` — et
+       rendait tout en blanc. Deux récaps du même desk, deux lectures du même chiffre.
+       ⚠️ ON COLORE APRÈS `_wrInline`, PAS À LA PLACE. `_emphasize` n'échappe PAS le HTML ; le
+       remplacer ici ferait passer du texte de modèle sans échappement. On garde donc
+       l'échappement, et la couleur s'ajoute par-dessus — c'est d'ailleurs l'ordre du hebdo, où
+       `_verdictColore` travaille lui aussi sur du texte déjà balisé en `<strong>`. */
+    const _puceData = t => _verdictColore(_wrInline(t));
+    const _puces = l => { body += '<div class="fxdr-bullets">'; l.forEach(t => { body += `<div class="wr-bullet">${_puceData(t)}</div>`; }); body += '</div>'; };
     _ORDRE_MACRO.forEach(fam => {
       const l = _macroFam.get(fam);
       if (l && l.length) { body += `<div class="fxdr-grp-title">${_wrEsc(fam)}</div>`; _puces(l); }

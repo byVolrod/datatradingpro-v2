@@ -714,6 +714,49 @@ if (_SRC_EMP) {
   const CSS = fs2.readFileSync(pa2.join(__dirname, '..', 'public/css/style.css'), 'utf8');
   v('elles portent les couleurs de la charte', /\.dtp-val-pos \{ color: #00e676; \}/.test(CSS) && /\.dtp-val-neg \{ color: #ff3d00; \}/.test(CSS) && /\.dtp-val-neu \{ color: #ffb300; \}/.test(CSS));
   v('et une déclinaison lisible en mode clair', /html\[data-theme="light"\] \.dtp-val-pos/.test(CSS));
+
+  /* ══ LE RÉCAP QUOTIDIEN COLORE SES DONNÉES, COMME L'HEBDO (02/09, capture user) ════════════════
+     « Mets les datas sorties en couleurs comme dans le récap hebdo pour le récap quotidien. »
+     Le hebdo faisait passer ses puces par `_emphasize`, donc par `_verdictColore` ; le QUOTIDIEN
+     s'arrêtait à `_wrInline` (échappement, codes devises, gras des `**`) et rendait tout en blanc.
+     Deux récaps du même desk, deux lectures du même chiffre.
+     ⚠️ ET UNE PUCE DU QUOTIDIEN PORTE PLUSIEURS DONNÉES. `_verdictColore` n'en traitait qu'UNE
+     (un seul `exec`) : sur la puce de la capture, le Flash CPI serait sorti coloré et le Core CPI
+     de la même phrase en blanc — ce qui se lit comme un oubli, pas comme une information. La
+     lecture balaie désormais toute la puce. Les cas ci-dessous sont les phrases EXACTES de la
+     capture, pas des exemples reconstruits. */
+  {
+    const P = [
+      ['Inflation Eurozone (Flash CPI y/y) : +3,3% contre +3,3% attendu et +2,9% précédent ; Core CPI Flash Estimate y/y à +3,3% contre +2,5% attendu et +2,5% précédent → EUR se renforce.',
+        ['neu', 'pos'], 'conforme au consensus, puis au-dessus'],
+      ['Ventes au détail Eurozone (MoM) : -3,4% contre +0,4% attendu et 0% précédent ; (YoY) : -2,5% contre +0,6% précédent → EUR sous pression.',
+        ['neg', 'neg'], 'deux chiffres sous leur référence'],
+      ['JOLTs Job Openings US : 7,271M contre 7,3M attendu et 7,182M précédent → USD stable.',
+        ['neu'], 'écart sous le seuil : conforme, comme le dit le texte'],
+      ["Demandes d'allocation chômage US : 245K contre 230K attendu → USD sous pression.",
+        ['neg'], 'indicateur INVERSÉ : plus de demandes = mauvais'],
+    ];
+    P.forEach(([txt, attendu, pourquoi]) => {
+      const h = emp2(txt);
+      const vus = (h.match(/dtp-val-(pos|neg|neu)/g) || []).map(x => x.replace('dtp-val-', ''));
+      v('quotidien : « ' + txt.slice(0, 42) + '… » → ' + attendu.join(', ') + ' (' + pourquoi + ')',
+        vus.length === attendu.length && vus.every((x, i) => x === attendu[i]),
+        'obtenu : ' + (vus.join(', ') || 'aucune couleur'));
+    });
+    /* LA MOITIÉ QUI COMPTE : pas de couleur inventée là où rien n'est comparable. */
+    v('quotidien : aucune couleur quand la puce ne compare rien',
+      !/dtp-val/.test(emp2('La BCE se réunit jeudi ; le marché attend des précisions sur le rythme.')),
+      emp2('La BCE se réunit jeudi ; le marché attend des précisions sur le rythme.'));
+    /* ET LE CÂBLAGE : les puces Macro du quotidien passent bien par la coloration. */
+    const APP2 = fs2.readFileSync(pa2.join(__dirname, '..', 'public/js/app.js'), 'utf8');
+    v('les puces Macro du récap quotidien sont colorées à l\'affichage',
+      /const _puceData = t => _verdictColore\(_wrInline\(t\)\);/.test(APP2)
+      && /body \+= `<div class="wr-bullet">\$\{_puceData\(t\)\}<\/div>`/.test(APP2),
+      'sans ce câblage, la fonction existe mais le quotidien reste blanc');
+    v('… en GARDANT l\'échappement (`_wrInline` avant, jamais `_emphasize` à la place)',
+      !/_puceData = t => _emphasize\(/.test(APP2),
+      '`_emphasize` n\'échappe pas le HTML : le texte du modèle passerait brut');
+  }
 }
 /* LA LISTE DES INDICATEURS INVERSÉS EST LA MÊME DES DEUX CÔTÉS. Le serveur l'utilise pour écrire le
    verdict, le navigateur pour le colorer : si elles divergent, un chiffre est annoncé « surprise
