@@ -262,7 +262,22 @@ const SONDE = () => {
       const partPaquet = (isFinite(bLo) && isFinite(bHi) && min != null && max > min) ? Math.round((bHi - bLo) / (max - min) * 100) : null;
       let nEtiqX = 0;
       try { xAx.get('renderer').labels.each(l => { if (l && !l.get('forceHidden') && l.get('visible') !== false) nEtiqX++; }); } catch (e) {}
+      /* Repères de l'axe des VALEURS réellement lisibles : ceux qu'amCharts fabrique MOINS ceux que
+         la règle « une pastille masque sa graduation » a effacés. C'est ce nombre-là qui dit si
+         l'échelle se lit ; compter les data items donnerait « sept » là où l'écran en montre quatre.
+         ⚠️ RELEVÉ AU JOURNAL, PAS ÉRIGÉ EN CONTRÔLE, ET C'EST DÉLIBÉRÉ. J'ai voulu resserrer
+         `minGridDistance` pour densifier l'échelle : sur une sonde à 371 px de tracé, on passait de
+         4 repères lisibles à 10. Rejoué sur les QUINZE scénarios du banc, le gain disparaît — 3 à 5
+         repères avant, 3 à 5 après, et un cas qui RECULE (6/8 → 3/8 sur un tracé de 155 px). Une
+         amélioration qui ne se voit que sur la géométrie où on l'a cherchée n'en est pas une : le
+         réglage a été retiré. Le relevé reste, pour que la prochaine tentative parte d'un chiffre. */
+      let gradTotal = 0, gradVisibles = 0;
+      try {
+        yAx.dataItems.forEach(di => { const l = di.get('label'); if (!l) return; gradTotal++;
+          if (!l.get('forceHidden') && l.get('visible') !== false) gradVisibles++; });
+      } catch (e) {}
       m = { dispo: true, plotH: Math.round(h), plotW: Math.round(pc.width()), partPaquet, nDedans: dedans.length, nEtiqX,
+        gradTotal, gradVisibles,
         legendeH: lg ? Math.round(lg.height()) : 0, legendeW: lg ? Math.round(lg.width()) : 0,
         gouttiere: Math.round(yAx.width()),
         yMin: min == null ? null : +min.toFixed(2), yMax: max == null ? null : +max.toFixed(2),
@@ -423,6 +438,10 @@ const CAS = [
   { nom: 'onglet du desk, pleine largeur',         w: 1150, h: 300, p: 'echappee' },
   { nom: 'onglet du desk, quatre décrochent',      w: 1150, h: 300, p: 'ecrase' },
   { nom: 'avec la valeur dans la pastille',        w: 600,  h: 300, p: 'echappee', o: { avecValeur: true } },
+  /* Une carte HAUTE : aucun autre scénario ne dépasse 255 px de tracé, et c'est au-delà que
+     l'échelle verticale a de la place pour ses repères. Le relevé « échelle X/Y » du journal se lit
+     ici. */
+  { nom: 'carte haute',                            w: 900,  h: 480, p: 'echappee' },
   { nom: 'thème clair',                            w: 600,  h: 300, p: 'fuyarde', t: 'light' },
   { nom: 'mode paire (EUR + AUD)',                 w: 600,  h: 300, p: 'fuyarde', o: { onlyCurrencies: ['EUR', 'AUD'] } },
 ];
@@ -756,7 +775,7 @@ function controler(mesures) {
   for (const { cas, r } of mesures) {
     const m = r.modele || {};
     const attendu = (cas.o && cas.o.onlyCurrencies) ? cas.o.onlyCurrencies.length : 8;
-    console.log(`\n  · ${cas.nom} (${cas.w}×${cas.h})  —  ${r.nPastilles}/${attendu} pastille(s), cadre [${m.yMin}, ${m.yMax}], paquet ${m.partPaquet}% (${m.nDedans} dedans), écart min ${m.ecartMin} px, légende ${m.legendeH} px, tracé ${m.plotH} px`);
+    console.log(`\n  · ${cas.nom} (${cas.w}×${cas.h})  —  ${r.nPastilles}/${attendu} pastille(s), cadre [${m.yMin}, ${m.yMax}], paquet ${m.partPaquet}% (${m.nDedans} dedans), écart min ${m.ecartMin} px, légende ${m.legendeH} px, tracé ${m.plotH} px, échelle ${m.gradVisibles}/${m.gradTotal} repère(s)`);
     if (process.env.DTP_FORCE_DEBUG) console.log('      fins : ' + (m.fins || []).join(' '));
     v('aucune erreur d\'exécution', (r.err || []).length === 0, (r.err || []).join(' | '));
     /* INVARIANT 1 — AUCUNE DEVISE MUETTE. C'est la demande, mot pour mot : « je ne vois pas toutes
