@@ -63,20 +63,52 @@ console.log('\n── 2. Le français arrive AVANT que le panneau ne s\'ouvre �
 const srcTxt = extraire(APP, '_txtPropos'), srcStrip = extraire(APP, 'stripSpeakerPrefix');
 v('_txtPropos est extractible d\'app.js', !!srcTxt);
 v('stripSpeakerPrefix est extractible d\'app.js', !!srcStrip);
-if (srcTxt && srcStrip) {
+const srcMaj = extraire(APP, '_majPhrase');
+v('_majPhrase est extractible d\'app.js', !!srcMaj);
+if (srcTxt && srcStrip && srcMaj) {
   const stripSpeakerPrefix = eval('(' + srcStrip + ')');
+  const _majPhrase = eval('(' + srcMaj + ')');
+  /* `_txtPropos` appelle désormais `_majPhrase` : on la lui fournit, sinon l'évaluation lève. Ce
+     couplage est VOULU et c'est le banc qui l'a révélé en cassant — la fonction de rendu des
+     propos capitalise maintenant sa sortie. */
   const _txtPropos = eval('(' + srcTxt + ')');
   const brut = { headline: 'Fed\'s Hammack: neutral rate seen higher than other Fed officials' };
   v('sans pré-traduction, on retombe sur la source ébarbée',
-    _txtPropos(brut) === 'neutral rate seen higher than other Fed officials', _txtPropos(brut));
+    _txtPropos(brut) === 'Neutral rate seen higher than other Fed officials', _txtPropos(brut));
   v('la pré-traduction, quand elle existe, l\'emporte',
-    _txtPropos({ ...brut, _hlFr: 'le taux neutre est jugé plus élevé' }) === 'le taux neutre est jugé plus élevé');
+    _txtPropos({ ...brut, _hlFr: 'le taux neutre est jugé plus élevé' }) === 'Le taux neutre est jugé plus élevé');
   /* ⚠️ LE PIÈGE : ré-ébarber le français. La regex de préfixe coupe au premier « : » ou « - », et
      une phrase française en contient couramment. Ce contrôle est le seul qui le voie. */
   const fr = 'l\'inflation reste élevée, mais - selon lui - les conditions sont restrictives';
-  v('le français n\'est PAS ré-ébarbé (il serait tronqué)', _txtPropos({ ...brut, _hlFr: fr }) === fr, _txtPropos({ ...brut, _hlFr: fr }));
+  v('le français n\'est PAS ré-ébarbé (il serait tronqué)',
+    _txtPropos({ ...brut, _hlFr: fr }) === _majPhrase(fr), _txtPropos({ ...brut, _hlFr: fr }));
   v('… alors que la regex, elle, le tronquerait bel et bien', stripSpeakerPrefix(fr) !== fr, stripSpeakerPrefix(fr));
-  v('une pré-traduction vide ne masque pas la source', _txtPropos({ ...brut, _hlFr: '   ' }) === 'neutral rate seen higher than other Fed officials');
+  v('une pré-traduction vide ne masque pas la source', _txtPropos({ ...brut, _hlFr: '   ' }) === 'Neutral rate seen higher than other Fed officials');
+
+  /* ══ CHAQUE PROPOS COMMENCE PAR UNE MAJUSCULE (03/09, demande user sur capture) ═══════════════
+     « Il manque les majuscules en début de chaque phrase pour rendre ça professionnel. » Les fils
+     de dépêches écrivent tout en bas de casse ; empilées, dix lignes ainsi rendues font brouillon.
+     Les cas ci-dessous sont les phrases EXACTES de la capture, pas des exemples reconstruits.
+     ⚠️ ET LA MOITIÉ QUI COMPTE, juste en dessous : ce qui NE DOIT PAS bouger. Une ligne ouvrant sur
+     un nom propre, un sigle, un chiffre ou un guillemet n'est pas « à corriger » — la toucher
+     abîmerait un texte déjà juste. C'est ce contrôle-là qui empêchera un futur « capitalise tout »
+     de passer. */
+  const capitalise = t => _txtPropos({ _hlFr: t });
+  [['les conditions du marché du travail devraient s\'améliorer à mesure que la reprise s\'accélère',
+    'Les conditions du marché du travail devraient s\'améliorer à mesure que la reprise s\'accélère'],
+   ['le comité a jugé approprié de relever le taux directeur à 2,75%',
+    'Le comité a jugé approprié de relever le taux directeur à 2,75%'],
+   ['la trajectoire future du taux directeur n\'est pas fixée',
+    'La trajectoire future du taux directeur n\'est pas fixée'],
+   ['« les risques restent orientés à la hausse », selon le comité',
+    '« Les risques restent orientés à la hausse », selon le comité'],
+  ].forEach(([av, ap]) => v('capitalisé : « ' + av.slice(0, 44) + '… »', capitalise(av) === ap, capitalise(av)));
+
+  ['Hayley Gourley, Karen Silk et Anna Breman ont noté des risques à la hausse',
+   'Paul Conway et Carl Hansen ont estimé que les risques étaient équilibrés',
+   'RBNZ maintient son taux directeur',
+   '2,75% : le nouveau niveau du taux directeur',
+  ].forEach(t => v('intact : « ' + t.slice(0, 44) + '… »', capitalise(t) === t, capitalise(t)));
   v('les DEUX branches de rendu passent par _txtPropos (grappe et orateur seul)',
     (APP.match(/const text = _txtPropos\(q\);/g) || []).length === 2);
 }

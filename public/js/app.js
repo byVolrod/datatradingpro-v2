@@ -2662,9 +2662,25 @@ function stripSpeakerPrefix(headline) {
    ré-appliquer mangerait le début de la traduction. Le serveur a déjà coupé, sur l'anglais.
    Champ absent → on retombe EXACTEMENT sur l'affichage d'avant : la source, que
    `_dtpTranslateQuotes` tentera de traduire en place. Rien n'est retiré. */
+/* ⚠️ ET LA PHRASE COMMENCE PAR UNE MAJUSCULE (03/09, demande user sur capture : « il manque les
+   majuscules en début de chaque phrase pour rendre ça professionnel »). Les fils de dépêches
+   écrivent leurs propos tout en bas de casse (« le comité a jugé approprié de relever le taux… ») ;
+   empilées, dix lignes ainsi rendues font brouillon là où le desk affiche par ailleurs des phrases
+   ponctuées.
+   TROIS PRÉCAUTIONS, et elles comptent plus que le correctif lui-même :
+   1. C'EST UN CHAMP D'AFFICHAGE, PAS UNE MUTATION. On capitalise la valeur RENDUE ; ni `headline`
+      ni `_hlFr` ne sont touchés. Le veto du 03/07 (« item.headline n'est JAMAIS muté ») reste
+      entier, et la citation brute demeure ce que la source a écrit.
+   2. UN SEUL POINT DE PASSAGE. Les deux rendus de propos — groupés et par orateur — appellent
+      cette fonction ; corriger ici les couvre tous les deux, et couvrira le troisième si un jour
+      il arrive. C'est ce qui manquait : `_majPhrase` existait déjà et servait aux lignes de
+      description, mais jamais aux propos.
+   3. `_majPhrase` NE TOUCHE QU'UNE MINUSCULE EN TÊTE. Une ligne ouvrant sur un sigle (RBNZ), un
+      chiffre, un nom propre ou un guillemet est rendue telle quelle : on ne « corrige » que ce qui
+      est indiscutablement une phrase commencée en bas de casse. */
 function _txtPropos(q) {
   const fr = (q && typeof q._hlFr === 'string') ? q._hlFr.trim() : '';
-  return fr || stripSpeakerPrefix(q && q.headline);
+  return _majPhrase(fr || stripSpeakerPrefix(q && q.headline));
 }
 
 /* ══ APPLIQUER UNE EXPLICATION SANS RE-RENDRE TOUT LE FIL ═════════════════════════════════════════
