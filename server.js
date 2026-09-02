@@ -1073,6 +1073,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260902-ouverture-generale', ts: Date.UTC(2026, 8, 2, 21, 0), title: 'Mon Desk et l’Accueil ouverts à tous les membres', desc: 'Mon Desk et le nouvel Accueil sont désormais accessibles à tous les membres, sans exception. Ces deux nouveautés avaient été ouvertes à tout le monde début août, mais un réglage de sécurité posé en base pouvait encore les tenir fermées, et ce réglage était invisible depuis notre propre compte, qui garde l’accès en toutes circonstances pour pouvoir diagnostiquer. Autrement dit, une fermeture temporaire oubliée ne se voyait pas. Elle est levée pour de bon, une fois, et la trace de cette ouverture est conservée pour qu’elle ne se rejoue jamais : si nous devons un jour refermer une fonctionnalité en urgence, cette décision-là sera respectée. Trois mentions dans notre code affirmaient encore que Mon Desk était réservé à l’administrateur, près d’un mois après que la règle avait changé. Elles ont trompé une relecture récente, qui a conclu que la fonctionnalité était fermée alors qu’elle était livrée. Elles sont corrigées, et un contrôle de livraison interdit désormais leur retour. Ce que vous y gagnez concrètement : la composition de votre propre espace de travail, la bibliothèque de widgets, les dispositions enregistrées et l’écran d’accueil, pour tous les comptes, dès la prochaine connexion.' },
   { id: 'dtpu-20260902-quotidien-couleurs-datas', ts: Date.UTC(2026, 8, 2, 19, 0), title: 'Récap Quotidien : les chiffres publiés prennent leurs couleurs', desc: 'Dans le Récap Hebdo, un chiffre publié se lit d’un coup d’œil : il est vert quand il dépasse le consensus, rouge quand il passe dessous, ambre quand il sort conforme. Le Récap Quotidien, lui, affichait tout en blanc. Deux récaps du même desk, deux lectures du même chiffre. C’est corrigé : les rubriques du quotidien colorent désormais leurs données exactement comme l’hebdo, avec la même règle et les mêmes teintes. Les indicateurs dont la lecture s’inverse gardent leur traitement particulier : pour le chômage, les inscriptions ou les stocks, un chiffre au-dessus des attentes est une mauvaise nouvelle et sort donc en rouge, jamais en vert. Une nuance importante au passage : une puce du quotidien porte souvent deux ou trois publications d’affilée, par exemple l’inflation d’ensemble suivie de l’inflation sous-jacente dans la même phrase. Le desk n’en colorait qu’une, ce qui donnait un chiffre en couleur et le suivant en blanc juste à côté, et se lisait comme un oubli. Toutes les publications d’une même phrase sont maintenant traitées. Et lorsqu’une donnée n’a pas de référence comparable, elle reste blanche : mieux vaut pas de couleur qu’une couleur fausse.' },
   { id: 'dtpu-20260902-mobile-widgets-hauteur', ts: Date.UTC(2026, 8, 2, 17, 0), title: 'Sur téléphone, les widgets montrent enfin tout leur contenu', desc: 'Vous nous avez écrit que sur téléphone les widgets de Mon Desk ne montraient pas toutes leurs informations. Nous avons mesuré, dans un vrai navigateur de téléphone, ce que chaque vue réclame et ce qu’on lui donnait. Une carte à onglets porte deux barres avant son contenu : la rangée d’onglets et l’en-tête de la vue. Restaient 542 pixels utiles pour des vues qui en demandent 610, et jusqu’à 684 pour la Semaine à venir. Autrement dit il manquait entre 70 et 155 pixels, et c’est exactement ce qui ne s’affichait pas : l’onglet Institutions perdait 81 pixels de cartes, Analystes 63, la Semaine à venir 155. Les cartes à onglets sont donc nettement plus hautes sur téléphone, calées sur la vue la plus gourmande. Plus rien n’est coupé, à l’exception du fil d’actualité, qui défile par nature puisqu’il porte des dizaines de dépêches. L’horloge mondiale gagne elle aussi de la hauteur : il lui manquait quatorze pixels, soit une place tronquée en permanence. Sur un téléphone, en colonne unique, une carte plus haute ne coûte rien puisque la page défile de toute façon ; c’est le manque de hauteur qui cachait l’information. Rien ne change sur ordinateur ni sur tablette. Un contrôle de livraison ouvre désormais Mon Desk dans un téléphone simulé et refuse la mise en ligne si un widget se retrouve amputé.' },
   { id: 'dtpu-20260902-banques-graphique', ts: Date.UTC(2026, 8, 2, 15, 0), title: 'Onglet Banques : le graphique remonte, et il se lit', desc: 'Vous nous avez écrit que le graphique de l’onglet Banques donnait l’impression d’un faux graphique, et que le vide au-dessus de lui était trop grand. Deux corrections, mesurées l’une et l’autre. LE GRAPHIQUE REMONTE. Le tableau des positions prenait toute la hauteur disponible même avec cinq lignes, ce qui repoussait le graphique derrière plus de deux cents pixels de rien. Il se dimensionne désormais sur son contenu : le graphique vient se placer juste sous la dernière position, avec un espacement franc, et il gagne au passage deux cents pixels de hauteur. Quand les positions sont nombreuses, le tableau reprend la main jusqu’à la moitié de l’écran puis défile, pour que le graphique garde toujours sa place. ET IL RESSEMBLE ENFIN À UN GRAPHIQUE DE MARCHÉ. Une précision d’abord : c’est bien la bibliothèque de TradingView qui dessine ce graphique depuis le premier jour, et les trois lignes Entrée, Objectif et Stop y sont posées depuis le premier jour aussi. Ce qui n’allait pas, c’était le cadrage. Le desk affichait toutes les bougies reçues, soit plus de quatre cents : une échelle allant de 129 à 173 pour un trade dont les trois niveaux tiennent dans cinq unités de prix. Résultat, ces niveaux occupaient douze pour cent de la hauteur et deux d’entre eux se retrouvaient à quinze pixels l’un de l’autre, étiquettes collées, pendant que les bougies se réduisaient à des traits. Le cadrage se règle maintenant sur le trade lui-même : le desk remonte le temps depuis la dernière bougie tant que le marché reste dans une plage raisonnable autour des niveaux, puis s’arrête. Sur le même jeu de données, les niveaux passent de douze à quarante-six pour cent de la hauteur et l’écart entre les deux plus proches passe de quinze à cinquante-neuf pixels. Rien n’est perdu : tout l’historique reste chargé, un simple glissement vers la gauche le retrouve.' },
@@ -20922,11 +20923,41 @@ void _checkExpiringSubscriptions;
 // d'urgence, immédiat et sans livraison.
 let _newFeat = { accueil: true, mondesk: true };
 const _FEAT_KEY = 'feat:v1', _FEAT_TTL = 366 * 86400000;
+/* ══ OUVERTURE GÉNÉRALE, UNE SEULE FOIS (02/09, demande user : « publie les mises à jour du desk
+   qui étaient uniquement sur compte admin pour tous les users ») ═══════════════════════════════
+   CE QUE L'AUDIT A MONTRÉ. Dans le CODE, Accueil et Mon Desk sont ouverts à tous depuis le 06/08 :
+   le défaut vaut `true`, et trois commentaires qui disaient encore « admin uniquement » ont été
+   corrigés le même jour. Il ne restait donc qu'UN cas où un client pouvait ne rien voir : un
+   drapeau posé à `false` dans le KV lors d'une fermeture d'urgence passée. Ce drapeau PRIME sur le
+   défaut, il survit aux déploiements, et un admin ne peut pas s'en apercevoir — il garde l'accès
+   quoi qu'il arrive, précisément pour pouvoir diagnostiquer. Une fermeture oubliée est donc
+   parfaitement invisible depuis le compte qui l'a posée.
+   CE QU'ON FAIT, ET CE QU'ON NE FAIT PAS. On lève les drapeaux une fois, au premier démarrage qui
+   suit cette livraison, et on pose un MARQUEUR pour ne jamais recommencer.
+   ⚠️ ON NE FORCE PAS À CHAQUE DÉMARRAGE : ce serait retirer le levier de fermeture d'urgence, qui
+   existe pour couper une fonctionnalité en incident sans attendre une livraison. Après cette
+   ouverture, un `POST /api/admin/nouveautes` referme comme avant et sa décision est respectée —
+   le marqueur étant déjà posé, plus rien ne la réécrira. */
+const _FEAT_OUVERT_KEY = 'feat:ouverture-generale-20260902';
+async function _featOuvertureUnique() {
+  try {
+    const deja = await auth.aiCacheGet(_FEAT_OUVERT_KEY, _FEAT_TTL);
+    if (deja) return false;                                   // déjà fait : on ne touche à rien
+    const ferme = !_newFeat.accueil || !_newFeat.mondesk;
+    await auth.aiCacheSet(_FEAT_OUVERT_KEY, { at: Date.now(), ferme });
+    if (!ferme) return false;                                 // rien n'était fermé : marqueur posé, c'est tout
+    _newFeat = { accueil: true, mondesk: true };
+    await auth.aiCacheSet(_FEAT_KEY, _newFeat);
+    console.log('[Nouveautés] ouverture générale : Accueil et Mon Desk levés pour TOUS les comptes.');
+    return true;
+  } catch (e) { return false; }
+}
 async function _featLoad() {
   try {
     const v = await auth.aiCacheGet(_FEAT_KEY, _FEAT_TTL);
     if (v && typeof v === 'object') _newFeat = { accueil: !!v.accueil, mondesk: !!v.mondesk };
   } catch (e) {}
+  await _featOuvertureUnique();
   console.log('[Nouveautés] accueil=' + _newFeat.accueil + ' · mondesk=' + _newFeat.mondesk);
 }
 setTimeout(() => { _featLoad().catch(() => {}); }, 24000);   // après amorçage Supabase, comme l'accès offert

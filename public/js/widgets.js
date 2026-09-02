@@ -10974,8 +10974,11 @@ function _spansAffiches(lay) {
   }
 
   /* ── AMORÇAGE ──────────────────────────────────────────────────────────────────────────────────
-     L'ICÔNE n'est créée QUE pour l'admin : tant que le système n'est pas validé, aucun client ne la
-     voit. Le desk reste STRICTEMENT inchangé pour tous les autres comptes.
+     L'ICÔNE est posée pour TOUT COMPTE CONNECTÉ : l'amorçage attend `window._pdMonDesk`, qui vaut
+     vrai dès que le drapeau serveur `mondesk` est levé — et il l'est par défaut depuis le 06/08.
+     Un admin le garde en propre, drapeau ou non, pour pouvoir diagnostiquer après une fermeture.
+     ⚠️ CE COMMENTAIRE AFFIRMAIT « QUE POUR L'ADMIN » JUSQU'AU 02/09, alors que le code teste
+     `_pdMonDesk` et non `_pdIsAdmin` : il décrivait l'intention de départ, pas la règle en vigueur.
      Entrée = une icône TOPBAR (même convention que Journal / Calculatrice), placée à LEUR GAUCHE. */
   function boot() {
     if (document.getElementById('widgets-btn')) return;                      // déjà posée
@@ -11052,8 +11055,11 @@ function _spansAffiches(lay) {
     // moyen d'y entrer, et c'est délibéré : un widget qui planterait au montage enfermerait sinon
     // l'admin hors de son propre desk, sans autre issue qu'un déploiement.
     // À retenir pour la suite : ce code est CONSERVÉ, pas MAINTENU. Il sert encore aux clients
-    // (portée limitée à l'admin, cf. la garde de charts.js) — c'est ce qui le garde vivant, pas
-    // l'usage admin. Le jour où les clients basculeront aussi, il pourra vraiment partir.
+    // — c'est ce qui le garde vivant. (02/09 : la restriction au seul compte admin qui figurait ici,
+    // et l'attente d'un futur basculement des clients, ont été retirées ; ce basculement a eu lieu
+    // le 06/08. Le contrôle `ouverture-verif` interdit désormais leur retour, et il l'a d'abord
+    // trouvé DANS CETTE NOTE, qui citait la formule proscrite entre guillemets : une exception
+    // aurait affaibli le contrôle, la note a donc été reformulée.)
     try {
       var secours = /(?:\?|&)desk=classique(?:&|$)/.test(location.search);
       if (!secours && typeof activateView === 'function') activateView('widgets');

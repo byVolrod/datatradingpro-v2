@@ -39,7 +39,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260902bbg1098" />
+  <link rel="stylesheet" href="/css/style.css?v=20260902bbg1099" />
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -92,7 +92,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260902bbg1098"></script>
+  <script defer src="/js/noinspect.js?v=20260902bbg1099"></script>
 </head>
 <body>
 
@@ -668,8 +668,14 @@
     </div>
   </div>
 
-  <!-- ══ MON DESK : système de widgets composable (BÊTA, onglet créé par widgets.js pour l'ADMIN
-       uniquement, cf. window._pdIsAdmin). Le conteneur reste inerte et invisible pour les clients. ══ -->
+  <!-- ══ MON DESK : système de widgets composable. OUVERT À TOUS LES COMPTES depuis le 06/08 —
+       l'onglet est créé par widgets.js dès que `window._pdMonDesk` est vrai, c'est-à-dire pour tout
+       compte connecté (le drapeau `mondesk` vaut `true` par défaut côté serveur), un admin l'ayant
+       de toute façon en propre.
+       ⚠️ CE COMMENTAIRE DISAIT « ADMIN UNIQUEMENT » JUSQU'AU 02/09, soit près d'un mois après que la
+       règle a changé. Il n'était pas seul : `widgets.js` en portait deux autres. Un commentaire
+       périmé ment avec l'autorité du code — celui-ci a fait croire, à la relecture, que la
+       fonctionnalité était encore fermée alors qu'elle était livrée. ══ -->
   <div class="view-panel hidden" id="view-widgets">
     <div class="panel">
       <!-- La barre d'onglets de layouts EST la barre de navigation du desk : on utilise la classe
@@ -979,16 +985,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260902bbg1098"></script>
-<script defer src="/js/app.js?v=20260902bbg1098"></script>
-<script defer src="/js/charts.js?v=20260902bbg1098"></script>
-<script defer src="/js/sessionmap.js?v=20260902bbg1098"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260902bbg1099"></script>
+<script defer src="/js/app.js?v=20260902bbg1099"></script>
+<script defer src="/js/charts.js?v=20260902bbg1099"></script>
+<script defer src="/js/sessionmap.js?v=20260902bbg1099"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260902bbg1098"></script>
-<script defer src="/js/home.js?v=20260902bbg1098"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260902bbg1098"></script>
-<script defer src="/js/i18n.js?v=20260902bbg1098"></script>
+<script defer src="/js/widgets.js?v=20260902bbg1099"></script>
+<script defer src="/js/home.js?v=20260902bbg1099"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260902bbg1099"></script>
+<script defer src="/js/i18n.js?v=20260902bbg1099"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
