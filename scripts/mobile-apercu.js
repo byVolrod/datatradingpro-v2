@@ -141,6 +141,22 @@ const BANK_BOUGIES = (() => {
   return out;
 })();
 
+/* Trois événements calibrés pour le widget « Compte à rebours » : il lit `timestamp` (ms epoch),
+   `title`, `currency`, `impact`, `forecast`, `previous`, `actual`. Les horaires sont RELATIFS à
+   l'appel — un horodatage figé serait passé dès le lendemain et la carte retomberait sur son
+   repli sans que personne ne s'en aperçoive. */
+function CAL_ESSAI() {
+  const t0 = Date.now() + 2 * 3600 * 1000;
+  return [
+    { timestamp: t0, title: 'Indice des prix à la consommation (m/m)', currency: 'USD', country: 'US',
+      impact: 'High', forecast: '0,3 %', previous: '0,2 %', actual: '' },
+    { timestamp: t0, title: 'Ventes au détail (m/m)', currency: 'USD', country: 'US',
+      impact: 'Medium', forecast: '0,4 %', previous: '0,1 %', actual: '' },
+    { timestamp: Date.now() + 26 * 3600 * 1000, title: 'Décision de taux de la BCE', currency: 'EUR',
+      country: 'EU', impact: 'High', forecast: '3,25 %', previous: '3,50 %', actual: '' },
+  ];
+}
+
 function serveur() {
   return http.createServer((req, res) => {
     const u = req.url.split('?')[0];
@@ -163,6 +179,13 @@ function serveur() {
          celle qui doit être bien rendue. */
       if (u === '/api/bank-positions') return j({ positions: BANK_ESSAI, updatedAt: new Date().toISOString() });
       if (u === '/api/bank-ohlc') return j({ candles: BANK_BOUGIES });
+      /* COMPTE À REBOURS : le widget ne montre son information QUE s'il trouve un événement
+         futur dans /api/calendar-events. Le fourre-tout renvoyait `{items:[]}` → la carte
+         retombait sur « Aucun événement programmé » et TOUTE mesure de sa hauteur se faisait sur
+         une ligne de repli, au vert pour la mauvaise raison. Trois publications : la prochaine
+         dans deux heures, une seconde à LA MÊME MINUTE (elle déclenche « +N autres »), et une
+         troisième le lendemain (elle alimente la ligne « Ensuite »). */
+      if (u === '/api/calendar-events') return j({ items: CAL_ESSAI() });
       return j({ items: [], total: 0, ok: true, loggedIn: true, authenticated: true, user: UTIL, ...UTIL });
     }
     const f = path.join(PUB, u === '/' ? 'index.html' : u.replace(/^\/+/, ''));

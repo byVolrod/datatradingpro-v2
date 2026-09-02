@@ -267,7 +267,7 @@ function phaseServiceWorker() {
       await new Promise(r => srvAdmin.listen(PORT + 1, r));
       const page = await nav.newPage();
       await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-      let R = null;
+      let R = null, plancherPetit = null;
       try {
         await page.goto(`http://localhost:${PORT + 1}/index.html`, { waitUntil: 'networkidle0', timeout: 45000 });
         await new Promise(r => setTimeout(r, 2400));
@@ -276,6 +276,25 @@ function phaseServiceWorker() {
           await new Promise(r => setTimeout(r, 2800));
           await page.keyboard.press('Escape');          // le voile du gestionnaire recouvre la page
           await new Promise(r => setTimeout(r, 1200));
+          /* ⚠️ ON RELÈVE D'ABORD LE PLANCHER SUR UN ONGLET QUI PORTE DE PETITS WIDGETS, PUIS SUR
+             UN ONGLET QUI ADOPTE UNE VUE DU DESK. Le plancher n'est plus uniforme (02/09) : il se
+             lit sur `.wdg-vuehost`, donc sur CE QUI EST MONTÉ. Un relevé fait sur un seul onglet
+             ne verrait qu'une moitié de la règle — et c'est très exactement l'erreur d'origine,
+             qui avait imposé les 760 px d'une vue à une carte n'affichant qu'un compte à rebours. */
+          plancherPetit = await page.evaluate(() => {
+            const c = document.querySelector('.wdg-card--tabs');
+            if (!c) return null;
+            return { vue: !!c.querySelector('.wdg-vuehost'), minH: getComputedStyle(c).minHeight };
+          });
+          const surVue = await page.evaluate(() => {
+            const c = document.querySelector('.wdg-card--tabs');
+            if (!c) return false;
+            const ts = [...c.querySelectorAll('.wdgt-bar .wdgt-tab')];
+            const t = ts.find(x => /LISTE FX|BANQUES|BIAIS|TAUX/i.test(x.textContent || ''));
+            if (!t) return false;
+            t.click(); return true;
+          });
+          if (surVue) await new Promise(r => setTimeout(r, 2200));
           R = await page.evaluate(() => {
             const cartes = [...document.querySelectorAll('.wdg-card')];
             if (!cartes.length) return null;
@@ -319,9 +338,22 @@ function phaseServiceWorker() {
       if (!R) console.log('\n  ~ Mon Desk indisponible dans ce jeu d\'essai → section abstenue.');
       else {
         console.log('\n  · Mon Desk sur téléphone : ' + R.nCartes + ' carte(s), hauteurs ' + R.hauteurs.join('/') + ' px écran');
-        v('les cartes à onglets ont la hauteur qu\'une vue du desk réclame',
+        v('une carte à onglets qui ADOPTE une vue du desk a la hauteur que cette vue réclame',
           R.minH.some(x => parseInt(x, 10) >= 700),
           'planchers : ' + R.minH.join(' · ') + ' — une vue adoptée demande jusqu\'à 684 px CSS');
+        /* LE PENDANT DU CONTRÔLE PRÉCÉDENT, ET IL A COÛTÉ UNE LIVRAISON (02/09, capture user).
+           Le plancher de 760 px avait été posé sur `.wdg-card--tabs` tout court : il s'appliquait
+           donc AUSSI à une carte à onglets ne portant que de petits widgets, et le Compte à
+           rebours — 186 px nominaux, une seule information — se retrouvait centré au milieu de
+           sept cents pixels de vide. Sans ce second contrôle, remettre un plancher uniforme
+           laisserait le banc au vert. */
+        if (plancherPetit) {
+          v('… et une carte à onglets SANS vue adoptée reste à la hauteur d\'une carte ordinaire',
+            !plancherPetit.vue && parseInt(plancherPetit.minH, 10) <= 520,
+            'onglet de petits widgets : plancher ' + plancherPetit.minH
+            + ' (attendu ≈ 490 px = les 460 d\'une carte ordinaire + les 30 de la piste d\'onglets)'
+            + (plancherPetit.vue ? ' — une vue était adoptée, le relevé ne prouve rien' : ''));
+        }
         v('aucun contenu de widget n\'est coupé (hors fil d\'actualité, qui défile par nature)',
           R.coupes.length === 0,
           R.coupes.map(x => x.cls + ' : ' + x.cache + ' px cachés').join(' · '));

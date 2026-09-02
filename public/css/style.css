@@ -15616,8 +15616,39 @@ body.home-mode .view-panel { visibility: hidden; }
 
 /* HÔTE DÉDIÉ du widget d'onglet : il peut réécrire son innerHTML sans emporter le bandeau
    de titre, qui vit désormais À CÔTÉ (cause du « titre du calendrier qui disparaît »). */
-.wdgt-mount { flex: 1 1 auto; min-height: 0; position: relative; display: flex; flex-direction: column; }
-.wdgt-mount > * { flex: 1 1 auto; min-height: 0; }
+/* ⚠️ LE MONTAGE EST UN BLOC, PAS UNE COLONNE FLEX — ET CE N'EST PAS UN DÉTAIL DE STYLE (02/09).
+   Capture user : « on ne voit pas l'information des données du bloc widget compteur à rebours,
+   des onglets du panneau … sur mobile uniquement il y a ce problème ». Mesuré AU FORMAT
+   TÉLÉPHONE (390x844), même widget monté DEUX fois dans la même page :
+     · dans une carte ordinaire (hôte `.wdg-body`) la requête de conteneur voit 380 px ;
+     · dans une carte à onglets (hôte `.wdgt-mount`) elle voit 0 px, alors que la boîte réelle
+       mesure 369 px dans les deux cas.
+   « Sur mobile uniquement » est exact, et la raison est nette : sur un grand écran la carte tient
+   sa hauteur des rangées de la grille, la chaîne est définie de bout en bout et la requête voit
+   juste même avec le montage flex. Sur téléphone la carte n'a plus qu'un PLANCHER et une hauteur
+   automatique — la chaîne devient indéfinie, et c'est là que le montage flex la casse.
+   Cause : un widget porte `container-type: size` (`.wdg-rb`, `.wdg-rbc`…). Un conteneur de
+   taille exige une hauteur qui NE DÉPENDE PAS de son contenu. En enfant flex avec
+   `flex: 1 1 auto`, la base de l'élément est sa hauteur de CONTENU — la hauteur cesse donc
+   d'être définie pour la requête, qui retombe à zéro. Toutes les règles `@container dtpw
+   (max-height: …)` se déclenchent alors EN PERMANENCE. Constaté à l'écran sur le widget de la
+   capture : dans un onglet, le Compte à rebours perdait sa ligne de verdict (« Attendu 0,3 %
+   après 0,2 % : consensus en hausse ») et sa ligne « Ensuite ». Dix-neuf widgets déclarent ce
+   conteneur et voyaient donc la même hauteur nulle ; ce sont leurs pieds, verdicts et
+   sous-titres que ces règles effacent. Aucune erreur, aucun débordement, rien dans la console :
+   l'information était simplement masquée — et c'est pourquoi aucun banc ne la voyait, tous
+   mesurant des BOÎTES et jamais la hauteur que le widget CROIT avoir.
+   `.wdg-body`, l'hôte d'une carte ordinaire, est un BLOC dont l'enfant prend `height: 100%` —
+   c'est pour cela qu'elle n'a jamais eu le défaut. Le montage d'onglet adopte la même forme :
+   la géométrie est identique (vérifié sur les 40 widgets de la bibliothèque : même hauteur,
+   même débordement, un seul enfant chacun), et la requête voit enfin la vraie hauteur.
+   `:not(.wdg-subgear)` : l'engrenage d'un sous-widget SANS barre de titre est posé dans le
+   montage en `position: absolute` — lui donner 100 % l'étirerait, fond compris, sur toute la
+   carte. Les essais qui NE marchent PAS, pour qu'on ne les repropose pas : `flex: 1 1 0%` sur
+   l'enfant, `height: 100%` forcé sur `.wdgt-body` et `.wdgt-mount`, `flex: 1 1 0%` sur toute la
+   chaîne — mesurés tous les trois, la requête reste à 0 px. Seul le passage en bloc corrige. */
+.wdgt-mount { flex: 1 1 auto; min-height: 0; position: relative; display: block; }
+.wdgt-mount > :not(.wdg-subgear) { height: 100%; min-height: 0; }
 .wdgt-body > .wdgt-subname { flex: 0 0 auto; }
 
 /* ── DÉPLACEMENT SANS POIGNÉE (04/08) : l'EN-TÊTE se saisit directement (curseur grab) ;
@@ -16772,8 +16803,25 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
      page de toute façon, et c'est le manque de hauteur qui coupait l'information.
      ⚠️ CE PLANCHER NE VAUT QUE POUR LES CARTES À ONGLETS : elles portent une VUE COMPLÈTE du desk
      (tableau, filtres, en-tête). Une carte ordinaire garde 460 px — lui imposer 760 étirerait une
-     jauge ou une horloge sur les trois quarts de l'écran pour du vide. */
-  .wdg-card--tabs { min-height: 760px; }
+     jauge ou une horloge sur les trois quarts de l'écran pour du vide.
+
+     ⚠️ ET CETTE DISTINCTION, LA RÈGLE L'ÉNONÇAIT SANS LA FAIRE (corrigé le 02/09, capture user :
+     « on ne voit pas l'information du compteur à rebours ; tu as trop agrandi celui du bas »).
+     `.wdg-card--tabs` ne dit PAS qu'une vue du desk est adoptée — il dit seulement que la carte
+     porte des onglets. Une carte à onglets ne contenant que de PETITS widgets (Compte à rebours,
+     186 px nominaux ; Sentiment de risque ; Force des devises…) recevait donc les 760 px taillés
+     pour la Semaine à venir : un widget d'une seule information, centré au milieu de sept cents
+     pixels de vide, et deux cartes de tailles identiques dont l'une paraissait vide.
+     Le plancher se lit maintenant sur CE QUI EST MONTÉ :
+       · `.wdg-vuehost` n'est posé que lorsqu'une VUE du desk est adoptée (widgets.js) → 760 px,
+         inchangé, et il suit l'onglet actif puisque la classe apparaît et disparaît au montage ;
+       · sinon la carte reçoit 490 px = les 460 d'une carte ordinaire + les 30 px CSS mesurés de
+         la piste d'onglets, la seule barre que le panneau ajoute EN FLUX. Le petit widget dispose
+         donc exactement de la place qu'il aurait dans une carte ordinaire, ni plus ni moins.
+     Vérifié dans un vrai Chromium à 390x844, les neuf petits widgets passés en revue onglet par
+     onglet : aucun débordement à 490 px (ni même à 420). */
+  .wdg-card--tabs { min-height: 490px; }
+  .wdg-card--tabs:has(.wdg-vuehost) { min-height: 760px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════════

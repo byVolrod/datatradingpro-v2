@@ -618,6 +618,125 @@ const LIGNES = /return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \
     if (nav2) try { await nav2.close(); } catch {}
     if (srv) try { srv.close(); } catch {}
   }
+
+  /* ══ 10. UN WIDGET MONTÉ DANS UN ONGLET VOIT-IL SA VRAIE HAUTEUR ? ═══════════════════════════
+     Dix-neuf widgets du desk portent `container-type: size` et règlent ce qu'ils affichent sur la
+     hauteur qu'on leur donne : sous un certain seuil, le pied, la ligne de verdict ou la ligne
+     « Ensuite » s'effacent — c'est voulu dans une carte écrasée, ce ne l'est pas dans une carte
+     haute. L'Horloge mondiale fait de même avec son conteneur `dtphorloge`.
+     LE DÉFAUT, mesuré (02/09, capture user « on ne voit pas l'information du compteur à rebours,
+     des onglets du panneau ») : monté dans un ONGLET, le même widget voyait 0 px là où sa boîte
+     mesurait 369. En enfant flex `flex: 1 1 auto`, sa hauteur dépend de son contenu, donc elle
+     n'est plus définie pour la requête, qui retombe à zéro et déclenche EN PERMANENCE toutes les
+     règles `max-height`. Aucune erreur, aucun débordement : l'information disparaissait en
+     silence, et aucun banc ne pouvait le voir puisque tous mesuraient des BOÎTES.
+     ON NE MESURE DONC PAS LA BOÎTE : on demande à la requête elle-même ce qu'elle voit, en
+     posant une échelle de règles `@container (min-height: N)` qui écrivent N dans une propriété
+     lisible. C'est le seul relevé qui distingue les deux situations — elles ont exactement la
+     même géométrie. */
+  console.log('\n── 10. Un widget monté dans un onglet voit sa vraie hauteur ──');
+  let srv3 = null, nav3 = null;
+  try {
+    const CFG = { cfg: { active: 't', gap: 'tight', gapV: 2, deskV: 99, tipSeen: 1, layouts: [{ id: 't', name: 'Banc', fav: true, items: [
+      /* Le MÊME widget des deux côtés : à gauche dans un onglet, à droite dans une carte
+         ordinaire. Sans ce témoin, une sonde cassée rendrait 0 partout et le banc crierait au
+         défaut là où il n'y en a pas. */
+      { w: 'onglets', gw: 6, gh: 14, tabs: ['evenement-rebours', 'horloge'] },
+      { w: 'evenement-rebours', gw: 6, gh: 14 },
+    ] }] } };
+    /* ⚠️ ON REPREND LE BOUCHON COMMUN (`mobile-apercu.js`) ET NON UN FOURRE-TOUT `{items:[]}`.
+       Sans données, le Compte à rebours ne CONSTRUIT PAS son `.wdg-rb` : il pose une ligne de
+       repli. La sonde ne trouvait alors aucun conteneur et le banc criait « absent » — vert ou
+       rouge pour une raison qui n'a rien à voir avec ce qu'il mesure. */
+    const bouchon = require('./mobile-apercu.js').serveur();
+    srv3 = http.createServer((rq, rs) => {
+      const u = rq.url.split('?')[0];
+      if (u === '/api/widgets') { rs.writeHead(200, { 'Content-Type': 'application/json' }); return rs.end(JSON.stringify(CFG)); }
+      bouchon.emit('request', rq, rs);
+    });
+    await new Promise(r => srv3.listen(PORT_DESK + 1, r));
+    nav3 = await puppeteer.launch({ executablePath: bin, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const p3 = await nav3.newPage();
+    /* ⚠️ AU FORMAT TÉLÉPHONE, ET C'EST LA CONDITION DU DÉFAUT — vérifié dans les deux sens.
+       Sur un grand écran la carte tient sa hauteur des rangées de la grille : la chaîne est
+       définie de bout en bout et la requête voit juste, montage flex ou non. Sur téléphone la
+       carte n'a plus qu'un PLANCHER et une hauteur automatique : la chaîne devient indéfinie, et
+       c'est là que le montage en colonne flex fait retomber la requête à zéro. Un banc écrit au
+       format bureau restait vert des deux côtés — il ne prouvait rien. */
+    await p3.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    await p3.goto('http://localhost:' + (PORT_DESK + 1) + '/index.html', { waitUntil: 'networkidle2', timeout: 45000 });
+    await new Promise(r => setTimeout(r, 2500));
+    await p3.evaluate(() => {
+      const vw = document.getElementById('view-widgets'); if (vw) vw.classList.remove('hidden');
+      document.querySelectorAll('.view-panel').forEach(x => { if (x.id !== 'view-widgets') x.classList.add('hidden'); });
+      window.DTPWidgets.open();
+    });
+    await p3.waitForFunction(() => !!document.querySelector('#view-widgets .wdg-card--tabs .wdgt-tab'), { timeout: 20000 });
+    await new Promise(r => setTimeout(r, 2000));
+    // L'échelle de sondes : une règle tous les 10 px, écrite dans `outline-offset` (propriété
+    // héritée par personne, lue telle quelle, et sans effet visuel sans `outline`).
+    await p3.evaluate(() => {
+      const st = document.createElement('style'); let css = '';
+      for (let h = 0; h <= 1200; h += 10) {
+        css += '@container dtpw (min-height: ' + h + 'px){ .dtp-sonde-w{ outline-offset: ' + h + 'px; } }\n';
+        css += '@container dtphorloge (min-height: ' + h + 'px){ .dtp-sonde-h{ outline-offset: ' + h + 'px; } }\n';
+      }
+      st.textContent = css; document.head.appendChild(st);
+    });
+    const sonder = (sel, cls) => p3.evaluate((sel, cls) => {
+      const out = [];
+      document.querySelectorAll(sel).forEach(c => {
+        const s = document.createElement('span'); s.className = cls; c.appendChild(s);
+        const vue = parseFloat(getComputedStyle(s).outlineOffset) || 0;
+        s.remove();
+        out.push({ onglet: !!c.closest('.wdg-card--tabs'), boite: Math.round(c.getBoundingClientRect().height), vue });
+      });
+      return out;
+    }, sel, cls);
+    const onglet = async (re) => p3.evaluate(re => {
+      const c = document.querySelector('#view-widgets .wdg-card--tabs');
+      const t = [...c.querySelectorAll('.wdgt-bar .wdgt-tab')].find(x => new RegExp(re, 'i').test(x.textContent || ''));
+      if (t) t.click(); return !!t;
+    }, re);
+
+    const decor = await p3.evaluate(() => ({
+      cartes: [...document.querySelectorAll('#view-widgets .wdg-card')].map(c => (c.querySelector('.wdg-title') || {}).textContent || '?'),
+      onglets: [...document.querySelectorAll('#view-widgets .wdg-card--tabs .wdgt-tab')].map(t => (t.textContent || '').trim()),
+    }));
+    console.log('  · décor : cartes [' + decor.cartes.join(' | ') + '] · onglets [' + decor.onglets.join(' | ') + ']');
+    const dire = x => x ? (x.boite + ' px de boîte, ' + x.vue + ' px vus par la requête') : 'absent';
+    /* Marge de 25 % : la requête interroge la boîte du CONTENU du conteneur, `getBoundingClientRect`
+       rend sa boîte de BORDURE, et l'échelle de sondes procède par crans de 10 px. Ce qu'on veut
+       distinguer n'est pas un écart de quelques pixels — c'est un ZÉRO en face de plusieurs
+       centaines. */
+    const juste = x => !!x && x.vue > 0 && x.vue >= x.boite * 0.75 && x.vue <= x.boite * 1.25;
+
+    await onglet('rebours'); await new Promise(r => setTimeout(r, 1800));
+    const rbs = await sonder('.wdg-rb', 'dtp-sonde-w');
+    const dansOnglet = rbs.find(x => x.onglet), ordinaire = rbs.find(x => !x.onglet);
+    console.log('  · Compte à rebours — onglet : ' + dire(dansOnglet) + ' · carte ordinaire : ' + dire(ordinaire));
+    v('le TÉMOIN est sain : dans une carte ordinaire, la requête voit la hauteur réelle',
+      juste(ordinaire),
+      'témoin : ' + dire(ordinaire) + ' — si celui-ci échoue, la sonde est cassée et les contrôles suivants ne prouvent rien');
+    v('… et dans un ONGLET la requête voit la même hauteur, pas zéro',
+      juste(dansOnglet),
+      'onglet : ' + dire(dansOnglet) + ' — à 0, toutes les règles `max-height` se déclenchent et le widget perd son pied, sa ligne de verdict et sa ligne « Ensuite »');
+
+    await onglet('horloge'); await new Promise(r => setTimeout(r, 1800));
+    const hor = (await sonder('.wdg-clockwrap', 'dtp-sonde-h')).find(x => x.onglet);
+    console.log('  · Horloge mondiale — onglet : ' + dire(hor));
+    /* L'Horloge, elle, tenait DÉJÀ dans les deux montages — vérifié en remettant la colonne flex :
+       elle reste juste. On la garde en veille et non comme discriminant : elle porte le second
+       conteneur nommé du desk, et rien ne garantit qu'un remaniement du montage l'épargnera. */
+    v('l\'Horloge mondiale aussi (son conteneur `dtphorloge` suit la même règle)',
+      juste(hor), 'onglet : ' + dire(hor));
+    await p3.close();
+  } catch (e) {
+    v('la phase « hauteur vue par la requête » s\'exécute', false, e.message);
+  } finally {
+    if (nav3) try { await nav3.close(); } catch {}
+    if (srv3) try { srv3.close(); } catch {}
+  }
   fin();
 })();
 
