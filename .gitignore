@@ -38,7 +38,17 @@ data/
 
 # Render / local secrets & settings
 .env.render
-.claude/
+# ⚠️ `.claude/` reste ignoré — il peut contenir des réglages LOCAUX (settings.local.json, jetons de
+#    session) et il est rangé ici, avec les secrets, pour cette raison. On n'ouvre donc PAS le
+#    dossier : on ré-inclut UNIQUEMENT `.claude/skills/`, qui porte des skills partagés, relus et
+#    sans exécutable.
+# ⚠️ ET C'EST `.claude/*` QUI EST ÉCRIT, PAS `.claude/` : git ne sait pas ré-inclure un fichier dont
+#    un dossier PARENT est exclu. Avec la barre finale, le `!` d'en dessous serait reste sans effet —
+#    les skills auraient ete silencieusement absents du depot, et personne ne l'aurait vu avant un
+#    clone neuf.
+.claude/*
+!.claude/skills/
+!.claude/agents/
 apercu-email-reengagement.html
 _tmpserve.js
 

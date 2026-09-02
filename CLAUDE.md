@@ -47,6 +47,68 @@
   ⚠️ **AVANT DE TOUCHER À LA LANGUE DE QUOI QUE CE SOIT : `grep -n "veto" server.js public/js/*.js`.** J'ai livré la traduction des titres SANS le faire, contre un veto explicite. Et symétriquement, `charts.js` portait « propos jamais traduits — veto » alors que leur traduction était **demandée le 17/07** et câblée depuis : ce commentaire périmé a failli faire refuser une demande légitime. **Un commentaire périmé ment avec l'autorité du code.** Quand une règle change, corriger TOUTES ses traces dans le même commit — un banc (`propos-verif.js`) interdit désormais le retour de celui de `charts.js`.
 - **i18n** : `node scripts/i18n-verif.js` — **désormais dans `npm run check`, avec un CLIQUET** (28/08). Il était le SEUL des 36 bancs que personne ne lançait : la consigne « à passer après tout renommage » était manuelle, et le résultat s'est mesuré — **21 clés orphelines accumulées, dont six traductions réellement mortes**, parmi lesquelles le titre « Fil d'actualité ». Les six sont re-clées (le produit était passé du tutoiement au vouvoiement sans suivre, et deux titres portaient l'apostrophe droite là où le dict avait la typographique — la recherche est EXACTE après trim, un caractère suffit à tuer une traduction). Le plafond `PLAFOND_ORPHELINES` fige le nombre connu : la dette d'hier ne bloque pas, une de plus fait rougir. **Le baisser quand on en traite une**, sinon le cliquet ne cliquette plus. — le dict EN (i18n-dicts.js) est clé par CHAÎNE FR EXACTE : un wording changé = traduction morte EN SILENCE. L'outil liste les clés orphelines ; re-keyer celles des renommages + ajouter les entrées des nouveaux textes statiques dans le même commit.
 
+## Skills du dépôt (`.claude/skills/`) — pourquoi ceux-là, et pourquoi pas les autres
+
+Trois skills sont posés DANS LE DÉPÔT, pas dans `~/.claude/`. **C'est le seul endroit durable** :
+une session distante tourne dans un conteneur éphémère, tout ce qui est installé dans le dossier
+personnel (`npx skills add -g`, `/plugin install`, `pip install`, `curl | bash`) disparaît avec lui.
+Ce qui est commité, en revanche, se recharge à chaque session et vaut pour toutes les machines.
+
+| skill | origine | ce qu'il apporte ici |
+|---|---|---|
+| `hunt` | tw93/Waza | diagnostiquer AVANT de corriger : reproduire, isoler, prouver la cause. C'est la méthode déjà écrite dans ce fichier, encodée. |
+| `ui` | tw93/Waza | polissage visuel PILOTÉ PAR CAPTURE — le mode de travail le plus fréquent sur ce desk. |
+| `tech-debt-audit` | ksimback/tech-debt-skill | audit de dette cité fichier par fichier, sur 86 000 lignes de JS/CSS servi. Un seul fichier, aucun script. Il porte `disable-model-invocation: true` : il ne part JAMAIS seul, on l'appelle par `/tech-debt-audit`. |
+| `frontend-design` | anthropics/claude-code (officiel) | direction esthétique et typographie. COMPLÉMENTAIRE de `ui`, pas redondant : `ui` part d'une capture et corrige ce qu'elle montre, `frontend-design` traite le parti pris visuel. Un fichier, aucun script. |
+
+### Les trois agents vivent AUSSI dans le dépôt (`.claude/agents/`)
+
+Même raison que les skills : le dossier personnel d'une session distante est éphémère. `planner`,
+`developer` et `analyst` y sont donc versionnés, dans leur version LONGUE (celle qui porte les
+sections « Méthode »), et non celle, plus pauvre, d'une archive de configuration qui traînait.
+`planner` et `analyst` reçoivent une restriction `tools:` — le premier en LECTURE SEULE
+(`Read, Grep, Glob`), le second sans exécution (`Read, Write, Grep, Glob`).
+⚠️ **CONSÉQUENCE À CONNAÎTRE** : `planner` ne peut plus lancer un banc pour éprouver une hypothèse.
+C'est le prix d'un agent de conception qui ne peut rien casser par accident ; ce qui doit être
+exécuté passe par `developer`, qui garde tous ses outils — il doit écrire ET lancer `npm run check`.
+
+**CE QUI A ÉTÉ ÉCARTÉ, ET POURQUOI — ne pas le réinstaller sans relire ceci :**
+- **Waza `check`** : son nom entre en collision avec `npm run check`, qui est LE garde-fou du dépôt.
+  Deux « check » de sens différents dans le même projet, c'est une confusion garantie un jour de
+  livraison. La revue est d'ailleurs déjà codifiée ici et tenue par une cinquantaine de bancs.
+- **Waza `think`** : double l'agent `planner` déjà en place.
+- **Waza `learn` / `read`** : couverts par WebFetch et l'agent `analyst`.
+- **Waza `health` (14 scripts) et `write` (2 scripts)** : leur fond est tentant — `health` audite
+  justement la dérive des instructions, un risque réel ici. Mais ils font entrer du code tiers
+  EXÉCUTABLE dans un dépôt où **pousser sur main déploie**. Ça se décide, ça ne se glisse pas.
+- **Understand Anything** : `/plugin` n'existe pas dans l'environnement distant, et son `install.sh`
+  est un `curl | bash` global, donc éphémère ET non relu.
+- **Claude SEO** : il vise l'audit de sites entiers avec un environnement Python et Chromium dédié ;
+  la surface publique de DTP est une landing et `/actu`. Disproportionné.
+- **Code Review Graph** : recouvre Understand Anything, et son enregistrement MCP est global.
+- **shanraisshan/claude-code-best-practice** : base de LECTURE, rien à installer.
+- **`commit-commands` (officiel)** : son `/commit` écrit un message générique. La convention d'ici
+  est tout l'inverse — message en français, `Co-Authored-By`, entrée `DTP_UPDATES` dans le MÊME
+  commit, `npm run check` avant, push sur `origin` ET `backup`. Un raccourci générique produirait
+  des commits qui violent les règles de ce fichier.
+- **`plugin-dev` (officiel)** : 58 fichiers pour ÉCRIRE des plugins. DTP n'en écrit pas.
+- **`superpowers`** : introuvable dans le dépôt officiel des plugins (`anthropics/claude-code`),
+  donc non vérifiable. On n'installe pas ce qu'on n'a pas pu lire.
+- **`security-guidance` (officiel, non demandé)** : tentant vu l'historique de clé compromise, mais
+  il pose des HOOKS Python qui interceptent les appels d'outils et parlent à une API de revue.
+  À décider explicitement, jamais à glisser.
+
+⚠️ **DEUX PARTICULARITÉS DES SKILLS WAZA, à connaître avant de s'en étonner :**
+1. `hunt` et `ui` demandent de préfixer la première ligne de réponse d'un emoji ninja. Retirer cette
+   ligne du `SKILL.md` si le ton ne convient pas — mais un `skills update` la ramènerait.
+2. Leurs déclencheurs (`when_to_use`) sont majoritairement en chinois : sur un projet 100 % français
+   ils se déclenchent mal. Les invoquer explicitement (`/hunt`, `/ui`) plutôt que d'attendre qu'ils
+   partent seuls.
+
+⚠️ **LES `.md` DU DÉPÔT SONT BALAYÉS PAR `pourcent-verif`** (règle « le pourcent se colle au
+chiffre »). Un skill tiers contenant « 50 % » ferait rougir `npm run check` et **bloquerait un
+déploiement**. Les trois posés ont été vérifiés ; refaire ce contrôle avant d'en ajouter un.
+
 ## Design : High-Density Fintech HUD
 - Fond sombre **`#0c0c0e`** / `#0a0a0c`, dense (cockpit / salle de marché), mais **habillage landing** : **accents or**, titres **Fraunces** (serif) / **Inter Tight**, cartes à **coins doux** (`--radius` = `6px`) + bordures fines + **hover doré** sur les cartes. Garder la **densité HUD** dans l'habillage or propre à DTP.
 - Lignes de séparation fines : `border-b` très sombre (≈ `neutral-900/60`, token `--hud-line`).

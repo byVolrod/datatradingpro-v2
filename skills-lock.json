@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "hunt": {
+      "source": "tw93/Waza",
+      "sourceType": "github",
+      "skillPath": "skills/hunt/SKILL.md",
+      "computedHash": "80b50e44c197f661ae6f84f95d95958a65c94de8097542bdee97ddb18e3ae823"
+    },
+    "ui": {
+      "source": "tw93/Waza",
+      "sourceType": "github",
+      "skillPath": "skills/ui/SKILL.md",
+      "computedHash": "067056edd937129d1ce3193c6a0560f79a1bd383dc59a281aa0dab880dffa269"
+    }
+  }
+}
