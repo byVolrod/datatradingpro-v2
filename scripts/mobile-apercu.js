@@ -104,6 +104,43 @@ const FXL_ESSAI = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD', 'XAU/U
   strength: (i - 2.5) * 0.8,
 }));
 
+/* Jeu d'essai ONGLET BANQUES (02/09) — voir les routes plus bas. */
+const BANK_ESSAI = [
+  { id: 'bk1', bank: 'SEB Research', type: 'Sell Limit', pair: 'USD/JPY', date: '26/06/2026', entry: 162.50, tp: 158.50, sl: 163.80, status: 'Active', currentPrice: 160.21 },
+  { id: 'bk2', bank: 'Danske Research', type: 'Market Execution', pair: 'USD/CHF', date: '23/06/2026', entry: 0.8095, tp: 0.8300, sl: 0.7990, status: 'Active', currentPrice: 0.8150 },
+  { id: 'bk3', bank: 'SEB Research', type: 'Buy Limit', pair: 'EUR/JPY', date: '22/06/2026', entry: 183.50, tp: 187.50, sl: 181.80, status: 'Active', currentPrice: 184.90 },
+  { id: 'bk4', bank: 'Morgan Stanley', type: 'Market Execution', pair: 'GBP/JPY', date: '24/06/2026', entry: 213.53, tp: 217.00, sl: 211.50, status: 'Active', currentPrice: 214.10 },
+  { id: 'bk5', bank: 'Refinitiv', type: 'Market Execution', pair: 'EUR/GBP', date: '26/06/2026', entry: 0.8625, tp: 0.8480, sl: 0.8700, status: 'Active', currentPrice: 0.8590 },
+];
+/* 400 bougies journalieres, calees sur la capture user : l'historique complet balaie ~136 a 172
+   (c'est l'echelle qu'on y voit), MAIS les dernieres semaines evoluent autour de 160, entre le stop
+   (163,80) et l'objectif (158,50) du trade USD/JPY, et la serie finit a 160,21.
+   ⚠️ DEUX FOIS J'AI ECRIT CE JEU D'ESSAI DE TRAVERS, ET DEUX FOIS IL A FAUSSE LA MESURE :
+     · d'abord une derive libre qui finissait a 193 alors que les niveaux etaient vers 160 :
+       l'echelle devait couvrir 147-207 pour montrer les deux ;
+     · puis une remontee terminale trop violente (17 unites sur 48 bougies), qui gardait l'echelle
+       large meme en resserrant la fenetre.
+   Dans les deux cas je mesurais un defaut du BOUCHON en croyant mesurer le produit — et j'ai
+   failli regler le produit dessus. Le marche reel se tient pres du trade qu'une banque vient de
+   poser ; le jeu d'essai doit en faire autant, sinon il ne prouve rien. */
+const BANK_BOUGIES = (() => {
+  const out = []; const t0 = Date.now() - 400 * 864e5;
+  for (let i = 0; i < 400; i++) {
+    const u = i / 399;
+    // Fond : une grande vague qui monte de ~138 a ~168 sur l'annee (l'amplitude de la capture)…
+    const fond = 138 + 30 * u + Math.sin(u * Math.PI * 1.6) * 4;
+    // …mais un dernier tiers CALME, resserre autour de 160 : c'est la zone du trade.
+    const calme = Math.max(0, (u - 0.66) / 0.34);
+    const base = fond * (1 - calme) + (160 + Math.sin(i / 9) * 2.6 + Math.sin(i / 3.3) * 0.8) * calme;
+    const o = base, c = base + Math.sin(i / 2.7) * 0.45;
+    out.push({ t: t0 + i * 864e5, o, h: Math.max(o, c) + 0.3, l: Math.min(o, c) - 0.3, c });
+  }
+  // La derniere cloture tombe exactement sur le prix affiche dans l'en-tete (160,21).
+  const der = out[out.length - 1]; const dec = 160.21 - der.c;
+  if (Math.abs(dec) > 0.001) { der.c += dec; der.h = Math.max(der.h, der.c + 0.1); der.l = Math.min(der.l, der.c - 0.1); }
+  return out;
+})();
+
 function serveur() {
   return http.createServer((req, res) => {
     const u = req.url.split('?')[0];
@@ -119,6 +156,13 @@ function serveur() {
          au vert. Six paires suffisent à compter des cellules ; les champs sont ceux que lit
          `_fxlCell` (charts.js), volontairement variés (une valeur nulle, un badge de chaque). */
       if (u === '/api/fxlist') return j({ updatedAt: new Date().toISOString(), pairs: FXL_ESSAI });
+      /* ONGLET BANQUES : positions + bougies. Sans elles le graphique affiche « indisponible » et
+         tout contrôle sur son cadrage se ferait sur un panneau vide, au vert. Les niveaux du trade
+         sont volontairement SERRÉS par rapport à l'amplitude de l'historique : c'est exactement la
+         configuration de la capture user (échelle 136-172 pour un trade tenant dans 5 unités), donc
+         celle qui doit être bien rendue. */
+      if (u === '/api/bank-positions') return j({ positions: BANK_ESSAI, updatedAt: new Date().toISOString() });
+      if (u === '/api/bank-ohlc') return j({ candles: BANK_BOUGIES });
       return j({ items: [], total: 0, ok: true, loggedIn: true, authenticated: true, user: UTIL, ...UTIL });
     }
     const f = path.join(PUB, u === '/' ? 'index.html' : u.replace(/^\/+/, ''));

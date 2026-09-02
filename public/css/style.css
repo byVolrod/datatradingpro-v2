@@ -3788,8 +3788,20 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .bank-detail-muted { color: var(--text3); font-style: italic; }
 
 @media (max-width: 1100px) {
-  .bank-layout { flex-direction: column; }
-  .bank-chart-col { width: auto; min-width: 0; border-left: none; border-top: 1px solid var(--border); height: var(--bank-chart-h, 340px); }
+  /* ── LE GRAPHIQUE REMONTE SOUS LA DERNIÈRE POSITION (02/09, demande user) ─────────────────────
+     Empilé, `.bank-table-wrap` gardait `flex: 1` : le tableau prenait TOUTE la hauteur restante,
+     même avec cinq lignes, et le graphique était repoussé tout en bas derrière un grand vide — la
+     capture montre près de 250 px de rien entre la dernière banque et le graphique.
+     Le tableau se dimensionne désormais sur son CONTENU (`flex: 0 1 auto`), donc le graphique
+     remonte se coller à la dernière ligne. Le plafond à 52 % garde la main quand les positions sont
+     nombreuses : au-delà, c'est le tableau qui défile, et le graphique conserve sa moitié d'écran.
+     `gap` donne l'espacement demandé (« espacé un peu ») : dix pixels de fond de panneau avant le
+     filet qui ouvre le graphique.
+     La hauteur reste pilotée par la poignée : tant que `--bank-chart-h` n'est pas posée, `auto`
+     laisse le graphique prendre la place restante ; dès qu'on la tire, la valeur explicite gagne. */
+  .bank-layout { flex-direction: column; gap: 10px; }
+  .bank-table-wrap { flex: 0 1 auto; max-height: 52%; }
+  .bank-chart-col { width: auto; min-width: 0; border-left: none; border-top: 1px solid var(--border); flex: 1 1 auto; min-height: 240px; height: var(--bank-chart-h, auto); }
   /* Empilé : la poignée passe AU-DESSUS du graphique et ajuste sa hauteur. */
   .bank-chart-grip { top: -4px; left: 0; right: 0; bottom: auto; width: auto; height: 9px; cursor: row-resize; }
   .bank-chart-grip::after { left: 0; right: 0; top: 4px; width: auto; height: 1px; }
@@ -3965,9 +3977,12 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
   .breaking-news-flash { display: none !important; }
   .logo { flex-shrink: 0; min-width: 0; }
   .logo-text { font-size: 15px; white-space: nowrap; }
-  /* Onglet BANK : empilé, table scrollable, graphique dessous */
-  .bank-layout { flex-direction: column; }
-  .bank-chart-col { width: 100%; min-width: 0; border-left: none; border-top: 1px solid var(--border); height: var(--bank-chart-h, 340px); }   /* unifié avec le bloc ≤1100px */
+  /* Onglet BANK : empilé, table scrollable, graphique dessous — MÊMES règles qu'à 1100px, sinon ce
+     bloc (plus spécifique car plus bas dans la feuille) réimposerait `height: 340px` et le tableau
+     reprendrait toute la place : le graphique redescendrait derrière son vide. */
+  .bank-layout { flex-direction: column; gap: 10px; }
+  .bank-table-wrap { flex: 0 1 auto; max-height: 52%; overflow-x: auto; }
+  .bank-chart-col { width: 100%; min-width: 0; border-left: none; border-top: 1px solid var(--border); flex: 1 1 auto; min-height: 220px; height: var(--bank-chart-h, auto); }
   .bank-table-wrap { overflow-x: auto; }
   /* Smart Bias : grille scrollable horizontalement, horloges en grille */
   .sbm-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }   /* (était .sb-grid-wrap : classe morte — la classe réelle générée par app.js est .sbm-grid-wrap) */

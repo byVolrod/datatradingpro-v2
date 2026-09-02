@@ -7820,7 +7820,12 @@ function buildBankChart(p) {
           layout: { background: { color: clair ? '#ffffff' : '#0f0f12' }, textColor: clair ? '#5b6472' : '#8b93a1', fontSize: 10 },
           grid: { vertLines: { color: clair ? '#eef0f3' : '#16161a' }, horzLines: { color: clair ? '#eef0f3' : '#16161a' } },
           rightPriceScale: { borderColor: clair ? '#d8dce2' : '#1c1c20' },
-          timeScale: { borderColor: clair ? '#d8dce2' : '#1c1c20', timeVisible: _bankTF !== 'D1' && _bankTF !== 'W1', secondsVisible: false, tickMarkFormatter: hPar },
+          /* `rightOffset` : quelques barres de VIDE à droite. Sans lui la dernière bougie est collée
+             à l'échelle des prix, et les étiquettes Entrée / Objectif / Stop se posent PAR-DESSUS
+             elle — c'est ce qu'on voit sur la capture, et c'est l'un des deux détails qui font
+             « faux graphique ». Toutes les plateformes gardent cette marge : le prix a besoin de
+             place devant lui. */
+          timeScale: { borderColor: clair ? '#d8dce2' : '#1c1c20', timeVisible: _bankTF !== 'D1' && _bankTF !== 'W1', secondsVisible: false, tickMarkFormatter: hPar, rightOffset: 8, barSpacing: 7 },
           localization: { timeFormatter: hPar },
           crosshair: { mode: 0 },
         });
@@ -7860,8 +7865,49 @@ function buildBankChart(p) {
         const live = ligne(p.currentPrice, '', '#e3b23a', true);
         if (live) _bankLiveGuide = { ligne: live, serie, pair: p.pair };
 
-        chart.timeScale().fitContent();
+        /* ══ CADRER SUR LE TRADE, PAS SUR L'HISTORIQUE (02/09, « on dirait un faux graphique ») ══
+           `fitContent()` faisait tenir TOUTES les bougies reçues dans la largeur. En D1 cela donne
+           l'écran de la capture : une échelle de 136 à 172 pour un trade dont les trois niveaux
+           (158,50 · 162,50 · 163,80) tiennent dans cinq unités. Les bougies deviennent des traits
+           d'un pixel et les quatre étiquettes de prix se superposent en un paquet illisible.
+           ⚠️ ET RÉDUIRE LA FENÊTRE DE TEMPS NE SUFFIT PAS — mesuré, c'est la correction que j'ai
+           d'abord écrite et elle ne changeait rien : l'échelle des PRIX suit les bougies visibles.
+           En ramenant l'affichage à 98 bougies, celles-ci couvraient encore 36 unités, et les trois
+           niveaux occupaient toujours 9 % de la hauteur, à 11 px les uns des autres.
+           LA RÈGLE EST DONC RELATIVE AU TRADE. On remonte le temps depuis la dernière bougie tant
+           que la plage de prix parcourue reste raisonnable au regard de l'écart entre les niveaux
+           (quatre fois cet écart) : la fenêtre s'arrête d'elle-même quand le marché s'éloigne trop
+           du trade. Un trade serré obtient une fenêtre courte et lisible, un trade large garde du
+           contexte. Bornes : jamais moins de 40 bougies (sinon ce n'est plus un graphique), jamais
+           plus que le plafond par unité de temps.
+           Rien n'est perdu : toutes les bougies restent chargées, on ne choisit que la fenêtre de
+           départ. Un glissement vers la gauche remonte aussi loin qu'avant. */
+        const _VUES = { M15: 120, H1: 120, H4: 110, D1: 90, W1: 70 };
+        const plafond = Math.min(_VUES[_bankTF] || 100, data.length);
+        const nv = niveaux();
+        let nVues = plafond;
+        if (nv.length >= 2 && data.length > 40) {
+          const spanTrade = Math.max(...nv) - Math.min(...nv);
+          if (spanTrade > 0) {
+            /* LE COEFFICIENT, CALIBRÉ À LA MESURE ET NON AU JUGÉ. À 4x, les trois niveaux
+               n'occupaient encore que 15 % de la hauteur et deux d'entre eux restaient à 19 px
+               l'un de l'autre : leurs étiquettes se touchent presque. À 2,2x ils prennent près de
+               la moitié du cadre, ce qui est la proportion d'un vrai graphique de trade, tout en
+               laissant au-dessus et en dessous de quoi voir où va le prix. */
+            const cible = spanTrade * 2.2;
+            let hi = -Infinity, lo = Infinity, k = 0;
+            for (let i = data.length - 1; i >= 0 && k < plafond; i--, k++) {
+              const nh = Math.max(hi, data[i].high), nl = Math.min(lo, data[i].low);
+              if (k >= 40 && (nh - nl) > cible) break;      // on s'arrête AVANT d'élargir au-delà de la cible
+              hi = nh; lo = nl;
+            }
+            nVues = Math.max(40, Math.min(plafond, k));
+          }
+        }
+        if (data.length > nVues) chart.timeScale().setVisibleLogicalRange({ from: data.length - nVues, to: data.length + 8 });
+        else chart.timeScale().fitContent();
         _bankChartRoot = chart;
+        try { window.__bankDebug = { chart, serie, el, data }; } catch (e) {}   // sonde de banc (mesure du cadrage)
         // Le panneau se redimensionne (splitter, plein écran, mobile) et la bibliothèque ne suit pas
         // d'elle-même.
         if (window.ResizeObserver) {
