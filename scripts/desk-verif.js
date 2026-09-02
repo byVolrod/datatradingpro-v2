@@ -916,6 +916,8 @@ function phaseLogique() {
         const tags = [...el.querySelectorAll('.news-tags .tag')].map(t => ({
           txt: (t.textContent || '').trim(), cls: t.className,
           fond: getComputedStyle(t).backgroundColor,
+          encre: getComputedStyle(t).color,   /* la COULEUR DU TEXTE (02/09) — cf. le contrôle « Analyse écrit en blanc » */
+          bord: getComputedStyle(t).borderColor,
           drapeau: !!t.querySelector('.tag-flag'), src: (t.querySelector('.tag-flag') || {}).getAttribute
             ? t.querySelector('.tag-flag').getAttribute('src') : '', titre: t.getAttribute('title') || '',
         }));
@@ -1227,6 +1229,37 @@ function phaseLogique() {
       verif('le fond de la pastille Impact marché est celui d\'Info (transparent, comme les autres)',
         fInfo === 'rgba(0, 0, 0, 0)' && fImp === fInfo && fAna === fInfo,
         'info ' + fInfo + ' · analyse ' + fAna + ' · impact ' + fImp);
+
+      /* ── « ANALYSE » S'ÉCRIT EN BLANC, COMME LES AUTRES TAGS (02/09, demande user sur capture) ──
+         Les quatre lectures écrivaient leur libellé dans leur propre teinte : Info turquoise,
+         Analyse BLEUE, Réaction violette, Impact vert. Sur la capture, au milieu de tags verts et
+         or, le bleu d'Analyse était le seul à détonner.
+         Le blanc retenu n'est pas inventé : c'est `#c2c6cd`, très exactement celui que la feuille
+         emploie pour les tags neutres du fil et qu'elle appelle elle-même « texte blanc ». D'où la
+         forme de ce contrôle : on ne compare pas Analyse à une valeur recopiée dans le banc — une
+         constante recopiée finit toujours par diverger de la feuille — on la compare AU TAG NEUTRE
+         RENDU DANS LA MÊME PAGE. Si l'un bouge un jour, l'autre devra suivre.
+         CE QU'ON NE TOUCHE PAS, et le contrôle le dit : le CONTOUR reste bleu. C'est lui qui
+         distingue Analyse de ses trois voisines ; la demande portait sur le texte. */
+      {
+        const parCls = cl => (tg.lectures || []).find(t => new RegExp('\\b' + cl + '\\b').test(t.cls)) || {};
+        const ana = parCls('tag--analyse');
+        /* Un tag neutre RENDU DANS LA MÊME LIGNE sert de référence. À défaut, on s'abstient plutôt
+           que de comparer à une valeur en dur. */
+        const neutre = (tg.lectures || []).find(t => /\btag--(default|neutral)\b/.test(t.cls))
+          || (tg.tags || []).find(t => /\btag--(default|neutral)\b/.test(t.cls));
+        verif('la pastille Analyse est bien rendue', !!ana.encre, JSON.stringify((tg.lectures || []).map(t => t.cls)));
+        if (ana.encre && neutre && neutre.encre) {
+          verif('« Analyse » s\'écrit dans le MÊME blanc que les tags neutres du fil',
+            ana.encre === neutre.encre, 'analyse ' + ana.encre + ' · neutre ' + neutre.encre);
+        } else if (ana.encre) {
+          verif('« Analyse » n\'est plus écrit en bleu', ana.encre !== 'rgb(74, 159, 224)', ana.encre);
+        }
+        /* LA MOITIÉ QUI COMPTE : le contour, lui, reste bleu — sinon la pastille perd son identité
+           et rien ne la distingue plus d'Info ou de Réaction. */
+        verif('… mais son CONTOUR reste bleu (c\'est lui qui l\'identifie)',
+          /rgba\(74, 159, 224/.test(ana.bord || ''), ana.bord || '(bordure non relevée)');
+      }
 
       /* ⚠️ LES TROIS ÉTATS, PAS SEULEMENT LE REPOS (31/08, capture user redemandant le meme
          correctif). Le contrôle ci-dessus ne voyait que le REPOS, et il était vert alors que le
