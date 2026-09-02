@@ -1080,9 +1080,15 @@ function buildStrengthChart(containerId, data, opts = {}) {
      SORT du cadre, exactement comme sur un graphe de prix zoome. L axe reste lineaire et gradue en
      vraies unites, l infobulle donne la valeur reelle, et le double-clic sur la gouttiere droite rend
      le cadrage plein.
-     TROIS GARDE-FOUS : on n active QUE si l extreme depasse 1,8x l amplitude du paquet ; zero reste
-     toujours dans le cadre ; et les DERNIERES valeurs — celles que l utilisateur lit — sont TOUJOURS
-     visibles, quoi qu il arrive.
+     LES GARDE-FOUS, ET CE QU ILS GARANTISSENT VRAIMENT : on n active que si l extreme depasse
+     largement l amplitude du paquet ; zero reste toujours dans le cadre ; et AUCUNE devise visible ne
+     disparait du cadre — si le resserrement devait en rendre une muette, on y renonce (cf. la note
+     « AUCUNE DEVISE NE DISPARAIT DU CADRE » plus bas).
+     ⚠️ CE PARAGRAPHE A LONGTEMPS MENTI : il promettait que « les DERNIERES valeurs sont TOUJOURS
+     visibles, quoi qu il arrive ». Ce n etait plus vrai depuis le 29/08, ou `fins` a ete restreint
+     aux devises DU PAQUET — la fin d une fuyarde sort du cadre depuis. La promesse tenue aujourd hui
+     n est pas celle-la : c est la PRESENCE de chaque courbe, ce qui est a la fois plus faible sur la
+     derniere valeur et beaucoup plus fort sur le tracé.
      Ce qui a ete ecarte : ecreter la valeur (mensonge sur l amplitude) et l echelle non lineaire (sur
      un graphe de marche, les distances verticales ne voudraient plus rien dire). */
   // ⚠️ RAISONNER PAR DEVISE, PAS PAR POINT. Un premier essai bornait sur le 2e/98e centile de TOUS les
@@ -1214,7 +1220,49 @@ function buildStrengthChart(containerId, data, opts = {}) {
     var fins = dedans.map(function (i) { return i.fin; });
     var marge = (hi - lo) * 0.06;
     var finLo = Math.min.apply(null, fins), finHi = Math.max.apply(null, fins);
-    return { min: Math.min(lo - marge, finLo - marge * 0.5), max: Math.max(hi + marge, finHi + marge * 0.5) };
+    var cadre = { min: Math.min(lo - marge, finLo - marge * 0.5), max: Math.max(hi + marge, finHi + marge * 0.5) };
+    /* ══ AUCUNE DEVISE NE DISPARAÎT DU CADRE (02/09, demande utilisateur capture à l'appui : « on ne
+       voit pas la courbe NZD, il faut que toutes les courbes apparaissent visuellement ») ══════════
+       C'EST LE TROISIÈME SIGNALEMENT DU MÊME MANQUE — JPY le 12/08, l'absence de pastille le 29/08,
+       le NZD aujourd'hui. Les deux premières fois on a déplacé un seuil ; le tracé, lui, pouvait
+       toujours quitter le cadre entièrement. Une courbe qu'on ne voit jamais n'est pas « hors
+       cadre », elle est ABSENTE : le graphique annonce huit devises dans sa légende et en montre
+       sept. On pose donc une condition de sortie, et non un seuil de plus.
+       LA RÈGLE : le cadre ne se resserre sur le paquet QUE si chaque devise visible garde une
+       présence réelle dedans. Sinon on renonce à compresser et on rend le cadre plein — tout est
+       visible, quitte à ce que le paquet soit plus tassé. C'est l'arbitrage que l'utilisateur vient
+       de trancher, et il l'emporte sur celui du 29/08 (« il veut lire le PAQUET »), qui n'avait
+       jamais envisagé qu'une courbe puisse disparaître complètement.
+       LE SEUIL SUIT UN PRINCIPE, IL N'EST PAS AJUSTÉ SUR DES ÉCHANTILLONS. La compression est
+       légitime quand elle cache une EXCURSION ; elle ne l'est pas quand elle cache une COURBE. Une
+       excursion, par définition, est minoritaire dans la fenêtre : une devise doit donc passer plus
+       de la MOITIÉ du temps dans le cadre pour qu'on accepte de la voir en sortir le reste.
+       J'avais d'abord posé 25 %, en le calant entre deux jeux d'essai (8 % d'un côté, 41 % de
+       l'autre). C'était un nombre ajusté sur ce que j'avais sous la main, et il laissait passer un
+       cas que l'utilisateur aurait signalé comme les autres : une devise visible 23 % du temps,
+       c'est-à-dire absente des trois quarts du graphique. Un seuil qui se justifie par un principe
+       vaut mieux qu'un seuil qui se justifie par deux mesures.
+       CE QUE ÇA COÛTE, ASSUMÉ : quand une devise vit franchement ailleurs, le cadre redevient plein
+       et le paquet est plus tassé — la situation que le 29/08 cherchait à éviter. C'est l'arbitrage
+       que l'utilisateur vient de trancher, trois signalements de suite allant dans le même sens
+       (JPY le 12/08, les pastilles le 29/08, le NZD aujourd'hui) contre un seul dans l'autre. Le
+       double-clic sur la gouttière droite reste là pour basculer.
+       ON NE MESURE PAS LA DERNIÈRE VALEUR, ON MESURE LA PRÉSENCE. Borner sur la fin de chaque
+       courbe (la règle du 11/08) étirait le cadre jusqu'à la fuyarde et écrasait les sept autres —
+       c'est très exactement ce que le 29/08 a corrigé. La présence, elle, distingue « cette courbe
+       sort un moment » de « cette courbe n'est jamais là ». */
+    var PRESENCE_MIN = 0.5;
+    for (var vi = 0; vi < vis.length; vi++) {
+      var sv = (d.series[vis[vi]] || []).filter(function (x) { return x.v != null; });
+      if (sv.length < 20) continue;                                 // série trop courte pour conclure
+      var dedansN = 0;
+      for (var pi = 0; pi < sv.length; pi++) {
+        var vv = sv[pi].v * facteur;
+        if (vv >= cadre.min && vv <= cadre.max) dedansN++;
+      }
+      if (dedansN / sv.length < PRESENCE_MIN) return null;           // → cadre plein, toutes les courbes visibles
+    }
+    return cadre;
   }
   var _dernieresDonnees = data;                                     // pour recadrer sans attendre le prochain rafraichissement
   var _cadreLibre = false;                                            // double-clic : retour au cadrage plein

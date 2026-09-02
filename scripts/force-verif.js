@@ -9,6 +9,10 @@
  *     sa PASTILLE — pas seulement sa courbe. Une pastille est le label d'une plage d'axe posée à la
  *     valeur de fin de courbe ; hors des bornes de l'axe, amCharts ne la rend pas. Mesuré : sept
  *     pastilles sur huit, et l'étiquette manquante a pourtant `visible: true` et son élément HTML.
+ *     ⚠️ ET CE N'A PAS SUFFI (02/09, troisième signalement du même manque) : rendre la PASTILLE
+ *     d'une devise hors cadre ne rend pas sa COURBE, qui reste rognée par le masque du tracé.
+ *     `bornesPaquet` exige donc désormais une PRÉSENCE — une devise doit passer plus de la moitié
+ *     du temps dans le cadre pour qu'on accepte de la voir en sortir le reste.
  *   · quand il ne se resserre PAS (quatre fuyardes, ou gain jugé insuffisant), les huit courbes
  *     s'écrasent : mesuré 0,1 px entre deux fins de courbe voisines, pour un trait de 1,3 px.
  *
@@ -52,9 +56,13 @@ function trouverNavigateur() {
 /* ══ JEUX D'ESSAI ════════════════════════════════════════════════════════════════════════════════
    Marches aléatoires REPRODUCTIBLES (générateur à graine, aucune horloge) à somme quasi nulle —
    c'est la nature de l'indicateur : si une devise gagne, les autres perdent mécaniquement.
-     · « paquet »  : les huit dans la même bande. C'est le cas ordinaire d'une séance.
-     · « fuyarde » : une devise décroche largement. C'est le cas qui casse le cadrage.
-     · « ecrase »  : QUATRE devises décrochent → `bornesPaquet` renonce (elle exige que 60 % des
+     · « paquet »   : les huit dans la même bande. C'est le cas ordinaire d'une séance.
+     · « fuyarde »  : une devise VIT AILLEURS toute la période. Depuis le 02/09 c'est le cas qui fait
+       RENONCER le cadrage — la compresser dehors la rendrait invisible, ce que l'utilisateur est
+       venu signaler (« on ne voit pas la courbe NZD »).
+     · « echappee » : une devise reste dans le paquet, puis s'en va en fin de période. C'est le seul
+       régime qui fasse encore compresser, et donc celui qui éprouve la pastille ramenée au bord.
+     · « ecrase »   : QUATRE devises décrochent → `bornesPaquet` renonce (elle exige que 60 % des
        devises restent dans le paquet) et les quatre autres se retrouvent aplaties au fond. */
 const CCY = ['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CHF', 'CAD', 'NZD'];
 /* Les séries sont CONSTRUITES pour finir sur des valeurs choisies : c'est la seule façon de garantir
@@ -66,7 +74,13 @@ const CCY = ['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CHF', 'CAD', 'NZD'];
    l'échelle soit ×100 et que les fins voulues soient exactement les fins mesurées.
    `_verifRegimes` ci-dessous REJOUE le vrai `bornesPaquet` de charts.js et refuse de démarrer si un
    jeu n'atteint pas son régime. */
-function jeu(nPts, dtMs, fins) {
+/* `depart` (facultatif) : fraction de la fenêtre pendant laquelle une devise RESTE dans le paquet
+   avant de s'en aller. Sans lui, toutes les rampes partent du premier point — ce qui ne produit que
+   des devises « qui vivent ailleurs », jamais une devise qui décroche EN COURS de période. Depuis
+   que le cadrage exige une PRÉSENCE (cf. `bornesPaquet`), les deux ne se comportent plus pareil :
+   la première fait renoncer la compression, la seconde la déclenche. Il fallait donc pouvoir
+   fabriquer les deux. */
+function jeu(nPts, dtMs, fins, depart) {
   let s = 7; const r = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   const t0 = Date.UTC(2026, 7, 24, 6, 0, 0);          // horodatage FIXE : un contrôle ne dépend pas de l'heure
   // 1) le bruit, d'abord, pour tout le monde — il donne la texture (croisements, retournements)
@@ -87,23 +101,35 @@ function jeu(nPts, dtMs, fins) {
   const series = {};
   CCY.forEach(c => {
     const fin = bruit[c][nPts - 1];
+    const dep = (depart && depart[c]) || 0;
     series[c] = bruit[c].map((n, k) => {
       const u = k / (nPts - 1);
-      return { t: t0 + k * dtMs, v: (fins[c] / 100) * u + (n - fin * u) };
+      const w = dep ? Math.max(0, (u - dep) / (1 - dep)) : u;      // la rampe ne démarre qu'après `dep`
+      return { t: t0 + k * dtMs, v: (fins[c] / 100) * w + (n - fin * u) };
     });
   });
   return { currencies: CCY, series };
 }
 
-/* Trois régimes, et ce sont les trois que le widget rencontre en vrai :
-     · paquet  — les huit dans la même bande. `bornesPaquet` ne compresse pas, elle n'a rien à faire.
-     · fuyarde — une devise décroche. `bornesPaquet` COMPRESSE et la laisse dehors : c'est là que sa
-                 pastille disparaissait.
-     · écrasé  — QUATRE décrochent. `bornesPaquet` RENONCE (elle exige que 60 % des devises restent
-                 dans le paquet) et les quatre du fond s'aplatissent. */
+/* Quatre régimes, et ce sont ceux que le widget rencontre en vrai :
+     · paquet   — les huit dans la même bande. `bornesPaquet` ne compresse pas, elle n'a rien à faire.
+     · fuyarde  — une devise vit ailleurs toute la période. `bornesPaquet` RENONCE depuis le 02/09 :
+                  la compresser dehors la rendrait invisible (23 % de présence, mesuré).
+     · echappee — une devise part en fin de période. `bornesPaquet` COMPRESSE et laisse sa fin
+                  dehors : c'est là que sa pastille disparaissait, et c'est ce chemin-là qu'il faut
+                  continuer d'éprouver.
+     · écrasé   — QUATRE décrochent. `bornesPaquet` RENONCE (elle exige que 60 % des devises restent
+                  dans le paquet) et les quatre du fond s'aplatissent. */
 const JEUX = {
   paquet:  jeu(480, 60000,  { USD: 6.5, AUD: 6.0, GBP: 1.5, CAD: 1.2, JPY: -0.8, NZD: -1.5, EUR: -5.9, CHF: -7.2 }),
   fuyarde: jeu(1400, 300000, { USD: 42, AUD: 5.5, GBP: 1.6, CAD: 1.2, JPY: -0.9, NZD: -1.6, EUR: -5.4, CHF: -6.8 }),
+  /* ÉCHAPPÉE TARDIVE (02/09) : l'USD reste dans le paquet les sept premiers dixièmes de la période,
+     puis s'en va et finit dehors. C'est le SEUL des quatre régimes qui fasse encore compresser le
+     cadre depuis que la présence est exigée — et c'est donc lui, désormais, qui éprouve la pastille
+     ramenée au bord avec son chevron. Sans ce jeu, ce chemin de code ne serait plus emprunté par
+     aucun contrôle et pourrait casser sans que rien ne le dise. Mesuré : présence de l'USD 75 %,
+     compression active, fin hors cadre. */
+  echappee: jeu(1400, 300000, { USD: 42, AUD: 5.5, GBP: 1.6, CAD: 1.2, JPY: -0.9, NZD: -1.6, EUR: -5.4, CHF: -6.8 }, { USD: 0.7 }),
   ecrase:  jeu(1400, 300000, { USD: 42, EUR: -38, JPY: 33, GBP: -31, AUD: 1.4, CHF: -1.2, CAD: 0.9, NZD: -1.6 }),
 };
 
@@ -125,8 +151,17 @@ function _regimes() {
   for (const [nom, d] of Object.entries(JEUX)) {
     const b = bp(d, 100);
     const fins = CCY.map(c => d.series[c][d.series[c].length - 1].v * 100);
+    /* La PRÉSENCE de la devise la moins présente : c'est la grandeur sur laquelle la règle décide
+       désormais, donc celle qu'il faut relever pour dire si un jeu atteint son régime. */
+    let presMin = 1;
+    if (b) CCY.forEach(c => {
+      const se = d.series[c] || []; if (se.length < 20) return;
+      const dedansN = se.filter(x => x.v != null && x.v * 100 >= b.min && x.v * 100 <= b.max).length;
+      if (dedansN / se.length < presMin) presMin = dedansN / se.length;
+    });
     out[nom] = { compresse: !!b, cadre: b ? [+b.min.toFixed(1), +b.max.toFixed(1)] : null,
-      dehors: b ? fins.filter(v => v < b.min || v > b.max).length : 0 };
+      dehors: b ? fins.filter(v => v < b.min || v > b.max).length : 0,
+      presenceMin: b ? Math.round(presMin * 100) : null };
   }
   return out;
 }
@@ -362,15 +397,15 @@ const CAS = [
   { nom: 'fenêtre étroite, séance ordinaire',      w: 400,  h: 300, p: 'paquet' },
   { nom: 'fenêtre étroite, une devise décroche',   w: 400,  h: 300, p: 'fuyarde' },
   { nom: 'fenêtre étroite, quatre décrochent',     w: 400,  h: 300, p: 'ecrase' },
-  { nom: 'carte de tableau de bord',               w: 600,  h: 300, p: 'fuyarde', survol: true },
+  { nom: 'carte de tableau de bord',               w: 600,  h: 300, p: 'echappee', survol: true },
   { nom: 'carte courte',                           w: 600,  h: 150, p: 'fuyarde' },
   { nom: 'carte très courte, fenêtre étroite',     w: 360,  h: 150, p: 'paquet' },
   { nom: 'carte très courte, une décroche',        w: 360,  h: 150, p: 'fuyarde' },
   { nom: 'bandeau large et bas',                   w: 1400, h: 200, p: 'fuyarde' },
   { nom: 'bandeau large et bas, quatre décrochent', w: 1400, h: 200, p: 'ecrase' },
-  { nom: 'onglet du desk, pleine largeur',         w: 1150, h: 300, p: 'fuyarde' },
+  { nom: 'onglet du desk, pleine largeur',         w: 1150, h: 300, p: 'echappee' },
   { nom: 'onglet du desk, quatre décrochent',      w: 1150, h: 300, p: 'ecrase' },
-  { nom: 'avec la valeur dans la pastille',        w: 600,  h: 300, p: 'fuyarde', o: { avecValeur: true } },
+  { nom: 'avec la valeur dans la pastille',        w: 600,  h: 300, p: 'echappee', o: { avecValeur: true } },
   { nom: 'thème clair',                            w: 600,  h: 300, p: 'fuyarde', t: 'light' },
   { nom: 'mode paire (EUR + AUD)',                 w: 600,  h: 300, p: 'fuyarde', o: { onlyCurrencies: ['EUR', 'AUD'] } },
 ];
@@ -572,9 +607,26 @@ function controler(mesures) {
   if (rg.erreur) { v('le vrai bornesPaquet est retrouvé dans charts.js', false, rg.erreur); }
   else {
     v('« séance ordinaire » : le cadre reste plein', rg.paquet && !rg.paquet.compresse, JSON.stringify(rg.paquet));
-    v('« une devise décroche » : le cadre se resserre', rg.fuyarde && rg.fuyarde.compresse, JSON.stringify(rg.fuyarde));
-    v('… et laisse bien une devise dehors', rg.fuyarde && rg.fuyarde.dehors === 1, JSON.stringify(rg.fuyarde));
+    /* ⚠️ CE CONTRÔLE A ÉTÉ RETOURNÉ LE 02/09, ET C'EST VOULU. Il exigeait auparavant que « une
+       devise décroche » fasse COMPRESSER le cadre. C'est précisément ce que l'utilisateur est venu
+       signaler : « on ne voit pas la courbe NZD, il faut que toutes les courbes apparaissent ».
+       Une devise qui vit ailleurs pendant toute la période n'est plus compressée dehors — elle
+       resterait invisible. Mesuré sur ce jeu : l'USD n'avait que 23 % de ses points dans le cadre.
+       La compression est réservée à ce qu'elle sait faire sans rien cacher : l'échappée TARDIVE,
+       éprouvée juste en dessous. */
+    v('« une devise vit ailleurs » : la règle renonce, la courbe reste visible',
+      rg.fuyarde && !rg.fuyarde.compresse, JSON.stringify(rg.fuyarde));
+    v('« échappée tardive » : là, le cadre se resserre', rg.echappee && rg.echappee.compresse, JSON.stringify(rg.echappee));
+    v('… et laisse bien une devise dehors', rg.echappee && rg.echappee.dehors === 1, JSON.stringify(rg.echappee));
+    v('… sans jamais descendre sous la moitié de présence',
+      rg.echappee && rg.echappee.presenceMin >= 50, JSON.stringify(rg.echappee));
     v('« quatre décrochent » : la règle renonce', rg.ecrase && !rg.ecrase.compresse, JSON.stringify(rg.ecrase));
+    /* L'INVARIANT, sur TOUS les régimes : quand le cadre se resserre, aucune devise ne peut y être
+       présente moins de la moitié du temps. C'est la règle elle-même, éprouvée sur les quatre jeux
+       plutôt que sur celui qui l'illustre — un seuil qui bouge dans charts.js le fera rougir ici. */
+    const fautifs = Object.entries(rg).filter(([, o]) => o && o.compresse && o.presenceMin < 50)
+      .map(([n, o]) => n + ' (' + o.presenceMin + ' %)');
+    v('aucun régime ne cache une courbe plus de la moitié du temps', fautifs.length === 0, fautifs.join(' · '));
   }
 
   console.log('\n── Force des Devises : les huit devises sont-elles lisibles ? ──');
