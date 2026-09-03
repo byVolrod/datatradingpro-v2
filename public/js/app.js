@@ -9684,7 +9684,10 @@ function _rapportCalTable(evs) {
            notre fournisseur ne remplit PAS pour les rendez-vous à venir : deux colonnes de tirets
            sur toute la hauteur du tableau, qui volaient de la largeur à l'intitulé de l'événement.
            Le desk les masque déjà sur écran étroit ; ici elles ne servaient jamais. */
-        + `<td class="cth-val cth-val--reel">${_va(e)}</td><td class="cth-val cth-val--prev">${_vf(e.forecast)}</td><td class="cth-val cth-val--prec">${_vp(e.previous)}</td></tr>`
+        /* `data-lbl` : les MÊMES étiquettes que le calendrier du desk (charts.js). Sur téléphone, la
+           table du rapport se replie en CARTES et chaque valeur se lit « Réel 3,2 % » ; sans cet
+           attribut, la carte afficherait trois nombres nus sans dire lequel est lequel. */
+        + `<td class="cth-val cth-val--reel" data-lbl="Réel">${_va(e)}</td><td class="cth-val cth-val--prev" data-lbl="Prév.">${_vf(e.forecast)}</td><td class="cth-val cth-val--prec" data-lbl="Préc.">${_vp(e.previous)}</td></tr>`
         + `<tr class="fxdr-cal-detail" hidden><td colspan="8"></td></tr>`;
     });
     if (!rows) return '';

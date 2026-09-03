@@ -4057,8 +4057,20 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
   .br-doc-body table, .br-doc-body thead, .br-doc-body tbody, .br-doc-body tr, .br-doc-body td, .br-doc-body th { display: block !important; width: 100% !important; }
   .br-doc-body td, .br-doc-body th { border-width: 0 0 1px 0 !important; }
 
-  /* Analyst reader */
-  .arlib-rcontent { padding: 12px; }
+  /* Analyst reader.
+     ⚠️ CETTE RÈGLE N'A JAMAIS RIEN FAIT, DE SA POSE JUSQU'AU 04/09. `.arlib-rcontent { padding:
+     28px max(32px, …) 48px }`, déclarée mille lignes PLUS BAS avec la MÊME spécificité (0,1,0),
+     gagne par l'ordre du source. Mesuré dans un Chromium en téléphone, à 390, 412 et 470 px : le
+     lecteur rendait « 28px max(32px, 50% - 520px) 48px », jamais 12px. Le rapport perdait donc 64
+     des 390 px de l'écran en marges latérales — un sixième de la largeur — et 76 px en hauteur.
+     Une règle mobile qu'un sélecteur de même poids écrase plus bas est INVISIBLE : elle se lit
+     comme un correctif appliqué alors qu'elle ne l'est pas. On la porte sur l'ID, qui tranche.
+     Le bas emporte AUSSI la barre d'accueil iOS (`env(safe-area-inset-bottom)`) : le desk se
+     déclare `viewport-fit=cover` + `apple-mobile-web-app-capable`, donc installé sur l'écran
+     d'accueil il occupe TOUTE la dalle, indicateur compris. Le HAUT était déjà réservé
+     (`--topbar-h` ajoute `env(safe-area-inset-top)`) ; le bas ne l'était nulle part — la dernière
+     ligne d'un rapport finissait sous la barre d'accueil. `env()` vaut 0 partout ailleurs. */
+  #arlib-rcontent { padding: 14px 12px calc(24px + env(safe-area-inset-bottom, 0px)); }
 
   /* INSTITUTION / ANALYST : la barre recherche + filtres passe sur 2 lignes au lieu de déborder à droite */
   .br-toolbar, .arlib-toolbar { flex-wrap: wrap; }
@@ -4863,6 +4875,7 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
   flex-direction: column;
   height: 100%;
   width: 100%;
+  min-height: 0;
   overflow: hidden;
   background: var(--bg2);
   position: relative;
@@ -5270,6 +5283,13 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
   flex-direction: column;
   height: 100%;
   width: 100%;
+  /* `min-height: 0` : ces conteneurs sont des colonnes flex ET des éléments flex. Sans lui, leur
+     minimum automatique vaut la hauteur de leur contenu — la zone qui défile (`#arlib-rcontent`)
+     ne peut alors plus rétrécir et sa fin passe sous le bord de la carte, hors d'atteinte. Le
+     reste de la chaîne le porte déjà (`.views-col`, `#view-analyst`) ; ces deux-là étaient les
+     seuls à ne pas l'avoir. Aligné, pas mesuré : rien ne change là où la chaîne donne déjà une
+     hauteur définie, ce qui est le cas dans un Chromium. */
+  min-height: 0;
   overflow: hidden;
 }
 .arlib-reader-view.hidden { display: none; }
@@ -10098,6 +10118,13 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
   min-width: 0;
 }
 #br-rcontent:has(.br-document) { background: #fff; }
+/* La barre d'accueil iOS mange la fin de ce qui défile — même raison, même remède que
+   `#arlib-rcontent` (bloc ≤768). ⚠️ ET LA RÈGLE VIT ICI, PAS DANS LE BLOC MOBILE : `#br-rcontent
+   { padding: 0 }` juste au-dessus a la même spécificité et gagnerait par l'ordre du source. C'est
+   exactement le piège qui avait rendu muette la règle mobile du lecteur Analyste. */
+@media (max-width: 768px) {
+  #br-rcontent:not(.br-rcontent--pdf) { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
 
 /* ═══════════════════════════════════════════════
    LIVE SQUAWK PANEL
@@ -12047,11 +12074,42 @@ html[data-theme="light"] {
    les proportions choisies par l'utilisateur (les spans de lignes), mais avec un plancher par ligne et
    un plancher par carte ; la grille défile si la somme dépasse l'écran. */
 @media (max-width: 900px) {
-  .wdg-grid { overflow-y: auto; align-content: start; grid-auto-rows: minmax(14px, auto); }
+  /* ⚠️ LA RANGÉE SUIT LE CONTENU, ET CHAQUE CARTE PREND LA SIENNE — SINON ELLES SE RECOUVRENT
+     (04/09, mesuré). Les `span` de rangées viennent du grand écran ; les PLANCHERS par carte
+     (200 px ici, 420/490/760 px sur téléphone) viennent du mobile. Les deux ensemble se
+     contredisent : `grid-auto-rows: minmax(14px, auto)` fige la base d'une rangée à 14 px, donc
+     le plancher d'une carte ne la fait JAMAIS grandir — la carte déborde de son emplacement et la
+     suivante, posée après elle dans le document, se peint par-dessus. Relevé avant correctif :
+     123 px de recouvrement à 390 px de large (c'est ce qui cachait la fin d'un rapport et volait
+     le geste du pouce), 20 à 21 px entre 600 et 880.
+     ⚠️ ET `minmax(min-content, auto)` N'EST PAS LA SORTIE, quoiqu'elle supprime bien le
+     recouvrement : la hauteur minimale d'un contenu ne tient pas compte du fait qu'il DÉFILE, si
+     bien que la carte grandit jusqu'à son contenu entier — mesuré, 4 751 px de haut pour une
+     carte à onglets à 600 px de large. On rend donc la rangée AU CONTENU (`auto`, dont la base
+     honore le plancher) et on place chaque carte dans sa propre rangée. Les colonnes, elles,
+     gardent les `span` de l'utilisateur : la mise en page latérale ne change pas. */
+  .wdg-grid { overflow-y: auto; align-content: start; grid-auto-rows: auto; }
+  .wdg-card, .wdg-ghost { grid-row: auto !important; }
   .wdg-card { min-height: 200px; }
 }
 @media (max-width: 560px) {
-  .wdg-grid { grid-auto-rows: minmax(12px, auto); }
+  /* ⚠️ EN COLONNE UNIQUE, CHAQUE CARTE PREND SA PROPRE RANGÉE — SANS QUOI ELLES SE RECOUVRENT
+     (04/09, mesuré ; c'est la cause de « je ne parviens pas à scroll plus bas »).
+     Relevé à 390x844, Mon Desk, trois cartes : la carte à onglets portant une vue du desk occupe
+     `grid-row: span 26`, soit 26 rangées de 12 px + gouttières ≈ 552 px d'écran — mais son
+     plancher vaut 760 px CSS (684 d'écran). Elle DÉBORDE donc de 123 px hors de son emplacement,
+     et la carte suivante, posée après elle dans le document, se peint PAR-DESSUS ces 123 px.
+     Mesures exactes : chevauchements de 123 px puis 234 px entre les trois cartes.
+     CE QUE ÇA FAIT AU LECTEUR DE RAPPORTS, et c'est exactement la capture utilisateur : la fin du
+     rapport existe, elle défile, mais elle vit sous la carte voisine — invisible ; et un pouce
+     posé dans cette bande touche la carte du dessus, donc fait défiler la PAGE au lieu du rapport.
+     « Je ne parviens pas à scroll plus bas. Je peux pas lire la data du bas genre la fin. »
+     La cause est le mélange de deux règles justes prises séparément : des SPANS de rangées choisis
+     par l'utilisateur (pensés pour la grille du bureau) et des PLANCHERS par carte (420/490/760 px,
+     posés pour le téléphone). Sur une colonne unique, les spans ne veulent plus rien dire — il n'y
+     a plus de voisin latéral à aligner — tandis que les planchers, eux, décident vraiment de la
+     hauteur. On rend donc la rangée AU CONTENU : une carte, une rangée, aucune superposition
+     possible. La page défile, ce qui est déjà le modèle mobile assumé plus haut. */
   /* 05/08 (constat user : « on ne peut pas bien scroller, les widgets sont trop courts »).
      220px laissaient ~150px de liste une fois l en-tete et la barre d outils deduits : trois
      lignes de news a peine, et un defilement qui bute aussitot. En colonne unique sur mobile,
@@ -14137,6 +14195,11 @@ html[data-theme="light"] .home-fx.is-down .home-fx-v { color: #ab2708; }
    vue adoptée, le contenu prend l'espace de tous les côtés — padding fixe raisonnable, plus de calc
    centré. */
 .wdg-vuehost .arlib-rcontent, .wdg-vuehost #br-rcontent { padding: 20px 26px 36px; }
+/* Sur téléphone, la carte de Mon Desk n'a pas 26 px à donner de chaque côté, et sa dernière ligne
+   doit passer AU-DESSUS de la barre d'accueil iOS comme partout ailleurs (voir le bloc ≤768). */
+@media (max-width: 560px) {
+  .wdg-vuehost #arlib-rcontent, .wdg-vuehost #br-rcontent { padding: 14px 12px calc(24px + env(safe-area-inset-bottom, 0px)); }
+}
 
 /* Onglet Taux (vue adoptée) : mode « une seule banque » → la carte restante prend toute la largeur. */
 .wdg-vuehost #taux-grid.rtc-solo { grid-template-columns: minmax(0, 1fr); }
@@ -16785,7 +16848,10 @@ body.theme-light .news-item--urgent, body.theme-light .news-item--breaking { bac
      ⚠️ LES TROIS ENVELOPPES, PAS DEUX. Le calendrier vit dans `.wdg-cal-wrap` (Mon Desk ET accueil),
      `#cal-table-wrap` (onglet) et `#wa-cal-body` (Semaine à Venir). N'en nommer que deux laissait le
      widget avec un `td` resté `table-cell` : la bande se dimensionnait à son texte et deux jours
-     s'affichaient CÔTE À CÔTE au lieu de se succéder (capture user 05/08). */
+     s'affichaient CÔTE À CÔTE au lieu de se succéder (capture user 05/08).
+     (La rubrique « À surveiller » des RAPPORTS n'est PAS dans cette liste : elle a son propre bloc,
+     plus bas — « À SURVEILLER » —, parce qu'elle se replie dès 768 px et non 560. Deux régimes,
+     deux blocs, un seul propriétaire chacun.) */
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-day-sep,
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-detail-row { display: block; width: 100%; }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-day-sep > td,
@@ -20981,6 +21047,86 @@ html[data-theme="light"] .calc-card--risque .calc-v, html[data-theme="light"] .c
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-val::before { font-size: 10.5px; }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-day-sep > td { font-size: 11.5px !important; }
   :is(.wdg-cal-wrap, #cal-table-wrap, #wa-cal-body) .cal-row .cth-flag img { width: 13px; height: 13px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   « À SURVEILLER » — LE CALENDRIER D'UN RAPPORT SE REPLIE EN CARTES SOUS 768 px (04/09)
+   ══════════════════════════════════════════════════════════════════════════════════════════════
+   Capture utilisateur, Récap Quotidien ouvert dans une carte de Mon Desk sur un iPhone :
+   « Je ne parviens pas à scroll plus bas corrige ça. Je peux pas lire la data du bas genre la fin. »
+
+   DEUX DÉFAUTS, UNE SEULE CAUSE : la rubrique « À surveiller » est un TABLEAU À HUIT COLONNES
+   enveloppé dans `.fxdr-tablewrap { overflow-x: auto }`.
+     · Ce que la capture montre en haut : l'en-tête s'arrête sur un « RÉ » coupé net. « Réel »,
+       « Prévision » et « Précédent » — c'est-à-dire les chiffres, la raison d'être du tableau —
+       sont hors champ à droite, et RIEN ne l'indique. Masquer sans le dire est le pire des deux
+       comportements possibles ; c'est le même constat que pour le rendu PDF (03/09).
+     · Ce que la capture montre en bas, et qui explique la phrase : ce tableau occupe le bas de
+       l'écran, donc l'endroit où le pouce se pose. Or un geste vertical qui COMMENCE dans un
+       conteneur défilant y reste — WebKit ne le transmet pas au conteneur suivant, contrairement
+       à Chrome. Le doigt posé sur le tableau ne faisait donc plus rien alors que le rapport avait
+       encore des dizaines de lignes en dessous.
+   ⚠️ ET C'EST POURQUOI CHROME NE POUVAIT PAS LE MONTRER. Mesuré : dans un Chromium en téléphone,
+   le même geste atteignait la fin du rapport, parce que Chrome fait remonter le geste. Un contrôle
+   qui se contente de « est-ce que ça défile » serait resté vert sur le défaut même. Le banc
+   (`scripts/lecteur-verif.js`) mesure donc la CAUSE, vraie dans les deux moteurs : entre une ligne
+   du calendrier et la zone qui défile, plus aucun ancêtre ne doit avoir de débordement défilable.
+
+   LE REMÈDE EST CELUI QUE LE DESK EMPLOIE DÉJÀ pour son propre calendrier (bloc « CALENDRIER : des
+   CARTES, plus un tableau », ≤560) : chaque événement devient une carte — heure, drapeau, devise et
+   impact en tête, intitulé sur toute la largeur, puis les trois valeurs en paires libellées. Plus
+   rien à faire défiler latéralement : le conteneur cesse d'être un conteneur défilant, le geste
+   retourne au lecteur, et les chiffres se lisent.
+
+   ⚠️ 768 ET NON 560, ET C'EST DÉLIBÉRÉ. Le calendrier du desk se replie à 560 : il occupe alors un
+   panneau pleine largeur. Celui d'un rapport vit dans un LECTEUR, lui-même parfois dans une carte —
+   il n'a jamais la largeur de l'écran. Mesuré à 720 px de fenêtre : la table débordait encore de
+   193 px et les cellules « Préc. » sortaient de 162 px du cadre. D'où son propre bloc, et son
+   propre seuil : deux régimes, deux blocs, un seul propriétaire chacun — plutôt qu'une liste
+   d'enveloppes commune qui aurait imposé le même seuil aux deux.
+   `data-lbl` est posé par `_rapportCalTable` (app.js) : sans lui, une carte afficherait trois
+   nombres nus sans dire lequel est le réel, lequel l'attendu. */
+@media (max-width: 768px) {
+  .fxdr-callike .fxdr-tablewrap { overflow-x: visible; }
+  .fxdr-callike .cal-table, .fxdr-callike tbody, .fxdr-callike tr { display: block; width: 100%; }
+  .fxdr-callike .cal-table { table-layout: auto !important; min-width: 0 !important; }
+  .fxdr-callike thead { display: none; }
+  /* Grille à 12 colonnes, placements TOUS explicites : une colonne dimensionnée par son contenu
+     (le drapeau) tomberait à 0 px et avalerait la valeur qui atterrit dedans. Douze fractions
+     égales ne peuvent pas s'effondrer. (Même raisonnement que le calendrier du desk.) */
+  .fxdr-callike .cal-row {
+    display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));
+    row-gap: 2px; column-gap: 0;
+    padding: 10px 12px; border-bottom: 1px solid var(--hud-line, var(--border));
+  }
+  .fxdr-callike .cal-table .cal-row > td {
+    display: block !important; width: auto !important; max-width: none !important;
+    padding: 0 !important; text-align: left !important; white-space: normal !important;
+    overflow: visible !important; border: 0 !important;
+  }
+  .fxdr-callike .cal-row .cth-time { grid-column: 1 / 4;  font-size: 13px !important; font-weight: var(--fw-bold, 700); }
+  .fxdr-callike .cal-row .cth-flag { grid-column: 4 / 5;  font-size: 13px !important; }
+  .fxdr-callike .cal-row .cth-flag img { width: 15px; height: 15px; }
+  .fxdr-callike .cal-row .cth-curr { grid-column: 5 / 9;  font-size: 12.5px !important; padding-left: 6px !important; }
+  .fxdr-callike .cal-row .cth-imp  { grid-column: 9 / 13; justify-self: end; }
+  .fxdr-callike .cal-row .cth-imp, .fxdr-callike .cal-row .cth-imp > span,
+  .fxdr-callike .cal-row .cth-imp .ci-dot-off { font-size: 12px !important; letter-spacing: .5px; }
+  .fxdr-callike .cal-row .cth-event { grid-column: 1 / -1; font-size: 13.5px !important; line-height: 1.35; margin: 4px 0 5px; }
+  /* Les valeurs deviennent des paires « libellé valeur », donc lisibles sans en-tête de colonne. */
+  .fxdr-callike .cal-row .cth-val { font-size: 12.5px !important; }
+  .fxdr-callike .cal-row .cth-val::before { content: attr(data-lbl) ' '; color: #9aa2ad; font-size: 11.5px; }
+  .fxdr-callike .cal-row .cth-val[data-lbl="Réel"]  { grid-column: 1 / 5; }
+  .fxdr-callike .cal-row .cth-val[data-lbl="Prév."] { grid-column: 5 / 9; }
+  .fxdr-callike .cal-row .cth-val[data-lbl="Préc."] { grid-column: 9 / 13; }
+  /* Le séparateur de jour et le décryptage déplié au tap ne sont PAS des cartes : chacun reste une
+     bande pleine largeur, la grille à 12 colonnes ne s'y applique pas. */
+  .fxdr-callike .cal-day-sep, .fxdr-callike .fxdr-cal-detail { display: block; width: 100%; }
+  .fxdr-callike .cal-day-sep > td, .fxdr-callike .fxdr-cal-detail > td {
+    display: block !important; width: 100% !important; max-width: none !important;
+    white-space: normal !important; overflow: visible !important;
+  }
+  .fxdr-callike .cal-day-sep { position: static; top: auto; }
+  .fxdr-callike .cal-day-sep > td { font-size: 13px !important; }
 }
 
 /* ÉCLAIRAGES IA : JAMAIS de carte coupée (23/08, capture user : badge « NEUTRE » tronqué au bord).
