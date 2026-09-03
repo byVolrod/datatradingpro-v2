@@ -1116,7 +1116,17 @@ v('… la règle « une seule institution par puce » tient toujours', /UNE SEUL
 v('… la qualité de l\'intervenant reste obligatoire', /QUALITÉ DE L'INTERVENANT OBLIGATOIRE/.test(CB));
 v('… une décision du jour s\'annonce toujours en premier', /SI LA BANQUE A DÉCIDÉ CE JOUR-LÀ, DIS-LE EXPLICITEMENT et en premier/.test(CB));
 v('… et aucune ampleur de mouvement ne doit être inventée', /N'invente jamais l'ampleur d'un mouvement qui n'a pas eu lieu/.test(CB));
-v('la version du Quotidien a été bumpée pour cette réécriture (v26)', /const FXR_VER = 26;/.test(SRV));
+/* ⚠️ « AU MOINS 26 », PAS « ÉGAL À 26 » (corrigé le 03/09). Écrit en égalité stricte, ce contrôle
+   épinglait un numéro qui a vocation à MONTER : chaque nouvelle comparaison avec le récap de
+   référence rehausse FXR_VER pour déclencher la régénération. La v27 l'a donc fait rougir alors
+   qu'elle faisait exactement ce qu'il demandait. Et le réflexe qu'il induisait était le pire
+   possible : redescendre le numéro pour retrouver le vert — c'est-à-dire supprimer la régénération
+   et laisser les rapports sortir sous les anciennes consignes, sans que rien ne le signale. Ce que
+   ce contrôle veut dire est « la réécriture v26 a bien été accompagnée d'un bump », et cela reste
+   vrai à 27, 28 et au-delà. */
+v('la version du Quotidien a été bumpée pour cette réécriture (v26 ou plus récente)',
+  parseInt((/const FXR_VER = (\d+);/.exec(SRV) || [0, 0])[1], 10) >= 26,
+  'lu : ' + (/const FXR_VER = (\d+);/.exec(SRV) || [])[1]);
 
 console.log('\n── 8. Mise à jour automatique des récaps du jour ──');
 /* Le format de séance porte une version, et les récaps déjà publiés sous une version périmée se
