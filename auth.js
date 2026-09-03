@@ -470,6 +470,12 @@ if (_usersMirror.size) {
   console.log(`[Auth] démarrage : ${_dbNodes.length} base(s) en quarantaine de lecture jusqu'à la première convergence (le miroir, à jour, sert les comptes d'ici là)`);
 }
 
+/* La réparation d'échéance part APRÈS le chargement du miroir et AVANT la première convergence :
+   elle écrit dans le miroir, et c'est la convergence qui portera la date aux quatre bases. Posée
+   ici, elle profite du même ordre que la quarantaine — donc d'un miroir déjà complet. Elle est
+   définie plus bas ; les déclarations de fonction se hissent, l'appel est donc valide. */
+if (_usersMirror.size) { try { _reparerEcheances(); } catch (e) { console.warn('[Auth] correction d\'échéance :', e && e.message); } }
+
 // ─── Pierres tombales : ids de comptes SUPPRIMÉS. Garantit qu'un compte effacé ne RÉAPPARAÎT jamais (ni dans la
 //     liste, ni au login), même si la primaire — en blackout au moment du delete — le renvoie à son retour (le
 //     delete non-multi a pu ne toucher qu'un secondaire). uuid uniques → un futur compte n'est jamais filtré à tort.
@@ -477,7 +483,13 @@ const USERS_DELETED_FILE = path.join(_DATA_DIR, 'users_deleted.json');
 const _deletedIds = new Set();
 try { const _d = JSON.parse(fs.readFileSync(USERS_DELETED_FILE, 'utf8')); if (Array.isArray(_d)) _d.forEach(x => _deletedIds.add(String(x))); } catch {}
 function _isTombstoned(id) { return id != null && _deletedIds.has(String(id)); }
-function _tombstone(id) { if (id == null) return; _deletedIds.add(String(id)); try { fs.writeFileSync(USERS_DELETED_FILE, JSON.stringify([..._deletedIds])); } catch {} }
+function _tombstone(id) {
+  if (id == null) return;
+  _deletedIds.add(String(id));
+  try { fs.writeFileSync(USERS_DELETED_FILE, JSON.stringify([..._deletedIds])); } catch {}
+  // Même raison que la liste noire : un compte supprimé qui « revient » est un défaut visible du client.
+  try { if (typeof aiCacheSet === 'function') aiCacheSet(_KV_TOMBES, [..._deletedIds]); } catch {}
+}
 
 // ─── Liste noire : e-mails BANNIS « partout » (login refusé + création refusée + réactivation Whop ignorée).
 //     Persiste en fichier (comme les pierres tombales) MAIS surtout SEEDÉE en dur → le blocage survit à un
@@ -486,7 +498,11 @@ const USERS_BLACKLIST_FILE = path.join(_DATA_DIR, 'users_blacklist.json');
 const _blacklist = new Set();
 let _blacklistLoaded = false;
 try { const _b = JSON.parse(fs.readFileSync(USERS_BLACKLIST_FILE, 'utf8')); if (Array.isArray(_b)) { _b.forEach(x => _blacklist.add(String(x).toLowerCase().trim())); _blacklistLoaded = true; } } catch {}
-function _blacklistSave() { try { fs.writeFileSync(USERS_BLACKLIST_FILE, JSON.stringify([..._blacklist])); } catch {} }
+function _blacklistSave() {
+  try { fs.writeFileSync(USERS_BLACKLIST_FILE, JSON.stringify([..._blacklist])); } catch {}
+  // DURABLE : un fichier vit sur un disque, `ai_cache` vit sur quatre bases ET dans l'archive nocturne.
+  try { if (typeof aiCacheSet === 'function') aiCacheSet(_KV_BLACKLIST, [..._blacklist]); } catch {}
+}
 function isEmailBlacklisted(email) { return !!email && _blacklist.has(String(email).toLowerCase().trim()); }
 function blacklistEmail(email) { const em = String(email || '').toLowerCase().trim(); if (!em) return false; if (!_blacklist.has(em)) { _blacklist.add(em); _blacklistSave(); } return true; }
 function unblacklistEmail(email) { const em = String(email || '').toLowerCase().trim(); const had = _blacklist.delete(em); if (had) _blacklistSave(); return had; }
@@ -495,6 +511,96 @@ function listBlacklist() { return [..._blacklist].sort(); }
 // RESPECTE son contenu → un retrait via l'admin PERSISTE (le seed ne réinjecte pas au boot suivant).
 const _BLACKLIST_SEED = ['pmttraderoff@gmail.com', 'ghais.bouguerra2101@gmail.com'];
 if (!_blacklistLoaded) { _BLACKLIST_SEED.forEach(e => { const em = String(e).toLowerCase().trim(); if (em) _blacklist.add(em); }); _blacklistSave(); }
+
+/* ═══ CORRECTIONS D'ÉCHÉANCE — RÉPARER CE QU'UNE LECTURE PÉRIMÉE A EFFACÉ (03/09/2026) ══════════
+   POURQUOI CECI EXISTE. Le 30/08, un abonnement réglé par virement a été prolongé à la main au
+   30/09 depuis le panneau. La base principale était en pause : l'écriture est partie sur db2 et sur
+   le miroir, correctement. Le 02/09 elle est revenue figée au 14/06, une lecture de la liste admin
+   a repoussé ses lignes de juin dans le miroir, et la convergence a diffusé ce miroir corrompu vers
+   les quatre bases. La prolongation payée a donc été effacée PARTOUT : aucune base, aucune archive
+   (la première date du 03/09, postérieure) ne porte plus la bonne date. Elle n'existe plus que dans
+   les relevés bancaires de l'exploitant.
+   POURQUOI PAS UNE CORRECTION EN SQL. Parce qu'elle ne tiendrait pas : `_usersConverge` repousse le
+   MIROIR vers les bases, donc une date écrite à la main directement en base serait écrasée au
+   passage suivant. La réparation doit donc passer par le miroir, c'est-à-dire par ici.
+   LA RÈGLE QUI REND CECI SÛR : ON N'ALLONGE, JAMAIS ON NE RACCOURCIT. Une entrée ne s'applique que
+   si l'échéance connue est ANTÉRIEURE à la date visée. Conséquences, toutes voulues :
+     · c'est IDEMPOTENT — le second démarrage ne fait rien, le centième non plus ;
+     · si l'exploitant reprolonge ensuite au-delà depuis le panneau, cette table ne le contredit
+       JAMAIS : elle se tait, parce que la date en place est déjà meilleure ;
+     · et elle ne peut pas révoquer un accès, ce qui est exactement le défaut qu'elle répare.
+   ⚠️ CE N'EST PAS UN MÉCANISME PERMANENT DE GESTION D'ABONNEMENTS. Le panneau admin reste le seul
+   endroit où l'on gère un abonnement. Cette table répare un incident nommé, daté, et se vide quand
+   la réparation est constatée. */
+const _ECHEANCES_SEED = [
+  { email: 'anismessaoud05@gmail.com', jusquA: '2026-09-30T23:59:59.000Z', motif: 'virement du 30/08 ; prolongation au 30/09 effacée le 02/09 par une lecture périmée' },
+];
+function _reparerEcheances() {
+  let faites = 0;
+  for (const e of _ECHEANCES_SEED) {
+    const em = String(e && e.email || '').toLowerCase().trim();
+    const cible = e && Date.parse(e.jusquA);
+    if (!em || !Number.isFinite(cible)) continue;
+    const row = _usersMirror.get(em);
+    if (!row) { console.warn(`[Auth] correction d'échéance : ${em} absent du miroir — rien fait (le compte sera corrigé au prochain démarrage s'il revient).`); continue; }
+    const actuelle = row.expires_at ? Date.parse(row.expires_at) : NaN;
+    if (Number.isFinite(actuelle) && actuelle >= cible) continue;   // déjà au moins aussi loin → on se tait
+    row.expires_at = new Date(cible).toISOString();
+    _mirrorIndex(row);
+    faites++;
+    console.log(`[Auth] correction d'échéance appliquée : ${em} → ${row.expires_at} (${e.motif}).`);
+  }
+  if (faites) { _mirrorSaveFile(); _convSoon('correction d\'échéance'); }   // la convergence porte la date aux quatre bases
+  return faites;
+}
+
+/* ═══ LA LISTE NOIRE ET LES PIERRES TOMBALES VIVAIENT DANS UN FICHIER, ET NULLE PART AILLEURS ═════
+   MESURÉ le 03/09, en cherchant pourquoi des comptes écartés étaient revenus. De TOUS les magasins
+   de ce fichier, ces deux-là étaient les seuls à n'avoir AUCUNE contrepartie en base : `users` a son
+   miroir et sa convergence vers quatre bases, `ai_cache`/`weekly_reports`/`email_log` sont
+   dual-écrits, `chat_messages` est réuni à la lecture. La liste noire, elle, tenait dans
+   `data/app/users_blacklist.json` — un seul fichier, sur un seul disque. Le volume perdu ou remis à
+   zéro, il ne restait que les DEUX adresses du seed en dur, et tout ce qui avait été ajouté depuis
+   le panneau disparaissait : des comptes bannis pouvaient se recréer, des comptes supprimés
+   revenir. Rien ne le signalait, puisque le fichier repartait valide — simplement vide.
+   LA RÉPARATION UTILISE CE QUI EXISTE DÉJÀ : `ai_cache` est dual-écrit sur les quatre bases et
+   relu à la fraîcheur. Y déposer ces deux ensembles, c'est en avoir QUATRE copies au lieu d'une,
+   sans nouvelle infrastructure — et depuis le 03/09 la sauvegarde nocturne exporte `ai_cache`,
+   donc ils entrent aussi dans l'archive chiffrée. C'est exactement le motif déjà employé pour les
+   réactions du chat, qui avaient le même défaut et l'ont résolu ainsi.
+   ⚠️ EN CAS DE DÉSACCORD ENTRE LE FICHIER ET LA BASE, ON UNIT — donc on GARDE le bannissement.
+   Ce choix n'est pas neutre et il est assumé : une levée de bannissement faite hors ligne pourrait
+   être annulée par une base qui porte encore l'ancien état. Le coût de cette erreur est UN message
+   de support ; le coût de l'erreur inverse — un banni qui revient parce qu'un disque a été remis à
+   zéro — est la raison même pour laquelle cette liste existe. On penche du côté qui protège.
+   ⚠️ LE SEED, LUI, NE SE RÉINJECTE TOUJOURS PAS quand le fichier existe : c'est une décision
+   antérieure, écrite juste au-dessus (un retrait via l'admin doit PERSISTER). L'union ci-dessous
+   porte sur la base, pas sur le seed — les deux règles ne se contredisent pas. */
+const _KV_BLACKLIST = 'auth:blacklist';
+const _KV_TOMBES    = 'auth:tombstones';
+const _KV_AN = 366 * 86400000;
+function _durableSave() {
+  try { aiCacheSet(_KV_BLACKLIST, [..._blacklist]); } catch {}
+  try { aiCacheSet(_KV_TOMBES, [..._deletedIds]); } catch {}
+}
+(async () => {
+  try {
+    const b = await aiCacheGet(_KV_BLACKLIST, _KV_AN);
+    if (Array.isArray(b) && b.length) {
+      let neufs = 0;
+      b.forEach(x => { const em = String(x || '').toLowerCase().trim(); if (em && !_blacklist.has(em)) { _blacklist.add(em); neufs++; } });
+      if (neufs) { _blacklistSave(); console.log(`[Auth] liste noire : ${neufs} adresse(s) récupérée(s) depuis la base (le fichier local était en retard).`); }
+    }
+    const t = await aiCacheGet(_KV_TOMBES, _KV_AN);
+    if (Array.isArray(t) && t.length) {
+      let neufs = 0;
+      t.forEach(x => { const id = String(x || ''); if (id && !_deletedIds.has(id)) { _deletedIds.add(id); neufs++; } });
+      if (neufs) { try { fs.writeFileSync(USERS_DELETED_FILE, JSON.stringify([..._deletedIds])); } catch {} console.log(`[Auth] pierres tombales : ${neufs} compte(s) supprimé(s) récupéré(s) depuis la base.`); }
+    }
+    // On repose l'état fusionné : la base rattrape ce que le fichier avait en plus, et inversement.
+    _durableSave();
+  } catch (e) { console.warn('[Auth] reprise liste noire / pierres tombales :', e && e.message); }
+})();
 
 // ─── File d'attente des écritures hors-ligne (rejouées vers Supabase dès son retour) ───
 let _pendingWrites = [];   // [{ id, fields, ts, attempts }]

@@ -1929,7 +1929,21 @@
       const rows = DB.nodes.map(n => `<div class="aim-kv"><span title="${_esc2(n.host)}">${_esc2(n.name)}</span><b style="color:${n.quarLect ? '#ffb300' : col(n.state)}">${n.quarLect ? 'RESYNCHRO…' : lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.ms} ms</span></b></div>`).join('');
       const KA = DB.keepalive;   // anti-pause free-tier : WRITE sur chaque base /12 h (ingress → marche même en 402)
       const kaLine = (KA && KA.last) ? `<div class="aim-kv"><span>Keep-alive</span><b style="color:${KA.ok >= DB.count ? '#22c55e' : '#ffb300'}">${KA.ok}/${DB.count} <span style="color:#6b7280;font-weight:400">il y a ${(() => { const m = Math.round((Date.now() - KA.last) / 60000); return m < 1 ? '<1 min' : m < 60 ? m + ' min' : Math.round(m / 60) + ' h'; })()}</span></b></div>` : '';
-      return `<div class="aim-kv"><span>Projets joignables</span><b style="color:${DB.okCount >= DB.count ? '#22c55e' : '#ffb300'}">${DB.okCount}/${DB.count}</b></div>` + rows + kaLine
+      /* SYNCHRO WHOP — elle tournait toutes les 10 min sans qu'aucun écran ne la montre (03/09).
+         On lit l'état de la DERNIÈRE réconciliation : combien d'adhésions valides ont été
+         comparées au panneau, combien ont été prolongées, combien de comptes manquants créés.
+         ⚠️ CETTE TÂCHE N'ALLONGE JAMAIS QUE VERS LE HAUT : elle ne coupe pas un payeur sur un
+         doute. Un abonnement réglé par VIREMENT n'a donc aucune source externe pour le réparer —
+         c'est la différence qui explique qu'un compte Whop se soit rétabli tout seul quand un
+         compte payé par virement, lui, est resté cassé. On l'écrit sous le compteur. */
+      const W = d.whop;
+      const wLine = W ? (() => {
+        const age = W.ts ? (() => { const m = Math.round((Date.now() - W.ts) / 60000); return m < 1 ? '<1 min' : m < 60 ? m + ' min' : Math.round(m / 60) + ' h'; })() : '—';
+        const coul = W.error ? '#ef4444' : '#22c55e';
+        const det = W.error ? _esc2(String(W.error).slice(0, 60)) : `${W.checked} vérifié(s)${W.fixed ? ' · ' + W.fixed + ' prolongé(s)' : ''}${W.created ? ' · ' + W.created + ' créé(s)' : ''}`;
+        return `<div class="aim-kv"><span>Synchro Whop</span><b style="color:${coul}">${det} <span style="color:#6b7280;font-weight:400">il y a ${age}</span></b></div>`;
+      })() : '<div class="aim-kv"><span>Synchro Whop</span><b style="color:#6b7280">pas encore passée</b></div>';
+      return `<div class="aim-kv"><span>Projets joignables</span><b style="color:${DB.okCount >= DB.count ? '#22c55e' : '#ffb300'}">${DB.okCount}/${DB.count}</b></div>` + rows + kaLine + wLine
         + (DB.nodes.some(n => n.state === 'restreint') ? '<div style="font-size:10.5px;color:#ef4444;margin-top:6px;line-height:1.5">⚠ Restreint = quota/égress mensuel dépassé → revient au rollover (le keep-alive ne lève pas un 402).</div>' : '')
         + (DB.nodes.some(n => n.quarLect) ? '<div style="font-size:10.5px;color:#ffb300;margin-top:6px;line-height:1.5">⏳ Resynchro = la base est joignable mais a raté des écritures pendant son absence. Elle reçoit les écritures et se recomplète, mais ne sert AUCUNE lecture de comptes tant que le rattrapage n\'a pas réussi : sans ça, elle rendrait des mots de passe et des échéances périmés. Levée automatique (≤ 20 min).</div>' : '');
     })();

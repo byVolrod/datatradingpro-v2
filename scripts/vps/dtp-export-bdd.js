@@ -47,6 +47,21 @@ const TABLES = [
   { nom: 'users',           obligatoire: true,  pourquoi: 'comptes, abonnements, empreintes de mots de passe' },
   { nom: 'email_log',       obligatoire: false, pourquoi: 'desinscriptions et garde anti-doublon des campagnes' },
   { nom: 'weekly_reports',  obligatoire: false, pourquoi: 'recaps hebdomadaires publies' },
+  /* ⚠️ AJOUTEES LE 03/09/2026, ET LEUR ABSENCE ETAIT LE TROU LE PLUS COUTEUX DE CETTE LISTE.
+     La sauvegarde se disait « la base » et n emportait ni les conversations du support, ni le
+     magasin cle-valeur — c est-a-dire ni l historique d echange avec chaque client, ni les MODELES
+     DE JOURNAL DE BORD (cle `journal:<compte>`), ni les avatars, ni les recherches recentes, ni
+     les reactions du chat. Autrement dit : precisement ce que l utilisateur a cru perdre le 03/09.
+     Une archive qui ne porte pas ces deux tables laisse croire que tout est sauvegarde alors que
+     le contenu produit PAR LES CLIENTS ne l est pas.
+     ⚠️ `ai_cache` porte aussi, depuis le 03/09, la LISTE NOIRE et les PIERRES TOMBALES (cles
+     `auth:blacklist` et `auth:tombstones`) : les deux magasins qui ne vivaient que dans un fichier.
+     Les exporter ici, c est les mettre a l abri d un volume perdu.
+     TAILLES MESUREES sur la base principale le 03/09 : ai_cache 1,4 Mo (428 lignes),
+     chat_messages 832 Ko. L accumulation en memoire reste donc sans risque sur un VPS a 512 Mo,
+     et le garde-fou des 500 000 lignes couvre la derive. */
+  { nom: 'chat_messages',   obligatoire: false, pourquoi: 'conversations du support, dans les deux sens' },
+  { nom: 'ai_cache',        obligatoire: false, pourquoi: 'modeles de journal, avatars, liste noire, pierres tombales' },
 ];
 
 const PAGE = 1000;   // Supabase plafonne une reponse a 1000 lignes : on pagine, sinon on tronque en silence.
@@ -88,7 +103,14 @@ async function exporterTable(client, t) {
 
   for (const t of TABLES) {
     try {
-      const lignes = await exporterTable(client, t.nom);
+      /* ⚠️ ON PASSAIT `t.nom` A UNE FONCTION QUI FAIT DEJA `t.nom` (corrige le 03/09/2026).
+         La table demandee a Supabase etait donc litteralement `undefined`, la requete echouait, et
+         comme `users` est obligatoire l export sortait en erreur — ce qui interrompt la sauvegarde
+         entiere (« aucune archive ne sera produite »). Consequence mesuree : AUCUNE archive n a
+         jamais ete produite depuis la pose des minuteurs. Meme forme d echec que le keep-alive
+         d aout : une tache qui a l air installee et qui ne fait rien. Un banc joue desormais cette
+         fonction avec un client espion et regarde QUEL nom de table part reellement. */
+      const lignes = await exporterTable(client, t);
       const fic = path.join(SORTIE, t.nom + '.json');
       fs.writeFileSync(fic, JSON.stringify(lignes));
       /* ⚠️ ON RELIT CE QU ON VIENT D ECRIRE. Un fichier tronque par un disque plein a l air d un

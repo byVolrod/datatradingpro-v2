@@ -192,6 +192,46 @@ une coche verte quotidienne. Corrigé en trois points :
    `INACTIVE` (un ping raté peut venir du réseau, d'un 402 ou du DNS). Jeton `SUPABASE_ACCESS_TOKEN`,
    par nœud au besoin (`_2/_3/_4` : un jeton n'a de droits que sur ses organisations).
 
+⚠️ **LA SAUVEGARDE NOCTURNE N'AVAIT JAMAIS PRODUIT UNE SEULE ARCHIVE (trouvé le 03/09).**
+`exporterTable(client, t)` lit `t.nom` — et on l'appelait avec `t.nom`. La table demandée à Supabase
+était donc littéralement `undefined` ; `users` étant `obligatoire: true`, l'export sortait en erreur,
+et `dtp-sauvegarde.sh` s'interrompt alors sans produire d'archive. **Même forme d'échec que le
+keep-alive** : une tâche qui a l'air installée et ne fait rien. Prouvé en JOUANT la vraie fonction
+avec un client espion — une relecture ne voit pas ce défaut, les deux lignes sont justes séparément.
+⚠️ **ET ELLE NE COUVRAIT PAS CE QUE LES CLIENTS PRODUISENT.** `TABLES` portait `users`, `email_log`,
+`weekly_reports` — **ni `chat_messages` (les conversations du support), ni `ai_cache`** (les modèles
+JOT `journal:<compte>`, les avatars, `symrecent:`, les réactions). C'est-à-dire exactement ce que
+l'utilisateur a cru perdre. Les deux sont ajoutées. Tailles mesurées le 03/09 : `ai_cache` 1,4 Mo /
+428 lignes, `chat_messages` 832 Ko — l'accumulation en mémoire reste sans risque à 512 Mo.
+Banc : `scripts/sauvegarde-verif.js` (16 contrôles, dans `npm run check`).
+
+⚠️ **DEUX MAGASINS NE VIVAIENT QUE DANS UN FICHIER : la liste noire et les pierres tombales.**
+De tous les magasins d'`auth.js`, c'étaient les **seuls** sans contrepartie en base (`users` a son
+miroir + convergence ; `ai_cache`/`weekly_reports`/`email_log` sont dual-écrits ; `chat_messages` est
+réuni à la lecture). Volume perdu → il ne restait que les 2 adresses du seed en dur, donc **un banni
+pouvait se recréer et un compte supprimé revenir**, sans aucun signal (le fichier repartait valide,
+simplement vide). → Déposés dans `ai_cache` (`auth:blacklist`, `auth:tombstones`) : **quatre copies
+au lieu d'une**, sans nouvelle infrastructure, et dans l'archive depuis que `ai_cache` y est exporté.
+C'est le motif déjà employé pour `chat:reactions`. **En cas de désaccord fichier/base, on UNIT** —
+donc on garde le bannissement : le coût de cette erreur est un message de support, celui de l'erreur
+inverse est la raison d'être de la liste. Le **seed**, lui, ne se réinjecte toujours pas quand le
+fichier existe (décision antérieure : un retrait via l'admin doit persister).
+
+⚠️ **`_ECHEANCES_SEED` — LA RÉPARATION D'UN ABONNEMENT EFFACÉ, ET POURQUOI PAS DU SQL.** Corriger une
+échéance directement en base **ne tient pas** : `_usersConverge` repousse le **miroir** vers les
+bases, la valeur écrite à la main serait écrasée au passage suivant. La réparation passe donc par le
+miroir. Sûreté : **on allonge, jamais on ne raccourcit** — donc idempotent, jamais en contradiction
+avec une prolongation ultérieure faite au panneau, et **incapable de révoquer un accès**, qui est le
+défaut même qu'elle répare. Ce n'est **pas** un mécanisme de gestion d'abonnements : le panneau reste
+le seul endroit. Banc : `scripts/durabilite-verif.js` (22 contrôles), qui **exécute** la fonction.
+
+⚠️ **LA SYNCHRO WHOP NE FAIT QU'ALLONGER — ET C'EST ELLE QUI EXPLIQUE LE CAS ANIS.** `_whopReconcile`
+tourne au boot + toutes les 10 min et **prolonge** un compte en retard sur Whop, jamais ne le
+raccourcit (on ne coupe pas un payeur sur un doute). **Un abonnement Whop se répare donc tout seul ;
+un abonnement réglé par VIREMENT n'a aucune source externe** — c'est pourquoi la prolongation d'Anis,
+effacée le 02/09, est restée cassée. Son état s'affiche désormais dans le panneau admin à côté des
+bases : il tournait depuis toujours sans qu'aucun écran ne le montre.
+
 ```bash
 cd /opt/datatradingpro && bash scripts/vps-resilience-installer.sh   # UNE fois, pose les 2 minuteurs
 ```
