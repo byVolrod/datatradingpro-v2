@@ -583,6 +583,17 @@ function _durableSave() {
   try { aiCacheSet(_KV_BLACKLIST, [..._blacklist]); } catch {}
   try { aiCacheSet(_KV_TOMBES, [..._deletedIds]); } catch {}
 }
+/* ⚠️ DIFFÉRÉ D'UN TOUR DE BOUCLE, ET CE N'EST PAS UN DÉTAIL DE STYLE (03/09/2026).
+   Écrite en exécution immédiate, cette reprise partait PENDANT l'évaluation du module — donc avant
+   la ligne `const _aiMem = new Map()`, quelque douze cents lignes plus bas. `aiCacheGet` la touche,
+   et un `const` pas encore initialisé lève « Cannot access '_aiMem' before initialization ». Les
+   déclarations de FONCTION se hissent, les `const` NON : `aiCacheGet` était donc appelable, et
+   inutilisable. Mon try/catch avalait l'erreur en une ligne de journal, l'application démarrait
+   normalement, et la durabilité que ce bloc est censé apporter ne s'installait JAMAIS.
+   C'est exactement le défaut que ce même commit répare ailleurs : un mécanisme qui a l'air posé et
+   qui ne fait rien. Trouvé en CHARGEANT le module pour de vrai, pas en le relisant.
+   `setTimeout(0)` suffit : le module est alors entièrement évalué. */
+setTimeout(() => {
 (async () => {
   try {
     const b = await aiCacheGet(_KV_BLACKLIST, _KV_AN);
@@ -601,6 +612,7 @@ function _durableSave() {
     _durableSave();
   } catch (e) { console.warn('[Auth] reprise liste noire / pierres tombales :', e && e.message); }
 })();
+}, 0);
 
 // ─── File d'attente des écritures hors-ligne (rejouées vers Supabase dès son retour) ───
 let _pendingWrites = [];   // [{ id, fields, ts, attempts }]
@@ -1063,7 +1075,19 @@ let _reactStore = {};
 try { _reactStore = JSON.parse(fs.readFileSync(REACT_FILE, 'utf8')) || {}; } catch {}
 // Persistance DURABLE : le fichier disque est wipé à chaque rebuild conteneur (disque éphémère) →
 // on recharge ET on sauve aussi dans Supabase KV (ai_cache) pour que les réactions survivent aux déploiements.
-(async () => { try { const kv = await aiCacheGet('chat:reactions', 366 * 86400000); if (kv && typeof kv === 'object') _reactStore = Object.assign({}, kv, _reactStore); } catch {} })();
+/* ⚠️ MÊME DÉFAUT QUE LA REPRISE DE LA LISTE NOIRE, ET IL ÉTAIT LÀ DEPUIS LE DÉBUT (vu le 03/09).
+   Cette reprise partait pendant l'évaluation du module, donc avant `const _aiMem` (ligne ~1740) :
+   elle levait « Cannot access '_aiMem' before initialization », et son `catch {}` — muet, celui-là —
+   n'en laissait AUCUNE trace. Les réactions étaient bien ÉCRITES en base (`_reactSave` tourne plus
+   tard, sur action) mais n'ont jamais été RELUES au démarrage : le commentaire « survit aux
+   rebuilds » disait donc l'inverse de ce qui se passait. Différée d'un tour de boucle, elle
+   fonctionne. Et le catch nomme désormais ce qu'il avale. */
+setTimeout(() => {
+  (async () => {
+    try { const kv = await aiCacheGet('chat:reactions', 366 * 86400000); if (kv && typeof kv === 'object') _reactStore = Object.assign({}, kv, _reactStore); }
+    catch (e) { console.warn('[Chat] reprise des réactions :', e && e.message); }
+  })();
+}, 0);
 function _reactSave() {
   try { fs.writeFileSync(REACT_FILE, JSON.stringify(_reactStore)); } catch {}
   try { aiCacheSet('chat:reactions', _reactStore); } catch {}   // durable → survit aux rebuilds

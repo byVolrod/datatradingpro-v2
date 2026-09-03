@@ -129,6 +129,48 @@ console.log('\n── 4. La correction d\'échéance ALLONGE, et ne raccourcit j
   }
 }
 
+console.log('\n── 5. LE CONTRÔLE QUI M\'A MANQUÉ — on CHARGE le module, on ne le relit pas ──');
+{
+  /* ⚠️ POURQUOI CE CONTRÔLE EXISTE, ET IL EST LE PLUS IMPORTANT DU FICHIER.
+     Les quatre sections ci-dessus LISENT le source. Elles étaient toutes vertes pendant que la
+     reprise, elle, ÉCHOUAIT À CHAQUE DÉMARRAGE : écrite en exécution immédiate, elle partait
+     pendant l'évaluation du module, donc avant `const _aiMem` — et un `const` pas encore initialisé
+     lève « Cannot access ... before initialization ». Les déclarations de FONCTION se hissent, les
+     `const` NON. L'application démarrait sans broncher, le try/catch avalait l'erreur, et la
+     durabilité ne s'installait jamais. Exactement le défaut que ce commit répare ailleurs.
+     La MÊME faute dormait depuis toujours sur la reprise des réactions du chat, avec un `catch {}`
+     muet qui n'en laissait aucune trace.
+     Un banc qui lit du texte ne peut pas voir cela. Celui-ci charge auth.js pour de vrai, avec des
+     variables d'environnement factices, et écoute ce que le démarrage écrit. */
+  /* ⚠️ ON CAPTURE stdout ET stderr — PREMIER JET FAUX, ET FAUX DE LA MANIÈRE QUE CE FICHIER
+     DÉNONCE. Écrit avec `execFileSync`, ce contrôle ne recevait que stdout ; or l'erreur de zone
+     morte sort par `console.warn`, donc sur stderr. Le contrôle était donc VERT alors que le défaut
+     était là — vert pour la mauvaise raison, ce qui est pire que rouge. Son propre contrôle négatif
+     l'a montré : en remettant la faute dans auth.js, il ne bronchait pas. `spawnSync` rend les deux
+     flux. */
+  const { spawnSync } = require('child_process');
+  const os = require('os');
+  const r = spawnSync(process.execPath, ['-e',
+    "require(process.argv[1]); setTimeout(() => process.exit(0), 3000);",
+    path.join(__dirname, '..', 'auth.js')],
+    { encoding: 'utf8', timeout: 30000,
+      env: Object.assign({}, process.env, {
+        SUPABASE_URL: 'https://exemple.supabase.co', SUPABASE_KEY: 'cle-factice',
+        DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'dtp-dur-')),
+      }) });
+  const sortie = String(r.stdout || '') + String(r.stderr || '');
+  v('auth.js se charge sans exception', /Supabase connecté/.test(sortie), sortie.slice(0, 200));
+  v('AUCUNE zone morte au démarrage (« before initialization »)',
+    !/before initialization/i.test(sortie),
+    'une reprise qui part avant la fin de l\'évaluation du module ne s\'installe JAMAIS — et rien ne le dit');
+  v('… ni sur la liste noire, ni sur les réactions du chat',
+    !/reprise liste noire[^\n]*before initialization/i.test(sortie) && !/reprise des réactions[^\n]*before initialization/i.test(sortie));
+  v('les deux reprises sont DIFFÉRÉES d\'un tour de boucle', (AUTH.match(/setTimeout\(\(\) => \{\n\(async \(\) => \{|setTimeout\(\(\) => \{\n  \(async \(\) => \{/g) || []).length >= 2,
+    'sans ce report, elles repartiraient dans la zone morte au premier refactoring');
+  v('… et le catch des réactions NOMME ce qu\'il avale (il était muet)', /\[Chat\] reprise des réactions/.test(AUTH),
+    'un catch vide transforme une panne permanente en silence permanent');
+}
+
 console.log('\n──────────────────────────────────────────────────────────────────────');
 if (ko) { console.log(`❌ durabilite-verif : ${ko} échec(s) sur ${ok + ko}.`); process.exit(1); }
 console.log(`✅ durabilite-verif : ${ok} contrôle(s) au vert.`);
