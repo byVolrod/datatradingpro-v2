@@ -702,8 +702,34 @@ async function _usersConverge(reason = '') {
     const pick = r => ({ id: r.id, email: r.email, password_hash: r.password_hash, name: r.name || '', role: r.role || 'client', plan: r.plan || 'professionnel', active: r.active !== false, expires_at: r.expires_at || null });
     const all = [..._usersMirror.values()].filter(r => r && r.email && r.password_hash && !_isTombstoned(r.id));
     const uuidRows   = all.filter(r => _UUID_RE.test(String(r.id || ''))).map(pick);
-    const legacyRows = all.filter(r => !_UUID_RE.test(String(r.id || ''))).map(r => { const { id, ...rest } = pick(r); return rest; });   // id entier → base secondaire en uuid : upsert PAR EMAIL, sans id
-    if (!uuidRows.length && !legacyRows.length) return;
+    /* ⚠️ ON GARDE L'ID DES COMPTES HÉRITÉS, ET ON CHANGE LA MANIÈRE DE LES ÉCRIRE (03/09/2026).
+       Ils étaient envoyés SANS `id`, en upsert sur l'email — pour ne pas réécrire l'id d'une ligne
+       qui, sur une base secondaire, aurait été créée en uuid. L'intention était juste ; le moyen ne
+       pouvait PAS marcher : `users.id` est `text NOT NULL SANS valeur par défaut`, et un
+       `INSERT … ON CONFLICT` construit d'abord la ligne à insérer — donc `null` dans `id`, donc
+       échec, MÊME quand l'email existe et que seule la branche UPDATE aurait servi.
+       MESURÉ sur la base principale, par un essai qui s'annule lui-même :
+         « null value in column "id" of relation "users" violates not-null constraint ».
+       CE QUE CE SEUL DÉFAUT CASSAIT, ET ON NE LE VOYAIT PAS :
+         · `_up(node, legacyRows, 'email')` rendait false sur CHAQUE base, à CHAQUE passage ;
+         · donc `if (a && b)` était toujours faux, donc LA QUARANTAINE NE SE LEVAIT JAMAIS — les
+           quatre bases restaient « RESYNCHRO… » indéfiniment et AUCUNE lecture de comptes n'allait
+           en base : tout le desk tournait sur le seul miroir local ;
+         · donc les 29 comptes à id hérité ne convergeaient jamais, et aucune correction d'échéance
+           les concernant ne pouvait atteindre la moindre base.
+       LA RÉPARATION, en deux temps, sans migration de schéma (on ne peut pas en poser sur quatre
+       bases depuis ici, et une écriture qui exige une migration est une écriture fragile) :
+         1. UPDATE par EMAIL — pas d'insertion, donc pas de contrainte sur `id`, et l'id existant
+            n'est jamais réécrit : c'est exactement ce que l'intention d'origine voulait protéger ;
+         2. les emails qu'aucune ligne ne portait sont INSÉRÉS, avec leur id du miroir. */
+    const legacyRows = all.filter(r => !_UUID_RE.test(String(r.id || ''))).map(pick);
+    if (!uuidRows.length && !legacyRows.length) {
+      /* ⚠️ SORTIR ICI SANS LEVER LA QUARANTAINE L'AURAIT RENDUE ÉTERNELLE. Un miroir dont aucun
+         compte ne porte d'empreinte (cas d'une reconstruction partielle) n'a rien à propager — mais
+         cela ne veut pas dire que les bases sont en retard. On lève, et on le dit. */
+      _dbNodes.forEach(n => { if (n.quarLect) { n.quarLect = false; console.log(`[Auth] ${n.name} : rien à propager (miroir sans compte complet) → quarantaine levée`); } });
+      return;
+    }
     const _up = async (node, rows, conflict) => {
       if (!rows.length) return true;
       let { error } = await node.client.from(TABLE).upsert(rows, { onConflict: conflict });
@@ -711,10 +737,33 @@ async function _usersConverge(reason = '') {
       if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); return false; }
       return true;
     };
+    /* Comptes à id hérité : UPDATE par email, puis INSERT de ceux qu'aucune ligne ne portait.
+       L'update ne touche jamais `id` — la ligne distante garde le sien, uuid ou entier. `.select('email')`
+       ne coûte presque rien et dit ce qui a réellement été touché : sans lui, une écriture partie sur
+       zéro ligne passerait pour un succès, exactement le piège déjà corrigé sur changePassword. */
+    const _upLegacy = async (node, rows) => {
+      if (!rows.length) return true;
+      const manquants = [];
+      for (const r of rows) {
+        const { id, ...maj } = r;
+        let { data, error } = await node.client.from(TABLE).update(maj).eq('email', r.email).select('email');
+        if (error && /expires_at/.test(error.message || '')) {
+          const { expires_at, ...m2 } = maj;
+          ({ data, error } = await node.client.from(TABLE).update(m2).eq('email', r.email).select('email'));
+        }
+        if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); return false; }
+        if (!Array.isArray(data) || !data.length) manquants.push(r);   // aucune ligne à cet email → à créer, avec son id
+      }
+      if (!manquants.length) return true;
+      let { error } = await node.client.from(TABLE).insert(manquants);
+      if (error && /expires_at/.test(error.message || '')) { ({ error } = await node.client.from(TABLE).insert(manquants.map(({ expires_at, ...x }) => x))); }
+      if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); return false; }
+      return true;
+    };
     let okNodes = 0, leves = 0;
     for (const node of healthy) {
       try {
-        const a = await _up(node, uuidRows, 'id'); const b = await _up(node, legacyRows, 'email');
+        const a = await _up(node, uuidRows, 'id'); const b = await _upLegacy(node, legacyRows);
         if (a && b) {
           okNodes++;
           /* C'EST ICI, ET NULLE PART AILLEURS, QUE LA QUARANTAINE SE LÈVE. Le nœud vient de recevoir
@@ -1282,7 +1331,24 @@ async function chatThreads() {
     if (!byUser.has(m.user_id)) byUser.set(m.user_id, { user_id: m.user_id, last: '', lastAt: null, unread: 0 });
     byUser.get(m.user_id).unread++;
   }
-  const out = [...byUser.values()];
+  /* ⚠️ L'ORDRE N'ÉTAIT QU'UN EFFET DE BORD, ET IL MENTAIT SUR LES FILS ANCIENS (03/09/2026).
+     Aucun tri n'existait : la liste sortait dans l'ordre d'INSERTION de `byUser`. Cet ordre suit la
+     requête des 400 messages récents (décroissante), donc il PARAISSAIT juste — mais un fil dont le
+     dernier message dépasse cette fenêtre n'entre que par la seconde passe, celle des non-lus, et
+     se retrouvait donc collé EN FIN de liste quelle que soit sa date. Un client qui vous écrit
+     aujourd'hui, après des mois de silence, tombait tout en bas.
+     Depuis que la lecture RÉUNIT les quatre bases, s'en remettre à un ordre d'insertion n'a plus
+     aucun sens : deux moitiés triées concaténées ne font pas un tout trié. On trie donc pour de
+     bon, du plus récent au plus ancien, et les fils sans date connue ferment la marche plutôt que
+     de s'intercaler n'importe où. */
+  const out = [...byUser.values()].sort((a, b) => {
+    const ta = a.lastAt ? Date.parse(a.lastAt) : NaN;
+    const tb = b.lastAt ? Date.parse(b.lastAt) : NaN;
+    if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
+    if (Number.isNaN(ta)) return 1;
+    if (Number.isNaN(tb)) return -1;
+    return tb - ta;
+  });
   _chatThreadsMem = { rows: out, ts: Date.now() };
   return out;
 }

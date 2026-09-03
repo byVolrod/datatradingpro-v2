@@ -21972,3 +21972,12 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
 /* Le survol d'une période DÉJÀ active ne doit rien changer : elle est déjà à son état le plus
    marqué, et le lavis blanc des boutons inactifs la ternirait. */
 .stf-btn--active:hover { background: var(--orange-bg, rgba(227,178,58,.12)) !important; color: var(--orange, #e3b23a) !important; }
+
+/* ── AVATAR PAR DÉFAUT — un emplacement vide, pas une identité (03/09) ────────────────────────
+   Un compte sans photo affichait son initiale sur un fond coloré : joli, et c'est le problème —
+   ça ressemble à un choix, donc personne ne le remplace. La silhouette sourde se lit comme un
+   formulaire non rempli. Elle ne remplit PAS son rond comme une photo (object-fit: contain,
+   fond neutre) : la différence avec une vraie photo doit rester visible d'un coup d'œil. */
+.pd-av-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.pd-avatar-vide { background: #1a1a1f; }
+.pd-avatar-vide .pd-av-img { opacity: .92; }

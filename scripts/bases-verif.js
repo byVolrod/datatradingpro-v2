@@ -190,9 +190,19 @@ console.log('\n── 3. Seule la convergence lève la quarantaine ──');
   v('le keep-alive, lui, ne la lève PAS (il ne fait que réintégrer au pool)',
     !!SRC_KA && !/quarLect\s*=\s*false/.test(SRC_KA),
     'lever la quarantaine au retour du nœud rouvrirait exactement la fenêtre que cette garde ferme');
-  v('aucune autre levée ailleurs dans auth.js',
-    (AUTH.match(/quarLect\s*=\s*false/g) || []).length === 1,
-    (AUTH.match(/quarLect\s*=\s*false/g) || []).length + ' levée(s) — il ne doit y en avoir qu\'une');
+  /* ⚠️ « UNE SEULE LEVÉE » ÉTAIT LA BONNE INTENTION EXPRIMÉE PAR UN MAUVAIS COMPTE (03/09).
+     Ce contrôle comptait les occurrences de `quarLect = false` et exigeait le chiffre 1. Or ce qui
+     doit être garanti n'est pas leur NOMBRE, c'est leur LIEU : la quarantaine ne se lève que dans
+     `_usersConverge`, jamais au retour du keep-alive ni dans un chemin de commodité. Le jour où la
+     convergence a eu besoin d'une seconde levée légitime — un miroir sans aucun compte complet n'a
+     rien à propager, donc les bases ne sont pas en retard, et sortir sans lever aurait figé la
+     quarantaine POUR TOUJOURS — le contrôle a rougi pour une bonne modification. Il aurait poussé
+     à supprimer la branche plutôt qu'à la comprendre. On vérifie donc le lieu, pas le compte. */
+  const _hors = AUTH.replace(SRC_CONV || '', '');
+  v('toute levée de quarantaine vit DANS la convergence, et nulle part ailleurs',
+    !/quarLect\s*=\s*false/.test(_hors),
+    'une levée hors de _usersConverge rouvrirait la fenêtre que cette garde ferme');
+  v('… et la convergence en compte au moins une', ((SRC_CONV || '').match(/quarLect\s*=\s*false/g) || []).length >= 1);
   /* Le seuil « au moins deux bases » de la convergence aurait laissé une base UNIQUE quarantainée
      pour toujours : plus personne pour la resynchroniser, donc plus jamais de lecture. */
   v('la convergence tourne aussi avec UNE seule base (sinon quarantaine perpétuelle)',
@@ -232,7 +242,32 @@ console.log('\n── 4. Le danger que cette garde ferme, dit en clair dans le c
 }
 
 setTimeout(() => {
-  console.log('\n──────────────────────────────────────────────────────────────────────');
+  console.log('\n── 6. La convergence des comptes à id HÉRITÉ (mesuré le 03/09) ──');
+{
+  /* ⚠️ LE DÉFAUT QUI GELAIT LES QUATRE BASES EN « RESYNCHRO… ». Les comptes à id hérité étaient
+     envoyés SANS `id`, en upsert sur l'email. Or `users.id` est `text NOT NULL sans défaut`, et un
+     INSERT … ON CONFLICT construit d'abord la ligne : `null` dans `id`, donc échec, MÊME quand
+     l'email existe et que seule la branche UPDATE aurait servi. Vérifié sur la vraie base :
+     « null value in column "id" of relation "users" violates not-null constraint ».
+     Conséquence en chaîne : `_up(..., 'email')` rendait false sur chaque base, `if (a && b)` était
+     donc toujours faux, et LA QUARANTAINE NE SE LEVAIT JAMAIS — tout le desk lisait les comptes
+     dans le seul miroir local, indéfiniment, sans que rien ne le signale à part une pastille orange. */
+  const SRC_CONV2 = extraire(AUTH, 'async function _usersConverge(');
+  v('la convergence n\'envoie plus de compte hérité SANS son id',
+    SRC_CONV2 && !/const \{ id, \.\.\.rest \} = pick\(r\); return rest;/.test(SRC_CONV2),
+    'un upsert sans id viole NOT NULL avant même d\'atteindre la branche ON CONFLICT');
+  v('les comptes hérités passent par un UPDATE par email, pas par un upsert',
+    SRC_CONV2 && /_upLegacy/.test(SRC_CONV2) && /\.update\(maj\)\.eq\('email', r\.email\)/.test(SRC_CONV2),
+    'l\'UPDATE ne construit aucune ligne, donc aucune contrainte sur id — et l\'id distant est préservé');
+  v('… et l\'écriture est CONFIRMÉE ligne par ligne (0 ligne ≠ succès)',
+    SRC_CONV2 && /\.select\('email'\)/.test(SRC_CONV2) && /!Array\.isArray\(data\) \|\| !data\.length/.test(SRC_CONV2));
+  v('… les emails absents sont INSÉRÉS, avec leur id', SRC_CONV2 && /from\(TABLE\)\.insert\(manquants\)/.test(SRC_CONV2));
+  v('un miroir sans compte complet LÈVE la quarantaine au lieu de la figer',
+    SRC_CONV2 && /rien à propager \(miroir sans compte complet\)/.test(SRC_CONV2),
+    'sortir sans lever aurait rendu la quarantaine éternelle : plus AUCUNE lecture de comptes en base');
+}
+
+console.log('\n──────────────────────────────────────────────────────────────────────');
   if (ko) { console.log(`❌ bases-verif : ${ko} échec(s) sur ${ok + ko}.`); process.exit(1); }
   console.log(`✅ bases-verif : ${ok} contrôle(s) au vert.`);
 }, 200);
