@@ -1013,7 +1013,7 @@
   .mods2-r > .bcard:nth-child(1) > .vis, .mods2-r > .bcard:nth-child(3) > .vis, .mods2-r > .bcard:nth-child(4) > .vis{flex:1;min-height:0;display:flex;flex-direction:column}
   .mods2-r > .bcard:nth-child(4) .dk-analyst-card{flex:0 0 auto}
 
-  /* ── Maquette « vrai desk » : nav + 9 onglets + World Clock ── */
+  /* ── Maquette « vrai desk » : nav + 9 onglets + Horloge mondiale ── */
   .dnav{display:flex;align-items:center;gap:9px;padding:9px 14px;background:#0e0e11;border-bottom:1px solid #1b1b20}
   .dnav-logo{font-family:var(--tight);font-weight:800;font-size:13.5px;color:#f4f4f6;letter-spacing:-.02em;white-space:nowrap}
   .dnav-ic{width:20px;height:20px;color:#7f8590;flex:0 0 auto}.dnav-ic svg{width:100%;height:100%}
@@ -1435,17 +1435,24 @@
           <div id="feed"></div>
         </div>
         <div class="tp tp-r">
-          <div class="dwc-h">World Clock</div>
+          <!-- ⚠️ CETTE MAQUETTE ÉTAIT RESTÉE EN ANGLAIS (corrigé le 03/09, demande utilisateur
+               « il est pas à jour avec le vrai desk car il est ancien »). Le desk parle FRANÇAIS à
+               100 %, c'est une règle du produit — et cette maquette est censée MONTRER le desk. Un
+               visiteur y lisait « World Clock », « Risk Sentiment » et sept sous-onglets anglais
+               qu'il ne retrouverait nulle part une fois connecté : la vitrine promettait un autre
+               produit que celui qu'on livre. Libellés repris À LA SOURCE, dans public/index.html et
+               public/js/app.js, pas réinventés ici. -->
+          <div class="dwc-h">Horloge mondiale</div>
           <div class="dwc">
-            <div class="dwc-c"><span class="dwc-city">London</span><b>20:38</b><span class="dwc-gmt">GMT+1</span><span class="dwc-w"><span class="dwc-moon">☾</span> 18°</span></div>
+            <div class="dwc-c"><span class="dwc-city">Londres</span><b>20:38</b><span class="dwc-gmt">GMT+1</span><span class="dwc-w"><span class="dwc-moon">☾</span> 18°</span></div>
             <div class="dwc-c"><span class="dwc-city">New York</span><b>15:38</b><span class="dwc-gmt">GMT−4</span><span class="dwc-w"><span class="dwc-sun">☀</span> 21°</span></div>
             <div class="dwc-c"><span class="dwc-city">Tokyo</span><b>04:38</b><span class="dwc-gmt">GMT+9</span><span class="dwc-w"><span class="dwc-moon">☾</span> 18°</span></div>
-            <div class="dwc-c"><span class="dwc-city">Dubai</span><b>23:38</b><span class="dwc-gmt">GMT+4</span><span class="dwc-w"><span class="dwc-moon">☾</span> 34°</span></div>
+            <div class="dwc-c"><span class="dwc-city">Dubaï</span><b>23:38</b><span class="dwc-gmt">GMT+4</span><span class="dwc-w"><span class="dwc-moon">☾</span> 34°</span></div>
             <div class="dwc-c"><span class="dwc-city">Paris</span><b>21:38</b><span class="dwc-gmt">GMT+2</span><span class="dwc-w"><span class="dwc-moon">☾</span> 34°</span></div>
           </div>
-          <div class="dsub"><span>WORLD</span><span class="on">RISK</span><span>STRENGTH</span><span>METER</span><span>COT</span><span>DMX</span><span>SEAS.</span></div>
+          <div class="dsub"><span>› MONDE</span><span class="on">› RISQUE</span><span>› FORCE</span><span>› BAROMÈTRE</span><span>› COT</span><span>› DMX</span><span>› SAISONNALITÉ</span></div>
           <div class="gauge-wrap">
-            <div class="dwc-h">Risk Sentiment</div>
+            <div class="dwc-h">Sentiment de risque</div>
           <div class="gauge-center">
             <svg class="gauge" viewBox="0 0 200 116">
               <defs>
@@ -2060,7 +2067,7 @@
   }
   if(TERM_LIVE){ renderNews(FALLBACK); loadNews(); setInterval(loadNews,45000); }   // #feed n'existe que dans .term
 
-  // ── World Clock : VRAIES heures par fuseau (DST géré) ──
+  // ── Horloge mondiale : VRAIES heures par fuseau (DST géré) ──
   var WC_TZ=['Europe/London','America/New_York','Asia/Tokyo','Asia/Dubai','Europe/Paris'];
   var wcEls=document.querySelectorAll('.dwc-c');
   function updWC(){
@@ -2082,7 +2089,7 @@
   try{var _dd=document.querySelector('.dnews-date');if(_dd){var _n=new Date();var _wd=_n.toLocaleDateString('fr-FR',{weekday:'long'});_dd.textContent=_wd.charAt(0).toUpperCase()+_wd.slice(1)+' '+pad(_n.getDate())+'/'+pad(_n.getMonth()+1)+'/'+_n.getFullYear();}}catch(e){}
 
 
-  // ── Jauge Risk Sentiment ──
+  // ── Jauge Sentiment de risque ──
   var needle=document.getElementById('needle'),needleTri=document.getElementById('needleTri'),gLbl=document.getElementById('gLbl');
   var targets=[-90,18,-15,88,-3,22,-88,12,90,-20];var gi=0;
   // Couleurs EXACTES du desk (_riskArcColor : dégradé 7 crans rouge -> vert)
@@ -2105,7 +2112,7 @@
   }
   if(TERM_LIVE){ setGauge(targets[0]); setInterval(function(){gi++;setGauge(targets[gi%targets.length]);},3000); }   // #needle/#gLbl ne vivent que dans .term
 
-  // ── Historique Risk Sentiment (mini-chart live, façon desk) ──
+  // ── Historique du Sentiment de risque (mini-graphique live, façon desk) ──
   (function(){
     var svg=document.getElementById('riskHist'); if(!svg||!TERM_LIVE)return;   // #riskHist ne vit que dans .term
     var N=30,W=200,H=44,P=3,vals=[],i;
