@@ -881,9 +881,20 @@ async function updateUser(id, fields = {}) {
     if (error) lastErr = error;
     else if (Array.isArray(data) && data.length) supaOk = true;   // ligne RÉELLEMENT modifiée (≠ 0 ligne sur un nœud secondaire)
   } catch (e) { lastErr = e; }
-  // Reflète dans le miroir (les changements admin restent visibles même Supabase muet)
-  const row = _mirrorGetById(id);
+  /* Reflète dans le miroir (les changements admin restent visibles même Supabase muet).
+     ⚠️ CE N'EST PAS QU'UN CONFORT D'AFFICHAGE — C'EST LA SEULE COPIE QUI COMPTE. `_usersConverge`
+     repousse le MIROIR vers les quatre bases : une modification d'administration qui n'atteint pas
+     le miroir sera donc ANNULÉE au passage de convergence suivant, alors même qu'elle a réussi en
+     base. Or la recherche se faisait par id SEUL, et sans filet : `_mirrorGetById` rend `null` dès
+     que l'id affiché par le panneau ne correspond pas à celui du miroir — le cas exact que
+     `_supaWhere` gère déjà pour l'ÉCRITURE en base (id hérité entier d'un côté, uuid de l'autre),
+     et qu'on avait oublié ici. On retombe donc sur la clé métier — l'email — comme lui, et si rien
+     ne répond on le DIT : une écriture admin qui ne trouve aucune ligne au miroir est une écriture
+     qui sera défaite, et cela ne doit pas se découvrir trois semaines plus tard sur un compte payé. */
+  let row = _mirrorGetById(id);
+  if (!row && w.col === 'email') row = _mirrorGet(w.val);
   if (row) { Object.assign(row, upd); _mirrorIndex(row); _mirrorSaveFile(); }
+  else console.warn(`[Auth] maj compte ${id} : AUCUNE ligne au miroir (ni par id, ni par email) — la convergence risque de défaire ce changement.`);
   _bustUsersCache();   // ← la liste admin reflète le changement IMMÉDIATEMENT (sinon cache 60 s → « ça n'a pas changé »)
   if (!supaOk) {
     if (lastErr && !_supaDown(lastErr)) throw new Error(lastErr.message || String(lastErr));   // vraie erreur SQL → remonter
