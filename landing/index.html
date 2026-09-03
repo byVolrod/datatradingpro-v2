@@ -452,11 +452,12 @@
   .mini-cs i{flex:1;border-radius:2px 2px 0 0}
   .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:5px 9px;margin:3px 4px 0 0;font-family:var(--mono);transition:border-color var(--t-fast),background var(--t-fast)}
   /* === Modules : maquettes de preview (gauche Recherche/PDF MUFG, droite 2x2) === */
-  /* TOUS LES BORDS TOMBENT JUSTE. Mon Desk et Vue d'ensemble avaient d'abord été posées dans la
-     colonne de droite : elles y ajoutaient une 3e rangée, la carte de gauche s'étirait pour s'aligner
-     sur la plus haute et laissait 477 px de vide sous son contenu (mesuré). Elles ont maintenant leur
-     PROPRE rangée pleine largeur (.mods3), la colonne de droite retrouve ses 2 rangées, et la carte de
-     gauche s'étire pour couvrir exactement ces deux rangées. */
+  /* ⚠️ CE COMMENTAIRE DÉCRIVAIT DEUX CARTES QUI N'EXISTENT PLUS (mis à jour le 03/09). Il expliquait
+     le placement de « Mon Desk » et « Vue d'ensemble » sur leur propre rangée pleine largeur. Ces
+     deux cartes ont été RETIRÉES : elles montraient une capture réelle du terminal datée du 06/08,
+     et le desk a évolué depuis — une capture périmée est pire qu'une absence de capture, parce
+     qu'elle promet un écran qui n'existe plus. Ce qui reste vrai de la mise en page : la colonne de
+     droite porte 2 rangées, et la carte de gauche s'étire pour couvrir exactement ces deux rangées. */
   /* ⚠️ SEPT MODULES ANNONCÉS, DIX ONGLETS DANS LE TERMINAL (27/08). Le Calendrier, la Liste FX, la
      Semaine à Venir, les Taux et les Banques n'étaient nommés NULLE PART sur l'accueil — ni le
      Journal de Trading, ni la Calculatrice de position. Un visiteur ne pouvait pas savoir que la
@@ -1762,35 +1763,13 @@
 
       </div>
 
-      <!-- ══ RANGÉE PLEINE LARGEUR — les deux nouveautés du 06/08 ═══════════════════════════════
-           Elles étaient d'abord dans la colonne de droite : elles y ajoutaient une 3e rangée, la
-           carte de gauche s'étirait pour s'aligner sur la plus haute et laissait un grand vide.
-           Sur leur propre rangée, tous les bords tombent juste.
-           Autre différence assumée : les cartes du dessus reproduisent le desk en MAQUETTE HTML
-           (classes .dk-*), fidèle mais coûteux — chaque refonte du desk oblige à les reprendre une
-           par une. Ces deux-là montrent la CAPTURE RÉELLE du terminal : une seule source, rien à
-           re-synchroniser, et le visiteur voit exactement l'écran qu'il aura. ═══════════════════ -->
-      <div class="mods3">
-        <div class="bcard">
-          <div class="lead"><div class="bic"><i class="fa-solid fa-table-cells-large"></i></div><h3><a href="/documentation/prise-en-main.html">Mon Desk</a></h3></div>
-          <p class="one">Le tableau de bord, monté par vous, bloc par bloc.</p>
-          <div class="vis">
-            <img src="/img/desk-widgets.jpg" width="1064" height="536" loading="lazy" decoding="async"
-                 alt="Les modules disponibles dans Mon Desk : force des devises, calendrier économique, radar de biais, positionnement COT et d'autres."
-                 style="display:block;width:100%;height:auto;border-radius:8px;">
-          </div>
-        </div>
-
-        <div class="bcard">
-          <div class="lead"><div class="bic"><i class="fa-solid fa-compass"></i></div><h3>Vue d'ensemble</h3></div>
-          <p class="one">L'écran de prise de poste, dès la connexion.</p>
-          <div class="vis">
-            <img src="/img/desk-accueil.jpg" width="1064" height="535" loading="lazy" decoding="async"
-                 alt="L'écran d'ouverture du terminal : le fil d'actualité en direct, chaque dépêche horodatée avec sa rubrique et sa devise, les publications majeures signalées en rouge."
-                 style="display:block;width:100%;height:auto;border-radius:8px;">
-          </div>
-        </div>
-      </div>
+      <!-- ⚠️ RANGÉE « Mon Desk » / « Vue d'ensemble » RETIRÉE (03/09, demande utilisateur).
+           Les deux cartes montraient une CAPTURE RÉELLE du terminal — desk-widgets.jpg et
+           desk-accueil.jpg — datées du 06/08. Le desk a évolué depuis : la capture ne montrait donc
+           plus le produit qu'on vend, et une capture périmée est pire qu'une absence de capture,
+           parce qu'elle promet un écran qui n'existe plus. Les deux fonctionnalités restent
+           décrites ailleurs sur la page ; ce sont ces deux VIGNETTES qui partent, pas le contenu.
+           Les fichiers d'image restent dans /img : la documentation les utilise encore. -->
     </div>
   </div>
 </section>

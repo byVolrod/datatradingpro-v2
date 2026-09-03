@@ -4800,7 +4800,16 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .br-pdf-frame { flex: 1 1 auto; width: 100%; min-height: 70vh; border: 0; background: var(--bg); display: block; }
 /* Rendu PDF.js (canvas) — mobile : fiable la ou l'iframe PDF ne s'affiche pas inline (iOS/WebKit).
    Fond DTP SOMBRE (fini la bande grise façon viewer PDF) + jamais de scrollbar horizontale. */
-.br-pdf-canvaswrap { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; background: var(--bg); padding: 8px 0; -webkit-overflow-scrolling: touch; }   /* barre : globale */
+/* ⚠️ LES DEUX BARRES, PAS UNE (03/09, demande utilisateur, capture d'un lecteur de référence).
+   `overflow-x` était à `hidden` : une page plus large que le volet était SILENCIEUSEMENT coupée à
+   droite — on ne pouvait ni la voir, ni savoir qu'il manquait quelque chose. C'est le pire des deux
+   comportements possibles : masquer sans le dire. La barre horizontale apparaît désormais quand, et
+   seulement quand, la page dépasse ; le reste du temps rien ne change, la page étant mise à la
+   largeur du volet (`max-width: 100%` sur le canvas, inchangé). */
+.br-pdf-canvaswrap { flex: 1 1 auto; overflow-y: auto; overflow-x: auto; background: var(--bg); padding: 8px 0; -webkit-overflow-scrolling: touch; }   /* barres : globales */
+/* Le coin où les deux barres se rejoignent : sans cette règle, Chrome y pose un carré gris clair
+   qui jure avec le fond sombre — un détail qu'on ne voit QUE lorsque les deux barres coexistent. */
+.br-pdf-canvaswrap::-webkit-scrollbar-corner { background: transparent; }
 /* .br-pdf-canvaswrap : barre globale. */
 .br-pdf-canvaswrap::-webkit-scrollbar-button, #br-rcontent::-webkit-scrollbar-button { display: none; width: 0; height: 0; }   /* pas de flèches natives (bande grise Windows) */
 .br-pdf-canvaswrap::-webkit-scrollbar-track { background: transparent; }
@@ -21981,3 +21990,23 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
 .pd-av-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
 .pd-avatar-vide { background: #1a1a1f; }
 .pd-avatar-vide .pd-av-img { opacity: .92; }
+
+/* ── WIDGETS « DIRECT » (Bloomberg Live, Yahoo Finance Live) — une PORTE, pas une fenêtre ─────
+   Ces deux widgets n'encadrent pas la vidéo : l'éditeur l'interdit techniquement, et la
+   rediffuser dans un terminal payant relève de ses droits. La carte annonce le direct et
+   l'ouvre chez lui. Elle est donc volontairement SOBRE — elle ne doit pas se faire passer
+   pour un lecteur : pas de rectangle noir, pas de bouton « lecture ». */
+.wdg-direct { display: flex; flex-direction: column; height: 100%; padding: 12px 13px; gap: 9px; }
+.wdg-direct-tete { display: flex; align-items: center; gap: 7px; }
+.wdg-direct-pastille { width: 7px; height: 7px; border-radius: 50%; flex: none; box-shadow: 0 0 0 3px rgba(227,178,58,.13); }
+.wdg-direct-nom { font-size: 12.5px; font-weight: 600; color: var(--text, #e8e8ea); letter-spacing: .01em; }
+.wdg-direct-txt { margin: 0; font-size: 11.5px; line-height: 1.55; color: #9aa0aa; flex: 1 1 auto; }
+.wdg-direct-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 12px; border-radius: 4px; text-decoration: none;
+  font-size: 11.5px; font-weight: 600; letter-spacing: .02em;
+  color: #0c0c0e; background: #e3b23a; border: 1px solid #e3b23a;
+  transition: background .15s ease, border-color .15s ease;
+}
+.wdg-direct-btn:hover { background: #f0c455; border-color: #f0c455; }
+.wdg-direct-note { margin: 0; font-size: 10px; color: #6b7280; text-align: center; }

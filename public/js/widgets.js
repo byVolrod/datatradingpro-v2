@@ -7065,6 +7065,59 @@
         };
       },
     },
+    /* ═══ DIRECTS FINANCIERS — BLOOMBERG LIVE ET YAHOO FINANCE LIVE (03/09, demande utilisateur) ═══
+       CE QUE CES DEUX WIDGETS FONT, ET POURQUOI ILS NE FONT PAS PLUS.
+       Les deux pages demandées diffusent une CHAÎNE VIDÉO. Deux raisons indépendantes font qu'on ne
+       l'encadre pas dans le desk :
+         1. TECHNIQUE — ces éditeurs refusent l'intégration par un tiers (`X-Frame-Options` /
+            `frame-ancestors`). Un cadre produirait un rectangle vide chez le client. Le repli
+            automatique du widget TradingView existe justement parce qu'un embed PEUT tomber ; ici
+            il tomberait à TOUS les coups, pour tout le monde.
+         2. JURIDIQUE, et c'est la vraie — rediffuser un flux vidéo Bloomberg ou Yahoo à l'intérieur
+            d'un terminal PAYANT est une question de droits de diffusion, pas d'affichage. Ce n'est
+            pas au code de trancher cela, et une intégration qui « marche » aurait rendu le problème
+            invisible jusqu'au courrier de l'éditeur.
+       CE QUI EST LIVRÉ EST DONC UNE PORTE, PAS UNE FENÊTRE : la carte annonce le direct, dit ce
+       qu'on y trouve, et l'ouvre dans un nouvel onglet — chez l'éditeur, sous ses conditions.
+       Le client gagne le raccourci depuis son desk, qui est l'utile de la demande.
+       ⚠️ AUCUN LOGO NI MARQUE REPRISE : le nom seul, en texte. Reprendre un logo dans un produit
+       commercial est un sujet de marque, exactement le même piège que ci-dessus. */
+    {
+      id: 'direct-bloomberg', name: 'Bloomberg Live', tag: 'DIRECT', cat: 'Marchés', h: 186,
+      desc: 'Ouvre le direct Bloomberg Live dans un nouvel onglet.',
+      aide: "<p>La chaîne américaine en continu : ouverture des marchés, entretiens de dirigeants, réactions aux publications macro.</p><p><strong>Pourquoi un lien et non une vidéo encadrée :</strong> l'éditeur interdit techniquement l'intégration de sa page par un autre site, et rediffuser son flux dans un terminal payant relève de ses droits de diffusion. Le desk vous y emmène plutôt que de la recopier.</p>",
+      src: "Lien direct vers Bloomberg Live. Aucun contenu n'est repris ni stocké par le desk : la page s'ouvre chez l'éditeur, sous ses conditions.",
+      watch: "Utile en séance américaine et sur les rendez-vous majeurs (décision de la Fed, emploi US) : le direct commente le chiffre pendant que le marché bouge.",
+      mount: function (host) {
+        host.innerHTML =
+          '<div class="wdg-direct">'
+          + '<div class="wdg-direct-tete"><span class="wdg-direct-pastille" style="background:#e3b23a"></span>'
+          + '<span class="wdg-direct-nom">Bloomberg Live</span></div>'
+          + '<p class="wdg-direct-txt">La chaîne américaine en continu : ouverture des marchés, entretiens de dirigeants, réactions aux publications macro.</p>'
+          + '<a class="wdg-direct-btn" href="https://www.bloomberg.com/live/us" target="_blank" rel="noopener noreferrer">Ouvrir le direct</a>'
+          + '<p class="wdg-direct-note">S\'ouvre chez l\'éditeur, dans un nouvel onglet.</p>'
+          + '</div>';
+        return null;   // rien à nettoyer : aucun minuteur, aucune requête, aucun graphique
+      },
+    },
+    {
+      id: 'direct-yahoo', name: 'Yahoo Finance Live', tag: 'DIRECT', cat: 'Marchés', h: 186,
+      desc: 'Ouvre le direct Yahoo Finance Live dans un nouvel onglet.',
+      aide: "<p>Le direct de Yahoo Finance : actualité de marché, valeurs américaines, entretiens.</p><p><strong>Pourquoi un lien et non une vidéo encadrée :</strong> l'éditeur interdit techniquement l'intégration de sa page par un autre site, et rediffuser son flux dans un terminal payant relève de ses droits de diffusion. Le desk vous y emmène plutôt que de la recopier.</p>",
+      src: "Lien direct vers Yahoo Finance Live. Aucun contenu n'est repris ni stocké par le desk : la page s'ouvre chez l'éditeur, sous ses conditions.",
+      watch: "Plus tourné actions et valeurs individuelles que macro : un complément quand une publication d'entreprise déplace un indice.",
+      mount: function (host) {
+        host.innerHTML =
+          '<div class="wdg-direct">'
+          + '<div class="wdg-direct-tete"><span class="wdg-direct-pastille" style="background:#60a5fa"></span>'
+          + '<span class="wdg-direct-nom">Yahoo Finance Live</span></div>'
+          + '<p class="wdg-direct-txt">Le direct de Yahoo Finance : actualité de marché, valeurs américaines, entretiens.</p>'
+          + '<a class="wdg-direct-btn" href="https://finance.yahoo.com/live/" target="_blank" rel="noopener noreferrer">Ouvrir le direct</a>'
+          + '<p class="wdg-direct-note">S\'ouvre chez l\'éditeur, dans un nouvel onglet.</p>'
+          + '</div>';
+        return null;   // rien à nettoyer : aucun minuteur, aucune requête, aucun graphique
+      },
+    },
     {
       id: 'horloge', name: 'Horloge mondiale', cat: 'Macro', h: 210,
       desc: 'Les grandes places à l’heure, statut d’ouverture + météo : choisis les tiennes.',
@@ -9172,6 +9225,10 @@
   }
   // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
   var WICO = {
+    /* Les deux blocs « direct » partagent la même icône d'onde — dessinée ici, aucune marque
+       d'éditeur reprise (même règle que pour les cartes elles-mêmes). */
+    'direct-bloomberg': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.2"/><path d="M8.1 8.1a5.5 5.5 0 0 0 0 7.8M15.9 15.9a5.5 5.5 0 0 0 0-7.8"/><path d="M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 18.7a9.5 9.5 0 0 0 0-13.4"/></svg>',
+    'direct-yahoo': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.2"/><path d="M8.1 8.1a5.5 5.5 0 0 0 0 7.8M15.9 15.9a5.5 5.5 0 0 0 0-7.8"/><path d="M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 18.7a9.5 9.5 0 0 0 0-13.4"/></svg>',
     'notes': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h14v15H5z"/><path d="M8.5 9h7M8.5 13h7M8.5 17h4"/></svg>',
     'ticklist': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h9M4 12h9M4 17.5h9"/><path d="m16 6 2 2 4-4M16 17l2 2 4-4"/></svg>',
     'amplitude-seance': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h11M4 12h16M4 18h7"/></svg>',
