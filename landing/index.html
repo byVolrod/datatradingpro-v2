@@ -977,7 +977,11 @@
 }
 
   /* Force des devises : courbes + étirement bas */
-  .dk-cs2{background:#16171b;border:1px solid #232429;border-radius:0;padding:9px 10px;display:flex;flex-direction:column;height:100%;box-sizing:border-box}
+  /* ⚠️ `overflow:hidden` EST LE FILET, PAS LA CORRECTION (03/09). La vraie correction est la
+     gouttière recalculée plus bas ; celle-ci garantit qu'une étiquette ne pourra JAMAIS repartir sur
+     le fond blanc de la page, quoi qu'on change ensuite à la largeur des pastilles. Sans lui, le
+     défaut se voyait à l'écran mais rien ne l'empêchait — et c'est ce qui l'a laissé passer. */
+  .dk-cs2{background:#16171b;border:1px solid #232429;border-radius:0;padding:9px 10px;display:flex;flex-direction:column;height:100%;box-sizing:border-box;overflow:hidden}
   .dk-cs2-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:7px;border-bottom:1px solid #232429}
   .dk-cs2-title{font-family:var(--tight,'Inter Tight',sans-serif);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#cfd2d8}
   .dk-cs2-tf{display:flex;gap:1px;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:700}
@@ -992,7 +996,15 @@
   .dk-cs2-chart{flex:1;min-height:130px;margin:6px 0 2px;display:flex;gap:0;position:relative}
   .dk-cs2-chart svg{flex:1;min-width:0;height:100%;display:block}
   .dk-cs2-ln{fill:none;stroke-width:1.5;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
-  .dk-cs2-ends{position:relative;flex:0 0 33px;width:33px;align-self:stretch}
+  /* ⚠️ 38 px, ET LE CHIFFRE SE CALCULE — IL NE SE CHOISIT PAS (03/09, capture utilisateur : « les
+     étiquettes sont hors cadre du widget »). La gouttière valait 33 px pendant que la pastille en
+     réclame 35,4 : 3 px de retrait (`padding-left` de .dk-cs2-b) + 26,4 px de largeur plancher
+     (`min-width: 3.3em` à 8 px) + 6 px de rembourrage horizontal. Elle débordait donc par
+     construction, de deux à trois pixels, sur CHAQUE étiquette — et davantage encore sur la version
+     à deux pavés que montre la capture. 38 px laissent 2,6 px de marge.
+     Le point du filet (`.dk-cs2-lnk b`) dépasse volontairement de 2 px vers la GAUCHE : il doit se
+     poser sur la fin du tracé, pas à côté. Ce débordement-là est interne à la carte, il reste. */
+  .dk-cs2-ends{position:relative;flex:0 0 38px;width:38px;align-self:stretch}
   /* La pastille est ancree A GAUCHE de la gouttiere, c est-a-dire PILE ou le trace s arrete : c est
      ce qui fait que l etiquette prolonge la courbe au lieu de flotter a cote. */
   .dk-cs2-ends .dk-cs2-b{position:absolute;left:0;transform:translateY(-50%);display:inline-flex;padding-left:3px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}

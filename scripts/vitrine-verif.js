@@ -175,6 +175,33 @@ console.log('\n── 3 quinquies. Les CHIFFRES annoncés au Hero sont ceux du p
   /* La MOITIÉ QUI COMPTE AUTANT : ne pas se contenter d'annoncer moins que la réalité pour être
      tranquille. Sous-vendre un produit qu'on peut compter est aussi une forme d'imprécision. */
   v('[témoin] les deux chiffres sont bien LUS, pas devinés', annonceOnglets > 0 && annonceWidgets > 0);
+
+  /* ⚠️ LA GOUTTIÈRE DES ÉTIQUETTES SE CALCULE, ELLE NE SE CHOISIT PAS (03/09, capture utilisateur :
+     « les étiquettes sont hors cadre du widget »). Elle valait 33 px pendant que la pastille en
+     réclamait 35,4 : elle débordait donc par CONSTRUCTION, sur chaque étiquette, depuis toujours.
+     Un contrôle qui épinglerait « 38 px » ne vaudrait rien : il figerait un nombre sans dire d'où il
+     vient, et la prochaine retouche de la police ou du rembourrage le rendrait faux en silence. On
+     REFAIT donc le calcul à partir des trois valeurs du CSS, et on exige que la gouttière les
+     couvre. Le jour où l'une bouge, le banc recalcule et tranche tout seul. */
+  const lireNb = (rx) => { const m = rx.exec(IDX); return m ? parseFloat(m[1]) : NaN; };
+  const gouttiere = lireNb(/\.dk-cs2-ends\{[^}]*flex:0 0 ([\d.]+)px/);
+  const retrait   = lireNb(/\.dk-cs2-ends \.dk-cs2-b\{[^}]*padding-left:([\d.]+)px/);
+  const police    = lireNb(/\.dk-cs2-p\{[^}]*font-size:([\d.]+)px/);
+  const plancher  = lireNb(/\.dk-cs2-p\{[^}]*min-width:([\d.]+)em/);
+  const rembour   = lireNb(/\.dk-cs2-p\{[^}]*padding:[\d.]+px ([\d.]+)px/);
+  v('les cinq mesures de la pastille sont lisibles dans le CSS',
+    [gouttiere, retrait, police, plancher, rembour].every(Number.isFinite),
+    JSON.stringify({ gouttiere, retrait, police, plancher, rembour }));
+  if ([gouttiere, retrait, police, plancher, rembour].every(Number.isFinite)) {
+    const besoin = retrait + (plancher * police) + (rembour * 2);
+    v('LA GOUTTIÈRE COUVRE LA PASTILLE — aucune étiquette hors cadre',
+      gouttiere >= besoin,
+      'gouttière ' + gouttiere + ' px  ·  besoin ' + besoin.toFixed(1) + ' px (retrait ' + retrait
+        + ' + plancher ' + (plancher * police).toFixed(1) + ' + rembourrage ' + (rembour * 2) + ')');
+  }
+  v('… et la carte CLIPPE, pour qu\'aucune étiquette ne reparte sur le fond de page',
+    /\.dk-cs2\{[^}]*overflow:hidden/.test(IDX),
+    'le filet n\'est pas la correction, mais sans lui rien n\'empêche le défaut de revenir');
 }
 
 console.log('\n── 3 quater. Les maquettes de widgets suivent le produit ──');
