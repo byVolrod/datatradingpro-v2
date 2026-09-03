@@ -57,6 +57,14 @@ const SRC_RUN   = extraire(AUTH, 'async function _runMulti(');
 const SRC_DOWN  = extraire(AUTH, 'function _markDown(');
 const SRC_CONV  = extraire(AUTH, 'async function _usersConverge(');
 const SRC_APPLY = extraire(AUTH, 'function _applyOps(');
+/* AJOUTÉS LE 03/09 : _runMulti délègue désormais à ces deux lectures (réunion des nœuds pour
+   `chat_messages`, fraîcheur pour `ai_cache`). Sans elles dans le bac, la fonction extraite lève
+   ReferenceError et TOUS les contrôles de ce banc s'effondrent d'un coup — ce qui est exactement
+   ce qui vient d'arriver, et exactement ce qu'un banc doit faire quand le code sous lui bouge. */
+const SRC_UNION = extraire(AUTH, 'async function _lireUnion(');
+const SRC_FRAIS = extraire(AUTH, 'async function _lireFraicheur(');
+const SRC_TU    = (/const _TABLES_UNION     = new Set\(\[[^\]]*\]\);/.exec(AUTH) || [null])[0];
+const SRC_TF    = (/const _TABLES_FRAICHEUR = new Map\(\[[\s\S]*?\]\);/.exec(AUTH) || [null])[0];
 const SRC_SENS  = (/const _TABLES_SENSIBLES = new Set\(\[[^\]]*\]\);/.exec(AUTH) || [null])[0];
 v('[témoin] une apostrophe en commentaire ne casse pas l\'extracteur',
   !!_TEMOIN && /return \{ a: 1 \};/.test(_TEMOIN));
@@ -71,7 +79,7 @@ v('la liste des tables sensibles est LUE dans auth.js, pas recopiée ici',
    Chaque « base » est un faux client qui journalise ce qu'on lui demande et rend ce qu'on lui a dit
    de rendre. On peut donc affirmer QUI a été interrogé, pas seulement ce qui est revenu. */
 function bac(nodes) {
-  if (!(SRC_RUN && SRC_DOWN && SRC_APPLY && SRC_SENS)) return null;
+  if (!(SRC_RUN && SRC_DOWN && SRC_APPLY && SRC_SENS && SRC_UNION && SRC_FRAIS && SRC_TU && SRC_TF)) return null;
   const journal = [];
   const mkClient = (nom, reponses) => ({
     from(table) {
@@ -102,7 +110,8 @@ function bac(nodes) {
     + 'function _egTripped() { return false; }\n'
     + 'function _egNote() {}\n'
     + 'function _resBytes() { return 0; }\n'
-    + SRC_APPLY + '\n' + SRC_DOWN + '\n' + SRC_RUN + '\n'
+    + SRC_TU + '\n' + SRC_TF + '\n'
+    + SRC_APPLY + '\n' + SRC_DOWN + '\n' + SRC_UNION + '\n' + SRC_FRAIS + '\n' + SRC_RUN + '\n'
     + 'return { _dbNodes, _runMulti, _markDown };';
   const api = new Function('console', src)({ warn() {}, log() {}, error() {} });
   nodes.forEach(n => api._dbNodes.push({ name: n.nom, downUntil: 0, quarLect: false, client: mkClient(n.nom, n.reponses) }));

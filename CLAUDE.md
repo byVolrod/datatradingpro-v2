@@ -125,6 +125,37 @@ c'est par elles que le rattrapage passe. Toutes en quarantaine → `NODESDOWN` �
 pire cas est l'état le plus sûr. Banc : `scripts/bases-verif.js` (dans `npm run check`).
 Le panneau admin affiche « RESYNCHRO… » pendant ce temps, au lieu d'un « OK » trompeur.
 
+⚠️ **LA QUARANTAINE NE COUVRAIT QUE `users` — DEUX AUTRES TABLES SAIGNAIENT PAR LE MÊME TROU (03/09).**
+Mesuré sur la base principale au lendemain de sa sortie de pause :
+- **`chat_messages`** y porte **71 messages, 26 fils, arrêtés au 14/06** — le jour de la pause. Cette
+  table n'est **pas** dual-écrite (ids AUTO, divergents d'une base à l'autre) : chaque message vit sur
+  UNE base. Avant le 14/06 tout allait sur la principale, après, tout sur db2 → **deux moitiés
+  DISJOINTES**, dont aucune n'est le superset de l'autre. Or la lecture s'arrêtait au premier nœud au
+  résultat **non vide** : la principale répondait « 26 fils de juin », **db2 n'était jamais
+  interrogée**. La boîte de réception du support affichait juin. Rien n'était perdu ; tout était caché
+  — du point de vue du client, c'est identique. → `_TABLES_UNION` : la lecture **réunit** les nœuds
+  (`_lireUnion`), l'écriture est **diffusée** (sans quoi « marquer lu » ne réparerait qu'une moitié et
+  le badge ne retomberait jamais à zéro ; `chatDeleteByUser` laissait carrément les messages d'un
+  compte supprimé sur les autres bases). **L'INSERT ne se diffuse pas** — il créerait quatre
+  exemplaires du même message.
+  ⚠️ **NE PAS « DÉDOUBLONNER » LA RÉUNION.** `chatThreads` lit `select('user_id')` sur les non-lus :
+  une ligne PAR message, toutes réduites au seul `user_id`, donc **identiques entre elles**. Les
+  fusionner ramènerait un badge de 3 à 1. Et le doublon n'existe pas : aucun chemin n'écrit deux fois
+  le même message. On ne se protège pas d'un risque absent au prix d'un compteur faux.
+- **`ai_cache`** y porte **`journal:1` daté du 14/06** — le modèle JOT d'un client. Celle-ci EST
+  dual-écrite, donc une clé **réécrite** depuis converge seule ; mais un modèle qu'on ne modifie plus
+  reste figé à juin sur la base revenue, et le **tour de rôle** rendait tantôt juin tantôt septembre.
+  Le même client voyait son modèle changer d'une visite à l'autre. `created_at` était stocké **depuis
+  toujours** : personne ne le relisait. → `_TABLES_FRAICHEUR` : la ligne **la plus récente** gagne
+  (`_lireFraicheur`), et `aiCacheGet` sélectionne `value, created_at` — sans la date, il n'y a rien à
+  arbitrer. Repli explicite : une requête sans colonne de date (la sonde `select('key')`) retombe sur
+  le premier non vide, à l'identique.
+
+Banc : `scripts/union-verif.js` (26 contrôles, dans `npm run check`) — il rejoue **le scénario mesuré**
+(base figée en juin face à base à jour) sur le VRAI `_runMulti` extrait d'`auth.js`, et ses deux
+contrôles négatifs mordent **chacun séparément**. Vider `_TABLES_UNION` dans `auth.js` fait rougir 9
+contrôles : le banc lit bien le fichier, il ne récite pas sa propre copie.
+
 ⚠️ **POURQUOI LA PAUSE EST ARRIVÉE, ET CE QUI L'EMPÊCHE DE REVENIR.** Le keep-alive vivait
 UNIQUEMENT dans GitHub Actions, avec des secrets **jamais posés**, et sa branche « aucun projet
 configuré » rendait **0**. Bilan : 142 passages verts, zéro ping, deux mois et demi de pause sous

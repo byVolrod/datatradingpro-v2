@@ -108,6 +108,122 @@ let _rr = 0;
    lecture dans _markDown). `chat_messages` n'y est pas : un message manquant se rattrape, il ne
    ferme la porte à personne. */
 const _TABLES_SENSIBLES = new Set(['users']);
+/* ═══ UNE BASE REVENUE PEUT MASQUER LA DONNÉE FRAÎCHE D'UNE AUTRE (03/09/2026) ═══════════════════
+   La quarantaine de lecture ci-dessus protège `users`. Elle ne protégeait RIEN d'autre — et deux
+   autres tables souffraient du même défaut, par deux chemins différents. MESURÉ sur la base
+   principale au lendemain de sa sortie de pause, pas déduit :
+
+     · `chat_messages` : 71 messages, 26 fils, le plus récent daté du 14/06 — le jour même de la
+       mise en pause. Cette table n'est pas dual-écrite (ses ids sont AUTO, donc divergents d'une
+       base à l'autre) : un message part sur le PREMIER nœud sain. Tant que la principale répondait,
+       tout y allait ; après le 14/06, tout est parti sur db2. Les deux bases détiennent donc deux
+       MOITIÉS DISJOINTES du même journal, et aucune n'est le superset de l'autre. Or la lecture
+       s'arrêtait au premier nœud au résultat NON VIDE : la principale répondait « 26 fils de juin »
+       et db2 n'était JAMAIS interrogée. La boîte de réception du support affichait la liste de juin,
+       et deux mois et demi de conversations paraissaient effacés. Rien n'était perdu ; tout était
+       caché — ce qui, vu du client, ne fait aucune différence.
+       → On RÉUNIT les nœuds au lieu d'en élire un (_lireUnion), et l'écriture est DIFFUSÉE.
+
+     · `ai_cache` : `journal:1` — le modèle de journal de bord d'un client — daté du 14/06 sur la
+       principale. Cette table-ci EST dual-écrite, donc une clé RÉÉCRITE depuis le retour converge
+       d'elle-même. Mais une clé qu'on ne réécrit pas (un modèle qu'on ne modifie plus) reste figée
+       à juin sur la base revenue, pendant que db2 porte la version de septembre — et la lecture,
+       en tourniquet, rendait tantôt l'une tantôt l'autre. Un même client voyait son modèle changer
+       d'une visite à l'autre. `created_at` était pourtant stocké depuis toujours : simplement,
+       personne ne le lisait.
+       → La ligne la PLUS RÉCENTE gagne (_TABLES_FRAICHEUR), au lieu de la première rencontrée. */
+const _TABLES_UNION     = new Set(['chat_messages']);
+const _TABLES_FRAICHEUR = new Map([['ai_cache', 'created_at']]);
+/* ═══ LECTURE RÉUNIE — RECOLLER DEUX MOITIÉS DISJOINTES DU MÊME JOURNAL ══════════════════════════
+   Pourquoi cette fonction existe : cf. le pavé de _TABLES_UNION. En deux mots — `chat_messages`
+   n'est pas dual-écrit, chaque message vit sur UNE base, et la base principale revenue de pause
+   masquait db2 en répondant « non vide » avec l'historique de juin.
+
+   CE QU'ELLE NE FAIT PAS, ET POURQUOI. Elle ne dédoublonne pas. La tentation était forte, et elle
+   aurait cassé le compteur de non-lus : `chatThreads` lit `select('user_id')` sur les messages non
+   lus, une ligne PAR MESSAGE, toutes réduites au seul `user_id` — trois messages non lus du même
+   client y sont trois lignes IDENTIQUES qu'il faut compter, pas fusionner. Et le doublon n'existe
+   pas : aucun chemin n'écrit deux fois le même message (l'insert va sur un seul nœud, la migration
+   du backlog aussi). On ne se protège donc pas d'un risque absent au prix d'un compteur faux.
+
+   COÛT. Les lectures de chat sont servies par un cache RAM de 5 min alors que le volet sonde toutes
+   les 4 s : on ne paie cette réunion qu'une fois par tranche de 5 min et par clé. C'est le prix de
+   ne plus cacher l'historique du support. */
+async function _lireUnion(table, ops, healthy) {
+  const rep = await Promise.allSettled(healthy.map(n => _applyOps(n.client, table, ops)));
+  const lignes = [];
+  let vus = 0, errU = null, total = null, octets = 0;
+  rep.forEach((s, i) => {
+    const node = healthy[i];
+    if (s.status !== 'fulfilled') { _markDown(node, s.reason); errU = errU || s.reason; return; }
+    const res = s.value;
+    if (res && res.error) {
+      if (_supaDown(res.error)) { if (!_isSchemaErr(res.error)) _markDown(node, res.error); }
+      errU = errU || res.error; return;
+    }
+    vus++;
+    octets += _resBytes(res);
+    // `{ count: 'exact', head: true }` : la base ne rend AUCUNE ligne, seulement un nombre. On le
+    // SOMME — concaténer n'aurait aucun sens, et rendre celui d'un seul nœud sous-compterait
+    // exactement de la moitié qu'on cherche à faire réapparaître.
+    if (res && typeof res.count === 'number') total = (total || 0) + res.count;
+    if (res && Array.isArray(res.data)) lignes.push(...res.data);
+    else if (res && res.data) lignes.push(res.data);
+  });
+  // AUCUN nœud n'a répondu → erreur. Un seul suffit : on rend ce qu'on a, jamais une panne.
+  if (!vus) return { data: null, error: errU || { message: 'read failed on all nodes' } };
+  _egNote(octets);
+  if (total != null && !lignes.length) return { data: null, count: total, error: null };
+  // L'ordre et la limite ont été appliqués par CHAQUE base sur SA moitié : il faut les rejouer sur
+  // la réunion, sinon 400 messages par nœud rendraient 800 lignes dans un ordre entrelacé.
+  const oOrd = ops.find(([m]) => m === 'order');
+  if (oOrd) {
+    const col = oOrd[1][0], asc = !(oOrd[1][1] && oOrd[1][1].ascending === false);
+    lignes.sort((a, b) => {
+      const x = a && a[col], y = b && b[col];
+      if (x === y) return 0;
+      if (x == null) return 1;
+      if (y == null) return -1;
+      return (x < y ? -1 : 1) * (asc ? 1 : -1);
+    });
+  }
+  const oLim = ops.find(([m]) => m === 'limit');
+  const out = oLim ? lignes.slice(0, oLim[1][0]) : lignes;
+  return total != null ? { data: out, count: total, error: null } : { data: out, error: null };
+}
+
+/* ═══ LA LIGNE LA PLUS RÉCENTE GAGNE ═════════════════════════════════════════════════════════════
+   Pour `ai_cache` (cf. _TABLES_FRAICHEUR). Le tourniquet rendait la première base au résultat non
+   vide : une clé jamais réécrite depuis le retour d'une base restait figée à sa valeur d'alors, et
+   le desk rendait tantôt la version de juin, tantôt celle de septembre, selon le tour. `created_at`
+   était stocké depuis le début — il n'était simplement jamais relu.
+   REPLI EXPLICITE : une requête qui ne SÉLECTIONNE pas la colonne de date (la sonde `select('key')`)
+   ne peut pas être arbitrée ; on retombe alors sur la première réponse non vide, à l'identique. */
+async function _lireFraicheur(table, ops, healthy, col) {
+  const rep = await Promise.allSettled(healthy.map(n => _applyOps(n.client, table, ops)));
+  let vus = 0, errF = null, octets = 0, meilleur = null, cle = null, vide = null;
+  rep.forEach((s, i) => {
+    const node = healthy[i];
+    if (s.status !== 'fulfilled') { _markDown(node, s.reason); errF = errF || s.reason; return; }
+    const res = s.value;
+    if (res && res.error) {
+      if (_supaDown(res.error)) { if (!_isSchemaErr(res.error)) _markDown(node, res.error); }
+      errF = errF || res.error; return;
+    }
+    vus++;
+    octets += _resBytes(res);
+    const d = res && res.data;
+    const rows = Array.isArray(d) ? d : (d ? [d] : []);
+    if (!rows.length) { vide = vide || res; return; }
+    const t = rows[0] && rows[0][col];
+    if (t == null) { if (!meilleur && cle == null) { meilleur = res; } return; }   // pas de date lisible → premier non vide
+    if (cle == null || String(t) > String(cle)) { cle = t; meilleur = res; }
+  });
+  if (!vus) return { data: null, error: errF || { message: 'read failed on all nodes' } };
+  _egNote(octets);
+  return meilleur || vide || { data: null, error: errF || { message: 'read failed on all nodes' } };
+}
+
 async function _runMulti(table, ops, kind) {
   const now = Date.now();
   // GARDE-FOU EGRESS : en LECTURE, si le plafond glissant est dépassé, on renvoie « toutes bases muettes »
@@ -133,6 +249,32 @@ async function _runMulti(table, ops, kind) {
     // L'appelant (verifyLogin/getUserById/getAllUsers) COMPLÈTE avec le MIROIR local (comptes existants
     // restés sur la primaire bloquée → les secondaires ne les ont pas).
     if (kind === 'write') {
+      /* ÉCRITURE DIFFUSÉE sur les tables RÉUNIES (cf. _TABLES_UNION et _lireUnion). Dès lors que la
+         LECTURE réunit les nœuds, l'écriture doit les atteindre TOUS, sinon elle ne corrige qu'une
+         moitié de ce que l'on vient de rendre visible :
+           · `chatMarkRead` porte sur (user_id + sender), pas sur un id → marquer « lu » sur le seul
+             premier nœud sain laisserait l'autre moitié éternellement non lue, et le badge de
+             non-lus ne retomberait JAMAIS à zéro maintenant qu'on la compte ;
+           · `chatDeleteByUser` (suppression d'un compte) laissait purement et simplement les
+             messages du compte supprimé sur les autres bases ;
+           · `chatDelete`/`chatEdit` visent un id AUTO, propre à une base : sur celles qui ne
+             détiennent pas la ligne, la clause ne matche RIEN — l'ordre y est donc inoffensif, et
+             c'est ce qui rend la diffusion sûre.
+         L'INSERT, lui, reste sur UN SEUL nœud : le diffuser créerait quatre exemplaires du message. */
+      if (_TABLES_UNION.has(table) && !ops.some(([m]) => m === 'insert')) {
+        const diff = await Promise.allSettled(healthy.map(n => _applyOps(n.client, table, ops)));
+        let okW = null, errW = null;
+        diff.forEach((s, i) => {
+          const node = healthy[i];
+          if (s.status !== 'fulfilled') { _markDown(node, s.reason); errW = errW || s.reason; return; }
+          const r = s.value;
+          // `.single()` sur un nœud qui ne détient pas la ligne rend « aucune ligne » : ce n'est pas
+          // une panne, c'est la réponse normale d'une base qui n'a pas ce message. Ne PAS la pénaliser.
+          if (r && r.error) { if (_supaDown(r.error) && !_isSchemaErr(r.error)) _markDown(node, r.error); errW = errW || r.error; return; }
+          if (!okW) okW = r;
+        });
+        return okW || { data: null, error: errW || { message: 'write failed on all nodes' } };
+      }
       let werr = null;
       for (const node of healthy) {
         try { const res = await _applyOps(node.client, table, ops); if (res && res.error) { if (_supaDown(res.error)) { if (!_isSchemaErr(res.error)) _markDown(node, res.error); werr = res.error; continue; } return res; } return res; }
@@ -140,6 +282,7 @@ async function _runMulti(table, ops, kind) {
       }
       return { data: null, error: werr || { message: 'write failed on all nodes' } };
     }
+    if (_TABLES_UNION.has(table)) return _lireUnion(table, ops, healthy);
     let emptyS = null, errS = null;
     for (const node of healthy) {
       try {
@@ -166,6 +309,11 @@ async function _runMulti(table, ops, kind) {
   // renvoie un résultat VIDE — une base qui a manqué une écriture pendant son cooldown pourrait être périmée,
   // donc on ne conclut « vide » qu'après avoir interrogé TOUTES les bases saines. Évite : faux « non loggé »
   // (email_log → mail en double), recap fraîchement sauvé absent (weekly_reports), null masquant (ai_cache).
+  /* LA FRAÎCHEUR PRIME SUR LE TOUR DE RÔLE (cf. _TABLES_FRAICHEUR) : sur un KV à clé, la bonne
+     réponse n'est pas « la première base qui répond quelque chose », c'est « la dernière valeur
+     écrite ». Le tourniquet, lui, rendait l'une ou l'autre selon le tour. */
+  const colFr = _TABLES_FRAICHEUR.get(table);
+  if (colFr && healthy.length > 1) return _lireFraicheur(table, ops, healthy, colFr);
   let order = healthy;
   if (healthy.length > 1) { const i = (_rr++) % healthy.length; order = healthy.slice(i).concat(healthy.slice(0, i)); }
   let lastEmpty = null, lastErr = null;
@@ -1472,7 +1620,9 @@ async function aiCacheGet(key, maxAge = AICACHE_MEM_TTL) {
   await _aiCacheEnsureDb();
   if (_aiCacheDb) {
     try {
-      const { data, error } = await supabase.from(AICACHE_TABLE).select('value').eq('key', k).limit(1);
+      // `created_at` est ramené POUR ÊTRE ARBITRÉ (_lireFraicheur) : sans lui, deux bases qui portent
+      // deux versions de la même clé sont départagées par le hasard du tour de rôle.
+      const { data, error } = await supabase.from(AICACHE_TABLE).select('value, created_at').eq('key', k).limit(1);
       if (!error) { const v = (data && data[0]) ? data[0].value : null; _aiMemSet(k, v); return v; }
       if (_aiCacheTableMissing(error)) _aiCacheDb = false; else { _aiTripBreaker(error); if (m) return m.v; }
     } catch (e) { _aiTripBreaker(e); if (m) return m.v; }
