@@ -236,7 +236,31 @@ function phaseLogique() {
   let ko = 0, nav;
   const verif = (nom, cond, detail) => { if (cond) console.log('  ✓ ' + nom); else { ko++; console.log('  ✗ ' + nom + (detail ? '\n      → ' + detail : '')); } };
   try {
-    nav = await puppeteer.launch({ executablePath: bin, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    /* ⚠️ UN NAVIGATEUR QUI NE DÉMARRE PAS N'EST PAS UN DÉFAUT DU DESK (03/09/2026).
+       Ce banc s'abstient déjà proprement quand Chromium est ABSENT — mais il comptait un ÉCHEC
+       quand Chromium est présent et refuse de démarrer. Les deux situations disent pourtant la
+       même chose : « impossible d'ouvrir un navigateur ici ». Mesuré en production le 03/09 : un
+       déploiement a été BLOQUÉ par « Timed out after 30000 ms while waiting for the WS endpoint
+       URL to appear in stdout », un hoquet du runner d'intégration, sur un commit qui ne touchait
+       ni le desk ni son rendu — et les deux déploiements précédents étaient passés avec ce même
+       banc, sur ce même code. Une garde qui bloque une livraison pour une raison étrangère au code
+       finit par être désactivée en entier, et c'est alors tout le contrôle qu'on perd.
+       ON NE BAISSE PAS LA GARDE POUR AUTANT : on RÉESSAIE une fois (un démarrage rate rarement
+       deux fois de suite), et l'abstention ne couvre QUE le lancement. Tout ce qui échoue APRÈS,
+       dans la page, reste un échec franc — c'est là que vit la valeur de ce banc. */
+    const lancer = () => puppeteer.launch({ executablePath: bin, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    try { nav = await lancer(); }
+    catch (e1) {
+      console.log('  … le navigateur n\'a pas démarré (' + String(e1.message).slice(0, 70) + ') — seconde tentative');
+      await new Promise(r => setTimeout(r, 2000));
+      try { nav = await lancer(); }
+      catch (e2) {
+        console.log('\n[Desk] Chromium refuse de démarrer deux fois de suite → phase navigateur ABSTENUE (ce n\'est pas un défaut du desk).');
+        console.log('       ' + String(e2.message).slice(0, 120));
+        srv.close();
+        process.exit(koLogique ? 1 : 0);
+      }
+    }
     const page = await nav.newPage();
     const fatales = [];
     page.on('pageerror', e => fatales.push(e.message));
