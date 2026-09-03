@@ -1059,10 +1059,21 @@ function _chatPreview(t) {
 }
 
 // Liste des threads pour la boîte de réception support.
-// OPTIMISÉ : on ne télécharge PLUS toute la table (avec les images base64) juste pour
-// un aperçu + le compteur de non-lus.
-//   1) méta SANS le champ `text` → dates + non-lus de TOUS les threads (rapide, léger)
-//   2) seulement les messages RÉCENTS avec `text` → aperçu des conversations actives
+// ⚠️ CE COMMENTAIRE DÉCRIVAIT UNE ARCHITECTURE QUI N'EXISTE PAS (relevé le 03/09). Il annonçait
+// « 1) méta SANS le champ text, 2) seulement les récents AVEC text ». La réalité est l'inverse :
+// la requête (1) ramène bien `text` (aperçu), et c'est la (2), celle des non-lus, qui s'en passe.
+// Un commentaire périmé ment avec l'autorité du code — celui-ci aurait fait chercher une économie
+// déjà faite, et manquer celle qui reste.
+// CE QUE FONT VRAIMENT LES DEUX REQUÊTES, en parallèle :
+//   1) les 400 messages les plus récents AVEC `text` → aperçu + dernier horodatage par fil ;
+//   2) les seuls non-lus côté client, `user_id` seul → compteur du badge, volume négligeable.
+// ⚠️ COÛT À CONNAÎTRE DEPUIS LA RÉUNION DES NŒUDS (_lireUnion) : la requête (1) est désormais posée
+// à CHAQUE base, et son poids est celui des pièces jointes qu'elle traverse — MESURÉ sur la base
+// principale : 71 messages, dont 4 pièces jointes, 376 ko au total, la plus grosse à 157 ko. Le
+// cache RAM de 5 min (contre un sondage admin à 10 s) ramène cela à 12 lectures par heure, et le
+// garde-fou d'egress (_egTripped, 150 Mo/24 h) reste le filet en dernier ressort. Si ce poste
+// devait grossir, l'économie qui RESTE à faire est de ne pas rapatrier le base64 d'une image pour
+// n'en garder que « 📷 Image » — ce que fait _chatPreview juste après.
 async function chatThreads() {
   // RAM fraîche → ZÉRO egress (le poll 10 s de l'admin ne touche plus Supabase)
   if (_chatThreadsMem && (Date.now() - _chatThreadsMem.ts) < CHAT_MEM_TTL) return _chatThreadsMem.rows;
