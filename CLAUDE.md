@@ -156,6 +156,32 @@ Banc : `scripts/union-verif.js` (26 contrôles, dans `npm run check`) — il rej
 contrôles négatifs mordent **chacun séparément**. Vider `_TABLES_UNION` dans `auth.js` fait rougir 9
 contrôles : le banc lit bien le fichier, il ne récite pas sa propre copie.
 
+⚠️ **UNE LECTURE NE RÉVOQUE JAMAIS UN ACCÈS — L'INCIDENT QUI A COÛTÉ UN ABONNEMENT PAYÉ (03/09).**
+Le 30/08, un abonnement réglé par virement est prolongé À LA MAIN au 30/09 depuis le panneau admin.
+`primary` est alors EN PAUSE : l'écriture part sur db2 + le miroir, **correctement**. Le 02/09
+`primary` revient, figée au 14/06. Le panneau admin est ouvert ce jour-là : `getAllUsers` lit la
+**première base saine** — celle qui vient de revenir — et passe ses 29 lignes de juin à
+`_mirrorPutMany`. La fusion était `{ ...prev, ...row }` : **la lecture écrase le miroir**. Le 30/09
+devient le 11/06, puis `_usersConverge` propage ce miroir corrompu vers **les quatre bases**. Le
+client se voit refuser la connexion trois semaines après avoir payé, sans qu'aucune trace ne le dise.
+La quarantaine de lecture ferme ce chemin **depuis le 02/09 au soir — quelques heures trop tard**,
+et elle ne couvre pas tout : un compte connu du miroir **sans son `password_hash`** n'est jamais
+propagé par la convergence (`all` ne prend que les comptes complets) alors que la quarantaine du
+nœud, elle, **se lève** — sa ligne périmée survit donc en base.
+**LA RÈGLE, indépendante de la quarantaine** : `_mirrorPut` est le chemin des **LECTURES** ; les
+écritures (`updateUser`, `setPassword`, `createUser`) touchent le miroir **directement**. Une lecture
+qui **raccourcit** `expires_at` ou passe `active` à `false` est donc **par construction** une lecture
+périmée. On laisse passer ce qui étend, on refuse ce qui retire, **et on le trace** (sans trace,
+personne n'apprend qu'une base a pris du retard). Portée limitée **à dessein** à ces deux champs :
+`plan` et `role` changent ce qu'on voit, pas si l'on entre.
+⚠️ **CORRIGER UNE ÉCHÉANCE EN SQL DIRECT NE SERT À RIEN** : la convergence repousse le **miroir**
+vers les bases, donc la valeur écrite à la main serait écrasée au passage suivant. Le seul chemin
+efficace est le **panneau admin** (`updateUser` → nœud sain + miroir → convergence).
+Banc : `scripts/miroir-verif.js` (14 contrôles, dans `npm run check`) — il rejoue le 30/09 contre le
+11/06 sur le VRAI `_mirrorPut`, avec les témoins inverses (un vrai renouvellement doit passer, une
+réactivation aussi, un miroir vide doit tout réapprendre). Neutraliser la garde dans `auth.js` fait
+rougir 4 contrôles.
+
 ⚠️ **POURQUOI LA PAUSE EST ARRIVÉE, ET CE QUI L'EMPÊCHE DE REVENIR.** Le keep-alive vivait
 UNIQUEMENT dans GitHub Actions, avec des secrets **jamais posés**, et sa branche « aucun projet
 configuré » rendait **0**. Bilan : 142 passages verts, zéro ping, deux mois et demi de pause sous

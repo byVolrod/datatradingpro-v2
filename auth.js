@@ -388,11 +388,47 @@ function _supaWhere(id, emailHint) {
 function _pubUser(r) { if (!r) return null; const { password_hash, ...rest } = r; return rest; }
 // Rafraîchit une entrée depuis une lecture Supabase réussie. Fusionne pour ne JAMAIS perdre le
 // password_hash quand la lecture est une projection sans hash (getUserById / getAllUsers).
+/* ⚠️ UNE LECTURE NE RÉVOQUE JAMAIS UN ACCÈS — ELLE PEUT SEULEMENT L'ÉTENDRE (03/09/2026).
+   CE QUI EST ARRIVÉ, reconstitué et non supposé. Le 30/08, un abonnement réglé par virement a été
+   prolongé À LA MAIN au 30/09 depuis le panneau admin. La base principale était alors EN PAUSE :
+   cette écriture est donc partie sur db2 et sur le miroir, correctement. Le 02/09 la principale est
+   revenue, avec sa table `users` figée au 14/06. Le panneau admin a été ouvert ce jour-là :
+   `getAllUsers` a lu la PREMIÈRE base saine — la principale, revenue et périmée — et a passé ses
+   29 lignes de juin à `_mirrorPutMany`. Or la fusion était `{ ...prev, ...row }` : les champs de la
+   LECTURE écrasent ceux du miroir. Le 30/09 a donc été remplacé par le 11/06. Puis `_usersConverge`
+   a propagé ce miroir corrompu vers les quatre bases. Le client s'est vu refuser la connexion avec
+   « Abonnement expiré », trois semaines après avoir payé.
+   La quarantaine de lecture (cf. _markDown) ferme ce chemin depuis le 02/09 au soir — mais elle est
+   arrivée quelques heures TROP TARD, et elle ne couvre pas tous les cas : un compte que le miroir
+   connaît sans son `password_hash` n'est jamais propagé par la convergence (elle ne prend que les
+   comptes complets), alors que la quarantaine du nœud, elle, se lève. Sa ligne périmée survit donc
+   sur la base, et la prochaine lecture la repousserait dans le miroir.
+   LA RÈGLE, indépendante de tout cela : `_mirrorPut` est le chemin des LECTURES. Les écritures
+   (updateUser, setPassword, createUser) touchent le miroir directement, sans passer par ici. Une
+   lecture qui RACCOURCIT un abonnement ou qui DÉSACTIVE un compte est donc, par construction, une
+   lecture périmée : seule une action d'administration peut légitimement révoquer un accès, et elle
+   n'emprunte pas ce chemin. On laisse passer ce qui étend, on refuse ce qui retire.
+   Portée VOLONTAIREMENT limitée aux deux champs qui décident de l'ACCÈS. `plan` et `role` changent
+   ce qu'on voit, pas si l'on entre : les figer ici empêcherait le miroir d'apprendre une correction
+   faite ailleurs, sans rien protéger de comparable. */
 function _mirrorPut(row) {
   if (!row || !row.email) return;
   const em = String(row.email).toLowerCase().trim();
   const prev = _usersMirror.get(em);
-  if (prev) row = (!row.password_hash && prev.password_hash) ? { ...prev, ...row, password_hash: prev.password_hash } : { ...prev, ...row };
+  if (prev) {
+    row = (!row.password_hash && prev.password_hash) ? { ...prev, ...row, password_hash: prev.password_hash } : { ...prev, ...row };
+    // Un miroir SANS échéance apprend celle de la base ; un miroir qui en a une ne la voit jamais reculer.
+    const av = prev.expires_at ? Date.parse(prev.expires_at) : NaN;
+    const ap = row.expires_at  ? Date.parse(row.expires_at)  : NaN;
+    if (!Number.isNaN(av) && (Number.isNaN(ap) || ap < av)) {
+      console.warn(`[Auth] lecture périmée ignorée pour ${em} : échéance ${row.expires_at || 'absente'} < ${prev.expires_at} au miroir (une base en retard ne révoque pas un abonnement).`);
+      row.expires_at = prev.expires_at;
+    }
+    if (prev.active !== false && row.active === false) {
+      console.warn(`[Auth] lecture périmée ignorée pour ${em} : compte désactivé par une base alors que le miroir le dit actif.`);
+      row.active = prev.active;
+    }
+  }
   _mirrorIndex(row);
 }
 function _mirrorPutMany(rows) {   // bulk (liste admin) → une seule écriture fichier
