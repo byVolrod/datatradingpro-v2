@@ -178,11 +178,15 @@ html { zoom: var(--dtp-zoom, 1); }
   --ls-caps: 0.08em;  /* letter-spacing UNIQUE de tous les titres uppercase */
   --topbar-h:    54px;
   --tabs-bar-h:  28px;
-  /* 30 px (21/08, demande user : « un peu plus large, legerement ») : la barre etait a 28 px,
-     assez serree pour que les onglets touchent presque le filet du bas. Deux pixels suffisent a
-     redonner de l air sans changer le rythme du desk. Les DEUX barres suivent, elles partagent
-     ce token : c est ce qui les garde identiques. */
-  --navbar-h:    30px;
+  /* ⚠️ 36 px DEPUIS LE 03/09 — ET LA CONSIGNE DU 21/08 EST REMPLACEE, PAS OUBLIEE.
+     Historique, pour qui relira : la barre etait a 28 px ; le 21/08 l utilisateur a demande « un peu
+     plus large, legerement » et on est passe a 30 px, deux pixels, ce qui repondait a la lettre de
+     la demande. Le 03/09 il fournit une capture d un terminal de reference et formule la demande
+     autrement : « le fait de bien espacer comme sur l image je trouve que c mieux que nous ». Ce
+     n est plus « legerement » : c est l aeration qui est en cause. Six pixels de plus donnent aux
+     onglets la place de respirer sous le filet, sans toucher au rythme des lignes en dessous.
+     Les DEUX barres suivent, elles partagent ce token : c est ce qui les garde identiques. */
+  --navbar-h:    36px;
   --header-h:    calc(var(--topbar-h) + var(--navbar-h));
   --toolbar-h:   34px;
 }
@@ -226,7 +230,10 @@ html, body {
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 18px;
+  /* 22 px (03/09) : sur la reference, le bloc de gauche et le bloc de droite ne touchent jamais le
+     bord. Quatre pixels de chaque cote suffisent a lever cette impression de contenu colle au cadre,
+     sans rien reduire de la place disponible au centre. */
+  padding: 0 22px;
   gap: 0;
   user-select: none;
   flex-shrink: 0;
@@ -345,10 +352,14 @@ html.dtp-desktop .topbar { transition: background-color .25s ease, border-color 
   gap: 8px;
   background: var(--bg2);
   border: 1px solid var(--border2);
-  border-radius: 4px;
+  /* 03/09 — CALE SUR LA REFERENCE : coins plus doux (6 px), champ plus haut (36 px) et plus long
+     (460 px). C est l element central de la barre ; sur la capture fournie il occupe visiblement
+     plus de place que le notre et c est ce qui donne son aplomb a l ensemble. Le max-width des
+     fenetres etroites (bloc responsive plus bas) n est PAS touche : la compression y reste la meme. */
+  border-radius: 6px;
   padding: 0 14px;
-  height: 34px;
-  width: 400px;            /* barre (et overlay LIVE) légèrement plus longue */
+  height: 36px;
+  width: 460px;
   margin: 0 10px;
   flex: 1;
   max-width: 230px;
@@ -813,7 +824,9 @@ html.dtp-desktop .topbar { transition: background-color .25s ease, border-color 
   display: flex;
   align-items: center;
   height: 100%;
-  padding: 0 14px;
+  /* 18 px (03/09) : sur la reference, les onglets sont nettement plus espaces que les notres — c est
+     ce qui rend la rangee lisible d un coup d oeil au lieu de la faire lire mot a mot. */
+  padding: 0 18px;
   font-size: 11px;
   font-weight: var(--fw-semibold);
   font-family: var(--font-mono);
