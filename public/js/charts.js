@@ -5122,10 +5122,33 @@ function _calDecisionDuJour(ev) {
   return _calEvents.find(e => e && e.currency === ev.currency && e.timestamp && jour(e.timestamp) === j
     && e !== ev && _CAL_DEC_RX.test(e.title || '') && _calNum(e.actual) != null) || null;
 }
+/* ⚠️ DEUX SIGNAUX D UNITE, PARCE QUE LE CALENDRIER MELANGE LES DEUX (03/09, capture user).
+   La RBNZ est sortie avec `actual` = « 25b » — vingt-cinq POINTS DE BASE, le MOUVEMENT — pendant que
+   `forecast` et `previous` donnaient des NIVEAUX en pourcentage (2,75 % et 2,50 %). `_calNum` ne lit
+   que le premier nombre : 25. Le desk a donc affiche « RELEVE ses taux a 25% (+22,5 pt) » et
+   « au-dessus des attentes (2,75% prevu) », deux phrases fausses ecrites avec l aplomb du code.
+   On refuse desormais de comparer ce qui n est pas comparable. Deux filets :
+     1. UNITE EXPLICITE — un `actual` portant un marqueur de points de base (« 25b », « 25bp »,
+        « +25 bps ») face a des voisins en pourcentage : incomparables, quel que soit l ecart ;
+     2. ECART INVRAISEMBLABLE — au-dela de 5 points en une seule reunion, c est un probleme d unite
+        et non une decision. Le seuil est LARGE a dessein : la BCB a deja bouge de 3 pts, la CBRT de
+        7,5 pts un jour de 2023. On prefere laisser passer une vraie decision extreme que d en
+        inventer une fausse a chaque publication en bps.
+   Quand un filet se declenche, on n affirme NI delta NI surprise : on rend le niveau publie, seul. */
+function _calBpsSuspect(brut) { return /\d\s*b(?:ps?|p)?\b/i.test(String(brut == null ? '' : brut)); }
 function _calDecisionOutcome(ev) {
   const fr = x => String(x).replace('.', ',');   // interface francaise : virgule decimale
   const a = _calNum(ev && ev.actual); if (a == null) return null;
   const p = _calNum(ev && ev.previous), f = _calNum(ev && ev.forecast);
+  const _pct = x => x != null && !_calBpsSuspect(x);
+  const _incomparable = (_calBpsSuspect(ev && ev.actual) && (_pct(ev && ev.previous) || _pct(ev && ev.forecast)))
+    || (p != null && Math.abs(a - p) > 5)
+    || (f != null && Math.abs(a - f) > 5);
+  if (_incomparable) {
+    const banque0 = (ev && ev.__bank) || 'La banque centrale';
+    return { sens: banque0 + ' : décision publiée (' + _calEsc(String(ev.actual)) + ')', attente: '',
+      couleur: '#9aa0aa', geste: 'Décision publiée', taux: null, incomparable: true };
+  }
   // On NOMME l action de la banque (demande user) : maintien / hausse / baisse, avec le verbe en
   // premier. « La Fed MAINTIENT ses taux » se lit plus vite qu un constat impersonnel.
   const banque = (ev && ev.__bank) || 'La banque centrale';
@@ -5133,8 +5156,17 @@ function _calDecisionOutcome(ev) {
   if (p != null) {
     const d = Math.round((a - p) * 100) / 100;
     if (d === 0)      { geste = 'MAINTIENT'; sens = banque + ' MAINTIENT ses taux à ' + fr(a) + '%'; couleur = '#9aa0aa'; }
-    else if (d > 0)   { geste = 'RELÈVE';    sens = banque + ' RELÈVE ses taux à ' + fr(a) + '% (+' + fr(d) + ' pt)'; couleur = '#ff3d00'; }
-    else              { geste = 'ABAISSE';   sens = banque + ' ABAISSE ses taux à ' + fr(a) + '% (' + fr(d) + ' pt)'; couleur = '#00e676'; }
+    /* ⚠️ LES DEUX COULEURS ETAIENT INVERSEES (03/09, constat user : « pourquoi t as mis en rouge
+       alors que c positif ? »). Elles suivaient l instinct « taux qui montent = mauvaise nouvelle »,
+       qui vaut pour un emprunteur ou pour les actions — pas pour un desk FX. Ici tout se lit DU
+       POINT DE VUE DE LA DEVISE, et le reste du produit le fait deja : `_mtCls('ratedir')` dans
+       app.js rend `mt-pos` (vert) sur « Hausse » et `mt-neg` (rouge) sur « Baisse », et le niveau
+       d inflation porte le meme raisonnement en toutes lettres — « Elevee → pression hawkish →
+       SOUTIENT la devise → vert ». Cette fonction etait le SEUL endroit a dire le contraire.
+       HAUSSE = hawkish = soutient la devise = vert #00e676 (charte : BULLISH).
+       BAISSE = dovish  = pese sur la devise = rouge #ff3d00 (charte : BEARISH). */
+    else if (d > 0)   { geste = 'RELÈVE';    sens = banque + ' RELÈVE ses taux à ' + fr(a) + '% (+' + fr(d) + ' pt)'; couleur = '#00e676'; }
+    else              { geste = 'ABAISSE';   sens = banque + ' ABAISSE ses taux à ' + fr(a) + '% (' + fr(d) + ' pt)'; couleur = '#ff3d00'; }
   } else sens = banque + ' : taux à ' + fr(a) + '%';
   let attente = '';
   if (f != null) {

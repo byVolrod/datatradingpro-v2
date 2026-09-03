@@ -1230,34 +1230,35 @@ function phaseLogique() {
         fInfo === 'rgba(0, 0, 0, 0)' && fImp === fInfo && fAna === fInfo,
         'info ' + fInfo + ' · analyse ' + fAna + ' · impact ' + fImp);
 
-      /* ── « ANALYSE » S'ÉCRIT EN BLANC, COMME LES AUTRES TAGS (02/09, demande user sur capture) ──
-         Les quatre lectures écrivaient leur libellé dans leur propre teinte : Info turquoise,
-         Analyse BLEUE, Réaction violette, Impact vert. Sur la capture, au milieu de tags verts et
-         or, le bleu d'Analyse était le seul à détonner.
-         Le blanc retenu n'est pas inventé : c'est `#c2c6cd`, très exactement celui que la feuille
-         emploie pour les tags neutres du fil et qu'elle appelle elle-même « texte blanc ». D'où la
-         forme de ce contrôle : on ne compare pas Analyse à une valeur recopiée dans le banc — une
-         constante recopiée finit toujours par diverger de la feuille — on la compare AU TAG NEUTRE
-         RENDU DANS LA MÊME PAGE. Si l'un bouge un jour, l'autre devra suivre.
-         CE QU'ON NE TOUCHE PAS, et le contrôle le dit : le CONTOUR reste bleu. C'est lui qui
-         distingue Analyse de ses trois voisines ; la demande portait sur le texte. */
+      /* ── « ANALYSE » S'ÉCRIT DANS LE BLEU DE SON PROPRE CONTOUR (03/09, demande user sur capture) ──
+         ⚠️ CETTE RÈGLE A FAIT L'ALLER-RETOUR EN VINGT-QUATRE HEURES, et ce banc défendait l'aller.
+         Le 02/09 la demande était « la même couleur que les autres tags, en blanc », et le blanc se
+         défendait : meilleur contraste, et le bleu détonnait au milieu de tags verts et or. Ce que
+         cette lecture avait manqué : les trois AUTRES lectures ne sont pas blanches non plus — Info
+         écrit en turquoise, Réaction en violet, Impact en vert, chacune accordée à SON contour.
+         Analyse en blanc était donc l'exception. « Comme les autres » voulait dire « accordée à sa
+         teinte », et c'est la demande du 03/09 : « le texte Analyse doit avoir la même couleur que
+         son contour en bleu au lieu du blanc ».
+         LA FORME DU CONTRÔLE SUIT LA DEMANDE AU MOT : on ne compare pas à une constante recopiée
+         ici — une copie finit toujours par diverger de la feuille — on compare L'ENCRE AU CONTOUR
+         DE LA MÊME PASTILLE, rendus dans la même page. Si la teinte d'Analyse change un jour, les
+         deux bougeront ensemble ou le banc le dira. */
       {
         const parCls = cl => (tg.lectures || []).find(t => new RegExp('\\b' + cl + '\\b').test(t.cls)) || {};
         const ana = parCls('tag--analyse');
-        /* Un tag neutre RENDU DANS LA MÊME LIGNE sert de référence. À défaut, on s'abstient plutôt
-           que de comparer à une valeur en dur. */
-        const neutre = (tg.lectures || []).find(t => /\btag--(default|neutral)\b/.test(t.cls))
-          || (tg.tags || []).find(t => /\btag--(default|neutral)\b/.test(t.cls));
         verif('la pastille Analyse est bien rendue', !!ana.encre, JSON.stringify((tg.lectures || []).map(t => t.cls)));
-        if (ana.encre && neutre && neutre.encre) {
-          verif('« Analyse » s\'écrit dans le MÊME blanc que les tags neutres du fil',
-            ana.encre === neutre.encre, 'analyse ' + ana.encre + ' · neutre ' + neutre.encre);
-        } else if (ana.encre) {
-          verif('« Analyse » n\'est plus écrit en bleu', ana.encre !== 'rgb(74, 159, 224)', ana.encre);
+        if (ana.encre) {
+          /* Le contour est rendu en rgba (avec alpha), l'encre en rgb : on compare les TROIS
+             composantes, pas les chaînes, sinon l'alpha ferait échouer une égalité pourtant vraie. */
+          const rgb = t => { const m = /(\d+),\s*(\d+),\s*(\d+)/.exec(String(t || '')); return m ? m[1] + ',' + m[2] + ',' + m[3] : null; };
+          verif('« Analyse » s\'écrit dans la MÊME teinte que son contour',
+            rgb(ana.encre) && rgb(ana.encre) === rgb(ana.bord),
+            'encre ' + ana.encre + ' · contour ' + ana.bord);
+          /* LA MOITIÉ QUI COMPTE : elle n'est plus blanche. Sans ce contrôle, un gris clair dont les
+             trois composantes seraient par hasard proches passerait le contrôle ci-dessus. */
+          verif('… et elle n\'est plus écrite en blanc', !/(2[0-4]\d|25[0-5]),\s*(2[0-4]\d|25[0-5]),\s*(2[0-4]\d|25[0-5])/.test(ana.encre), ana.encre);
         }
-        /* LA MOITIÉ QUI COMPTE : le contour, lui, reste bleu — sinon la pastille perd son identité
-           et rien ne la distingue plus d'Info ou de Réaction. */
-        verif('… mais son CONTOUR reste bleu (c\'est lui qui l\'identifie)',
+        verif('… son CONTOUR reste bleu (c\'est lui qui l\'identifie)',
           /rgba\(74, 159, 224/.test(ana.bord || ''), ana.bord || '(bordure non relevée)');
       }
 

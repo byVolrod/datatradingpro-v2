@@ -54,7 +54,7 @@ const _lastGood = new Map();      // wk -> { png, ts } — l'âge est porté et 
    `/internal/email-widget/*` de server.js, ou les dimensions de `SPECS` ci-dessus. Ce n'est pas une
    consigne qu'on se rappelle : `scripts/widget-cache-verif.js` empreinte ces gabarits et rougit si
    l'empreinte bouge sans que ce nombre bouge. */
-const WIDGET_VER = 2;
+const WIDGET_VER = 3;   // v3 (03/09) : le selecteur de periode passe du coin arrondi au coin carre (4 px), aligne sur le desk — le dessin change, donc les images en cache doivent expirer tout de suite.
 function _wk(type, period) { return (String(type) + '_v' + WIDGET_VER + '_' + String(period)).replace(/[^a-z0-9]+/gi, '_'); }
 function _diskPath(wk) { return _path.join(_WCACHE_DIR, wk + '.png'); }
 try { for (const f of _fs.readdirSync(_WCACHE_DIR)) if (f.endsWith('.png')) { try { const p = _path.join(_WCACHE_DIR, f); _lastGood.set(f.slice(0, -4), { png: _fs.readFileSync(p), ts: _fs.statSync(p).mtimeMs }); } catch {} } } catch {}

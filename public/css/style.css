@@ -1955,16 +1955,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    lisibilité de 4,5, et « Info » (#3f9280) tenait à 5,13 sans aucune marge. Les valeurs actuelles
    vont de 6,5 à 10,7. Mêmes familles de teinte qu'avant — le lecteur ne réapprend rien. */
 .tag--info     { background: transparent; border-color: rgba(53,201,174,0.34); color: #35c9ae; }
-/* ⚠️ ANALYSE : LE TEXTE EST BLANC, PAS BLEU (02/09, demande user sur capture — « couleur texte tag
-   analyse, même que pour les autres tags, en blanc »). Le #c2c6cd employé ici est EXACTEMENT celui
-   que cette feuille appelle « texte blanc » pour les tags neutres du fil (cf. `.tag--default` plus
-   haut) : c'est donc bien « la même couleur que les autres tags », pas un blanc inventé.
-   CE QUI RESTE BLEU, ET POURQUOI : le CONTOUR, dans les trois états. C'est lui qui distingue
-   Analyse d'Info, de Réaction et d'Impact marché — la demande porte sur le TEXTE, et retirer aussi
-   le contour effacerait l'identité de la pastille, que rien ne remplacerait.
-   Le contraste y gagne : #c2c6cd sur le fond du desk dépasse 10, là où le bleu #4a9fe0 était à 6,5.
-   La note du 21/08 juste au-dessus reste vraie pour les trois autres lectures, qu'on ne touche pas. */
-.tag--analyse  { background: transparent; border-color: rgba(74,159,224,0.34); color: #c2c6cd; }
+/* ⚠️ ANALYSE : LE TEXTE REPASSE EN BLEU, ACCORDÉ À SON CONTOUR (03/09, demande user sur capture —
+   « le texte Analyse doit avoir la même couleur que son contour en bleu au lieu du blanc »).
+   CETTE RÈGLE A FAIT L'ALLER-RETOUR EN VINGT-QUATRE HEURES, et l'aller était défendable : le 02/09
+   la demande était « la même couleur que pour les autres tags, en blanc », et le blanc gagnait en
+   contraste (#c2c6cd dépasse 10 contre 6,5 pour le bleu). Ce que cette lecture avait manqué, c'est
+   que les trois AUTRES lectures ne sont justement PAS blanches : Info porte son turquoise #35c9ae,
+   Réaction son violet #a394f5. Analyse en blanc était donc l'exception, pas la règle — « comme les
+   autres » voulait dire « accordée à sa propre teinte », et c'est ce que dit la demande d'aujourd'hui.
+   Le contraste reste au-dessus du seuil de 4,5 (6,5 mesuré le 21/08 pour ce même bleu). */
+.tag--analyse  { background: transparent; border-color: rgba(74,159,224,0.34); color: #4a9fe0; }
 /* ⚠️ MEME STRUCTURE que Info, Analyse et Impact (demande user, reference a l appui) : pastille a
    CONTOUR sur fond transparent, et le meme arrondi que la base. La Reaction portait un fond
    rempli et un arrondi de 4 px : elle se distinguait des trois autres par sa FORME alors que
@@ -1978,13 +1978,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .iq-note { font-size: 11.5px; color: var(--text3); font-style: italic; margin: 0 0 8px; line-height: 1.5; }
 /* Hover : teinte un peu plus vive + contour plus net */
 .tag--info:hover     { color: #5cdcc4; border-color: rgba(53,201,174,0.62); }
-.tag--analyse:hover  { color: #d6dae1; border-color: rgba(74,159,224,0.62); }   /* le texte reste blanc, il s'éclaircit seulement ; c'est le contour qui répond au survol */
+.tag--analyse:hover  { color: #7bbcee; border-color: rgba(74,159,224,0.62); }   /* comme Info et Réaction : la teinte s'éclaircit, le contour se resserre */
 .tag--reaction:hover { color: #bdb2ff; border-color: rgba(163,148,245,0.75); }   /* comme Info et Analyse : couleur et contour, jamais de remplissage */
 
 /* ACTIF = description DÉROULÉE → tag ALLUMÉ (Info cyan / Analyse bleu / Réaction violet).
    L'icône ⓘ hérite de la couleur (pas de règle .tag-icon → suit le `color` du tag). */
 .tag--info.tag--active     { background: rgba(53,201,174,0.14); border-color: rgba(53,201,174,0.65); color: #5cdcc4; }
-.tag--analyse.tag--active  { background: rgba(74,159,224,0.14); border-color: rgba(74,159,224,0.65); color: #ffffff; }   /* ouvert : blanc franc, comme un libellé actif */
+.tag--analyse.tag--active  { background: rgba(74,159,224,0.14); border-color: rgba(74,159,224,0.65); color: #7bbcee; }   /* ouvert : bleu franc, comme Info s'allume en turquoise et Réaction en violet */
 .tag--reaction.tag--active { background: rgba(163,148,245,0.14); border-color: rgba(163,148,245,0.65); color: #bdb2ff; }
 
 /* ═══════════════ RÉACTION — MÊME rendu À PLAT que les autres tags (demande user 2026-07-02) ═══════════════
