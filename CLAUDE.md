@@ -187,6 +187,14 @@ UNIQUEMENT dans GitHub Actions, avec des secrets **jamais posés**, et sa branch
 configuré » rendait **0**. Bilan : 142 passages verts, zéro ping, deux mois et demi de pause sous
 une coche verte quotidienne. Corrigé en trois points :
 1. le script **sort en erreur** quand il n'a rien à pinguer (`scripts/supabase-keepalive.js`) ;
+   ⚠️ **ET LE JOB CI NE DÉMARRE PLUS SANS CLÉ (03/09)** — la correction ci-dessus était juste et
+   **bruyante** : le job GitHub, dont les secrets n'ont jamais été posés, envoyait dès lors un
+   courriel d'échec à CHAQUE passage, pour une situation connue et assumée (la vraie tâche tourne sur
+   le VPS). Un signal d'alerte qu'on apprend à ignorer ne protège plus rien : c'est la même maladie
+   que le faux vert, dans l'autre sens. Le job porte donc `secrets.SUPABASE_URL != ''` dans son
+   `if:` → **ignoré**, ce qui ne notifie personne et ne prétend rien ; il se réarme tout seul le jour
+   où un secret est posé. **Le SCRIPT, lui, garde son échec bruyant** : c'est sur le VPS qu'il doit
+   hurler, puisque c'est là qu'il est censé marcher. On désarme le doublon, jamais la garde.;
 2. il tourne **depuis le VPS**, où les clés vivent déjà — plus de second endroit à tenir à jour ;
 3. il **relance** un projet en pause via l'API de gestion, mais **uniquement** sur un statut
    `INACTIVE` (un ping raté peut venir du réseau, d'un 402 ou du DNS). Jeton `SUPABASE_ACCESS_TOKEN`,

@@ -20,7 +20,21 @@ concurrency:
 jobs:
   keepalive:
     # N'exécute QUE sur le dépôt d'origine ; le miroir « backup » ne doit pas pinger en double.
-    if: ${{ github.repository == 'byVolrod/datatradingpro-v2' }}
+    #
+    # ⚠️ ET SEULEMENT SI UNE CLÉ EST RÉELLEMENT POSÉE (03/09/2026, l'utilisateur reçoit les courriels
+    # d'échec). Rappel de l'enchaînement, parce qu'il est instructif : ce job a tourné 142 fois en
+    # vert SANS RIEN PINGUER, ses secrets n'ayant jamais été posés — et le projet principal est resté
+    # en pause deux mois et demi sous une coche verte quotidienne. Le 02/09 le script a été corrigé
+    # pour SORTIR EN ERREUR quand il n'a rien à pinguer : plus jamais de faux vert. Correct, et
+    # bruyant — depuis, chaque passage envoie un courriel d'échec pour une situation connue et
+    # assumée : la vraie tâche tourne sur le VPS, où les clés vivent déjà.
+    # Un signal d'alerte qu'on apprend à ignorer ne protège plus rien : c'est la même maladie que le
+    # faux vert, dans l'autre sens. Le job NE DÉMARRE DONC PLUS tant qu'aucune clé n'est posée — il
+    # est « ignoré », ce qui ne notifie personne et ne prétend rien. Le jour où un secret
+    # SUPABASE_URL est ajouté, la ceinture-bretelles se réarme toute seule, sans toucher à ce fichier.
+    # ⚠️ LE SCRIPT, LUI, GARDE SON ÉCHEC BRUYANT : c'est sur le VPS qu'il doit hurler s'il n'a rien à
+    # pinguer, puisque c'est là qu'il est censé marcher. On désarme le doublon, jamais la garde.
+    if: ${{ github.repository == 'byVolrod/datatradingpro-v2' && secrets.SUPABASE_URL != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
