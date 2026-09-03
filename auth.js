@@ -470,11 +470,21 @@ if (_usersMirror.size) {
   console.log(`[Auth] démarrage : ${_dbNodes.length} base(s) en quarantaine de lecture jusqu'à la première convergence (le miroir, à jour, sert les comptes d'ici là)`);
 }
 
-/* La réparation d'échéance part APRÈS le chargement du miroir et AVANT la première convergence :
-   elle écrit dans le miroir, et c'est la convergence qui portera la date aux quatre bases. Posée
-   ici, elle profite du même ordre que la quarantaine — donc d'un miroir déjà complet. Elle est
-   définie plus bas ; les déclarations de fonction se hissent, l'appel est donc valide. */
-if (_usersMirror.size) { try { _reparerEcheances(); } catch (e) { console.warn('[Auth] correction d\'échéance :', e && e.message); } }
+/* ⚠️ DIFFÉRÉE D'UN TOUR DE BOUCLE — ET J'AI FAIT ICI, LE MÊME JOUR, LA FAUTE QUE JE VENAIS DE
+   CORRIGER DIX LIGNES PLUS BAS. Premier jet : appel immédiat, avec le commentaire « elle est définie
+   plus bas ; les déclarations de fonction se hissent, l'appel est donc valide ». La FONCTION se
+   hisse, oui. Mais elle lit `_ECHEANCES_SEED`, qui est un `const` déclaré APRÈS — et les `const` ne
+   se hissent pas. Résultat mesuré en chargeant le module avec un miroir non vide :
+   « Cannot access '_ECHEANCES_SEED' before initialization ». Le try/catch l'écrivait en une ligne,
+   l'application démarrait, et l'échéance n'était JAMAIS corrigée. Constaté sur la base : le compte
+   est resté au 11/06 alors que le code était bien en ligne.
+   Le raisonnement « la fonction se hisse donc l'appel est valide » est un piège précis : il est
+   vrai de l'appel et faux de ce que la fonction LIT. `setTimeout(0)` place l'appel après
+   l'évaluation complète du module, comme les deux reprises voisines. */
+setTimeout(() => {
+  if (!_usersMirror.size) return;
+  try { _reparerEcheances(); } catch (e) { console.warn('[Auth] correction d\'échéance :', e && e.message); }
+}, 0);
 
 // ─── Pierres tombales : ids de comptes SUPPRIMÉS. Garantit qu'un compte effacé ne RÉAPPARAÎT jamais (ni dans la
 //     liste, ni au login), même si la primaire — en blackout au moment du delete — le renvoie à son retour (le

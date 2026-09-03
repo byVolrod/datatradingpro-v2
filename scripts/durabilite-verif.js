@@ -124,8 +124,15 @@ console.log('\n── 4. La correction d\'échéance ALLONGE, et ne raccourcit j
 
     v('la convergence est déclenchée quand une correction a eu lieu', /_convSoon\(/.test(src),
       'sans elle, la date corrigée resterait dans le miroir et n\'atteindrait jamais les quatre bases');
-    v('la correction est appelée au démarrage, après le chargement du miroir',
-      /if \(_usersMirror\.size\) \{ try \{ _reparerEcheances\(\)/.test(AUTH));
+    /* ⚠️ CE CONTRÔLE ÉPINGLAIT LA FORME EXACTE DE L'APPEL, ET IL ÉTAIT VERT PENDANT QUE LE CODE
+       ÉTAIT CASSÉ. Il vérifiait `if (_usersMirror.size) { try { _reparerEcheances()` — c'est-à-dire
+       la présence de l'appel, jamais son MOMENT. Or l'appel était fait pendant l'évaluation du
+       module, avant `const _ECHEANCES_SEED`, et ne faisait donc rien. Ce qui doit être garanti
+       n'est pas que l'appel existe, c'est qu'il parte APRÈS le module. La section 5 le prouve en
+       exécutant ; celui-ci fige la forme qui le rend possible. */
+    v('l\'appel à la correction est DIFFÉRÉ, pas fait pendant l\'évaluation du module',
+      /setTimeout\(\(\) => \{\n  if \(!_usersMirror\.size\) return;\n  try \{ _reparerEcheances\(\)/.test(AUTH),
+      'un appel immédiat lirait _ECHEANCES_SEED avant son initialisation, et la correction ne ferait rien');
   }
 }
 
@@ -169,6 +176,35 @@ console.log('\n── 5. LE CONTRÔLE QUI M\'A MANQUÉ — on CHARGE le module, 
     'sans ce report, elles repartiraient dans la zone morte au premier refactoring');
   v('… et le catch des réactions NOMME ce qu\'il avale (il était muet)', /\[Chat\] reprise des réactions/.test(AUTH),
     'un catch vide transforme une panne permanente en silence permanent');
+
+  /* ⚠️ ET CE CONTRÔLE-CI EXISTE PARCE QUE LES QUATRE PREMIÈRES SECTIONS ONT LAISSÉ PASSER LA MÊME
+     FAUTE UNE SECONDE FOIS, LE MÊME JOUR. La section 4 éprouve `_reparerEcheances` en l'EXTRAYANT et
+     en lui injectant son seed : elle prouve que la fonction est juste, et c'est tout ce qu'elle
+     prouve. Or l'appel était placé AVANT la déclaration `const _ECHEANCES_SEED` — la fonction se
+     hisse, le `const` non — et la correction levait donc « Cannot access ... before initialization »
+     à chaque démarrage, en silence. Le compte est resté au 11/06 en production alors que le code
+     était en ligne et que 22 contrôles étaient verts.
+     La leçon tient en une phrase : une fonction juste, appelée trop tôt, ne fait rien. On charge
+     donc le module AVEC UN MIROIR NON VIDE — sans quoi `_reparerEcheances` n'est même pas appelée —
+     et on exige la trace de son passage. */
+  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'dtp-mir-'));
+  fs.writeFileSync(path.join(dossier, 'users_mirror.json'), JSON.stringify([{
+    id: '9', email: 'anismessaoud05@gmail.com', name: 'Anis', role: 'client', plan: 'professionnel',
+    active: true, password_hash: '$2b$10$temoinnnnnnnnnnnnnnnnn', expires_at: '2026-06-11T00:00:00.000Z',
+  }]));
+  const r2 = spawnSync(process.execPath, ['-e',
+    "require(process.argv[1]); setTimeout(() => process.exit(0), 2500);",
+    path.join(__dirname, '..', 'auth.js')],
+    { encoding: 'utf8', timeout: 30000,
+      env: Object.assign({}, process.env, {
+        SUPABASE_URL: 'https://exemple.supabase.co', SUPABASE_KEY: 'cle-factice', DATA_DIR: dossier,
+      }) });
+  const s2 = String(r2.stdout || '') + String(r2.stderr || '');
+  v('LE CONTRÔLE QUI MANQUAIT — la correction d\'échéance s\'applique VRAIMENT au démarrage',
+    /correction d'échéance appliquée/.test(s2),
+    'sortie du démarrage : ' + s2.split('\n').filter(l => /échéance/i.test(l)).join(' | ').slice(0, 200));
+  v('… et elle ne bute sur AUCUNE zone morte', !/_ECHEANCES_SEED[^\n]*before initialization/.test(s2));
+  v('… la date appliquée est bien celle de la table', /2026-09-30/.test(s2));
 }
 
 console.log('\n──────────────────────────────────────────────────────────────────────');
