@@ -119,8 +119,19 @@ console.log('\n── 4. La correction d\'échéance ALLONGE, et ne raccourcit j
       r1.majs.length === 1 && r1.majs[0].id === '9' && /2026-09-30/.test(r1.majs[0].champs.expiresAt),
       'appels observés : ' + JSON.stringify(r1.majs));
 
+    /* ⚠️ « N'ÉCRIT RIEN » ÉTAIT LA MAUVAISE DÉFINITION DE L'IDEMPOTENCE, ET ELLE A COÛTÉ TROIS
+       CYCLES (03/09). Ce contrôle exigeait qu'un second passage n'écrive PAS — donc que la
+       réparation se fie à ce qu'elle voit au MIROIR. Or c'est la BASE qu'elle répare : le miroir
+       ayant été mis à jour par une version antérieure, la réparation a conclu qu'il n'y avait rien
+       à faire pendant que la base restait au 11/06, et s'est tue en le faisant.
+       Ce qui doit être garanti n'est pas l'absence d'écriture, c'est l'absence de DÉRIVE : un second
+       passage réécrit LA MÊME date, ce qui est sans effet en base et remet la valeur si elle en a
+       été chassée. Le seul silence légitime est celui d'une échéance STRICTEMENT plus lointaine. */
     const r2 = faire({ [EM]: { id: '9', email: EM, expires_at: '2026-09-30T23:59:59.000Z' } });
-    v('IDEMPOTENT — un second passage n\'écrit rien', r2.n === 0 && r2.majs.length === 0);
+    v('IDEMPOTENT — un second passage réécrit LA MÊME date, il ne dérive pas',
+      r2.majs.length === 1 && r2.majs[0].champs.expiresAt === '2026-09-30T23:59:59.000Z',
+      JSON.stringify(r2.majs));
+    v('… et il ne peut pas raccourcir, puisque c\'est la même valeur', r2.majs.every(m => Date.parse(m.champs.expiresAt) >= Date.parse('2026-09-30T23:59:59.000Z')));
 
     const r3 = faire({ [EM]: { id: '9', email: EM, expires_at: '2027-01-15T00:00:00.000Z' } });
     v('UNE ÉCHÉANCE PLUS LOINTAINE N\'EST JAMAIS RACCOURCIE', r3.n === 0 && r3.majs.length === 0,

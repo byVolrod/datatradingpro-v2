@@ -553,8 +553,23 @@ function _reparerEcheances() {
     if (!em || !Number.isFinite(cible)) continue;
     const row = _usersMirror.get(em);
     if (!row) { console.warn(`[Auth] correction d'échéance : ${em} absent du miroir — rien fait (le compte sera corrigé au prochain démarrage s'il revient).`); continue; }
+    /* ⚠️ LA QUATRIÈME CAUSE, ET ELLE DÉCOULE DE MES PROPRES CORRECTIFS (03/09, trois cycles perdus).
+       Ce test lisait le MIROIR pour décider s'il y avait quelque chose à faire, et sortait dès que
+       le miroir était à jour. Or c'est la BASE qui était en retard. Enchaînement exact :
+         · une première version de cette réparation écrivait la date à la main dans le miroir ; elle
+           a tourné, le miroir est passé au 30/09, et la base est restée au 11/06 faute de pouvoir
+           être atteinte (cf. le pavé ci-dessus sur l'empreinte) ;
+         · la version suivante, corrigée pour passer par `updateUser`, a trouvé le miroir DÉJÀ au
+           30/09 et a donc conclu — correctement, selon sa règle — qu'il n'y avait rien à faire.
+       Le garde-fou d'idempotence était juste, et il regardait au mauvais endroit. Une réparation qui
+       vérifie son propre brouillon plutôt que la cible ne répare rien, et se tait en le faisant.
+       ON ÉCRIT DONC MÊME QUAND LE MIROIR EST DÉJÀ BON : `updateUser` porte la même valeur en base,
+       ce qui est sans effet si elle y est déjà, et la remet si elle n'y est pas. Le seul cas où l'on
+       se tait vraiment est celui d'une échéance PLUS LOINTAINE que la cible — là, il n'y a rien à
+       réparer et il ne faut surtout pas raccourcir. La table est faite pour être VIDÉE une fois la
+       réparation constatée : cette écriture par démarrage n'a donc pas vocation à durer. */
     const actuelle = row.expires_at ? Date.parse(row.expires_at) : NaN;
-    if (Number.isFinite(actuelle) && actuelle >= cible) continue;   // déjà au moins aussi loin → on se tait
+    if (Number.isFinite(actuelle) && actuelle > cible) continue;   // STRICTEMENT plus loin → rien à réparer
     const iso = new Date(cible).toISOString();
     /* ⚠️ ON PASSE PAR `updateUser`, PAS PAR UNE ÉCRITURE DIRECTE DANS LE MIROIR (corrigé le 03/09,
        après avoir constaté que la base n'avait pas bougé alors que le code tournait).
