@@ -365,7 +365,9 @@
   .hero-cta{display:flex;gap:13px;flex-wrap:wrap;align-items:center;animation:heroFadeUp .5s ease .24s both}
   .micro{margin-top:13px;font-size:12.5px;color:var(--text3)}
   .rating{display:flex;align-items:center;gap:11px;margin-top:24px;font-size:13px;color:var(--text2);animation:heroFadeUp .5s ease .32s both;opacity:.7}
-  .rating .stars{color:var(--amber);letter-spacing:1.5px;font-size:13px}
+  /* `.stars` retiré avec les étoiles décoratives (03/09) — voir le commentaire du HTML. */
+  .rating b{color:var(--text);font-weight:600}
+  .rating-sep{opacity:.45}
   .rating b{color:var(--text);font-weight:600}
   .rating .sep{width:1px;height:14px;background:var(--line2)}
 
@@ -1228,15 +1230,28 @@
       <div class="eyebrow"><span class="pulse"></span>Terminal macro &amp; forex · en français</div>
       <h1>Tout le marché.<br><span class="em accent">Un seul écran.</span></h1>
       <p class="sub">Le <strong>terminal de trading forex &amp; macro</strong> en français : news en temps réel, Smart Bias, force des devises, calendrier économique et recherche institutionnelle. Agrégés, filtrés et prêts à l'action.</p>
+      <!-- ⚠️ DEUX BOUTONS, PLUS TROIS (03/09). Ils étaient trois côte à côte, dont « Explorer les
+           modules » qui ne fait que descendre la page — c'est-à-dire ce que le visiteur fait déjà en
+           scrollant. Trois appels à l'action de poids égal ne guident pas, ils répartissent
+           l'attention. Il en reste deux, et leur hiérarchie dit quelque chose : entrer, ou VOIR le
+           produit d'abord. Le second est la démonstration du vrai terminal — le produit est le
+           héros, pas une ancre de navigation. -->
       <div class="hero-cta">
         <a href="https://whop.com/joined/justonetrader/products/jot-dtp/" class="btn btn-cta btn-lg">Accéder au terminal</a>
-        <a href="#modules-cles" class="btn btn-ghost btn-lg">Explorer les modules</a>
-        <!-- Declencheur de la demo : le bouton que demo.js attendait depuis toujours. -->
-        <button type="button" class="btn btn-ghost btn-lg" onclick="if(window.DTPDemo)DTPDemo.open()">Voir le terminal</button>
+        <button type="button" class="btn btn-ghost btn-lg" onclick="if(window.DTPDemo)DTPDemo.open()">Voir le terminal en action</button>
       </div>
+      <!-- ⚠️ LES CINQ ÉTOILES SONT PARTIES, ET C'EST UNE QUESTION D'HONNÊTETÉ AVANT D'ÊTRE UNE
+           QUESTION DE DESIGN (03/09). Elles étaient purement décoratives : aucun avis, aucun
+           témoignage, aucune note nulle part sur ce site — vérifié. Or cinq étoiles dorées à côté
+           d'une phrase se lisent comme une NOTE, pas comme un ornement. C'est de la preuve sociale
+           qui n'existe pas, et c'est exactement le signal « SaaS générique » qu'on cherche à fuir.
+           Elles laissent place à trois chiffres VRAIS, comptés dans le produit lui-même — dix
+           onglets, quarante-trois blocs, un fil en direct. Un fait vérifiable convainc mieux qu'une
+           étoile que personne n'a donnée. -->
       <div class="rating">
-        <span class="stars">★★★★★</span>
-        <b>Pensé avec</b><span>des traders qui prennent le contexte au sérieux</span>
+        <span><b>9</b> onglets</span><span class="rating-sep">·</span>
+        <span><b>43</b> blocs à composer</span><span class="rating-sep">·</span>
+        <span>fil de marché <b>en direct</b></span>
       </div>
     </div>
 

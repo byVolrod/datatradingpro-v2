@@ -144,6 +144,39 @@ v('chaque texte de la section a sa traduction EN', !orphelins.length, orphelins.
    LA MÉTHODE : on ne compare pas la maquette à une copie de règles écrite ici — on la compare à la
    SOURCE. Les piliers viennent de server.js, le vocabulaire des puces de app.js, les couleurs de
    charts.js. Le jour où le produit change, c'est la vitrine qui rougit. */
+console.log('\n── 3 quinquies. Les CHIFFRES annoncés au Hero sont ceux du produit ──');
+{
+  /* ⚠️ POURQUOI CES CONTRÔLES EXISTENT (03/09). Le Hero portait CINQ ÉTOILES purement décoratives —
+     aucun avis, aucun témoignage, aucune note nulle part sur ce site : vérifié. Cinq étoiles dorées
+     à côté d'une phrase se lisent comme une NOTE, pas comme un ornement ; c'était de la preuve
+     sociale inexistante, et le signal « SaaS générique » que la refonte cherche à fuir.
+     Elles laissent place à trois faits comptés dans le produit. Mais un chiffre écrit en dur sur la
+     vitrine dérive du produit exactement comme une liste recopiée dérive de sa source — c'est LA
+     faute que ce dépôt répète le plus. On les compare donc au vrai desk à chaque livraison : le jour
+     où un onglet ou un widget est ajouté, la vitrine ment, et ce banc le dit. */
+  const IDXDESK = fs.readFileSync(path.join(RACINE, 'public', 'index.html'), 'utf8');
+  const WJS = fs.readFileSync(path.join(RACINE, 'public', 'js', 'widgets.js'), 'utf8');
+
+  v('les étoiles décoratives ne sont pas revenues', !/★/.test(IDX),
+    'une note que personne n\'a donnée coûte plus en crédibilité qu\'elle ne rapporte');
+
+  const onglets = (IDXDESK.match(/class="nav-item(?![^"]*mobile-only)/g) || []).length;
+  const annonceOnglets = parseInt(((/<span><b>(\d+)<\/b> onglets<\/span>/.exec(IDX)) || [0, 0])[1], 10);
+  v('le nombre d\'onglets annoncé est celui du desk',
+    onglets > 0 && annonceOnglets === onglets,
+    'vitrine : ' + annonceOnglets + '  ·  desk : ' + onglets + ' (hors onglet réservé au mobile)');
+
+  const widgets = (WJS.match(/^\s+id: '[a-z0-9-]+', name: '/gm) || []).length;
+  const annonceWidgets = parseInt(((/<span><b>(\d+)<\/b> blocs à composer<\/span>/.exec(IDX)) || [0, 0])[1], 10);
+  v('le nombre de blocs annoncé est celui de la bibliothèque',
+    widgets > 0 && annonceWidgets === widgets,
+    'vitrine : ' + annonceWidgets + '  ·  bibliothèque : ' + widgets);
+
+  /* La MOITIÉ QUI COMPTE AUTANT : ne pas se contenter d'annoncer moins que la réalité pour être
+     tranquille. Sous-vendre un produit qu'on peut compter est aussi une forme d'imprécision. */
+  v('[témoin] les deux chiffres sont bien LUS, pas devinés', annonceOnglets > 0 && annonceWidgets > 0);
+}
+
 console.log('\n── 3 quater. Les maquettes de widgets suivent le produit ──');
 {
   const SERVEUR = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
