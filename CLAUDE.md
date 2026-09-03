@@ -231,7 +231,27 @@ bases, la valeur écrite à la main serait écrasée au passage suivant. La rép
 miroir. Sûreté : **on allonge, jamais on ne raccourcit** — donc idempotent, jamais en contradiction
 avec une prolongation ultérieure faite au panneau, et **incapable de révoquer un accès**, qui est le
 défaut même qu'elle répare. Ce n'est **pas** un mécanisme de gestion d'abonnements : le panneau reste
-le seul endroit. Banc : `scripts/durabilite-verif.js` (22 contrôles), qui **exécute** la fonction.
+le seul endroit. Banc : `scripts/durabilite-verif.js` (32 contrôles), qui **exécute** la fonction ET **charge le
+module** — un banc qui LIT le source ne voit ni une zone morte, ni un appel fait trop tôt.
+
+⚠️ **« COMPLETS UNIQUEMENT » ÉCARTAIT DÉFINITIVEMENT LES COMPTES EXPIRÉS (03/09).** `_usersConverge`
+ne propageait que les comptes dont le miroir connaît l'**empreinte** — règle juste (`password_hash`
+est NOT NULL), assortie d'une promesse qui **ne pouvait pas être tenue** : « les autres seront
+propagés dès qu'ils transitent (login/lecture) ». L'empreinte n'entre au miroir que par une
+**CONNEXION** (la liste admin est une projection sans hash) — or un abonné **expiré** ne peut
+justement plus se connecter. Son compte était donc exclu de toute convergence **pour toujours**.
+→ La distinction qui débloque : **un INSERT a besoin du hash, un UPDATE non.** Les comptes sans
+empreinte passent par une **mise à jour seule**, charge **sans `password_hash`** (ni effaçable ni
+écrasable), **jamais** de création, orphelins **signalés**, et leur échec **ne retient pas** la levée
+de quarantaine — sans quoi on rejouerait le défaut qu'on vient de fermer.
+
+⚠️ **LA RÉPARATION D'ÉCHÉANCE VÉRIFIAIT SON PROPRE BROUILLON.** Son test d'idempotence lisait le
+**miroir** pour décider s'il y avait à faire, alors que c'est la **base** qu'elle répare : une
+première version ayant mis le miroir à jour, la suivante a conclu qu'il n'y avait rien à faire
+pendant que la base restait en retard. **Une réparation qui vérifie son brouillon plutôt que sa cible
+ne répare rien, et se tait en le faisant.** On écrit donc même quand le miroir est bon (même valeur =
+sans effet) ; seul un `>` strict fait taire. Et l'idempotence, au banc, n'est **pas** « n'écrit
+rien » — c'est **« ne dérive pas »**.
 
 ⚠️ **LA SYNCHRO WHOP NE FAIT QU'ALLONGER — ET C'EST ELLE QUI EXPLIQUE LE CAS ANIS.** `_whopReconcile`
 tourne au boot + toutes les 10 min et **prolonge** un compte en retard sur Whop, jamais ne le

@@ -733,12 +733,28 @@ async function _usersConverge(reason = '') {
   if (!healthy.length) return;
   _convBusy = true;
   try {
-    // COMPLETS uniquement : on ne propage QUE les comptes dont le password_hash est connu (présent au miroir).
-    // → jamais nuller un hash (NOT NULL en base) ni écraser un bon hash par un vide. Les comptes dont le hash
-    //   vit encore sur la PRIMAIRE bloquée (jamais lus depuis le 402) seront propagés dès qu'ils transitent
-    //   (login/lecture → le miroir gagne le hash) ou au retour de la primaire.
+    /* ⚠️ « COMPLETS UNIQUEMENT » ÉCARTAIT DÉFINITIVEMENT LES COMPTES EXPIRÉS (03/09/2026).
+       La règle d'origine — ne propager que les comptes dont le miroir connaît l'empreinte — protège
+       une chose réelle : `password_hash` est NOT NULL en base, et une propagation qui l'enverrait
+       vide casserait l'écriture ou écraserait un bon hash. Elle promettait aussi que les autres
+       « seront propagés dès qu'ils transitent (login/lecture) ».
+       CETTE PROMESSE NE POUVAIT PAS ÊTRE TENUE POUR LA MOITIÉ DES COMPTES. L'empreinte n'entre au
+       miroir que par une CONNEXION : la liste admin est une projection sans hash. Or un abonné
+       EXPIRÉ ne peut justement plus se connecter — son empreinte n'y transitera donc jamais, et son
+       compte restait exclu de toute convergence POUR TOUJOURS. C'est ce qui a fait qu'une échéance
+       corrigée n'atteignait aucune base : trois cycles de déploiement à chercher ailleurs.
+       LA DISTINCTION QUI DÉBLOQUE : un INSERT a besoin du hash (colonne NOT NULL), un UPDATE n'en a
+       pas besoin. On sépare donc les deux populations au lieu d'en jeter une :
+         · avec empreinte → tout, comme avant (upsert par id, ou update-puis-insert par email) ;
+         · sans empreinte → UPDATE SEUL, et la charge n'emporte PAS `password_hash` : on ne peut ni
+           l'effacer ni l'écraser puisqu'on ne l'envoie pas. Aucune création possible pour ceux-là —
+           un compte absent d'une base et sans empreinte ne peut pas y naître, et c'est dit.
+       La protection d'origine est donc INTÉGRALEMENT conservée ; ce qui change, c'est qu'on cesse de
+       confondre « je ne peux pas créer ce compte » avec « je ne peux rien mettre à jour dessus ». */
     const pick = r => ({ id: r.id, email: r.email, password_hash: r.password_hash, name: r.name || '', role: r.role || 'client', plan: r.plan || 'professionnel', active: r.active !== false, expires_at: r.expires_at || null });
-    const all = [..._usersMirror.values()].filter(r => r && r.email && r.password_hash && !_isTombstoned(r.id));
+    const vivants = [..._usersMirror.values()].filter(r => r && r.email && !_isTombstoned(r.id));
+    const all = vivants.filter(r => r.password_hash);
+    const sansHash = vivants.filter(r => !r.password_hash).map(r => { const { password_hash, ...reste } = pick(r); return reste; });
     const uuidRows   = all.filter(r => _UUID_RE.test(String(r.id || ''))).map(pick);
     /* ⚠️ ON GARDE L'ID DES COMPTES HÉRITÉS, ET ON CHANGE LA MANIÈRE DE LES ÉCRIRE (03/09/2026).
        Ils étaient envoyés SANS `id`, en upsert sur l'email — pour ne pas réécrire l'id d'une ligne
@@ -761,7 +777,7 @@ async function _usersConverge(reason = '') {
             n'est jamais réécrit : c'est exactement ce que l'intention d'origine voulait protéger ;
          2. les emails qu'aucune ligne ne portait sont INSÉRÉS, avec leur id du miroir. */
     const legacyRows = all.filter(r => !_UUID_RE.test(String(r.id || ''))).map(pick);
-    if (!uuidRows.length && !legacyRows.length) {
+    if (!uuidRows.length && !legacyRows.length && !sansHash.length) {
       /* ⚠️ SORTIR ICI SANS LEVER LA QUARANTAINE L'AURAIT RENDUE ÉTERNELLE. Un miroir dont aucun
          compte ne porte d'empreinte (cas d'une reconstruction partielle) n'a rien à propager — mais
          cela ne veut pas dire que les bases sont en retard. On lève, et on le dit. */
@@ -779,6 +795,26 @@ async function _usersConverge(reason = '') {
        L'update ne touche jamais `id` — la ligne distante garde le sien, uuid ou entier. `.select('email')`
        ne coûte presque rien et dit ce qui a réellement été touché : sans lui, une écriture partie sur
        zéro ligne passerait pour un succès, exactement le piège déjà corrigé sur changePassword. */
+    /* Mise à jour SEULE (jamais d'insertion) : pour les comptes dont le miroir n'a pas l'empreinte.
+       La charge ne contient pas `password_hash` — on ne peut donc ni l'effacer, ni l'écraser. Un
+       email qu'aucune ligne ne porte est simplement SIGNALÉ : le créer exigerait une empreinte
+       qu'on n'a pas, et inventer une ligne sans mot de passe vaudrait moins que de le dire. */
+    const _majSeule = async (node, rows) => {
+      if (!rows.length) return true;
+      let orphelins = 0;
+      for (const r of rows) {
+        const { id, ...maj } = r;
+        let { data, error } = await node.client.from(TABLE).update(maj).eq('email', r.email).select('email');
+        if (error && /expires_at/.test(error.message || '')) {
+          const { expires_at, ...m2 } = maj;
+          ({ data, error } = await node.client.from(TABLE).update(m2).eq('email', r.email).select('email'));
+        }
+        if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); return false; }
+        if (!Array.isArray(data) || !data.length) orphelins++;
+      }
+      if (orphelins) console.warn(`[Auth] ${node.name} : ${orphelins} compte(s) sans empreinte absent(s) de cette base — création impossible sans mot de passe.`);
+      return true;
+    };
     const _upLegacy = async (node, rows) => {
       if (!rows.length) return true;
       const manquants = [];
@@ -802,6 +838,11 @@ async function _usersConverge(reason = '') {
     for (const node of healthy) {
       try {
         const a = await _up(node, uuidRows, 'id'); const b = await _upLegacy(node, legacyRows);
+        /* Les comptes SANS empreinte : mise à jour seule, jamais de création. Un échec ici ne doit
+           PAS retenir la levée de quarantaine — ces comptes ne sont pas ceux qui rendent une base
+           « en retard » sur les mots de passe, et bloquer dessus rejouerait le défaut qu'on vient
+           de fermer : une quarantaine que rien ne lève. */
+        if (sansHash.length) { const c = await _majSeule(node, sansHash); if (!c) console.warn(`[Auth] ${node.name} : mise à jour des comptes sans empreinte incomplète (les autres ont abouti)`); }
         if (a && b) {
           okNodes++;
           /* C'EST ICI, ET NULLE PART AILLEURS, QUE LA QUARANTAINE SE LÈVE. Le nœud vient de recevoir

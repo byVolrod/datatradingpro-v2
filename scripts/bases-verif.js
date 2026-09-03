@@ -267,6 +267,33 @@ setTimeout(() => {
     'sortir sans lever aurait rendu la quarantaine éternelle : plus AUCUNE lecture de comptes en base');
 }
 
+console.log('\n── 7. Un compte SANS empreinte au miroir converge quand même (03/09) ──');
+{
+  /* ⚠️ LE TROU QUE CE CONTRÔLE FERME. « On ne propage que les comptes complets » protège une chose
+     réelle — `password_hash` est NOT NULL — et promettait que les autres seraient propagés « dès
+     qu'ils transitent (login/lecture) ». Cette promesse ne pouvait PAS être tenue pour un abonné
+     EXPIRÉ : l'empreinte n'entre au miroir que par une CONNEXION, et un expiré ne peut plus se
+     connecter. Son compte restait donc exclu de toute convergence POUR TOUJOURS — c'est ce qui a
+     fait qu'une échéance corrigée n'atteignait aucune base, et trois cycles perdus à chercher
+     ailleurs. La distinction qui débloque : un INSERT a besoin du hash, un UPDATE non. */
+  const SRC = extraire(AUTH, 'async function _usersConverge(');
+  v('les comptes sans empreinte sont ISOLÉS au lieu d\'être jetés',
+    SRC && /const sansHash = vivants\.filter\(r => !r\.password_hash\)/.test(SRC),
+    'sans cette population, un abonné expiré ne converge JAMAIS — par construction');
+  v('… et leur charge n\'emporte PAS le mot de passe (on ne peut ni l\'effacer ni l\'écraser)',
+    SRC && /const \{ password_hash, \.\.\.reste \} = pick\(r\); return reste;/.test(SRC));
+  v('… ils passent par une MISE À JOUR SEULE, jamais une création',
+    SRC && /_majSeule/.test(SRC) && !/from\(TABLE\)\.insert\(rows\)/.test(SRC),
+    'créer une ligne sans mot de passe violerait NOT NULL — et inventer un compte vaudrait moins que de le dire');
+  v('… un email absent de la base est SIGNALÉ, pas avalé',
+    SRC && /création impossible sans mot de passe/.test(SRC));
+  v('… et leur échec ne retient PAS la levée de quarantaine',
+    SRC && /Un échec ici ne doit\s*\n?\s*PAS retenir la levée de quarantaine/.test(SRC.replace(/\s+/g, ' ')) || (SRC && /ne doit\s+PAS retenir la levée/.test(SRC.replace(/\s+/g, ' '))),
+    'bloquer dessus rejouerait le défaut qu\'on vient de fermer : une quarantaine que rien ne lève');
+  v('[témoin] la protection d\'origine tient : les comptes AVEC empreinte gardent leur chemin',
+    SRC && /const all = vivants\.filter\(r => r\.password_hash\)/.test(SRC) && /_up\(node, uuidRows, 'id'\)/.test(SRC));
+}
+
 console.log('\n──────────────────────────────────────────────────────────────────────');
   if (ko) { console.log(`❌ bases-verif : ${ko} échec(s) sur ${ok + ko}.`); process.exit(1); }
   console.log(`✅ bases-verif : ${ok} contrôle(s) au vert.`);
