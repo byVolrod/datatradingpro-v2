@@ -555,12 +555,25 @@ function _reparerEcheances() {
     if (!row) { console.warn(`[Auth] correction d'échéance : ${em} absent du miroir — rien fait (le compte sera corrigé au prochain démarrage s'il revient).`); continue; }
     const actuelle = row.expires_at ? Date.parse(row.expires_at) : NaN;
     if (Number.isFinite(actuelle) && actuelle >= cible) continue;   // déjà au moins aussi loin → on se tait
-    row.expires_at = new Date(cible).toISOString();
-    _mirrorIndex(row);
+    const iso = new Date(cible).toISOString();
+    /* ⚠️ ON PASSE PAR `updateUser`, PAS PAR UNE ÉCRITURE DIRECTE DANS LE MIROIR (corrigé le 03/09,
+       après avoir constaté que la base n'avait pas bougé alors que le code tournait).
+       Premier jet : on posait la date sur l'objet du miroir et on laissait la convergence la porter
+       aux quatre bases. Elle ne l'a jamais portée — parce que `_usersConverge` ne propage QUE les
+       comptes dont le miroir connaît l'EMPREINTE (`all` filtre sur `password_hash`), et l'empreinte
+       n'entre au miroir que si elle y a transité : par une connexion, jamais par la liste admin, qui
+       est une projection sans hash. Un compte qui ne s'est pas connecté depuis la constitution du
+       miroir n'a donc pas d'empreinte — et c'est EXACTEMENT le cas d'un abonné expiré, qui ne peut
+       plus se connecter. La réparation ne pouvait donc pas atteindre ceux qu'elle vise.
+       `updateUser` est le chemin que le panneau admin emprunte lui-même : il écrit en base, confirme
+       que la ligne a bougé, reflète au miroir, met en file de rejeu si la base est muette, et
+       déclenche la convergence. Aucune de ces cinq choses n'était acquise avant. */
     faites++;
-    console.log(`[Auth] correction d'échéance appliquée : ${em} → ${row.expires_at} (${e.motif}).`);
+    console.log(`[Auth] correction d'échéance : ${em} → ${iso} (${e.motif})…`);
+    updateUser(row.id, { expiresAt: iso })
+      .then(() => console.log(`[Auth] correction d'échéance APPLIQUÉE : ${em} → ${iso}`))
+      .catch(err => console.warn(`[Auth] correction d'échéance ÉCHOUÉE pour ${em} :`, err && err.message));
   }
-  if (faites) { _mirrorSaveFile(); _convSoon('correction d\'échéance'); }   // la convergence porte la date aux quatre bases
   return faites;
 }
 

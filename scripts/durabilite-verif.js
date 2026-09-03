@@ -93,37 +93,49 @@ console.log('\n── 4. La correction d\'échéance ALLONGE, et ne raccourcit j
     const seed = /const _ECHEANCES_SEED = \[([\s\S]*?)\];/.exec(AUTH);
     v('la table de correction est lisible', !!seed);
     const journal = [];
+    /* ⚠️ LE BAC ESPIONNE `updateUser` — c'est LUI que la réparation doit appeler (corrigé le 03/09).
+       Elle posait d'abord la date à la main dans le miroir, en comptant sur la convergence pour la
+       porter en base. La convergence ne propage QUE les comptes dont le miroir connaît l'empreinte,
+       et l'empreinte n'y entre que par une CONNEXION — or un abonné expiré ne peut justement plus se
+       connecter. La réparation ne pouvait donc pas atteindre ceux qu'elle vise, et la base est bien
+       restée au 11/06 en production pendant que le code tournait. On vérifie maintenant l'APPEL. */
     const faire = (miroirInit, seedSrc) => {
+      const majs = [];
       const code =
         'const _usersMirror = new Map(Object.entries(' + JSON.stringify(miroirInit) + '));\n'
         + 'function _mirrorIndex() {}\nfunction _mirrorSaveFile() {}\nfunction _convSoon() {}\n'
+        + 'function updateUser(id, champs) { _maj.push({ id: id, champs: champs }); return Promise.resolve(); }\n'
         + (seedSrc || 'const _ECHEANCES_SEED = [' + seed[1] + '];') + '\n'
         + src + '\nreturn { n: _reparerEcheances(), m: _usersMirror };';
-      return new Function('console', code)({ log: x => journal.push(x), warn: x => journal.push(x) });
+      const r = new Function('console', '_maj', code)({ log: x => journal.push(x), warn: x => journal.push(x) }, majs);
+      r.majs = majs;
+      return r;
     };
     const EM = 'anismessaoud05@gmail.com';
 
-    const r1 = faire({ [EM]: { email: EM, expires_at: '2026-06-11T00:00:00.000Z' } });
-    v('LE CAS RÉEL — l\'échéance de juin est portée au 30/09', r1.n === 1 && /2026-09-30/.test(r1.m.get(EM).expires_at),
-      JSON.stringify(r1.m.get(EM)));
+    const r1 = faire({ [EM]: { id: '9', email: EM, expires_at: '2026-06-11T00:00:00.000Z' } });
+    v('LE CAS RÉEL — l\'échéance de juin déclenche une correction', r1.n === 1);
+    v('… et elle passe par updateUser, le chemin du panneau admin',
+      r1.majs.length === 1 && r1.majs[0].id === '9' && /2026-09-30/.test(r1.majs[0].champs.expiresAt),
+      'appels observés : ' + JSON.stringify(r1.majs));
 
-    const r2 = faire({ [EM]: { email: EM, expires_at: '2026-09-30T23:59:59.000Z' } });
-    v('IDEMPOTENT — un second passage ne fait rien', r2.n === 0);
+    const r2 = faire({ [EM]: { id: '9', email: EM, expires_at: '2026-09-30T23:59:59.000Z' } });
+    v('IDEMPOTENT — un second passage n\'écrit rien', r2.n === 0 && r2.majs.length === 0);
 
-    const r3 = faire({ [EM]: { email: EM, expires_at: '2027-01-15T00:00:00.000Z' } });
-    v('UNE ÉCHÉANCE PLUS LOINTAINE N\'EST JAMAIS RACCOURCIE', r3.n === 0 && /2027-01-15/.test(r3.m.get(EM).expires_at),
+    const r3 = faire({ [EM]: { id: '9', email: EM, expires_at: '2027-01-15T00:00:00.000Z' } });
+    v('UNE ÉCHÉANCE PLUS LOINTAINE N\'EST JAMAIS RACCOURCIE', r3.n === 0 && r3.majs.length === 0,
       'sans cette règle, la table révoquerait l\'accès qu\'elle est censée rendre — le défaut même qu\'elle répare');
 
-    const r4 = faire({ [EM]: { email: EM, expires_at: null } });
-    v('[témoin] une échéance absente est bien posée', r4.n === 1 && /2026-09-30/.test(r4.m.get(EM).expires_at));
+    const r4 = faire({ [EM]: { id: '9', email: EM, expires_at: null } });
+    v('[témoin] une échéance absente est bien posée', r4.n === 1 && r4.majs.length === 1);
 
-    const r5 = faire({ 'autre@exemple.fr': { email: 'autre@exemple.fr', expires_at: '2026-06-01T00:00:00.000Z' } });
-    v('[témoin] un compte HORS de la table n\'est pas touché', r5.n === 0 && r5.m.get('autre@exemple.fr').expires_at === '2026-06-01T00:00:00.000Z',
+    const r5 = faire({ 'autre@exemple.fr': { id: '7', email: 'autre@exemple.fr', expires_at: '2026-06-01T00:00:00.000Z' } });
+    v('[témoin] un compte HORS de la table n\'est pas touché', r5.n === 0 && r5.majs.length === 0,
       'une correction qui déborde sur d\'autres comptes serait pire que le défaut');
     v('… et son absence du miroir est signalée, pas avalée', journal.some(x => /absent du miroir/.test(String(x))));
 
-    v('la convergence est déclenchée quand une correction a eu lieu', /_convSoon\(/.test(src),
-      'sans elle, la date corrigée resterait dans le miroir et n\'atteindrait jamais les quatre bases');
+    v('la réparation n\'écrit PLUS le miroir à la main', !/row\.expires_at = /.test(src),
+      'une écriture directe ne serait propagée que pour les comptes dont le miroir a l\'empreinte — jamais un expiré');
     /* ⚠️ CE CONTRÔLE ÉPINGLAIT LA FORME EXACTE DE L'APPEL, ET IL ÉTAIT VERT PENDANT QUE LE CODE
        ÉTAIT CASSÉ. Il vérifiait `if (_usersMirror.size) { try { _reparerEcheances()` — c'est-à-dire
        la présence de l'appel, jamais son MOMENT. Or l'appel était fait pendant l'évaluation du
@@ -200,8 +212,13 @@ console.log('\n── 5. LE CONTRÔLE QUI M\'A MANQUÉ — on CHARGE le module, 
         SUPABASE_URL: 'https://exemple.supabase.co', SUPABASE_KEY: 'cle-factice', DATA_DIR: dossier,
       }) });
   const s2 = String(r2.stdout || '') + String(r2.stderr || '');
-  v('LE CONTRÔLE QUI MANQUAIT — la correction d\'échéance s\'applique VRAIMENT au démarrage',
-    /correction d'échéance appliquée/.test(s2),
+  /* ⚠️ ON ATTEND LA TENTATIVE, PAS LA RÉUSSITE — et c'est délibéré. Contre une URL Supabase factice,
+     l'écriture ne peut évidemment pas aboutir : exiger « APPLIQUÉE » rendrait ce contrôle rouge sur
+     du code juste. Ce qu'il doit prouver, c'est que la correction est ATTEINTE au démarrage et
+     qu'elle porte la bonne date — le reste (l'écriture elle-même) est éprouvé plus haut, en
+     espionnant `updateUser`. */
+  v('LE CONTRÔLE QUI MANQUAIT — la correction d\'échéance est ATTEINTE au démarrage',
+    /correction d'échéance : [^\n]*→/.test(s2),
     'sortie du démarrage : ' + s2.split('\n').filter(l => /échéance/i.test(l)).join(' | ').slice(0, 200));
   v('… et elle ne bute sur AUCUNE zone morte', !/_ECHEANCES_SEED[^\n]*before initialization/.test(s2));
   v('… la date appliquée est bien celle de la table', /2026-09-30/.test(s2));
