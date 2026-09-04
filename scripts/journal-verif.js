@@ -44,6 +44,19 @@
  *    est vrai sur une page vide, donc un témoin positif exige qu'une teinte de la palette MESURÉE
  *    peigne réellement quelque chose.
  *
+ * 7. LA LISIBILITÉ SE MESURE, ELLE NE SE DÉCRÈTE PAS. Trois défauts relevés sur capture avant
+ *    reprise, trois contrôles, chacun PAR PAIRE — parce qu'une seule moitié serait verte sur un
+ *    écran vide comme sur l'écran fautif : une tuile compacte (le cadran vertical faisait 150 px,
+ *    treize fois) ; une jauge SEULEMENT là où il y a un maximum (onze cercles sur treize étaient
+ *    pleins, c'est-à-dire une jauge à fond annoncée sans échelle) ; et la couleur du chiffre, relue
+ *    à l'écran, réservée à ce qui veut dire quelque chose.
+ *
+ * 8. AU DOIGT, LA COMMANDE « OUVRIR » RECOUVRAIT LE NOM DE LA PAIRE — première colonne du journal,
+ *    « EU⋯ » sur chaque ligne. Invisible au bureau : là, la commande n'apparaît qu'au survol. Le
+ *    contrôle tourne donc sur un écran tactile émulé, SUR LE VRAI JOURNAL : une maquette de tableau
+ *    n'a pas les largeurs de colonne de la vraie grille et ne reproduit pas le défaut — première
+ *    tentative verte des deux côtés du correctif, ce qui est pire que pas de contrôle du tout.
+ *
  *   node scripts/journal-verif.js
  *
  * Sans Chromium, le banc S'ABSTIENT (code 0).
@@ -325,6 +338,131 @@ function phaseSource() {
       v('… et la palette mesurée est bien celle qui peint (témoin positif)',
         C2.barres.some((c) => PAL.includes(c)),
         'couleurs vues : ' + [...new Set(C2.barres)].slice(0, 5).join(' · '));
+
+      /* ══ LA LISIBILITÉ, MESURÉE (04/09, demande utilisateur) ═══════════════════════════════════
+         « Améliore la lisibilité du journal, revois l'UX/UI, vérifie la cohérence avec le desk. »
+         Trois défauts ont été MESURÉS sur capture avant reprise, et ce sont eux qu'on garde ici. */
+      console.log('\n── La lisibilité du tableau de bord ──');
+      const LIS = await page.evaluate(() => {
+        const g = (el, p) => getComputedStyle(el)[p];
+        const tuiles = [...document.querySelectorAll('#jr-dashboard .jrd-ring')].map((t) => ({
+          lbl: (t.querySelector('.jrd-ring-l') || {}).textContent,
+          h: Math.round(t.getBoundingClientRect().height),
+          arc: !!t.querySelector('.jrd-arc-v'),
+          couleur: t.querySelector('.jrd-ring-v') ? g(t.querySelector('.jrd-ring-v'), 'color') : null,
+        }));
+        /* Les hôtes de graphique : on veut savoir si l'un d'eux est un cadre NOIR ET MUET. */
+        const cadres = [...document.querySelectorAll('#jr-dashboard .jr-chart-am')].map((c) => ({
+          id: c.id, vide: c.children.length === 0 && !c.textContent.trim(),
+        }));
+        return { tuiles, cadres, amcharts: typeof am5 !== 'undefined' };
+      });
+
+      /* 1. LA DENSITÉ. Le cadran vertical faisait ~150 px de haut, treize fois de suite : la section
+            « performance » à elle seule dépassait la hauteur d'un écran. La tuile tient sur une
+            ligne. On mesure la HAUTEUR RENDUE, pas la déclaration : c'est la cascade qui décide. */
+      const hMax = Math.max(0, ...LIS.tuiles.map((t) => t.h));
+      v('les chiffres tiennent en tuiles compactes, plus en colonnes de 150 px',
+        LIS.tuiles.length >= 8 && hMax > 0 && hMax <= 90,
+        LIS.tuiles.length + ' tuile(s), la plus haute à ' + hMax + ' px');
+
+      /* 2. LA JAUGE N'EXISTE QUE LÀ OÙ ELLE DIT QUELQUE CHOSE, ET LE CONTRÔLE VA PAR PAIRE.
+            « Aucune jauge » serait vert sur un écran sans arc du tout ; « des jauges » serait vert
+            sur treize cercles pleins, c'est-à-dire le défaut d'origine. On exige donc les deux :
+            un taux de réussite EN A une, un simple compte n'en a PAS. */
+      const tTaux = LIS.tuiles.find((t) => /Taux de réussite/.test(t.lbl || ''));
+      const tCpt = LIS.tuiles.find((t) => /^Trades$/.test((t.lbl || '').trim()));
+      v('un chiffre qui a un maximum porte sa jauge', !!tTaux && tTaux.arc === true,
+        tTaux ? 'arc : ' + tTaux.arc : 'tuile « Taux de réussite » absente');
+      v('… et un chiffre qui n\'en a pas n\'en porte AUCUNE (un cercle plein annonce une jauge à fond)',
+        !!tCpt && tCpt.arc === false, tCpt ? 'arc : ' + tCpt.arc : 'tuile « Trades » absente');
+
+      /* 3. LA COULEUR DU CHIFFRE, RELUE À L'ÉCRAN. Treize chiffres de treize teintes différentes,
+            c'est treize couleurs qui ne veulent rien dire — et le vert et le rouge, qui eux en
+            veulent une, s'y noient. Paire encore : un compte s'écrit à l'encre, un total signé
+            garde sa couleur d'état. */
+      const encre = tCpt ? tCpt.couleur : null;
+      const CAT = ['rgb(57, 135, 229)', 'rgb(213, 81, 129)', 'rgb(144, 133, 233)', 'rgb(27, 160, 165)', 'rgb(217, 89, 38)'];
+      v('un simple compte s\'écrit à l\'encre du desk, pas dans une teinte de palette',
+        !!encre && CAT.indexOf(encre) < 0, 'couleur du compte : ' + encre);
+      const tR = LIS.tuiles.find((t) => /^Total R$/.test((t.lbl || '').trim()));
+      v('… et un total signé garde, lui, sa couleur d\'état (vert ou rouge)',
+        !!tR && /rgb\(0, 230, 118\)|rgb\(255, 61, 0\)/.test(tR.couleur || ''),
+        tR ? 'couleur du total R : ' + tR.couleur : 'tuile « Total R » absente');
+
+      /* 4. COHÉRENCE : AUCUN CADRE NOIR ET MUET. Les deux graphiques annuels disaient « Graphique
+            indisponible. » quand la bibliothèque manquait ; les deux du tableau de bord se
+            TAISAIENT. Deux moitiés du même écran répondaient différemment à la même panne.
+            ⚠️ LE CONTRÔLE NE DÉPEND PAS DE L'ENVIRONNEMENT : on n'exige pas l'absence de la
+            bibliothèque (un banc qui suppose le réseau coupé rougirait le jour où il ne l'est
+            plus), on exige qu'AUCUN hôte ne soit à la fois vide et sans texte. */
+      const muets = LIS.cadres.filter((c) => c.vide).map((c) => c.id);
+      v('aucun cadre de graphique n\'est noir ET muet (bibliothèque ' + (LIS.amcharts ? 'présente' : 'absente') + ')',
+        LIS.cadres.length > 0 && muets.length === 0,
+        muets.length ? 'muet(s) : ' + muets.join(' · ') : LIS.cadres.length + ' cadre(s) relus');
+
+      /* ══ AU DOIGT, LA COMMANDE « OUVRIR » RECOUVRAIT LE NOM DE LA PAIRE ═══════════════════════
+         04/09, mesuré sur capture : dans la toute PREMIÈRE colonne du journal, chaque ligne se
+         lisait « EU⋯ », « US⋯ », « GB⋯ ». Le mécanisme n'est visible que sur un écran tactile. Au
+         bureau, la commande n'apparaît qu'au SURVOL : elle peut se poser en absolu sur le texte,
+         personne ne lit et ne survole au même instant. Au doigt il n'y a pas de survol, une règle
+         `@media (hover: none)` la rend donc visible EN PERMANENCE — et elle restait posée par
+         dessus. Mesure d'alors : cellule de 85 px, nom courant jusqu'à 88 px, bouton commençant à
+         57 px. Quatre caractères mangés à chaque ligne : EURUSD ne se distinguait plus d'EURJPY.
+
+         ⚠️ SUR LE VRAI JOURNAL, PAS SUR UNE MAQUETTE. Première tentative : un petit tableau
+         fabriqué dans une page vide. Il n'a JAMAIS reproduit le défaut — la largeur des colonnes de
+         la vraie grille vient de la feuille et du contenu, et une maquette ne l'a pas. Le contrôle
+         était donc vert des deux côtés du correctif, ce qui est pire que pas de contrôle.
+         ⚠️ ET ON COMPARE DEUX RECTANGLES RENDUS, jamais des déclarations : le recouvrement naît de
+         la somme d'une position absolue, d'une largeur de bouton et d'un `padding` de cellule ;
+         aucune de ces trois valeurs, lue seule, ne le montre. */
+      console.log('\n── La première colonne, au doigt ──');
+      const ptac = await nav.newPage();
+      try {
+        await ptac.setViewport({ width: 900, height: 800, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+        /* `emulateMediaFeatures` ne connaît pas `hover` dans cette version de puppeteer : on passe
+           par le protocole, qui l'accepte. C'est ce qu'un téléphone annonce de lui-même. */
+        const cdp = await ptac.target().createCDPSession();
+        await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'hover', value: 'none' }, { name: 'pointer', value: 'coarse' }] });
+        await ptac.goto(`http://localhost:${PORT + 1}/index.html`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await new Promise((r) => setTimeout(r, 2600));
+        await ptac.evaluate(() => {
+          const b = document.getElementById('journal-btn');
+          if (b) b.click(); else if (typeof activateView === 'function') activateView('journal');
+        });
+        await new Promise((r) => setTimeout(r, 2600));
+        const T = await ptac.evaluate(() => {
+          const t = document.querySelector('.jr-grid tbody .jr-cv-title');
+          const b = t && t.parentElement ? t.parentElement.querySelector('.jrd-open') : null;
+          if (!t || !b) return null;
+          const rt = t.getBoundingClientRect(), rb = b.getBoundingClientRect();
+          const lbl = b.querySelector('span');
+          return { nom: t.textContent, finTexte: Math.round(rt.right), debutBouton: Math.round(rb.x),
+                   largeurBouton: Math.round(rb.width), opacite: +getComputedStyle(b).opacity,
+                   libelle: lbl ? getComputedStyle(lbl).display : 'absent',
+                   coupe: t.scrollWidth > t.clientWidth + 1 };
+        });
+        if (!T) v('la première colonne du journal porte un nom de paire et sa commande', false, 'cellule introuvable');
+        else {
+          /* La commande DOIT rester visible au doigt (c'est la seule porte vers la fiche du trade,
+             règle posée le 03/09) : le contrôle ci-dessous n'a de sens que si elle l'est vraiment. */
+          v('au doigt, la commande « ouvrir » reste visible', T.opacite >= 0.3, 'opacité ' + T.opacite);
+          v('… et elle ne recouvre plus le nom de la paire',
+            T.debutBouton >= T.finTexte,
+            'nom « ' + T.nom + ' » jusqu\'à ' + T.finTexte + ' px, bouton à partir de ' + T.debutBouton + ' px');
+          /* Ce qui rend la place : le libellé « OUVRIR » cède à l'icône seule (l'infobulle dit la
+             même chose, et il pesait les deux tiers de la largeur). Sans ce second contrôle,
+             élargir la colonne ferait passer le premier en laissant le bouton obèse. */
+          v('… parce que son libellé cède la place à l\'icône seule',
+            T.libelle === 'none' && T.largeurBouton <= 32,
+            'libellé : ' + T.libelle + ' · bouton de ' + T.largeurBouton + ' px');
+          v('… et le nom lui-même n\'est pas tronqué', T.coupe === false, 'nom rendu : « ' + T.nom + ' »');
+        }
+      } catch (e) {
+        v('la phase tactile du journal s\'exécute', false, e && e.message);
+      }
+      await ptac.close();
 
       /* ══ CALIBRAGE DU CAPITAL — LES TROIS VERDICTS (04/09, retour d'un client sur le Discord) ══
          « Je l'utilise, mais pour calibrer mon capital je trouve assez moyen. » Le bloc répond en

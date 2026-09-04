@@ -3825,6 +3825,12 @@ function buildNewsItem(item) {
        d'appeler son rappel. Ici la garde précédait le verrou, d'où l'asymétrie. */
     expandEl._dtpOuverture = (expandEl._dtpOuverture || 0) + 1;
     expandEl._dtpPose = false;
+    /* ⚠️ CE PANNEAU-CI SEULEMENT. On passe ici pour TOUTE ouverture, tout changement d'onglet et
+       toute fermeture — c'est donc le seul endroit où l'on sait, avant la réécriture, qu'un
+       graphique de réaction va perdre son conteneur. Le détruire ici libère sa mémoire et arrête
+       son rafraîchisseur ; les panneaux des AUTRES publications ne sont pas touchés, ce qui est
+       exactement ce que l'ancien nettoyage global ne savait pas faire. */
+    _rxDetruireDans(expandEl);
     // La pleine largeur est RESERVEE au panneau du graphique : les panneaux de TEXTE gardent leur
     // alignement sous le titre, qui est ce qui rend le fil lisible en diagonale. On la retire donc
     // a chaque ouverture, et seul le panneau « marche » la remet.
@@ -4325,10 +4331,13 @@ function buildNewsItem(item) {
             // RATTRAPAGE. Le flux étant différé, les minutes qui suivent la publication n'existent
             // pas encore au premier affichage : sans ce rappel, le lecteur verrait un graphique
             // amputé et n'aurait aucune raison de soupçonner qu'il lui manque dix minutes.
-            if (_rxTimer) { clearInterval(_rxTimer); _rxTimer = null; }
-            _rxTimer = setInterval(() => {
+            /* ⚠️ LE MINUTEUR APPARTIENT À SON PANNEAU. Il vivait dans `_rxTimer`, une variable de
+               module : ouvrir un second graphique ANNULAIT le rattrapage du premier, dont les
+               bougies différées ne seraient donc jamais arrivées. Il entre au registre, avec son
+               graphique et son observateur. */
+            _rxPoserMinuteur(hote, () => {
               // Le panneau a pu être refermé ou remplacé : on s'arrête plutôt que de tirer dans le vide.
-              if (!hote.isConnected || activeTab !== 'marche') { clearInterval(_rxTimer); _rxTimer = null; return; }
+              if (!hote.isConnected || activeTab !== 'marche') { _rxArreterMinuteur(hote); return; }
               fetch('/api/react-ohlc?pair=' + encodeURIComponent(_paire) + '&ts=' + t0)
                 .then(r => r.json())
                 .then(d2 => {
@@ -10565,14 +10574,68 @@ function _chargerLwc(ok, echec) {
 }
 
 // ── GRAPHIQUE DE RÉACTION : bougies + CERCLE ROUGE sur la minute de publication ───────────────
-let _rxChart = null, _rxObs = null, _rxTimer = null;
+/* ══ UN GRAPHIQUE PAR PANNEAU, ET NON UN SEUL POUR TOUT LE DESK (04/09, capture utilisateur) ═══
+   SIGNALEMENT : « je peux pas ouvrir les 2 en même temps ». Sur la capture, deux publications de
+   14 h 30 ont leur panneau ouvert : celle du BAS affiche ses bougies, celle du HAUT est un
+   rectangle NOIR où ne subsistent que le trait vertical en pointillé et le rond rouge.
+
+   CAUSE, LUE DANS LE CODE ET NON DEVINÉE. Le graphique, son observateur de taille et son
+   rafraîchisseur vivaient dans TROIS VARIABLES DE MODULE — une seule place pour tout le desk. La
+   première ligne de cette fonction faisait `_rxChart.remove()` : ouvrir un deuxième panneau
+   DÉTRUISAIT le premier. Et le rectangle noir s'explique jusqu'au détail : `remove()` de la
+   bibliothèque efface le canevas qu'elle a créé, mais PAS le calque `.nrx-cible` que nous avons
+   posé nous-mêmes avant elle. Il reste donc exactement ce que montre la capture, un repère qui
+   flotte sur un cadre vide. Les deux autres variables mordaient pareil, en plus discret :
+   l'observateur du premier panneau était débranché (il cessait de suivre la largeur) et son
+   minuteur de rattrapage annulé (ses bougies différées ne seraient jamais arrivées).
+
+   ⚠️ LE NETTOYAGE ÉTAIT JUSTE, SA PORTÉE NE L'ÉTAIT PAS. Sans lui, chaque ouverture laisserait
+   derrière elle un graphique et un observateur : la fuite est réelle. On garde donc le ménage, mais
+   on le fait PAR HÔTE. Le registre ci-dessous tient un enregistrement par conteneur, et chaque
+   nouvelle ouverture fait deux choses : elle détruit ce qui occupait CE conteneur-là, et elle
+   ramasse les enregistrements dont l'hôte a quitté le document (le fil se reconstruit à chaque
+   dépêche). Une Map sur des nœuds retiendrait un nœud détaché — c'est ce ramassage qui l'empêche,
+   et il est aussi appelé à la fermeture d'un panneau. */
+const _rxVivants = new Map();   // hôte (élément) → { chart, obs, timer }
+function _rxDetruire(hote) {
+  const r = _rxVivants.get(hote);
+  if (!r) return;
+  try { if (r.chart) r.chart.remove(); } catch (e) {}
+  try { if (r.obs) r.obs.disconnect(); } catch (e) {}
+  try { if (r.timer) clearInterval(r.timer); } catch (e) {}
+  _rxVivants.delete(hote);
+}
+/* Les hôtes que le fil a remplacés : on ne peut pas les découvrir autrement qu'en les relisant. */
+function _rxRamasser() {
+  for (const h of [..._rxVivants.keys()]) if (!h || !h.isConnected) _rxDetruire(h);
+}
+/* Le panneau change de contenu ou se referme : ce qu'il abritait n'a plus lieu d'être. Appelé
+   depuis `openPanel`, AVANT la réécriture — après, l'hôte serait déjà introuvable. */
+function _rxDetruireDans(racine) {
+  if (!racine) { _rxRamasser(); return; }
+  for (const h of [..._rxVivants.keys()]) {
+    if (!h || !h.isConnected || racine === h || (racine.contains && racine.contains(h))) _rxDetruire(h);
+  }
+}
+/* Le minuteur de rattrapage appartient lui aussi à SON panneau : `_rxTimer` global, un deuxième
+   panneau annulait le rattrapage du premier. */
+function _rxPoserMinuteur(hote, fn, ms) {
+  const r = _rxVivants.get(hote);
+  if (!r) return null;
+  try { if (r.timer) clearInterval(r.timer); } catch (e) {}
+  r.timer = setInterval(fn, ms);
+  return r.timer;
+}
+function _rxArreterMinuteur(hote) {
+  const r = _rxVivants.get(hote);
+  if (!r || !r.timer) return;
+  try { clearInterval(r.timer); } catch (e) {}
+  r.timer = null;
+}
 function _dessinerReaction(hote, candles, t0, paire) {
-  // Un panneau ouvert précédemment peut encore vivre : sans ce nettoyage, chaque ouverture
-  // laisserait derrière elle un graphique et son observateur de taille.
-  try { if (_rxChart) _rxChart.remove(); } catch (e) {}
-  try { if (_rxObs) _rxObs.disconnect(); } catch (e) {}
-  try { if (_rxTimer) clearInterval(_rxTimer); } catch (e) {}
-  _rxChart = null; _rxObs = null; _rxTimer = null;
+  // Ce conteneur-ci repart à neuf ; les autres panneaux ouverts ne sont pas concernés.
+  _rxDetruire(hote);
+  _rxRamasser();
   hote.innerHTML = '<div class="nrx-cible" aria-hidden="true"><i class="nrx-vline"></i><b class="nrx-rond"></b></div>';
   const cible = hote.firstElementChild;
   const clair = (typeof _deskLight === 'function' && _deskLight());
@@ -10711,8 +10774,9 @@ function _dessinerReaction(hote, candles, t0, paire) {
   chart.timeScale().subscribeVisibleTimeRangeChange(placer);
   // Le conteneur suit la largeur du fil (volet ouvert, plein écran, mobile) et la bibliothèque
   // ne se redimensionne pas d'elle-même.
+  let _obs = null;
   if (window.ResizeObserver) {
-    _rxObs = new ResizeObserver(() => {
+    _obs = new ResizeObserver(() => {
       try {
         chart.applyOptions({ width: hote.clientWidth });
         // ⚠️ La bibliothèque conserve l'ÉCARTEMENT des bougies quand la largeur change : elle
@@ -10724,9 +10788,9 @@ function _dessinerReaction(hote, candles, t0, paire) {
       } catch (e) {}
       replacer();
     });
-    _rxObs.observe(hote);
+    _obs.observe(hote);
   }
-  _rxChart = chart;
+  _rxVivants.set(hote, { chart, obs: _obs, timer: null });
   // Rafraîchisseur : met à jour les bougies SANS reconstruire le graphique, donc sans perdre le
   // zoom ni le déplacement que le lecteur vient de faire.
   return nouvelles => {
@@ -14930,6 +14994,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
      Réordonner cette liste sans repasser la mesure peut faire tomber une paire sous le seuil sans
      que rien ne se voie sur un écran calibré et un œil valide. */
   const _JR_CAT = ['#3987e5', '#d55181', '#9085e9', '#1ba0a5', '#d95926'];   // bleu · magenta · violet · sarcelle · orange
+  /* Les teintes qui PORTENT UN SENS, par opposition aux cinq ci-dessus qui portent une identité.
+     Un chiffre peint de l'une d'elles annonce un état (gagnant, perdant, neutre, à surveiller) ;
+     tout le reste s'écrit à l'encre du desk. Cette liste est lue par `_jrRing`. */
+  const _JR_SEMANT = ['#00e676', '#ff3d00', '#ffb300', '#00cc99', '#ff8f00'];
   const _jrArr = v => Array.isArray(v) ? v.filter(Boolean) : (v ? String(v).split(/[,;|]+/).map(s => s.trim()).filter(Boolean) : []);
   const _jrN = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
   const _jrResOf = e => { if (e.result && _JR_RES.includes(e.result)) return e.result; const w = _jrWin(e); return w == null ? null : (w > 0 ? 'Profit' : w < 0 ? 'Loss' : 'BE'); };
@@ -14951,22 +15019,36 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrRing(val, label, color, sub, frac) {
     const R = 42, C = 2 * Math.PI * R;
     const f = (frac == null || !isFinite(frac)) ? null : Math.max(0, Math.min(1, frac));
-    const arc = f == null ? '' :
-      '<circle class="jrd-arc-v" cx="50" cy="50" r="' + R + '" stroke="' + color + '"'
-      + ' stroke-dasharray="' + (C * f).toFixed(1) + ' ' + (C * (1 - f) + 1).toFixed(1) + '"></circle>';
-    const plein = f == null
-      ? '<circle class="jrd-arc-v" cx="50" cy="50" r="' + R + '" stroke="' + color + '"></circle>' : arc;
-    return '<div class="jrd-ring">'
-      + '<div class="jrd-ring-c">'
-      +   '<svg class="jrd-arc" viewBox="0 0 100 100" aria-hidden="true">'
-      +     '<circle class="jrd-arc-t" cx="50" cy="50" r="' + R + '"></circle>' + plein
-      +   '</svg>'
-      +   '<span class="jrd-ring-v" style="color:' + color + '">' + val + '</span>'
-      + '</div>'
-      + '<div class="jrd-ring-l">' + _esc(label) + '</div>'
-      + (sub ? '<div class="jrd-ring-s">' + _esc(sub) + '</div>' : '')
+    /* LA JAUGE N'EXISTE QUE LÀ OÙ ELLE DIT QUELQUE CHOSE. `f == null` = pas de maximum honnête :
+       la tuile porte alors un simple FILET de couleur, et non un cercle plein qui ferait croire à
+       une jauge à fond. C'est la même règle qu'avant, appliquée jusqu'au bout. */
+    const jauge = f == null ? '' :
+      '<span class="jrd-ring-c">'
+      + '<svg class="jrd-arc" viewBox="0 0 100 100" aria-hidden="true">'
+      +   '<circle class="jrd-arc-t" cx="50" cy="50" r="' + R + '"></circle>'
+      +   '<circle class="jrd-arc-v" cx="50" cy="50" r="' + R + '" stroke="' + color + '"'
+      +     ' stroke-dasharray="' + (C * f).toFixed(1) + ' ' + (C * (1 - f) + 1).toFixed(1) + '"></circle>'
+      + '</svg></span>';
+    const filet = f == null ? '<span class="jrd-ring-b" style="background:' + color + '"></span>' : '';
+    /* ⚠️ LE CHIFFRE NE PREND LA COULEUR QUE SI ELLE VEUT DIRE QUELQUE CHOSE. Treize chiffres peints
+       chacun d'une teinte différente — bleu pour « Trades », violet pour « RR cible », sarcelle
+       pour « Trades ce mois-ci » — ce sont treize couleurs qui ne disent RIEN, et qui rendent le
+       vert et le rouge, eux, moins visibles : le lecteur ne sait plus lesquelles portent un sens.
+       La règle vient de la charte : vert / rouge / ambre sont RÉSERVÉS (gagnant, perdant, neutre).
+       Un chiffre peint de l'une de ces teintes annonce donc un état, et le garde. Un chiffre
+       auquel on n'a passé qu'une teinte de la palette catégorielle est un simple compte : il
+       s'écrit à l'encre du desk, et c'est le filet à sa gauche qui porte l'identité. */
+    const valCol = _JR_SEMANT.indexOf(color) >= 0 ? color : 'var(--text)';
+    return '<div class="jrd-ring' + (f == null ? '' : ' jrd-ring--jauge') + '">'
+      + filet + jauge
+      + '<span class="jrd-ring-t">'
+      +   '<span class="jrd-ring-v" style="color:' + valCol + '">' + val + '</span>'
+      +   '<span class="jrd-ring-l">' + _esc(label) + '</span>'
+      +   (sub ? '<span class="jrd-ring-s">' + _esc(sub) + '</span>' : '')
+      + '</span>'
       + '</div>';
   }
+
   function _jrBars(title, map, opt) {
     opt = opt || {};
     let rows = Object.entries(map).filter(([, v]) => opt.keepZero || v);
@@ -15018,7 +15100,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   function _jrDisposeRoot(id) { try { if (typeof am5 === 'undefined') return; const ex = am5.registry.rootElements.find(r => r && r.dom && r.dom.id === id); if (ex) ex.dispose(); } catch (e) {} }
   function _jrBuildEquityChart(L) {
-    const id = 'jr-eq-chart', el = document.getElementById(id); if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
+    const id = 'jr-eq-chart', el = document.getElementById(id); if (!el) return;
+    // Même règle que le camembert ci-dessus et que les deux graphiques annuels : une panne se dit.
+    if (typeof am5 === 'undefined' || typeof am5xy === 'undefined') {
+      el.innerHTML = '<div class="jrd-empty">Graphique indisponible.</div>'; return;
+    }
     _jrDisposeRoot(id);
     const root = _dtpAncre(am5.Root.new(id)); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
     _dtpChartPremium(el, 790);   // chargement premium : overlay shimmer pendant appear(650,60) -> reveal en fondu (re-build au rendu dashboard)
@@ -15057,7 +15143,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (_jrEqSeriesRef) _jrEqSeriesRef.data.setAll(_jrEqData(_jrList || [], m));   // libellés (unité comprise) déjà inclus dans chaque point
   };
   function _jrBuildResultDonut(resMap) {
-    const id = 'jr-result-donut', el = document.getElementById(id); if (!el || typeof am5percent === 'undefined') return;
+    const id = 'jr-result-donut', el = document.getElementById(id); if (!el) return;
+    /* ⚠️ UN CADRE VIDE NE DIT RIEN, ET C'EST PIRE QU'UN MESSAGE — et ces deux graphiques-ci se
+       taisaient pendant que les deux graphiques ANNUELS, eux, l'écrivaient. Deux moitiés du même
+       écran répondaient donc différemment à la même panne : le lecteur ne pouvait pas savoir s'il
+       manquait des données ou si le graphique n'avait pas chargé. Même remède qu'ailleurs sur le
+       desk (« Force des devises indisponible. »). */
+    if (typeof am5 === 'undefined' || typeof am5percent === 'undefined') {
+      el.innerHTML = '<div class="jrd-empty">Graphique indisponible.</div>'; return;
+    }
     _jrDisposeRoot(id);
     const root = _dtpAncre(am5.Root.new(id)); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
     _dtpChartPremium(el, 680);   // chargement premium : overlay shimmer pendant appear(600) -> reveal en fondu (re-build au rendu dashboard)
@@ -15171,14 +15265,30 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const cls = 'jry-rr' + (vide ? ' jry-rr--vide' : (b.r >= 0 ? ' jry-rr--pos' : ' jry-rr--neg')) + (enCours ? ' jry-rr--now' : '');
       const larg = vide ? 0 : Math.round(Math.abs(b.r) / ech * 100);
       const teinte = vide ? '' : (b.r >= 0 ? '#00e676' : '#ff3d00');
-      return '<div class="' + cls + '">'
-        + '<div class="jry-rr-h"><span class="jry-rr-m">' + _JR_MOIS_LONG[m] + '</span>'
-        +   (enCours ? '<span class="jry-tag jry-tag--now">En cours</span>' : '') + '</div>'
+      const detail = _JR_MOIS_LONG[m] + (b
+        ? ' : ' + b.n + (b.n > 1 ? ' trades' : ' trade') + (b.taux != null ? ', ' + b.taux + '% de réussite' : '')
+          + (b.r != null ? ', ' + fR(b.r) + ' R' : '')
+        : ' : aucun trade') + (enCours ? ' (mois en cours)' : '');
+      return '<div class="' + cls + '" title="' + _esc(detail) + '">'
+        /* ⚠️ LE BADGE « EN COURS » A QUITTÉ L'EN-TÊTE, ET CE N'EST PAS UN CAPRICE. Mesuré : dans un
+           pavé de 132 px, « Septembre » plus le badge dépassent — et c'est le NOM qui cédait, seul à
+           porter la coupure, rendant « Septe… ». Élargir le pavé aurait coûté la propriété qui fait
+           tout l'intérêt de ce bloc : les douze mois sur UNE ligne, l'année d'un seul regard. La
+           mention passe donc au pied, où la place est libre, et le liseré doré de la carte continue
+           de signaler le mois en cours à l'œil. */
+        + '<div class="jry-rr-h"><span class="jry-rr-m">' + _JR_MOIS_LONG[m] + '</span></div>'
         + '<div class="jry-rr-v">' + (vide ? '<span class="jry-vide">—</span>' : _esc(fR(b.r)) + '<i>R</i>') + '</div>'
         + '<div class="jry-rr-t">' + (vide ? '' : '<i style="width:' + larg + '%;background:' + teinte + '"></i>') + '</div>'
-        + '<div class="jry-rr-f">' + (b
-            ? b.n + (b.n > 1 ? ' trades' : ' trade') + (b.taux != null ? ' · ' + b.taux + '%' : '')
-            : 'aucun trade') + '</div>'
+        /* ⚠️ LE MOIS EN COURS N'AFFICHE PAS SON TAUX, et ce n'est pas qu'une affaire de place (elle
+           manque : mesuré, la ligne demande 117 px dans un pied de 109). C'est surtout que ces douze
+           pavés existent POUR ÊTRE COMPARÉS, et qu'un taux de réussite sur cinq trades d'un mois
+           inachevé ne se compare pas à celui d'un mois clos — l'afficher sur la même ligne inviterait
+           précisément à la comparaison qu'il ne supporte pas. Le chiffre n'est pas perdu : il est
+           dans l'infobulle du pavé, et dans le tableau juste en dessous. */
+        + '<div class="jry-rr-f">'
+        +   (enCours ? '<b class="jry-rr-now">En cours</b> · ' : '')
+        +   (b ? b.n + (b.n > 1 ? ' trades' : ' trade') + ((b.taux != null && !enCours) ? ' · ' + b.taux + '%' : '')
+               : 'aucun trade') + '</div>'
         + '</div>';
     }).join('');
     return '<div class="jry-rrgrid">' + cases + '</div>';
@@ -15599,17 +15709,28 @@ document.addEventListener('DOMContentLoaded', ()=>{
       + '</div></div>'
       + '<div class="jrd-sec"><div class="jrd-sec-h">PERFORMANCE CLÉ</div><div class="jrd-rings">'
         + _jrRing(fR(avgW), 'R moy. gagnant', '#00e676') + _jrRing(fR(avgL), 'R moy. perdant', '#ff3d00')
-        + _jrRing(longN + ' / ' + shortN, 'Long / Short', _JR_CAT[0])
+        /* Long / Short EST une proportion : la part des positions à l'achat. Elle avait donc droit à
+           sa jauge, et ne l'avait pas — un des rares chiffres du tableau à porter un vrai maximum. */
+        + _jrRing(longN + ' / ' + shortN, 'Long / Short', _JR_CAT[0], null, (longN + shortN) ? longN / (longN + shortN) : null)
         + _jrRing((Math.round(rrA * 100) / 100).toString().replace('.', ','), 'RR cible moyen', _JR_CAT[2])
         /* « Nbs Trade (Month) » de la référence : le rythme du MOIS EN COURS, que ni le total ni le
            taux ne donnent. Un journal peut afficher un excellent cumul et n'avoir rien tenu depuis
            trois semaines — c'est cette information-là qui manquait. */
         + _jrRing(String(_jrMoisCourant(L)), 'Trades ce mois-ci', _JR_CAT[3], _JR_MOIS_LONG[new Date().getMonth()])
-      + '</div><div class="jrd-rings" style="margin-top:10px;">'
+        /* ⚠️ UNE SEULE GRILLE POUR LES NEUF, ET NON DEUX EMPILÉES. Deux conteneurs `auto-fit`
+           calculent leurs colonnes SÉPARÉMENT : cinq tuiles dans le premier, quatre dans le second,
+           donc deux largeurs de colonne différentes et une rangée du bas qui ne s'aligne pas sur
+           celle du haut. Une grille unique laisse le retour à la ligne se faire tout seul, et les
+           neuf tuiles gardent la même largeur. */
         + _jrRing(pf == null ? '-' : (Math.round(pf * 100) / 100).toString().replace('.', ','), 'Profit factor', pf != null && pf >= 1 ? '#00e676' : '#ff8f00', 'gains / pertes')
         + _jrRing(expR == null ? '-' : fR(expR), 'Espérance / trade', expR != null && expR >= 0 ? '#00cc99' : '#ff3d00', 'en R')
         + _jrRing(maxDD > 0 ? '−' + (ddInD ? _jrMoneyShort(maxDD).replace(/^\+/, '') : fR(maxDD).replace(/^\+/, '') + ' R') : '0', 'Max drawdown', '#ff8f00', 'depuis un plus haut')
-        + _jrRing(String(worstStreak), 'Série perdante max', worstStreak >= 4 ? '#ff3d00' : _JR_CAT[1], 'trades d\'affilée')
+        /* ⚠️ « SÉRIE PERDANTE MAX » A QUITTÉ CETTE RANGÉE, ET CE N'EST PAS UNE PERTE. Le bloc
+           CALIBRAGE, quelques lignes plus bas, titre déjà « Si votre pire série revient (N pertes
+           d'affilée) » : le même nombre était donc écrit DEUX FOIS sur le même écran, une fois en
+           chiffre nu et une fois là où il sert vraiment à quelque chose — chiffré en euros à trois
+           niveaux de risque. C'est l'épuration demandée, et accessoirement les huit tuiles restantes
+           tombent sur une rangée pleine au lieu d'en laisser une seule, orpheline, sur la suivante. */
       + '</div></div>'
       + _jrCalibrage(L, { wr: wrD, avgW, avgL, worstStreak, rs })
       + '<div class="jrd-sec"><div class="jrd-sec-h">OPTIMISATION</div><div class="jrd-grid">'

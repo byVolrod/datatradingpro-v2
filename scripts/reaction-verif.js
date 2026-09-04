@@ -116,9 +116,23 @@ function phaseRepere() {
         const f = APP.indexOf('\n}\n', d);
         v('_dessinerReaction est extractible d\'app.js', d >= 0 && f > d);
         if (d < 0 || f < 0) return;
-        const SRC = APP.slice(d, f + 2)
-          + '\nlet _rxChart=null,_rxObs=null,_rxTimer=null;'
-          + '\nfunction _deskLight(){return false;}';
+        /* ⚠️ LE REGISTRE PART AVEC LA FONCTION, ET CE N'EST PAS UN DÉTAIL DE PLOMBERIE. Le banc
+           posait ici trois variables `_rxChart / _rxObs / _rxTimer` de son cru pour que le code
+           extrait s'exécute : il fabriquait donc lui-même le mécanisme qu'il était censé éprouver.
+           Le 04/09, ces trois variables SE SONT RÉVÉLÉES ÊTRE LE DÉFAUT (une seule place pour tout
+           le desk, donc un deuxième panneau détruisait le premier) — et le banc, en les recréant,
+           n'aurait rien pu voir. On extrait désormais le VRAI registre d'app.js, comme la fonction. */
+        const r0 = APP.indexOf('const _rxVivants = new Map();');
+        v('le registre des graphiques vivants est extractible d\'app.js', r0 >= 0 && r0 < d,
+          'sans lui, le banc recréerait lui-même le mécanisme qu\'il éprouve');
+        if (r0 < 0 || r0 >= d) return;
+        /* ⚠️ `const` DÉCLARÉ DANS UN `eval` INDIRECT VA DANS L'ENVIRONNEMENT LEXICAL GLOBAL, que
+           `page.evaluate` ne voit pas depuis son propre monde (les `function`, elles, atterrissent
+           sur l'objet global et restent visibles). La référence au registre est donc publiée DANS
+           le source évalué, seul endroit d'où elle soit atteignable. */
+        const SRC = APP.slice(r0, d) + APP.slice(d, f + 2)
+          + '\nfunction _deskLight(){return false;}'
+          + '\nwindow._rxRef = _rxVivants;';
 
         nav = await puppeteer.launch({ executablePath: exe, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 
@@ -228,6 +242,79 @@ function phaseRepere() {
         v('la ligne de dernier prix de la bibliothèque est coupée',
           /lastValueVisible: false, priceLineVisible: false,/.test(APP),
           'sans elle, un second trait rouge court sur toute la largeur');
+
+        /* ══ 3. DEUX PANNEAUX OUVERTS EN MÊME TEMPS (04/09, capture utilisateur) ═══════════════
+           SIGNALEMENT : « je peux pas ouvrir les 2 en même temps ». Sur la capture, deux
+           publications de 14 h 30 ont leur panneau ouvert : celle du bas montre ses bougies, celle
+           du HAUT est un rectangle noir où ne survivent que le trait en pointillé et le rond rouge.
+
+           CE QUE MESURE CE CONTRÔLE, ET POURQUOI PAS AUTRE CHOSE. La bibliothèque pose ses canevas
+           DANS l'hôte ; son `remove()` les retire, mais laisse le calque `.nrx-cible` que nous
+           posons nous-mêmes avant elle — d'où le cadre vide surmonté d'un repère, exactement la
+           capture. On compte donc les canevas de CHAQUE hôte après avoir dessiné dans les deux.
+           Lire un état interne (une variable, une taille de registre) n'aurait rien dit du canevas
+           réellement présent, qui est ce que le client regarde.
+           ⚠️ ET LA CONTREPARTIE EST ÉPROUVÉE DANS LA FOULÉE. Le nettoyage global était juste dans
+           son intention : sans lui, chaque ouverture laisserait un graphique et un observateur
+           derrière elle. Redessiner DEUX FOIS dans le même hôte ne doit donc pas empiler deux jeux
+           de canevas. Sans ce second contrôle, « supprimer le nettoyage » passerait le premier. */
+        console.log('\n── 3. Deux panneaux ouverts en même temps ──');
+        const duo = await (async () => {
+          const page = await nav.newPage();
+          await page.setViewport({ width: 1000, height: 900, deviceScaleFactor: 1 });
+          await page.setContent('<html data-theme="dark"><head>'
+            + '<link rel="stylesheet" href="http://localhost:' + PORT + '/css/style.css">'
+            + '<script src="http://localhost:' + PORT + '/js/vendor/lightweight-charts-4.2.3.js"></script>'
+            + '</head><body style="margin:20px;background:#0c0c0e">'
+            + '<div class="nrx-lwc" id="a" style="width:900px"></div>'
+            + '<div class="nrx-lwc" id="b" style="width:900px"></div>'
+            + '</body></html>', { waitUntil: 'networkidle0' });
+          const compter = () => page.evaluate(() => ({
+            a: document.querySelectorAll('#a canvas').length,
+            b: document.querySelectorAll('#b canvas').length,
+            cibleA: !!document.querySelector('#a .nrx-cible'),
+            vivants: window._rxRef ? window._rxRef.size : -1,
+          }));
+          await page.evaluate((src) => {
+            const T0 = Date.UTC(2026, 7, 26, 12, 38, 0); const c = []; let px = 1.1680;
+            for (let k = -60; k <= 60; k++) {
+              px += Math.sin(k / 7) * 0.00012;
+              c.push({ t: T0 + k * 60000, o: px, h: px + 0.0002, l: px - 0.0002, c: px + 0.00005 });
+            }
+            /* ⚠️ `eval` DIRECT DÉCLARE DANS LA PORTÉE LOCALE DU RAPPEL, et cette phase-ci appelle
+               `_dessinerReaction` depuis un AUTRE rappel — il faut donc la portée globale. L'appel
+               indirect `(0, eval)` l'obtient ; l'`eval` direct rendait « _dessinerReaction is not
+               defined » au deuxième panneau. */
+            (0, eval)(src);
+            window._jeu = c; window._T0 = T0;
+            _dessinerReaction(document.getElementById('a'), c, T0, 'EUR/USD');
+          }, SRC);
+          await page.evaluate(() => new Promise(r => setTimeout(r, 250)));
+          const seul = await compter();
+          // LE SECOND PANNEAU : c'est son ouverture qui effaçait le premier.
+          await page.evaluate(() => { _dessinerReaction(document.getElementById('b'), window._jeu, window._T0, 'EUR/USD'); });
+          await page.evaluate(() => new Promise(r => setTimeout(r, 250)));
+          const deux = await compter();
+          // LA CONTREPARTIE : rouvrir le MÊME panneau ne doit rien empiler.
+          await page.evaluate(() => { _dessinerReaction(document.getElementById('a'), window._jeu, window._T0, 'EUR/USD'); });
+          await page.evaluate(() => new Promise(r => setTimeout(r, 250)));
+          const redessine = await compter();
+          await page.close();
+          return { seul, deux, redessine };
+        })();
+
+        v('un premier panneau seul peint bien ses canevas', duo.seul.a >= 1,
+          duo.seul.a + ' canevas dans le premier hôte');
+        /* LE CONTRÔLE QUI PORTE LE SIGNALEMENT. */
+        v('ouvrir un SECOND panneau n\'efface pas le premier', duo.deux.a >= 1 && duo.deux.b >= 1,
+          'premier hôte : ' + duo.deux.a + ' canevas · second : ' + duo.deux.b
+            + (duo.deux.a === 0 && duo.deux.cibleA ? ' — le cadre noir surmonté du repère, exactement la capture' : ''));
+        v('… et les deux graphiques sont bien deux, pas un partagé', duo.deux.vivants === 2,
+          duo.deux.vivants + ' graphique(s) au registre');
+        v('rouvrir le MÊME panneau ne l\'empile pas (le nettoyage reste)',
+          duo.redessine.a === duo.seul.a && duo.redessine.vivants === 2,
+          duo.redessine.a + ' canevas dans le premier hôte (contre ' + duo.seul.a
+            + ' à l\'origine) · ' + duo.redessine.vivants + ' au registre');
       } catch (e) {
         v('la phase navigateur s\'exécute', false, e.message);
       } finally {

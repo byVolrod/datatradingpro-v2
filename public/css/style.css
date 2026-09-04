@@ -11109,21 +11109,33 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .jrd { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 20px; }
 .jrd-sec { border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px 16px; background: var(--bg); }
 .jrd-sec-h { font-size: 11px; font-weight: var(--fw-bold); letter-spacing: .08em; color: var(--orange); text-transform: uppercase; margin-bottom: 14px; }
-.jrd-rings { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
-.jrd-ring { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 0; }
-/* ⚠️ L'ANNEAU EST UN ARC, PLUS UNE BORDURE (04/09, refonte demandée, capture de référence).
-   Une bordure pleine ne porte qu'une information — sa couleur — et sa surface ne veut rien dire.
-   L'arc, lui, se lit avant le chiffre : à quatre cadrans côte à côte, l'œil compare des remplissages
-   et non des nombres. La PISTE éteinte reste toujours visible (règle de la charte : une jauge n'est
-   jamais « vide »), et un cadran sans maximum honnête garde un arc plein — voir `_jrRing`. */
-.jrd-ring-c { position: relative; width: 98px; height: 98px; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 0 4px; box-sizing: border-box; border-radius: 50%; }
+/* ══ LES CHIFFRES DU JOURNAL : DES TUILES DENSES, ET UNE JAUGE SEULEMENT LÀ OÙ ELLE COMPTE ═════
+   04/09, demande utilisateur : « améliore la lisibilité du journal, revois l'UX/UI, vérifie la
+   cohérence avec le desk ». Mesuré sur capture avant reprise : TREIZE cadrans de 98 px, tous de la
+   même taille, sur près de 800 px de hauteur. Trois défauts, et aucun n'est affaire de goût :
+     · AUCUNE HIÉRARCHIE. « Total R », le chiffre qui juge l'année, avait exactement le poids visuel
+       de « Trades ce mois-ci ». Quand tout crie, rien ne se lit.
+     · ONZE CERCLES SUR TREIZE ÉTAIENT PLEINS. Un arc plein est une jauge à fond : il annonce un
+       maximum atteint alors qu'il n'y a PAS de maximum. Seuls le taux de réussite, la part de
+       positions longues et les mois travaillés en ont un.
+     · LA DENSITÉ EST LA CHARTE DU DESK (« cockpit / salle de marché »), et cet écran-là était le
+       plus aéré du produit — un cercle de 98 px pour écrire « 120 ».
+   La tuile fait 3 lignes de texte contre un cercle, s'aligne en grille, et la JAUGE prend la place
+   du filet de couleur exactement quand la valeur a un maximum honnête. Le cercle n'a pas disparu :
+   il est devenu le signal « ce chiffre-ci a une échelle », au lieu d'être la décoration de tous. */
+.jrd-rings { display: grid; grid-template-columns: repeat(auto-fit, minmax(184px, 1fr)); gap: 10px; }
+.jrd-ring { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
+.jrd-ring:hover { border-color: var(--border2); background: rgba(255,255,255,.02); }
+/* Le filet : l'identité de la mesure, quand le chiffre n'a pas de maximum à montrer. */
+.jrd-ring-b { flex: none; width: 3px; align-self: stretch; min-height: 34px; border-radius: 2px; }
+.jrd-ring-c { position: relative; flex: none; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; }
 .jrd-arc { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
-.jrd-arc-t { fill: none; stroke: var(--bg5, #232429); stroke-width: 7; }
-.jrd-arc-v { fill: none; stroke-width: 7; stroke-linecap: round; transition: stroke-dasharray .45s var(--ease, ease); }
-/* white-space:nowrap → la valeur (ex. "+12,3 k$") ne passe JAMAIS à la ligne dans l'anneau (le "$" ne saute plus) */
-.jrd-ring-v { font-family: var(--font-mono); font-size: 17px; font-weight: var(--fw-bold); white-space: nowrap; line-height: 1; letter-spacing: -0.2px; }
-.jrd-ring-l { font-size: 11px; color: var(--text2); font-weight: var(--fw-semibold); }
-.jrd-ring-s { font-size: 10px; color: var(--text3); }
+.jrd-arc-t { fill: none; stroke: var(--bg5, #232429); stroke-width: 11; }
+.jrd-arc-v { fill: none; stroke-width: 11; stroke-linecap: round; transition: stroke-dasharray .45s var(--ease, ease); }
+.jrd-ring-t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.jrd-ring-v { font-family: var(--font-mono); font-size: 17px; font-weight: var(--fw-bold); white-space: nowrap; line-height: 1.15; letter-spacing: -.02em; }
+.jrd-ring-l { font-size: 11px; color: var(--text2); font-weight: var(--fw-semibold); line-height: 1.25; }
+.jrd-ring-s { font-size: 10px; color: var(--text3); line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jrd-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; margin-top: 14px; }
 .jrd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
 .jrd-card { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 11px 13px; min-width: 0; }
@@ -21213,7 +21225,11 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
 
 /* Trois cartes de tête. `auto-fit` + `minmax` et non trois colonnes figées : la même grille sert le
    desk plein écran et une carte étroite de Mon Desk, sans second jeu de règles. */
-.jry-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+/* ⚠️ `align-items: start` ET NON L'ÉTIREMENT PAR DÉFAUT. Mesuré sur capture : la carte
+   « Résultat des mois » porte trois barres, soit ~90 px de contenu, et se retrouvait tirée à la
+   hauteur des deux graphiques voisins (190 px) — près de 200 px de noir sous ses trois lignes. Une
+   carte n'a pas à mentir sur ce qu'elle contient pour faire joli avec sa voisine. */
+.jry-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; }
 .jry-chart { width: 100%; height: 190px; display: block; }
 .jry-chart--trades { height: 230px; }
 .jry-tradeswrap { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 14px; align-items: center; }
@@ -21262,7 +21278,11 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
 .jry-rrgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; }
 .jry-rr { border: 1px solid var(--border); border-radius: 6px; padding: 9px 11px 10px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; min-width: 0; transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
 .jry-rr-h { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.jry-rr-m { font-size: 11px; font-weight: var(--fw-semibold); color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Le nom du mois passe AVANT le badge : mesuré, « Septembre » se rendait « Septe… » parce que le
+   badge « En cours » gardait sa largeur pendant que le nom, seul à porter `overflow: hidden`,
+   cédait le premier. Le badge se resserre ici, et le nom garde la priorité. */
+.jry-rr-m { flex: 1 1 auto; font-size: 11px; font-weight: var(--fw-semibold); color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jry-rr-now { color: var(--orange); font-weight: var(--fw-bold); }
 .jry-rr-v { font-family: var(--font-mono); font-size: 19px; font-weight: var(--fw-bold); line-height: 1; letter-spacing: -.02em; color: var(--text); white-space: nowrap; }
 .jry-rr-v i { font-style: normal; font-size: 11px; color: var(--text3); margin-left: 3px; font-weight: var(--fw-semibold); }
 /* La trame éteinte reste visible même à zéro (charte : « jamais vide ») — sans elle, un mois à
@@ -22003,8 +22023,20 @@ html[data-theme="light"] .dtp-skel-txt .cal-kb-quote {
    crier, et les listes gardent leur calme partout ailleurs. Rien ne change au bureau.
    ══════════════════════════════════════════════════════════════════════════════════════════════ */
 @media (hover: none) {
-  /* Journal — ouvrir la fiche d'un trade. C'était la seule porte d'entrée. */
-  .jrd-open { opacity: .85; pointer-events: auto; }
+  /* Journal — ouvrir la fiche d'un trade. C'était la seule porte d'entrée.
+     ⚠️ MAIS RENDUE VISIBLE EN PERMANENCE, ELLE RECOUVRAIT LE NOM DE LA PAIRE (04/09, mesuré). Au
+     bureau la commande n'apparaît qu'au survol : elle peut donc se poser sur le texte, personne ne
+     lit et ne survole en même temps. Au doigt il n'y a pas de survol, elle est là TOUT LE TEMPS —
+     et elle est posée en absolu à droite de la cellule. Mesure : la cellule « Paires » fait 85 px,
+     le nom « AUDUSD » court jusqu'à 88 px, et le bouton commence à 57 px. Il mordait donc sur les
+     quatre derniers caractères de CHAQUE ligne : on ne distinguait plus EURUSD d'EURJPY dans la
+     toute première colonne du journal.
+     Le libellé « OUVRIR » part (l'icône et l'infobulle disent la même chose, et c'est lui qui pèse
+     les deux tiers de la largeur), et la cellule réserve la place du reste : le nom se tronque
+     proprement s'il le faut, il n'est plus recouvert. */
+  .jrd-open { opacity: .85; pointer-events: auto; padding: 3px 4px; }
+  .jrd-open span { display: none; }
+  .jr-grid tbody td:has(> .jrd-open), .wdg-jrt-row td:has(> .jrd-open) { padding-right: 30px; }
   /* Journal — supprimer une ligne, et sélectionner des lignes. La croix était le piège décrit
      ci-dessus : active et invisible. */
   .jr-rowdel { opacity: .8; }
