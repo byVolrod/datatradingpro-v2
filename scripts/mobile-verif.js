@@ -456,8 +456,14 @@ function phaseServiceWorker() {
            avec le layout ★, ce qui ramenait par accident le bon décor. Cette réécriture est le défaut
            corrigé le 04/09 (le modèle de l'utilisateur changeait en naviguant) ; en la retirant, on a
            découvert que ce banc s'appuyait dessus. Le jeu d'essai dit maintenant ce qu'il veut dire. */
-        const CFG = { cfg: { active: 'b', gap: 'tight', gapV: 2, deskV: 99, actV: 2, tipSeen: 1, layouts: [{ id: 'b', name: 'Banc', fav: true,
-          items: LIB.map(id => ({ w: id, gw: 12, gh: 10 })) }] } };
+        /* ⚠️ DEUX MODÈLES, ET LE SECOND N'EST PAS DÉCORATIF : la barre des modèles de Mon Desk est
+           MASQUÉE quand un seul est visible (`wdg-bar--vide`, demande user 04/08). Avec un seul
+           modèle, le contrôle de recouvrement plus bas s'exercerait sur une barre absente — vert
+           sans avoir rien regardé, exactement le genre de faux vert que ce fichier traque. */
+        const CFG = { cfg: { active: 'b', gap: 'tight', gapV: 2, deskV: 99, actV: 2, tipSeen: 1, layouts: [
+          { id: 'b', name: 'Banc', fav: true, items: LIB.map(id => ({ w: id, gw: 12, gh: 10 })) },
+          { id: 'b2', name: 'Second', items: [{ w: 'horloge', gw: 12, gh: 10 }] },
+        ] } };
         const srvLib = require('http').createServer((rq, rs) => {
           const u = rq.url.split('?')[0];
           if (u === '/api/me' || u === '/api/auth/me' || u === '/api/session' || u === '/api/user') {
@@ -480,6 +486,41 @@ function phaseServiceWorker() {
             await new Promise(r => setTimeout(r, 4000));
             await pageL.keyboard.press('Escape');
             await new Promise(r => setTimeout(r, 3000));
+            /* ══ LA BARRE DES MODÈLES NE DOIT PAS SE POSER SUR LES CARTES (04/09, capture user :
+               « sur mobile je n'arrive pas à voir tout le widget entier, ça me montre une case
+               noire ») ══════════════════════════════════════════════════════════════════════════
+               Sur téléphone cette barre est en `position: fixed`, et le corps lui réserve sa place
+               par un `padding-top`. Elle se posait pourtant 52 px sous le HAUT DU PANNEAU au lieu
+               de la barre du haut — donc PAR-DESSUS la première carte — parce qu'un ancêtre au
+               `transform` non nul devient le bloc conteneur d'un descendant fixe. Le coupable :
+               le fondu de changement de vue (`dtpViewIn`), qui animait `transform` avec
+               `animation-fill-mode: both` et laissait `matrix(1,0,0,1,0,0)` en vigueur une fois
+               fini. Mesuré : barre à 130 px avec l'animation, 47 px sans.
+               ⚠️ ON MESURE LES DEUX CHOSES, ET C'EST VOULU. Le recouvrement est le SYMPTÔME, que
+               l'utilisateur voit ; le `transform` sur une vue est la CAUSE, et elle casserait de la
+               même façon n'importe quel autre élément fixe posé dans une vue — volet, menu,
+               infobulle. Ne garder que le symptôme laisserait la porte ouverte aux suivants. */
+            const barre = await pageL.evaluate(() => {
+              const b = document.querySelector('.wdg-bar');
+              const c = document.querySelector('#view-widgets .wdg-card');
+              if (!b || !c) return null;
+              const rb = b.getBoundingClientRect(), rc = c.getBoundingClientRect();
+              const vues = [...document.querySelectorAll('.view-panel:not(.hidden)')]
+                .map((v) => ({ id: v.id, tr: getComputedStyle(v).transform }))
+                .filter((x) => x.tr && x.tr !== 'none');
+              return { masquee: b.classList.contains('wdg-bar--vide'),
+                       recouvre: Math.round(Math.min(rb.bottom, rc.bottom) - Math.max(rb.top, rc.top)),
+                       barreTop: Math.round(rb.top), carteTop: Math.round(rc.top), vues };
+            });
+            if (!barre) console.log('  ~ barre des modèles ou carte absente → contrôle abstenu.');
+            else if (barre.masquee) console.log('  ~ barre des modèles masquée (un seul modèle visible) → contrôle abstenu.');
+            else {
+              v('la barre des modèles ne recouvre pas la première carte',
+                barre.recouvre <= 0, barre.recouvre + ' px de recouvrement (barre à ' + barre.barreTop + ', carte à ' + barre.carteTop + ')');
+              v('… et aucune vue ne porte de `transform` (qui piégerait tout élément fixe)',
+                barre.vues.length === 0,
+                barre.vues.map((x) => '#' + x.id + ' → ' + x.tr).join(' · '));
+            }
             L = await pageL.evaluate(() => {
               const coupes = [];
               document.querySelectorAll('#view-widgets .wdg-card').forEach(c => {

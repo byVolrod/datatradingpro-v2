@@ -2800,7 +2800,22 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .view-panel.hidden { display: none !important; }
 
 /* ── Micro-interactions subtiles (fondu au changement d'onglet) ── */
-@keyframes dtpViewIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+/* ⚠️ CE FONDU N'A PLUS LE DROIT DE TOUCHER `transform`, ET LA RAISON N'EST PAS ESTHÉTIQUE (04/09,
+   capture utilisateur : « sur mobile je n'arrive pas à voir tout le widget entier, ça me montre une
+   case noire »). MESURÉ, pas supposé : avec l'animation active, `#view-widgets` calcule
+   `transform: matrix(1, 0, 0, 1, 0, 0)` — l'identité, mais PAS `none` — parce que
+   `animation-fill-mode: both` maintient la propriété en vigueur une fois l'animation finie. Or un
+   ancêtre au `transform` non nul devient le BLOC CONTENEUR de ses descendants en
+   `position: fixed`. Sur téléphone, la barre des modèles de Mon Desk est justement fixe : au lieu
+   de se poser sous la barre du haut (47 px d'écran, là où le `padding-top` du corps lui réserve sa
+   place), elle se posait 52 px sous le HAUT DU PANNEAU, c'est-à-dire PAR-DESSUS la première carte.
+   D'où la bande noire sur le widget, et la place réservée restée vide juste au-dessus.
+   Preuve : en neutralisant cette seule animation dans un Chromium en téléphone, la barre repasse de
+   130 px à 47 px et le `transform` du panneau repasse à `none`.
+   Le glissement de 4 px est donc retiré — il coûtait, en silence, le bon positionnement de TOUT
+   élément fixe vivant dans une vue. Le fondu, lui, reste entier : c'est lui qui adoucit le
+   changement d'onglet, et il n'a jamais eu besoin du `transform` pour cela. */
+@keyframes dtpViewIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dtpFadeIn { from { opacity: 0; } to { opacity: 1; } }
 .view-panel:not(.hidden) { animation: dtpViewIn var(--t-med) var(--ease-out) both; }
 .right-tab-panel.active  { animation: dtpFadeIn var(--t-med) var(--ease) both; }
@@ -13461,7 +13476,19 @@ html[data-theme="light"] .wdg-thumb--lbl b { color: color-mix(in srgb, var(--tc,
   /* ── INSTITUTIONS — lecteur : bandeau nav. Le titre du rapport (seul identifiant) était rogné à néant
         et « ‹ Retour à la liste » se cassait sur 2-3 lignes. On fait retomber le titre sur sa propre
         ligne pleine largeur et on empêche le Retour de se casser. ── */
-  .br-rnav { flex-wrap: wrap; }
+  /* ⚠️ `flex-wrap: wrap` SANS LIBÉRER LA HAUTEUR, C'EST UN RECOUVREMENT GARANTI (04/09, capture
+     utilisateur : « corrige ce problème où y'a tous les boutons, ouverture rapport institution »).
+     La barre est haute de 44 px EN DUR. Autorisée à passer à la ligne mais bloquée à cette hauteur,
+     ses deuxième et troisième rangées — « Masquer les éclairages », le badge de l'institution, puis
+     le titre du rapport — sortaient de sa boîte et se peignaient PAR-DESSUS la rangée d'étiquettes
+     juste en dessous. C'est très exactement ce que montre la capture.
+     ⚠️ ET C'EST, UNE FOIS DE PLUS, LA MOITIÉ NON CORRIGÉE D'UN COUPLE. `.arlib-rnav` (lecteur
+     Analystes) a reçu le 02/09 `height: auto; min-height: 44px; padding: 6px 12px; row-gap: 6px` ;
+     `.br-rnav` (lecteur Institutions) n'a reçu QUE le `flex-wrap`. Deux barres qui font le même
+     travail, écrites deux fois, dont une seule complétée — le même défaut de copier-coller que le
+     fichier documente déjà vingt lignes plus haut pour le fond et le filet de ces deux barres, et
+     la raison pour laquelle l'utilisateur a dû le signaler une seconde fois. */
+  .br-rnav { flex-wrap: wrap; height: auto; min-height: 44px; padding: 6px 12px; row-gap: 6px; }
   .br-back-btn { flex-shrink: 0; white-space: nowrap; }
   .br-rnav-title { flex: 1 1 100%; order: 3; text-align: left; }
   /* Barre PDF (rendu canvas) : titre long tronqué proprement au lieu de wrapper et pousser le compteur */

@@ -80,6 +80,29 @@ function phaseFeuille() {
   v('… et dans le lecteur monté en carte de Mon Desk',
     /\.wdg-vuehost #arlib-rcontent[^{]*\{[^}]*env\(safe-area-inset-bottom/.test(css));
 
+  /* ══ LES DEUX BARRES DE LECTEUR SE TIENNENT (04/09, capture utilisateur) ══════════════════════
+     « Corrige ce problème où y'a tous les boutons, ouverture rapport institution » — la capture
+     montre « Masquer les éclairages », le badge de l'institution et le titre EMPILÉS PAR-DESSUS la
+     rangée d'étiquettes. La cause : `flex-wrap: wrap` posé sur `.br-rnav` sans libérer sa hauteur,
+     restée à 44 px en dur. Une barre qui a le droit de passer à la ligne et pas celui de grandir
+     déborde par construction.
+     ⚠️ CE CONTRÔLE EST APPARIÉ, ET C'EST TOUT SON INTÉRÊT. Les deux lecteurs ont deux barres
+     jumelles écrites deux fois (`.arlib-rnav`, `.br-rnav`), et l'histoire du fichier montre qu'on
+     n'en corrige qu'une à la fois — fond et filet le 02/09, hauteur le 04/09, à chaque fois
+     signalés deux fois par l'utilisateur. On exige donc les MÊMES déclarations des deux côtés :
+     la prochaine correction d'une seule des deux rougira ici. */
+  console.log('\n── Les deux barres de lecteur passent à la ligne SANS se recouvrir ──');
+  const _bar = (sel) => {
+    const i = css.indexOf(sel + ' { flex-wrap: wrap;');
+    return i < 0 ? '' : css.slice(i, css.indexOf('}', i));
+  };
+  [['.arlib-rnav', 'Analystes'], ['.br-rnav', 'Institutions']].forEach(([sel, nom]) => {
+    const d = _bar(sel);
+    v('lecteur ' + nom + ' : la barre grandit au lieu de déborder',
+      /height:\s*auto/.test(d) && /min-height:\s*44px/.test(d),
+      d ? 'déclaré : ' + d.trim() : sel + ' n\'enroule pas (ou plus) : contrôle sans objet');
+  });
+
   console.log('\n── La règle mobile du lecteur n\'est plus écrasée par une règle de même poids ──');
   /* On ne se contente pas de « une règle existe » : c'est justement ce que disait la feuille
      pendant les semaines où elle ne s'appliquait pas. On exige que le sélecteur mobile porte l'ID
