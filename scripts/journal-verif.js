@@ -79,6 +79,32 @@ function jeuDEssai() {
   return out;
 }
 
+/* ══ CALIBRAGE DU CAPITAL — LES TROIS ISSUES (04/09, retour d'un client sur le Discord) ═════════
+   « Je l'utilise, mais pour calibrer mon capital je trouve assez moyen ; ça reste un très bon outil
+    pour tracker. » Le bloc de calibrage a TROIS issues, dont deux sont des REFUS — et ce sont elles
+   qui comptent le plus : un bloc qui conseille toujours quelque chose ment une fois sur deux.
+   Le pire cas n'est pas de se taire, c'est d'annoncer « risquez 0,5 % » à quelqu'un dont la méthode
+   est perdante. On éprouve donc les trois, avec un journal fabriqué pour chacune. */
+const CALIB = [
+  { nom: 'un avantage réel → un chiffre applicable', edge: true, n: 60, etat: 'jrc-verdict--pos', mot: /Risque conseillé/ },
+  { nom: 'AUCUN avantage → on refuse de conseiller une taille', edge: false, n: 60, etat: 'jrc-verdict--neg', mot: /Aucun avantage mesurable/ },
+  { nom: 'échantillon trop court → on mesure sans conclure', edge: true, n: 8, etat: 'jrc-verdict--attente', mot: /Pas encore d'avis/ },
+];
+/* `edge` vrai : six gains de 1,8 R pour quatre pertes de 1 R — un avantage franc. Faux : quatre
+   gains de 1 R pour six pertes de 1 R, donc une espérance négative que AUCUNE taille de position ne
+   redresse. Les deux séries sont déterministes. */
+function journalCalib(edge, n) {
+  const out = []; let eq = 100000;
+  for (let k = 0; k < n; k++) {
+    const gagne = (k % 10) < (edge ? 6 : 4);
+    const r = gagne ? (edge ? 1.8 : 1.0) : -1.0;
+    const pl = r * 1000; eq += pl;
+    out.push({ id: 'c' + k, ts: Date.UTC(2026, (k / 6 | 0) % 9, 1 + (k % 25), 10, 0), pair: 'EURUSD',
+      dir: 'BUY', r, pl, pnlPct: +(r * 0.9).toFixed(2), equity: +eq.toFixed(2), result: r > 0 ? 'Profit' : 'Loss' });
+  }
+  return out;
+}
+
 /* ══ PHASE 0 : L'AIGUILLAGE DES ONGLETS, SANS NAVIGATEUR ═══════════════════════════════════════ */
 function phaseSource() {
   console.log('\n── L\'aiguillage des onglets ──');
@@ -102,6 +128,9 @@ function phaseSource() {
   catch { console.log('\n[Journal] puppeteer-core absent → phase navigateur abstenue.\n'); process.exit(ko ? 1 : 0); }
 
   const ENTREES = jeuDEssai();
+  /* Le journal SERVI par le bouchon : mutable, pour rejouer la page sur un autre jeu sans réécrire
+     un second serveur. */
+  let journalServi = ENTREES;
   const srv = serveur();
   await new Promise((r) => srv.listen(PORT, r));
   const srvJ = http.createServer((rq, rs) => {
@@ -113,7 +142,7 @@ function phaseSource() {
     }
     if (u === '/api/journal') {
       rs.writeHead(200, { 'Content-Type': 'application/json' });
-      return rs.end(JSON.stringify({ entries: ENTREES, custom: false, startCap: 100000 }));
+      return rs.end(JSON.stringify({ entries: journalServi, custom: false, startCap: 100000 }));
     }
     srv.emit('request', rq, rs);
   });
@@ -220,6 +249,42 @@ function phaseSource() {
       const totR = A.anneaux.find((r) => /R de l'année/.test(r.lbl || ''));
       v('… et un cadran SANS maximum honnête garde un arc plein',
         !!totR && !totR.arc, 'arc du total R : ' + (totR ? totR.arc : 'anneau absent'));
+
+      /* ══ CALIBRAGE DU CAPITAL — LES TROIS VERDICTS (04/09, retour d'un client sur le Discord) ══
+         « Je l'utilise, mais pour calibrer mon capital je trouve assez moyen. » Le bloc répond en
+         calculant sur SES trades — et il a trois issues possibles, dont deux sont des REFUS. Ce
+         sont elles qui comptent le plus : un bloc de calibrage qui conseille toujours quelque
+         chose est un bloc qui ment une fois sur deux.
+         ⚠️ ON REJOUE LES TROIS, avec un journal fabriqué pour chacune : un avantage réel, une série
+         SANS avantage, et un échantillon trop court. Éprouver le seul cas favorable laisserait
+         passer le plus coûteux — afficher « risquez 0,5 % » à quelqu'un dont la méthode est
+         perdante. */
+      console.log('\n── Calibrage du capital : les trois verdicts ──');
+      /* ⚠️ ON RECHARGE LA PAGE POUR CHAQUE CAS, ET C'EST DÉLIBÉRÉ. La tentation était d'exposer un
+         crochet `window._jrTestSet(...)` pour remplacer la liste en mémoire : c'est plus rapide, et
+         c'est une porte de test dans le code LIVRÉ, qu'aucun contrôle ne protège ensuite. On sert
+         donc trois journaux différents par le bouchon et on relit la page — le chemin réel du
+         produit, celui qu'emprunte un vrai client. */
+      for (const c of CALIB) {
+        journalServi = journalCalib(c.edge, c.n);
+        await page.goto(`http://localhost:${PORT + 1}/index.html`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await new Promise((r) => setTimeout(r, 2400));
+        await page.evaluate(() => {
+          const b = document.getElementById('journal-btn');
+          if (b) b.click(); else if (typeof activateView === 'function') activateView('journal');
+        });
+        await new Promise((r) => setTimeout(r, 2200));
+        await page.evaluate(() => { if (typeof _jrTabClick === 'function') _jrTabClick('dash'); });
+        await new Promise((r) => setTimeout(r, 1600));
+        const vu = await page.evaluate(() => {
+          const v = document.querySelector('.jrc-verdict');
+          return v ? { cls: (String(v.className).match(/jrc-verdict--\w+/) || [''])[0],
+                       txt: (v.querySelector('.jrc-verdict-t') || {}).textContent || '' } : null;
+        });
+        v('calibrage — ' + c.nom,
+          !!vu && vu.cls === c.etat && c.mot.test(vu.txt),
+          vu ? 'état « ' + vu.cls + ' », titre « ' + vu.txt + ' »' : 'aucun verdict rendu');
+      }
 
       v('aucune erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
     }

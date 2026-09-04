@@ -4122,6 +4122,22 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('widgets-btn')?.classList.toggle('topbar-icon--active', view === 'widgets');
     document.getElementById('calc-btn')?.classList.toggle('topbar-icon--active', view === 'calculator');   // état actif du bouton topbar Calculatrice
     _ml?.classList.toggle('is-fxlist', view === 'fxlist');
+    /* ══ UN OUTIL PLEIN ÉCRAN NE GARDE PAS LA BARRE D'ONGLETS DU DESK (04/09, demande utilisateur,
+       deux captures : le Journal, puis la Calculatrice) ══════════════════════════════════════════
+       « Quand je suis dans le journal, le panneau à onglets n'est pas le mien, c'est celui du layout
+        par défaut alors que j'utilise le template JOT. Corrige ça, ou sinon carrément masquer le
+        panneau à onglets et afficher en grand le journal de trading. » Puis : « pareil pour la
+        calculatrice ».
+       CE QUE MONTRAIT LA CAPTURE, ET POURQUOI CE N'ÉTAIT PAS UNE ERREUR DE MODÈLE. La rangée
+       « ACTUS · CALENDRIER · LISTE FX … » n'est PAS la barre des modèles de Mon Desk : c'est
+       `#topbar-nav`, la navigation du desk classique, masquée en mode Mon Desk et rétablie dès
+       qu'on en sort. Elle ne pouvait donc jamais porter les onglets du modèle JOT — elle appartient
+       à un autre écran. C'est bien ce que l'utilisateur lisait : une barre qui n'est pas la sienne.
+       ON RETIENT DONC SA SECONDE PROPOSITION, qui est aussi la plus juste : le Journal et la
+       Calculatrice sont des OUTILS, pas des vues du desk. Ils prennent toute la hauteur, sans une
+       rangée d'onglets qui ne mène qu'ailleurs — les trois icônes de la barre du haut restent le
+       chemin de retour, et elles ne bougent pas. */
+    document.body.classList.toggle('dtp-outil-plein', view === 'journal' || view === 'calculator');
     if (view === 'bias') {
       const strengthTab = document.querySelector('.right-tab[data-rtab="strength"]');
       if (strengthTab && !strengthTab.classList.contains('right-tab--active')) strengthTab.click();

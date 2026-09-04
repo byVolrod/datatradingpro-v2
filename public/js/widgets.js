@@ -7085,6 +7085,194 @@
        ⚠️ AUCUN LOGO NI MARQUE REPRISE : le nom seul, en texte. Reprendre un logo dans un produit
        commercial est un sujet de marque, exactement le même piège que ci-dessus. */
     {
+      /* ══════════════════════════════════════════════════════════════════════════════════════════
+         SCENARIO DESK (04/09, demande utilisateur, capture de référence à l'appui)
+         ══════════════════════════════════════════════════════════════════════════════════════════
+         « Ajoute un widget scenario desk comme sur l'image, avec le même but de fonctionnalité, à
+          l'identique. » Précision de l'utilisateur le même jour : « il n'y a pas de bougie pour
+          scenario desk » — la carte ne porte donc AUCUN graphique de prix, seulement les échéances
+          et leurs deux scénarios.
+
+         CE QUE FAIT CETTE CARTE, ET QUE LE CALENDRIER NE FAIT PAS. Le calendrier répond à « quand,
+         et combien ». Celle-ci répond à « à partir de quel chiffre est-ce que ça change quelque
+         chose » — la question qu'on se pose la veille, pas pendant. Chaque échéance se déplie sur
+         deux colonnes face à face : le scénario qui RENFORCE la devise, celui qui l'AFFAIBLIT, avec
+         le seuil chiffré de chacun.
+
+         ⚠️ LES SEUILS SONT CALCULÉS, PAS INVENTÉS — ET C'EST LE POINT DE CONCEPTION. Sur la capture
+         de référence, un consensus à 0,5 % donne « 0,6 % ou plus » d'un côté et « 0,4 % ou moins »
+         de l'autre : un PAS de la dernière décimale publiée, de part et d'autre du consensus. C'est
+         une arithmétique, pas une opinion — donc pas d'appel IA, pas de cache, pas de risque
+         d'invention, et un seuil disponible pour TOUTE échéance dotée d'un consensus. Une échéance
+         sans consensus n'affiche aucun seuil : on ne fabrique pas une référence qui n'existe pas.
+
+         ⚠️ ET LE SENS EST CELUI DE LA FICHE, PAS UNE RÈGLE « PLUS = MIEUX ». Pour le chômage, les
+         inscriptions ou les stocks, un chiffre au-dessus des attentes est une MAUVAISE nouvelle.
+         Le desk sait déjà cela — c'est `hiUp` dans la table `CAL_KB` de charts.js, celle-là même
+         qui sert au Décryptage. On la réutilise plutôt que d'en écrire une seconde : deux tables du
+         même savoir divergent au premier ajout d'indicateur. */
+      id: 'scenario-desk', name: 'Scenario Desk', tag: 'CALENDRIER', cat: 'Macro', h: 320,
+      desc: 'Les échéances à venir, et à partir de quel chiffre chacune fait bouger sa devise.',
+      aide: "<p>Les prochaines publications à fort et moyen impact, avec leur consensus et leur précédent. Un clic déplie les <strong>deux scénarios</strong> : le chiffre à partir duquel la devise se renforce, celui à partir duquel elle s'affaiblit.</p><p>Les seuils sont calculés d'un pas de la dernière décimale publiée autour du consensus, dans le sens propre à chaque indicateur : pour le chômage ou les inscriptions, un chiffre plus élevé est une mauvaise nouvelle, et le tableau le dit ainsi. Une échéance sans consensus n'affiche pas de seuil : il n'y a alors rien à comparer.</p>",
+      src: "Le calendrier économique du desk (consensus et précédent du fournisseur), relu toutes les 5 minutes. Le sens de lecture de chaque indicateur vient de la même fiche que le Décryptage DTP.",
+      watch: "Les échéances dont les deux seuils sont très proches du consensus : ce sont celles où une surprise minuscule suffit à faire bouger le marché.",
+      opts: [
+        { k: 'impact', lbl: 'Impact minimum', type: 'choix', def: 'high',
+          choix: [{ v: 'high', l: 'Fort seulement' }, { v: 'med', l: 'Fort et moyen' }, { v: 'all', l: 'Tous' }] },
+        { k: 'jours', lbl: 'Horizon', type: 'choix', def: '7',
+          choix: [{ v: '2', l: '48 heures' }, { v: '7', l: '7 jours' }, { v: '14', l: '14 jours' }] },
+      ],
+      mount: function (host, item) {
+        var vivant = true, minuteur = null;
+        var opt = function (k, d) { try { return (item && item.cfg && item.cfg[k] != null) ? item.cfg[k] : d; } catch (e) { return d; } };
+        var seuilImpact = String(opt('impact', 'high'));
+        var horizon = parseInt(opt('jours', '7'), 10) || 7;
+
+        /* ── Le PAS d'un chiffre : la plus petite variation que sa notation puisse exprimer.
+           « 0,5 % » → 0,1 ; « 3,25 » → 0,01 ; « 206K » → 1K. On lit la précision ÉCRITE plutôt que
+           d'imposer un pas fixe : un pas de 0,1 sur un taux directeur à deux décimales inventerait
+           une marche que la publication ne connaît pas. */
+        function pasDe(txt) {
+          var m = String(txt == null ? '' : txt).replace(',', '.').match(/-?\d+(?:\.(\d+))?/);
+          if (!m) return null;
+          var dec = m[1] ? m[1].length : 0;
+          return Math.pow(10, -dec);
+        }
+        function nombreDe(txt) {
+          var m = String(txt == null ? '' : txt).replace(/\s/g, '').replace(',', '.').match(/-?\d+(?:\.\d+)?/);
+          return m ? parseFloat(m[0]) : null;
+        }
+        // L'unité écrite après le nombre (« % », « K », « Md »…) : on la rend telle quelle au seuil.
+        function uniteDe(txt) {
+          var m = String(txt == null ? '' : txt).match(/-?[\d.,\s]+(.*)$/);
+          return m ? String(m[1] || '').trim() : '';
+        }
+        function fmtSeuil(v, dec, unite) {
+          var t = (Math.round(v * Math.pow(10, dec)) / Math.pow(10, dec)).toFixed(dec).replace('.', ',');
+          return t + (unite ? unite : '');
+        }
+        /* Le sens de lecture : `hiUp` de la fiche du desk. Absente (indicateur hors table), on ne
+           DEVINE pas — on retombe sur la convention la plus courante en la signalant par un ton
+           neutre plutôt que par une affirmation. */
+        function sensDe(titre) {
+          try {
+            /* `dtpKbPourTitre` est LA fonction du desk qui retrouve la fiche d'un indicateur depuis
+               son titre anglais de calendrier (charts.js). On l'appelle plutôt que de recopier sa
+               table : le fichier documente déjà qu'une seconde liste finit toujours par diverger,
+               et que c'est la copie oubliée qui se met à mentir. */
+            if (typeof dtpKbPourTitre === 'function') { var k = dtpKbPourTitre(titre); if (k && typeof k.hiUp === 'boolean') return { hiUp: k.hiUp, sur: true }; }
+          } catch (e) {}
+          return { hiUp: true, sur: false };
+        }
+
+        function scenarios(ev) {
+          var f = nombreDe(ev.forecast);
+          if (f == null) return null;
+          var pas = pasDe(ev.forecast) || 0.1;
+          var dec = String(pas).indexOf('.') >= 0 ? String(pas).split('.')[1].length : 0;
+          var unite = uniteDe(ev.forecast);
+          var s = sensDe(ev.title || ev.event || '');
+          var haut = fmtSeuil(f + pas, dec, unite), bas = fmtSeuil(f - pas, dec, unite);
+          return s.hiUp
+            ? { fort: haut + ' ou plus', faible: bas + ' ou moins', sur: s.sur }
+            : { fort: bas + ' ou moins', faible: haut + ' ou plus', sur: s.sur };
+        }
+
+        function ligne(ev, i) {
+          var d = new Date(ev.timestamp);
+          var hh = isNaN(d) ? '--:--' : d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          var sc = scenarios(ev);
+          var imp = String(ev.impact || '').toLowerCase();
+          var pts = imp.indexOf('high') >= 0 ? 3 : imp.indexOf('med') >= 0 ? 2 : 1;
+          var dots = '';
+          for (var k = 0; k < 3; k++) dots += '<i class="' + (k < pts ? 'on' : '') + '"></i>';
+          return '<div class="sd-row" data-i="' + i + '" role="button" tabindex="0">'
+            + '<div class="sd-line">'
+            +   '<span class="sd-h">' + esc(hh) + '</span>'
+            +   '<span class="sd-ccy">' + esc(ev.currency || '') + '</span>'
+            +   '<span class="sd-imp sd-imp--' + (pts === 3 ? 'h' : pts === 2 ? 'm' : 'l') + '">' + dots + '</span>'
+            +   '<span class="sd-ev">' + esc(ev.title || ev.event || '') + '</span>'
+            +   '<span class="sd-f">' + (ev.forecast ? esc(ev.forecast) : '<i class="sd-vide">—</i>') + '</span>'
+            +   '<span class="sd-p">' + (ev.previous ? esc(ev.previous) : '<i class="sd-vide">—</i>') + '</span>'
+            +   '<span class="sd-chv">›</span>'
+            + '</div>'
+            + '<div class="sd-det" hidden>' + (sc
+              ? '<div class="sd-sc">'
+                + '<div class="sd-box sd-box--up"><div class="sd-box-h">↗ Scénario haussier</div>'
+                +   '<div class="sd-seuil">' + esc(sc.fort) + '</div>'
+                +   '<p class="sd-txt">La devise se renforce : le chiffre dépasse ce que le marché a déjà intégré.</p></div>'
+                + '<div class="sd-box sd-box--dn"><div class="sd-box-h">↘ Scénario baissier</div>'
+                +   '<div class="sd-seuil">' + esc(sc.faible) + '</div>'
+                +   '<p class="sd-txt">La devise s\'affaiblit : la publication déçoit le consensus.</p></div>'
+              + '</div>'
+              + (sc.sur ? '' : '<p class="sd-note">Indicateur hors fiche : le sens de lecture retenu est le plus courant (un chiffre plus haut favorise la devise). À confirmer au Décryptage.</p>')
+              : '<p class="sd-note">Aucun consensus publié pour cette échéance : il n\'y a pas de seuil à comparer.</p>')
+            + '</div>'
+            + '</div>';
+        }
+
+        function batir(items) {
+          var maxT = Date.now() + horizon * 864e5;
+          var seuil = seuilImpact === 'all' ? 1 : seuilImpact === 'med' ? 2 : 3;
+          var evs = (items || []).filter(function (e) {
+            if (!e || !e.timestamp || e.timestamp < Date.now() - 36e5 || e.timestamp > maxT) return false;
+            var im = String(e.impact || '').toLowerCase();
+            var p = im.indexOf('high') >= 0 ? 3 : im.indexOf('med') >= 0 ? 2 : 1;
+            return p >= seuil;
+          }).sort(function (a, b) { return a.timestamp - b.timestamp; }).slice(0, 40);
+
+          if (!evs.length) {
+            host.innerHTML = '<div class="sd-wrap"><div class="sd-vide-big">Aucune échéance à ce niveau d\'impact sur l\'horizon choisi.</div></div>';
+            return;
+          }
+          /* Séparateurs de jour, comme le calendrier du desk : sans eux, quarante lignes d'heures
+             se lisent comme une seule journée interminable. */
+          var html = '', jour = '';
+          evs.forEach(function (e, i) {
+            var d = new Date(e.timestamp);
+            var j = isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+            if (j && j !== jour) { jour = j; html += '<div class="sd-jour">' + esc(j.charAt(0).toUpperCase() + j.slice(1)) + '</div>'; }
+            html += ligne(e, i);
+          });
+          host.innerHTML = '<div class="sd-wrap">'
+            + '<div class="sd-head"><span class="sd-head-c">Heure</span><span class="sd-head-c">Devise</span>'
+            +   '<span class="sd-head-c">Imp.</span><span class="sd-head-c sd-head-ev">Échéance</span>'
+            +   '<span class="sd-head-c">Consensus</span><span class="sd-head-c">Précédent</span><span></span></div>'
+            + '<div class="sd-list">' + html + '</div></div>';
+          host.querySelectorAll('.sd-row').forEach(function (r) {
+            var ouvrir = function () {
+              var d = r.querySelector('.sd-det'); if (!d) return;
+              var etait = !d.hidden;
+              host.querySelectorAll('.sd-det').forEach(function (x) { x.hidden = true; });
+              host.querySelectorAll('.sd-row').forEach(function (x) { x.classList.remove('sd-row--open'); });
+              if (!etait) { d.hidden = false; r.classList.add('sd-row--open'); }
+            };
+            r.addEventListener('click', ouvrir);
+            r.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ouvrir(); } });
+          });
+        }
+
+        function charger() {
+          fetch('/api/calendar-events').then(function (r) {
+            if (!r.ok) throw new Error('http');
+            return r.json();
+          }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            batir((d && d.items) || []);
+          }).catch(function () {
+            if (!vivant || !host.isConnected) return;
+            if (!host.querySelector('.sd-row')) host.innerHTML = '<div class="sd-wrap"><div class="sd-vide-big">Calendrier indisponible.</div></div>';
+          });
+        }
+        host.innerHTML = '<div class="sd-wrap"><div class="sd-vide-big">Chargement des échéances…</div></div>';
+        charger();
+        // Le calendrier ne bouge pas à la seconde : cinq minutes suffisent, et c'est autant de
+        // requêtes en moins sur un VPS à 512 Mo.
+        minuteur = setInterval(charger, 300000);
+        return function () { vivant = false; if (minuteur) clearInterval(minuteur); };
+      },
+    },
+    {
       id: 'direct-bloomberg', name: 'Bloomberg Live', tag: 'DIRECT', cat: 'Marchés', h: 186,
       desc: 'Ouvre le direct Bloomberg Live dans un nouvel onglet.',
       aide: "<p>La chaîne américaine en continu : ouverture des marchés, entretiens de dirigeants, réactions aux publications macro.</p><p><strong>Pourquoi un lien et non une vidéo encadrée :</strong> l'éditeur interdit techniquement l'intégration de sa page par un autre site, et rediffuser son flux dans un terminal payant relève de ses droits de diffusion. Le desk vous y emmène plutôt que de la recopier.</p>",
@@ -9235,6 +9423,7 @@
   var WICO = {
     /* Les deux blocs « direct » partagent la même icône d'onde — dessinée ici, aucune marque
        d'éditeur reprise (même règle que pour les cartes elles-mêmes). */
+    'scenario-desk': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.5h18M3 12h18M3 18.5h18"/><path d="M8.5 3.5v4M15.5 10v4M11 16.5v4"/></svg>',
     'direct-bloomberg': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.2"/><path d="M8.1 8.1a5.5 5.5 0 0 0 0 7.8M15.9 15.9a5.5 5.5 0 0 0 0-7.8"/><path d="M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 18.7a9.5 9.5 0 0 0 0-13.4"/></svg>',
     'direct-yahoo': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.2"/><path d="M8.1 8.1a5.5 5.5 0 0 0 0 7.8M15.9 15.9a5.5 5.5 0 0 0 0-7.8"/><path d="M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 18.7a9.5 9.5 0 0 0 0-13.4"/></svg>',
     'notes': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h14v15H5z"/><path d="M8.5 9h7M8.5 13h7M8.5 17h4"/></svg>',

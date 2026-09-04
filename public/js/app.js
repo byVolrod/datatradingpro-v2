@@ -15363,6 +15363,117 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }, 12);
   }
 
+  /* ══════════════════════════════════════════════════════════════════════════════════════════════
+     CALIBRAGE DU CAPITAL (04/09) — la remarque d'un client qui utilise le desk
+     ══════════════════════════════════════════════════════════════════════════════════════════════
+     Retour d'okahivai sur le Discord, rapporté par l'utilisateur : « je l'utilise, mais POUR
+     CALIBRER MON CAPITAL je trouve assez moyen ; ça n'empêche, ça reste un très bon outil pour
+     tracker. » Le diagnostic est juste et précis : le journal savait dire ce qui S'ÉTAIT passé, pas
+     ce que ces résultats impliquent sur la taille à prendre au trade suivant.
+
+     CE QUE CE BLOC AJOUTE, ET D'OÙ IL SORT. Tout est calculé sur SES trades à lui — aucun appel IA,
+     aucune règle importée d'ailleurs :
+       · le risque réellement pris, mesuré sur les PERTES (une perte close vaut le risque assumé) ;
+       · ce que sa pire série observée coûterait à 0,5 %, 1 % et 2 % de risque par trade ;
+       · et le risque que ses propres statistiques supportent, par le critère de Kelly.
+
+     ⚠️ KELLY EST DONNÉ EN MOITIÉ, ET PLAFONNÉ — ce n'est pas de la prudence décorative. La formule
+     suppose des probabilités CONNUES ; ici elles sont ESTIMÉES sur un échantillon, donc bruitées, et
+     le Kelly plein maximise la croissance au prix de baisses de capital que personne ne tient
+     psychologiquement. La moitié de Kelly est la pratique courante ; le plafond à 2 % est celui du
+     desk. Les deux sont écrits à l'écran, pas cachés dans le code.
+     ⚠️ ET QUAND L'AVANTAGE EST NÉGATIF, ON LE DIT. Si l'espérance est négative, Kelly rend une
+     valeur NÉGATIVE : aucune taille de position ne rend une série perdante gagnante. Afficher 0,5 %
+     par défaut dans ce cas serait le mensonge le plus coûteux que ce bloc puisse commettre.
+     ⚠️ ET SOUS 30 TRADES CLOS, ON REFUSE DE CONCLURE. Sur dix trades, un taux de réussite ne
+     distingue pas un avantage réel d'une série chanceuse. Le bloc affiche alors ce qu'il mesure et
+     dit explicitement qu'il ne conseille rien : c'est la même règle que la couleur d'une donnée sans
+     consensus — pas de référence, pas de verdict. */
+  const _JR_CALIB_MIN = 30;                    // sous ce nombre de trades clos, on mesure sans conseiller
+  const _JR_CALIB_PLAFOND = 2;                 // plafond de risque du desk, en % du capital
+
+  function _jrCalibrage(L, st) {
+    const som = a => a.reduce((x, y) => x + y, 0);
+    const pertes = (L || []).map(e => _jrN(e.pl)).filter(v => v != null && v < 0).map(Math.abs);
+    const n = (L || []).filter(e => _jrOutcome(e) != null).length;
+    /* Le capital de référence : l'equity la plus récente si elle est saisie, sinon le capital de
+       départ. Sans l'un ni l'autre, on ne peut RIEN exprimer en pourcentage — et on le dit. */
+    const eqs = (L || []).map(e => _jrN(e.equity)).filter(v => v != null);
+    const cap = eqs.length ? eqs[eqs.length - 1]
+      : (_jrStartCap != null && isFinite(_jrStartCap) && _jrStartCap > 0 ? Number(_jrStartCap) : null);
+    const risqueMoy = pertes.length ? som(pertes) / pertes.length : null;
+    const risquePct = (risqueMoy != null && cap) ? (risqueMoy / cap * 100) : null;
+
+    /* Kelly sur les R : W = taux de réussite (BE exclus), G = |gain moyen / perte moyenne|.
+       f* = W − (1 − W) / G. On travaille en R et non en $ : le R est déjà normalisé par le risque,
+       ce qui est exactement ce que la formule attend. */
+    const W = (st.wr == null) ? null : st.wr / 100;
+    const G = (st.avgL && st.avgL !== 0) ? Math.abs(st.avgW / st.avgL) : null;
+    const kelly = (W != null && G) ? (W - (1 - W) / G) : null;
+    const assez = n >= _JR_CALIB_MIN;
+    const demiKelly = (kelly == null) ? null : kelly / 2 * 100;
+    const conseil = (demiKelly == null) ? null : Math.min(_JR_CALIB_PLAFOND, demiKelly);
+
+    const fp = v => (Math.round(v * 100) / 100).toString().replace('.', ',') + '%';
+    const fd = v => (Math.round(v)).toLocaleString('fr-FR') + ' $';
+
+    /* Le tableau qui répond à la question posée : « et si ma pire série revient ? » Il ne prédit
+       rien — il ARITHMÉTISE une série DÉJÀ SURVENUE, ce qui est très différent d'un scénario. */
+    const serie = st.worstStreak || 0;
+    const paliers = [0.5, 1, 2].map(p => {
+      const cout = serie * p;
+      const cls = cout >= 20 ? 'jry-neg' : cout >= 10 ? '' : 'jry-pos';
+      return '<div class="jrc-row"><span class="jrc-k">' + fp(p) + ' par trade</span>'
+        + '<span class="jrc-v ' + cls + '">−' + fp(cout) + '</span>'
+        + '<span class="jrc-s">' + (cap ? '≈ ' + fd(cap * cout / 100) : '') + '</span></div>';
+    }).join('');
+
+    let verdict;
+    if (!assez) {
+      verdict = '<div class="jrc-verdict jrc-verdict--attente">'
+        + '<div class="jrc-verdict-t">Pas encore d\'avis</div>'
+        + '<p>' + n + ' trade' + (n > 1 ? 's' : '') + ' clos sur les ' + _JR_CALIB_MIN + ' nécessaires. '
+        + 'En dessous, un taux de réussite ne distingue pas un avantage réel d\'une bonne série : '
+        + 'ce bloc mesure, il ne conseille pas encore.</p></div>';
+    } else if (kelly == null) {
+      verdict = '<div class="jrc-verdict jrc-verdict--attente">'
+        + '<div class="jrc-verdict-t">Calcul impossible</div>'
+        + '<p>Il manque les R gagnants ou perdants pour comparer le gain moyen à la perte moyenne. '
+        + 'Renseignez la colonne R de vos trades pour obtenir un risque conseillé.</p></div>';
+    } else if (kelly <= 0) {
+      verdict = '<div class="jrc-verdict jrc-verdict--neg">'
+        + '<div class="jrc-verdict-t">Aucun avantage mesurable</div>'
+        + '<p>Sur vos ' + n + ' trades clos, le gain moyen ne couvre pas la perte moyenne au taux de '
+        + 'réussite constaté. Aucune taille de position ne rend cette série gagnante : c\'est la '
+        + 'méthode qu\'il faut reprendre, pas le capital. Réduire le risque limite la casse, il ne '
+        + 'crée pas d\'avantage.</p></div>';
+    } else {
+      verdict = '<div class="jrc-verdict jrc-verdict--pos">'
+        + '<div class="jrc-verdict-t">Risque conseillé <b>' + fp(conseil) + '</b> par trade</div>'
+        + '<p>Vos statistiques (taux de réussite ' + Math.round(W * 100) + '%, gain moyen '
+        + (Math.round(G * 100) / 100).toString().replace('.', ',') + '× la perte moyenne) donnent un '
+        + 'optimum théorique de ' + fp(kelly * 100) + '. On en retient la MOITIÉ — la formule suppose '
+        + 'des probabilités connues, les vôtres sont estimées sur un échantillon — et on plafonne à '
+        + fp(_JR_CALIB_PLAFOND) + ', la limite du desk.'
+        + (demiKelly > _JR_CALIB_PLAFOND ? ' Ici c\'est le plafond qui s\'applique.' : '') + '</p></div>';
+    }
+
+    return '<div class="jrd-sec"><div class="jrd-sec-h">CALIBRAGE DU CAPITAL</div>'
+      + '<div class="jrc-grid">'
+        + '<div class="jrd-card"><div class="jrd-card-h">Ce que vous risquez réellement</div>'
+          + '<div class="jrc-rows">'
+          + '<div class="jrc-row"><span class="jrc-k">Capital de référence</span><span class="jrc-v">' + (cap ? fd(cap) : '—') + '</span><span class="jrc-s">' + (eqs.length ? 'dernière equity saisie' : 'capital de départ') + '</span></div>'
+          + '<div class="jrc-row"><span class="jrc-k">Perte moyenne</span><span class="jrc-v">' + (risqueMoy != null ? fd(risqueMoy) : '—') + '</span><span class="jrc-s">' + (pertes.length ? 'sur ' + pertes.length + ' trade' + (pertes.length > 1 ? 's' : '') + ' perdant' + (pertes.length > 1 ? 's' : '') : 'aucune perte chiffrée') + '</span></div>'
+          + '<div class="jrc-row"><span class="jrc-k">Soit un risque de</span><span class="jrc-v">' + (risquePct != null ? fp(risquePct) : '—') + '</span><span class="jrc-s">' + (risquePct == null ? 'capital inconnu' : 'du capital, par trade') + '</span></div>'
+          + '</div></div>'
+        + '<div class="jrd-card"><div class="jrd-card-h">Si votre pire série revient (' + serie + ' perte' + (serie > 1 ? 's' : '') + ' d\'affilée)</div>'
+          + '<div class="jrc-rows">' + (serie ? paliers : '<div class="jrd-empty">Aucune série perdante enregistrée.</div>') + '</div>'
+          + '<p class="jrc-note">Ce n\'est pas une prévision : c\'est le coût, au risque choisi, d\'une série que vous avez DÉJÀ traversée.</p>'
+          + '</div>'
+        + '<div class="jrd-card jrc-card--verdict">' + verdict + '</div>'
+      + '</div></div>';
+  }
+
   function _jrRenderDashboard() {
     const host = document.getElementById('jr-dashboard'); if (!host) return;
     const L = _jrList || [];
@@ -15432,6 +15543,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + _jrRing(maxDD > 0 ? '−' + (ddInD ? _jrMoneyShort(maxDD).replace(/^\+/, '') : fR(maxDD).replace(/^\+/, '') + ' R') : '0', 'Max drawdown', '#ff8f00', 'depuis un plus haut')
         + _jrRing(String(worstStreak), 'Série perdante max', worstStreak >= 4 ? '#ff3d00' : '#e3b23a', 'trades d\'affilée')
       + '</div></div>'
+      + _jrCalibrage(L, { wr: wrD, avgW, avgL, worstStreak, rs })
       + '<div class="jrd-sec"><div class="jrd-sec-h">OPTIMISATION</div><div class="jrd-grid">'
         + _jrBars('Setup', setupM) + _jrBars('Confluence', confM) + _jrBars('Entrée', entryM) + _jrBars('SL', slM)
         + _jrBars('Note', gradeM) + _jrBars('Fonda', fondaM) + _jrBars('Erreur', errM)

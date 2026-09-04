@@ -21263,6 +21263,124 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
   .jry-head-t { font-size: 16px; }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   SCENARIO DESK (04/09) — les échéances à venir et leurs deux seuils
+   ══════════════════════════════════════════════════════════════════════════════════════════════
+   Grammaire du desk : bandeau `--head-bg`, filets `--hud-line`, séparateurs de jour comme le
+   calendrier, or de marque sur la ligne ouverte. Les deux encadrés reprennent les couleurs d'état
+   de la charte immuable — vert `#00e676`, rouge `#ff3d00` — et non les teintes de la référence. */
+.sd-wrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.sd-head, .sd-line {
+  display: grid; align-items: center;
+  grid-template-columns: 52px 46px 40px minmax(0, 1fr) 78px 78px 16px;
+  gap: 8px; padding: 0 12px;
+}
+.sd-head {
+  height: 28px; flex: 0 0 auto; background: var(--head-bg); border-bottom: 1px solid var(--border2);
+  font-size: 9px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .05em; color: var(--text3);
+}
+.sd-head-c { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.sd-jour {
+  padding: 7px 12px 5px; font-size: 11px; font-weight: var(--fw-bold); color: var(--text2);
+  background: var(--bg2); border-bottom: 1px solid var(--hud-line, #131316); position: sticky; top: 0; z-index: 2;
+}
+.sd-row { border-bottom: 1px solid var(--hud-line, #131316); cursor: pointer; transition: background var(--t-fast) var(--ease); }
+.sd-row:hover { background: rgba(255,255,255,.03); }
+.sd-line { min-height: 34px; font-size: 12px; color: var(--text2); }
+.sd-h { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); }
+.sd-ccy { font-weight: var(--fw-bold); font-size: 11px; color: var(--text); }
+.sd-ev { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.sd-f, .sd-p { font-family: var(--font-mono); font-size: 11.5px; text-align: right; }
+.sd-f { color: var(--text); }
+.sd-p { color: var(--text3); }
+.sd-vide { color: var(--text4, #55555c); font-style: normal; }
+.sd-chv { color: var(--text4, #55555c); font-weight: var(--fw-bold); transition: transform var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+.sd-row--open { background: rgba(227,178,58,.05); box-shadow: inset 2px 0 0 0 var(--orange); }
+.sd-row--open .sd-chv { transform: rotate(90deg); color: var(--orange); }
+/* Points d'impact : mêmes pastilles que le calendrier — trois crans, la trame éteinte visible. */
+.sd-imp { display: inline-flex; gap: 2px; align-items: center; }
+.sd-imp i { width: 5px; height: 5px; border-radius: 50%; background: var(--border2); display: block; }
+.sd-imp--h i.on { background: #ff3d00; }
+.sd-imp--m i.on { background: #ffb300; }
+.sd-imp--l i.on { background: var(--text4, #55555c); }
+/* Les deux scénarios FACE À FACE : c'est la disposition qui porte le sens — l'un ou l'autre, pas
+   une liste où le second se lit comme la suite du premier. */
+.sd-det { padding: 4px 12px 12px; }
+.sd-sc { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.sd-box { border: 1px solid; border-radius: 6px; padding: 9px 11px; background: var(--bg2); }
+.sd-box--up { border-color: rgba(0,230,118,.30); background: rgba(0,230,118,.05); }
+.sd-box--dn { border-color: rgba(255,61,0,.30); background: rgba(255,61,0,.05); }
+.sd-box-h { font-size: 9.5px; font-weight: var(--fw-bold); letter-spacing: .05em; text-transform: uppercase; margin-bottom: 6px; }
+.sd-box--up .sd-box-h { color: #00e676; }
+.sd-box--dn .sd-box-h { color: #ff3d00; }
+.sd-seuil { font-family: var(--font-mono); font-size: 15px; font-weight: var(--fw-bold); color: var(--text); letter-spacing: -.01em; }
+.sd-txt { margin: 5px 0 0; font-size: 11px; line-height: 1.45; color: var(--text2); }
+.sd-note { margin: 8px 0 0; font-size: 11px; line-height: 1.45; color: var(--text3); }
+.sd-vide-big { padding: 32px 16px; text-align: center; font-size: 12.5px; color: var(--text3); }
+
+/* Carte étroite (Mon Desk, téléphone) : le consensus et le précédent tiennent encore, l'échéance
+   cède la largeur en premier — c'est elle qui peut s'abréger sans perdre le sens de la ligne. */
+@container dtpw (max-width: 460px) {
+  .sd-head, .sd-line { grid-template-columns: 44px 38px 34px minmax(0, 1fr) 62px 62px 14px; gap: 6px; padding: 0 9px; }
+  .sd-ev { font-size: 11.5px; }
+  .sd-f, .sd-p { font-size: 10.5px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   JOURNAL ET CALCULATRICE : DES OUTILS PLEIN ÉCRAN (04/09, demande utilisateur, deux captures)
+   ══════════════════════════════════════════════════════════════════════════════════════════════
+   « Quand je suis dans le journal, le panneau à onglets n'est pas le mien, c'est celui du layout par
+    défaut alors que j'utilise le template JOT. […] ou sinon carrément masquer le panneau à onglets
+    et afficher en grand le journal de trading. » Puis : « pareil pour la calculatrice ».
+   ⚠️ LA BARRE INCRIMINÉE N'EST PAS CELLE DES MODÈLES, et c'est pour cela qu'elle ne pouvait pas
+   porter le modèle JOT : `#topbar-nav` est la navigation du DESK CLASSIQUE (ACTUS · CALENDRIER ·
+   LISTE FX…), masquée en mode Mon Desk et rétablie dès qu'on en sort. Elle appartient à un autre
+   écran ; l'utilisateur lisait donc juste, même si la cause n'était pas celle qu'il supposait.
+   On retient sa seconde proposition, qui est aussi la plus juste : ces deux vues sont des OUTILS et
+   non des onglets du desk. Elles prennent toute la hauteur, et les trois icônes de la barre du haut
+   restent le chemin de retour — elles, ne bougent pas.
+   Les 40 px rendus vont au contenu : c'est une ligne de trades de plus, ou la fin d'un tableau
+   annuel qui cesse d'être coupée. */
+body.dtp-outil-plein #topbar-nav { display: none; }
+body.dtp-outil-plein .views-col { height: calc(var(--vph) - var(--topbar-h)); }
+/* Sur téléphone les barres sont FIXES et le corps réserve leur hauteur (topbar + navbar). La
+   navigation disparaissant, on ne compense plus que la barre du haut — exactement le remède déjà
+   posé pour la barre des modèles vide de Mon Desk, dont ce cas est le jumeau. */
+@media (max-width: 768px) {
+  body.dtp-outil-plein { padding-top: var(--topbar-h); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   CALIBRAGE DU CAPITAL (04/09) — le bloc né du retour d'un client sur le Discord
+   ══════════════════════════════════════════════════════════════════════════════════════════════
+   « Je l'utilise, mais pour calibrer mon capital je trouve assez moyen ; ça reste un très bon outil
+    pour tracker. » Trois cartes : ce qui est réellement risqué, ce que coûterait le retour de la
+   pire série déjà traversée, et le verdict. Le verdict est la carte la plus importante : elle porte
+   un chiffre que l'utilisateur va APPLIQUER, elle a donc droit à plus d'air et à un fond teinté. */
+.jrc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.jrc-rows { display: flex; flex-direction: column; gap: 2px; }
+.jrc-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--hud-line, #131316); }
+.jrc-rows .jrc-row:last-child { border-bottom: none; }
+.jrc-k { font-size: 11.5px; color: var(--text2); }
+.jrc-v { font-family: var(--font-mono); font-size: 13.5px; font-weight: var(--fw-bold); color: var(--text); text-align: right; white-space: nowrap; }
+.jrc-s { grid-column: 1 / -1; font-size: 10px; color: var(--text3); margin-top: -2px; }
+.jrc-note { margin: 9px 0 0; font-size: 10.5px; line-height: 1.45; color: var(--text3); }
+.jrc-card--verdict { display: flex; }
+.jrc-verdict { display: flex; flex-direction: column; justify-content: center; width: 100%; }
+.jrc-verdict-t { font-size: 13.5px; font-weight: var(--fw-bold); color: var(--text); margin-bottom: 7px; letter-spacing: -.01em; }
+.jrc-verdict-t b { font-family: var(--font-mono); }
+.jrc-verdict p { margin: 0; font-size: 11.5px; line-height: 1.55; color: var(--text2); }
+/* Trois états, trois lectures : un conseil applicable, une attente, et un refus de conclure. Le
+   refus a droit au rouge de la charte : « aucun avantage mesurable » est une information dure, la
+   présenter en gris la ferait passer pour un détail. */
+.jrc-verdict--pos .jrc-verdict-t { color: #00e676; }
+.jrc-card--verdict:has(.jrc-verdict--pos) { border-color: rgba(0,230,118,.28); background: rgba(0,230,118,.04); }
+.jrc-verdict--neg .jrc-verdict-t { color: #ff3d00; }
+.jrc-card--verdict:has(.jrc-verdict--neg) { border-color: rgba(255,61,0,.28); background: rgba(255,61,0,.04); }
+.jrc-verdict--attente .jrc-verdict-t { color: var(--orange); }
+.jrc-card--verdict:has(.jrc-verdict--attente) { border-color: rgba(227,178,58,.26); background: rgba(227,178,58,.04); }
+
 /* ÉCLAIRAGES IA : JAMAIS de carte coupée (23/08, capture user : badge « NEUTRE » tronqué au bord).
    Les cartes à largeur FIXE laissaient dépasser une fraction de la 3e — badge coupé en plein
    milieu. Elles se dimensionnent désormais pour qu'un nombre ENTIER tienne (3 → 2 → 1 selon la
