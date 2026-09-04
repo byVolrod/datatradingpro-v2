@@ -225,6 +225,51 @@ v('le service exécute la copie DU DÉPÔT (le tireur se met à jour tout seul)'
 v('l’installeur (une fois) active le minuteur', /systemctl enable --now dtp-autodeploiement\.timer/.test(inst)
   && /daemon-reload/.test(inst));
 
+/* ══ AUCUN `if:` DE JOB NE LIT `secrets` — LE PIÈGE QUI REND UN FICHIER INVALIDE (04/09) ═══════
+   GitHub n'expose PAS le contexte `secrets` dans un `if:` de JOB : il n'existe qu'au niveau des
+   étapes et des `env:`. Un tel `if:` ne « saute » donc pas le job — il rend le FICHIER invalide, et
+   GitHub crée un passage ROUGE sans le moindre job à chaque poussée. C'est arrivé sur
+   `supabase-keepalive.yml`, pour une garde écrite précisément afin de NE PLUS notifier : cinq
+   passages en échec (nos 157 à 161), zéro job, `created_at` égal à `updated_at`, et le passage
+   portant le CHEMIN du fichier au lieu de son `name:` — la marque d'un fichier jamais lu.
+   ⚠️ LE CONTRÔLE BALAIE TOUS LES WORKFLOWS, pas seulement celui du déploiement : la faute n'a rien
+   de propre au déploiement, elle est propre à GitHub Actions, et c'est ici qu'est le parseur YAML.
+   Le vrai correctif se lit à côté : `env:` de job (où `secrets` EST lisible) puis `if:` d'ÉTAPE. */
+console.log('\n── Les workflows : aucun « si » de job ne lit un secret ──');
+const litUnSecret = (cond) => /(^|[^A-Za-z0-9_.])secrets\s*\./.test(String(cond || ''));
+/* LE TÉMOIN, D'ABORD. Un contrôle qui ne trouve rien est vert sur un dépôt sans workflow comme sur
+   un dépôt sain : on éprouve donc le prédicat sur la forme EXACTE qui a cassé, et sur une forme
+   voisine qui doit passer (un `github.repository` seul est parfaitement légitime). */
+v('[témoin] la forme fautive est bien reconnue',
+  litUnSecret("${{ github.repository == 'x/y' && secrets.SUPABASE_URL != '' }}")
+  && !litUnSecret("${{ github.repository == 'x/y' }}"));
+const DOSSIER_WF = path.join(RACINE, '.github/workflows');
+const fichiersWf = fs.existsSync(DOSSIER_WF)
+  ? fs.readdirSync(DOSSIER_WF).filter(f => /\.ya?ml$/.test(f)).sort() : [];
+v('des workflows sont bien trouvés', fichiersWf.length > 0, DOSSIER_WF);
+const fautifs = [];
+let wfNonLus = 0;
+for (const f of fichiersWf) {
+  let d = null;
+  try {
+    d = JSON.parse(execFileSync('python3', ['-c',
+      'import yaml,json,sys; print(json.dumps(yaml.safe_load(open(sys.argv[1], encoding="utf-8"))))',
+      path.join(DOSSIER_WF, f)], { encoding: 'utf8' }));
+  } catch (e) { d = null; }
+  if (!d || !d.jobs) { wfNonLus++; continue; }
+  for (const [nom, job] of Object.entries(d.jobs)) {
+    if (job && litUnSecret(job.if)) fautifs.push(f + ' › ' + nom);
+  }
+}
+if (wfNonLus === fichiersWf.length && fichiersWf.length > 0) {
+  sabstient('aucun `if:` de job ne lit le contexte `secrets`', 'aucun parseur YAML (python3 + PyYAML)');
+} else {
+  v('aucun `if:` de job ne lit le contexte `secrets` (le fichier serait INVALIDE, donc rouge à chaque poussée)',
+    fautifs.length === 0,
+    fautifs.length ? 'fautif(s) : ' + fautifs.join(' · ') + ' — déplacer le secret dans un `env:` de job et conditionner les ÉTAPES'
+                   : '');
+}
+
 console.log(ko
   ? '\n✗ ' + ko + ' CONTRÔLE(S) AU ROUGE\n'
   : '\n✓ ' + (abst ? 'contrôles au vert (' + abst + ' abstenu(s))' : 'tous les contrôles au vert') + '\n');

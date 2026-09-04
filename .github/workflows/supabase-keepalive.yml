@@ -34,19 +34,38 @@ jobs:
     # SUPABASE_URL est ajouté, la ceinture-bretelles se réarme toute seule, sans toucher à ce fichier.
     # ⚠️ LE SCRIPT, LUI, GARDE SON ÉCHEC BRUYANT : c'est sur le VPS qu'il doit hurler s'il n'a rien à
     # pinguer, puisque c'est là qu'il est censé marcher. On désarme le doublon, jamais la garde.
-    if: ${{ github.repository == 'byVolrod/datatradingpro-v2' && secrets.SUPABASE_URL != '' }}
+    #
+    # ⚠️⚠️ ET LE « SI » NE PEUT PAS LIRE `secrets` (04/09/2026) — LA MÊME MALADIE, AU TROISIÈME TOUR.
+    # La correction ci-dessus était juste dans son intention et FAUSSE dans sa forme : GitHub n'expose
+    # PAS le contexte `secrets` dans un `if:` de JOB (il n'existe qu'au niveau des étapes et des
+    # `env:`). Le fichier devenait donc INVALIDE, et un fichier invalide ne « saute » pas : GitHub
+    # crée un passage ROUGE, sans le moindre job, à CHAQUE poussée sur main. Mesuré le 04/09 sur les
+    # cinq derniers passages (nos 157 à 161) : tous en échec, tous à zéro job, tous avec `created_at`
+    # égal à `updated_at` — et le passage porte le CHEMIN du fichier au lieu de son `name:`, preuve
+    # qu'il n'a jamais été lu. On voulait supprimer un courriel d'échec quotidien : on en avait ajouté
+    # un par poussée. La garde ne change pas d'intention, seulement d'endroit : le secret est lu dans
+    # un `env:` de job (autorisé), et ce sont les ÉTAPES qui se sautent. Le passage est alors VERT et
+    # muet, ce qui est exactement ce qui était demandé, et le job se réarme tout seul le jour où un
+    # secret est posé.
+    if: ${{ github.repository == 'byVolrod/datatradingpro-v2' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      # Le seul endroit où `secrets` est lisible avant les étapes. Rend la CHAÎNE 'true' ou 'false'.
+      DTP_CLE_POSEE: ${{ secrets.SUPABASE_URL != '' }}
     steps:
       - name: Checkout
+        if: ${{ env.DTP_CLE_POSEE == 'true' }}
         uses: actions/checkout@v4
 
       - name: Setup Node
+        if: ${{ env.DTP_CLE_POSEE == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Ping all Supabase projects
+        if: ${{ env.DTP_CLE_POSEE == 'true' }}
         # SECRETS_JSON = TOUTES les secrets du dépôt → le script détecte automatiquement
         # SUPABASE_URL[_n] / SUPABASE_KEY[_n]. Ajouter une base = ajouter un secret, AUCUNE modif ici.
         # (Les valeurs des secrets sont masquées dans les logs par GitHub.)

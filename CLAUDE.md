@@ -191,10 +191,21 @@ une coche verte quotidienne. Corrigé en trois points :
    **bruyante** : le job GitHub, dont les secrets n'ont jamais été posés, envoyait dès lors un
    courriel d'échec à CHAQUE passage, pour une situation connue et assumée (la vraie tâche tourne sur
    le VPS). Un signal d'alerte qu'on apprend à ignorer ne protège plus rien : c'est la même maladie
-   que le faux vert, dans l'autre sens. Le job porte donc `secrets.SUPABASE_URL != ''` dans son
-   `if:` → **ignoré**, ce qui ne notifie personne et ne prétend rien ; il se réarme tout seul le jour
-   où un secret est posé. **Le SCRIPT, lui, garde son échec bruyant** : c'est sur le VPS qu'il doit
-   hurler, puisque c'est là qu'il est censé marcher. On désarme le doublon, jamais la garde.;
+   que le faux vert, dans l'autre sens. Le job est donc **ignoré** tant qu'aucune clé n'est posée, ce
+   qui ne notifie personne et ne prétend rien ; il se réarme tout seul le jour où un secret est posé.
+   **Le SCRIPT, lui, garde son échec bruyant** : c'est sur le VPS qu'il doit hurler, puisque c'est là
+   qu'il est censé marcher. On désarme le doublon, jamais la garde.
+   ⚠️⚠️ **ET LA PREMIÈRE ÉCRITURE DE CETTE GARDE A EMPIRÉ LE MAL (04/09)** — elle mettait
+   `secrets.SUPABASE_URL != ''` dans l'`if:` **du JOB**. Or GitHub **n'expose pas** le contexte
+   `secrets` à cet endroit : il n'existe qu'au niveau des **étapes** et des **`env:`**. Un tel `if:`
+   ne saute donc pas le job, il rend le **FICHIER INVALIDE** — et un fichier invalide ne se tait pas :
+   GitHub crée un passage **ROUGE, sans le moindre job, à CHAQUE poussée sur main**. Mesuré sur les
+   passages 157 à 161 : tous en échec, zéro job, `created_at` = `updated_at`, et le passage portant le
+   **chemin** du fichier au lieu de son `name:` (la marque d'un fichier jamais lu). On voulait retirer
+   un courriel d'échec quotidien, on en avait ajouté **un par poussée**. Forme correcte : le secret
+   est lu dans un **`env:` de job** (`DTP_CLE_POSEE`), et ce sont les **ÉTAPES** qui portent le `if:`.
+   Banc : `deploiement-verif.js` balaie **tous** les workflows et refuse un `if:` de job qui lit
+   `secrets` (avec son témoin, et il mord : remettre la forme fautive le fait rougir).;
 2. il tourne **depuis le VPS**, où les clés vivent déjà — plus de second endroit à tenir à jour ;
 3. il **relance** un projet en pause via l'API de gestion, mais **uniquement** sur un statut
    `INACTIVE` (un ping raté peut venir du réseau, d'un 402 ou du DNS). Jeton `SUPABASE_ACCESS_TOKEN`,
