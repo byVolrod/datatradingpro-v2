@@ -703,6 +703,81 @@ function _densiteEtIntegrite() {
   }
 }
 
+
+/* ⚠️ CE LOT NE DOIT RIEN AU NAVIGATEUR, DONC IL NE L'ATTEND PLUS. Il vivait dans `controler()`,
+   c'est-à-dire derrière amCharts : sur un poste sans accès au CDN — le développement courant — il
+   ne tournait JAMAIS, et c'est ainsi qu'une seconde table de couleurs de devises a pu vivre dans
+   app.js sans rien faire rougir. Même leçon que la densité, écrite plus haut dans ce fichier et
+   pas encore appliquée ici : un contraste et une duplication se lisent dans le source, ils
+   rougissent tôt. */
+function _couleursDesDevises() {
+/* ══ LES HUIT COULEURS SE VOIENT SUR LEUR FOND, DANS LES DEUX THÈMES ═══════════════════════════
+   Calcul pur — pas besoin de navigateur, et c'est mieux ainsi : un contraste se prouve, il ne
+   s'apprécie pas. Mesuré avant correction : sur le fond BLANC du thème clair, six des huit
+   couleurs passaient sous 3:1, et l'USD — un blanc cassé — tombait à 1,21 : sa courbe était
+   invisible. Le graphique promettait huit devises et en montrait deux ou trois. */
+console.log('\n── Les huit couleurs se voient-elles sur leur fond ? ──');
+const SRC = fs.readFileSync(path.join(RACINE, 'public/js/charts.js'), 'utf8');
+const table = nom => {
+  const d = SRC.indexOf('const ' + nom + ' = {');
+  if (d < 0) return null;
+  const f = SRC.indexOf('\n};', d);
+  const o = {};
+  for (const m of SRC.slice(d, f).matchAll(/(\w{3}):\s*(0x[0-9a-f]{6})/gi)) o[m[1]] = parseInt(m[2], 16);
+  return Object.keys(o).length === 8 ? o : null;
+};
+const lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+const lum = h => 0.2126 * lin((h >> 16) & 255) + 0.7152 * lin((h >> 8) & 255) + 0.0722 * lin(h & 255);
+const contraste = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+for (const [nom, fond, quoi] of [['CS_COLORS', 0x0d0e11, 'thème sombre'], ['CS_COLORS_CLAIR', 0xffffff, 'thème clair']]) {
+  const t = table(nom);
+  if (!t) { v('la palette ' + nom + ' est retrouvée dans charts.js', false, 'huit devises attendues'); continue; }
+  const faibles = Object.entries(t).filter(([, v2]) => contraste(v2, fond) < 3).map(([k, v2]) => k + ' ' + contraste(v2, fond).toFixed(2));
+  v('les huit couleurs tiennent 3:1 en ' + quoi, faibles.length === 0, faibles.join(' · '));
+}
+const clair = table('CS_COLORS_CLAIR'), sombre = table('CS_COLORS');
+if (clair && sombre) v('les deux palettes nomment les mêmes devises',
+  Object.keys(clair).sort().join() === Object.keys(sombre).sort().join(), Object.keys(clair).join());
+v('la couleur passe par un seul point de décision', /function _csCouleur\(ccy\) \{/.test(SRC) && !/CS_COLORS\[ccy\] \|\| 0x888888\)/.test(SRC.replace(/return t\[ccy\][^\n]*/, '')));
+
+/* ══ … ET CE POINT DE DÉCISION VAUT POUR TOUT LE DESK, PAS QUE POUR CE FICHIER (04/09) ═════════
+   Le contrôle ci-dessus vérifiait l'unicité DANS charts.js. Elle y était. Le récap hebdomadaire,
+   lui, portait dans app.js sa PROPRE table de huit couleurs de devises : les huit divergeaient,
+   et l'USD changeait de famille — or de marque dans le récap, blanc dans le graphique. La même
+   devise portait deux couleurs dans le même produit, et l'or, couleur de MARQUE, faisait un
+   travail de donnée.
+   ⚠️ ET LA COPIE N'AVAIT PAS DE VARIANTE CLAIRE : mesuré sur fond blanc, QUATRE des huit codes
+   tombaient sous 3:1 — USD 1,96 · CHF 1,92 · GBP 2,28 · JPY 2,43. Le contrôle « thème clair »
+   juste au-dessus existait depuis le 29/08 et ne regardait pas la copie : c'est la définition
+   d'une duplication, on répare une fois sur deux sans le savoir. */
+const APP = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
+/* On cherche une littérale qui associe au moins quatre codes de devise à une couleur : c'est la
+   FORME d'une seconde table, quel que soit le nom qu'on lui donne. Interdire le seul nom
+   `_WR_COLOR` laisserait rentrer la même faute sous un autre. */
+const secondes = [...APP.matchAll(/\{[^{}]*\}/g)].map((m) => m[0])
+  .filter((b2) => (b2.match(/\b(?:USD|EUR|JPY|GBP|AUD|CHF|CAD|NZD)\b\s*:\s*['"]?#?(?:0x)?[0-9a-f]{6}/gi) || []).length >= 4);
+v('le desk ne porte plus de SECONDE table de couleurs de devises',
+  secondes.length === 0, secondes.length + ' table(s) trouvée(s) : ' + secondes.map((x) => x.slice(0, 70)).join(' | '));
+v('… et charts.js expose ce point de décision au reste du desk',
+  /window\.DTPCsCouleur = function \(ccy\)/.test(SRC));
+v('… que le récap hebdomadaire consomme', /window\.DTPCsCouleur\b/.test(APP));
+/* ⚠️ L'APPEL EST FAIT AU RENDU, PAS AU CHARGEMENT, et l'ordre des balises l'impose : app.js est
+   chargé AVANT charts.js. Capturer la table dans une constante de module la trouverait vide, et
+   les huit codes sortiraient à l'encre de repli — en silence, sans erreur. On exige donc que la
+   seule mention vive DANS une fonction. */
+const iApp = APP.indexOf('window.DTPCsCouleur');
+const dansFonction = iApp > 0 && /function _wrCouleurDevise\(c\) \{[\s\S]{0,240}window\.DTPCsCouleur/.test(APP);
+v('… au moment du RENDU, pas au chargement (app.js est chargé avant charts.js)', dansFonction,
+  'une capture au chargement rendrait les huit codes à l\'encre, sans erreur');
+const H = fs.readFileSync(path.join(RACINE, 'public/index.html'), 'utf8');
+v('… et cet ordre de chargement est bien celui de la page', H.indexOf('/js/app.js') < H.indexOf('/js/charts.js'),
+  'si l\'ordre s\'inversait un jour, la raison ci-dessus tomberait — mais l\'appel au rendu reste juste');
+/* Le repli quand charts.js manque : de l'ENCRE, jamais une couleur de devise. Mieux vaut un code
+   non coloré qu'un code peint de la couleur d'une AUTRE devise. */
+const repli = /return '#e6e6ea';/.test(APP.slice(iApp, iApp + 300));
+v('… et son repli est de l\'encre, pas une couleur de devise inventée', repli);
+}
+
 if (require.main === module) {
   (async () => {
     _rafraichissementSilencieux();
@@ -712,6 +787,7 @@ if (require.main === module) {
        seulement à la livraison. Or il n'éprouve que de l'arithmétique sur une série : il n'a aucune
        raison d'attendre un rendu, et toutes les raisons de rougir tôt. */
     _densiteEtIntegrite();
+    _couleursDesDevises();
     const bin = trouverNavigateur();
     if (!bin) {
       console.log('\n[Force] aucun Chromium trouvé → la partie VISUELLE s\'abstient (ce n\'est pas un échec).');
@@ -924,32 +1000,4 @@ function controler(mesures) {
     }
   }
 
-  /* ══ LES HUIT COULEURS SE VOIENT SUR LEUR FOND, DANS LES DEUX THÈMES ═══════════════════════════
-     Calcul pur — pas besoin de navigateur, et c'est mieux ainsi : un contraste se prouve, il ne
-     s'apprécie pas. Mesuré avant correction : sur le fond BLANC du thème clair, six des huit
-     couleurs passaient sous 3:1, et l'USD — un blanc cassé — tombait à 1,21 : sa courbe était
-     invisible. Le graphique promettait huit devises et en montrait deux ou trois. */
-  console.log('\n── Les huit couleurs se voient-elles sur leur fond ? ──');
-  const SRC = fs.readFileSync(path.join(RACINE, 'public/js/charts.js'), 'utf8');
-  const table = nom => {
-    const d = SRC.indexOf('const ' + nom + ' = {');
-    if (d < 0) return null;
-    const f = SRC.indexOf('\n};', d);
-    const o = {};
-    for (const m of SRC.slice(d, f).matchAll(/(\w{3}):\s*(0x[0-9a-f]{6})/gi)) o[m[1]] = parseInt(m[2], 16);
-    return Object.keys(o).length === 8 ? o : null;
-  };
-  const lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
-  const lum = h => 0.2126 * lin((h >> 16) & 255) + 0.7152 * lin((h >> 8) & 255) + 0.0722 * lin(h & 255);
-  const contraste = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
-  for (const [nom, fond, quoi] of [['CS_COLORS', 0x0d0e11, 'thème sombre'], ['CS_COLORS_CLAIR', 0xffffff, 'thème clair']]) {
-    const t = table(nom);
-    if (!t) { v('la palette ' + nom + ' est retrouvée dans charts.js', false, 'huit devises attendues'); continue; }
-    const faibles = Object.entries(t).filter(([, v2]) => contraste(v2, fond) < 3).map(([k, v2]) => k + ' ' + contraste(v2, fond).toFixed(2));
-    v('les huit couleurs tiennent 3:1 en ' + quoi, faibles.length === 0, faibles.join(' · '));
-  }
-  const clair = table('CS_COLORS_CLAIR'), sombre = table('CS_COLORS');
-  if (clair && sombre) v('les deux palettes nomment les mêmes devises',
-    Object.keys(clair).sort().join() === Object.keys(sombre).sort().join(), Object.keys(clair).join());
-  v('la couleur passe par un seul point de décision', /function _csCouleur\(ccy\) \{/.test(SRC) && !/CS_COLORS\[ccy\] \|\| 0x888888\)/.test(SRC.replace(/return t\[ccy\][^\n]*/, '')));
 }

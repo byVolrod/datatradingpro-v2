@@ -487,6 +487,19 @@ const CS_COLORS = {
   CAD: 0xbe8bff,  // violet vif
   NZD: 0xff5cae,  // rose magenta vif
 };
+/* ⚠️ CE QUE CETTE PALETTE NE TIENT PAS, MESURÉ LE 04/09 — à savoir avant d'y toucher. Huit courbes
+   sont à l'écran EN MÊME TEMPS : ce sont donc les 28 paires qu'il faut séparer, pas seulement les
+   voisines d'une liste. Sur ce fond, la paire la plus fragile est JPY/GBP à ΔE 3,9 en vision
+   tritanope, et GBP/CHF à 4,1 en protanope — sous le plancher de 6. Concrètement, deux des huit
+   courbes se confondent pour une partie des lecteurs. Toutes les autres paires tiennent (≥ 6,8), et
+   AUCUNE ne passe sous le plancher de vision normale (15,0 au pire, EUR/NZD).
+   CE QUI REND LA CARTE LISIBLE MALGRÉ ÇA : la couleur n'est pas seule à désigner une devise — le
+   code est écrit sur la pastille au bout de chaque courbe, et la légende porte le même code. C'est
+   l'encodage secondaire qui rend une paire faible acceptable.
+   ⚠️ CES TEINTES SONT DES CHOIX DE L'UTILISATEUR, itérés (« orange écarté », « était #dc2626, trop
+   mat », « était #2563eb, sombre sur fond noir ») : on ne les remplace pas sans lui. La correction
+   minimale, si elle est demandée un jour, est de déplacer LE VERT — une seule teinte suffit à
+   remonter la pire paire de 3,9 à 6,8, et au-delà il faut en bouger deux. */
 /* ══ LA MÊME PALETTE NE PEUT PAS SERVIR SUR BLANC (29/08) ═══════════════════════════════════════
    Ces huit teintes sont réglées pour ressortir sur le fond sombre du desk, et elles y ressortent :
    la plus faible tient 5,25 pour un seuil de 3. Sur le fond BLANC du thème clair, mesuré, SIX des
@@ -511,6 +524,24 @@ const CS_COLORS_CLAIR = {
 function _csCouleur(ccy) {
   const t = _deskLight() ? CS_COLORS_CLAIR : CS_COLORS;
   return t[ccy] || CS_COLORS[ccy] || 0x888888;
+}
+/* ══ ET CE POINT DE DÉCISION UNIQUE DOIT VALOIR HORS DE CE FICHIER AUSSI (04/09) ═══════════════
+   Le commentaire ci-dessus dit « un seul point de décision : les pastilles, les courbes et les
+   listes ne peuvent pas diverger ». C'était vrai DANS charts.js, et faux dans le desk : le récap
+   hebdomadaire (app.js) portait sa PROPRE table de huit couleurs de devises. Les huit divergeaient,
+   et l'USD carrément de famille — or de marque d'un côté, blanc de l'autre — donc la même devise
+   portait deux couleurs dans le même produit.
+   ⚠️ ET LA COPIE N'AVAIT PAS DE VARIANTE CLAIRE. Mesuré sur fond blanc : QUATRE des huit codes
+   passaient sous le contraste 3:1 exigé pour du gros texte — l'USD à 1,96, le CHF à 1,92. C'est
+   exactement le défaut réparé ICI le 29/08, que la copie n'avait jamais reçu. Une seule table le
+   reçoit une seule fois.
+   Rendue en chaîne CSS : app.js peint du texte, charts.js des courbes amCharts (qui veut un
+   nombre). La conversion vit ici, à la source. */
+if (typeof window !== 'undefined') {
+  window.DTPCsCouleur = function (ccy) {
+    const n = _csCouleur(ccy);
+    return '#' + Number(n).toString(16).padStart(6, '0');
+  };
 }
 
 /* ══ RÉGLAGES D'AFFICHAGE MÉMORISÉS PAR COMPTE — MAGASIN GÉNÉRIQUE (12/08) ══════════════════════════

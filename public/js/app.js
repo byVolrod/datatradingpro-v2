@@ -9783,7 +9783,26 @@ function _wrTagColorize(html){
 }
 
 const _WR_ORDER = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
-const _WR_COLOR = { USD:'#e3b23a', EUR:'#dc2626', JPY:'#06b6d4', GBP:'#22c55e', AUD:'#2563eb', CHF:'#eab308', CAD:'#a855f7', NZD:'#ec4899' };
+/* ══ LA COULEUR D'UNE DEVISE A UNE SEULE SOURCE, ET ELLE N'EST PAS ICI (04/09) ═════════════════
+   Cette ligne portait une SECONDE table de huit couleurs de devises, propre au récap hebdomadaire.
+   Les huit divergeaient de celles du graphique Force des Devises, et l'USD changeait carrément de
+   famille : or de marque dans le récap, blanc dans le graphique. La même devise portait donc deux
+   couleurs dans le même produit — et l'or, couleur de MARQUE, faisait un travail de donnée, ce que
+   l'utilisateur a justement reproché ailleurs (« des couleurs différentes que du doré, car là on
+   parle de datas »).
+   ⚠️ ET LA COPIE N'AVAIT AUCUNE VARIANTE POUR LE THÈME CLAIR. Mesuré sur fond blanc : QUATRE des
+   huit codes tombaient sous le contraste 3:1 exigé pour du gros texte — USD à 1,96, CHF à 1,92,
+   GBP à 2,28, JPY à 2,43. Le graphique avait reçu ce correctif le 29/08 ; la copie, jamais. C'est
+   la définition d'une duplication : on répare une fois sur deux sans le savoir.
+   ⚠️ ON APPELLE AU MOMENT DU RENDU, JAMAIS AU CHARGEMENT. `app.js` est chargé AVANT `charts.js`
+   (index.html) : lire la table dans une constante de module la trouverait vide, et les huit codes
+   sortiraient en blanc, en silence. Le récap se peint sur une action du lecteur, donc bien après
+   que les deux fichiers sont là. Le repli est l'ENCRE, jamais une couleur de devise inventée :
+   mieux vaut un code non coloré qu'un code de la mauvaise devise. */
+function _wrCouleurDevise(c) {
+  try { if (window.DTPCsCouleur) return window.DTPCsCouleur(c) || '#e6e6ea'; } catch (e) {}
+  return '#e6e6ea';
+}
 // Biais fondamental FR (5 niveaux) → classe sémantique DTP (vert→rouge) pour le badge par devise (v34).
 // Couleur du badge de biais, sur l'échelle à CINQ crans (11/08) : le palier « légèrement » prend une
 // teinte atténuée au lieu de partager celle du palier plein — sinon un penchant marginal s'affichait
@@ -10297,7 +10316,7 @@ function _renderWeeklyRecap(item) {
         body += `<div class="wr-ccy-block wr-ccy-block--flow">`;
         // ── TITRE DE LA DEVISE : le code, son biais, et l'accroche de la semaine. Aucun repli. ──
         body += `<div class="wr-ccy-head wr-ccy-head--flow">`;
-        body += `<span class="wr-ccy-code" style="color:${_WR_COLOR[c]||'#fff'}">${c}</span>`;
+        body += `<span class="wr-ccy-code" style="color:${_wrCouleurDevise(c)}">${c}</span>`;
         if (cd.bias) body += `<span class="wr-bias-badge wr-bias--${_wrBiasCls(cd.bias)}">${_wrEsc(cd.bias)}</span>`;
         if (thesis) body += `<span class="wr-ccy-thesis">${_wrEsc(thesis)}</span>`;
         body += `</div>`;
