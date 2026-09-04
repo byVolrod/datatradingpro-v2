@@ -42,6 +42,17 @@
  *    désormais. Un commentaire périmé ment avec l'autorité du code (règle du dépôt) — on vérifie
  *    qu'il ne reste aucune trace.
  *
+ * 6. LA GRAINE DE CHAÎNE, ET POURQUOI ELLE N'EST PAS UNE ENTORSE À LA RÈGLE 1 (05/09). La carte
+ *    est revenue en production sur son repli : la lecture de page échouait sur le VPS. Cause la
+ *    plus probable, et la seule traitable sans réseau ici : le bandeau de consentement de Google,
+ *    servi aux adresses de centre de données, qui répond 200 et ne contient AUCUN identifiant.
+ *    D'où une GRAINE — l'identifiant de CHAÎNE, permanent, à ne pas confondre avec celui d'une
+ *    VIDÉO, qui change à chaque redémarrage du flux et reste interdit en dur. Mais une graine
+ *    écrite de mémoire, sur une machine sans accès à YouTube, ne se sert pas telle quelle : elle
+ *    est confirmée À L'EXÉCUTION par le flux RSS de la chaîne (du XML court, sans bandeau, qui
+ *    répond 404 pour une chaîne inconnue et porte le NOM pour une chaîne connue). Le banc éprouve
+ *    les quatre refus et la confirmation sur la VRAIE fonction, avec un `_directHttp` bouchonné.
+ *
  *   node scripts/direct-verif.js
  *
  * Sans Chromium, la phase navigateur S'ABSTIENT (code 0) ; les phases sans navigateur, elles,
@@ -87,6 +98,26 @@ function phaseSource() {
     embarques.length === 0,
     'trouvé : ' + embarques.join(' · ') + ' — un identifiant figé serait un cadre mort au premier redémarrage de flux');
   v('… la carte demande bien l\'adresse au serveur', /fetch\('\/api\/direct\/' \+ cle\)/.test(W));
+  /* ⚠️ UNE CARTE « LIVE » QUI MONTRE UNE VIGNETTE ET UN BOUTON « LECTURE » NE FAIT PAS CE QU'ELLE
+     PROMET. Sur un desk, l'antenne doit être à l'écran quand on regarde la carte. Le son coupé
+     n'est PAS de la politesse : c'est la seule forme de démarrage automatique que les navigateurs
+     acceptent — sans `mute`, l'`autoplay` est refusé et on retombe sur la vignette. Les deux vont
+     donc ensemble, et `allow` doit porter `autoplay`, faute de quoi le cadre l'interdit lui-même. */
+  v('le cadre démarre tout seul, son coupé (sinon le navigateur refuse le démarrage)',
+    /autoplay=1/.test(W) && /mute=1/.test(W) && /allow="autoplay;/.test(W),
+    'autoplay + mute + allow="autoplay" sont indissociables');
+  /* On ne corrige pas ce qu'on ne voit pas : la résolution se fait sur le VPS, et la machine de
+     développement n'a pas accès à YouTube. Sans vue de diagnostic, la correction suivante serait
+     une supposition. Elle est réservée à l'administrateur — elle force les lectures. */
+  v('une vue de diagnostic existe, et elle est réservée à l\'administrateur',
+    /app\.get\('\/api\/admin\/direct\/:cle', requireAdmin/.test(SRV));
+  /* LA PORTE DE SORTIE QUI NE PEUT PAS ÉCHOUER. Le jour où YouTube refuse durablement les lectures
+     de ce serveur, l'exploitant pose l'identifiant de chaîne dans le .env du VPS : il est permanent,
+     il se colle une fois, et il passe AVANT tout le reste. Sans ce chemin, une chaîne bloquée
+     resterait bloquée jusqu'au prochain déploiement. */
+  v('l\'exploitant peut imposer la chaîne par le .env du VPS, et sa consigne passe en premier',
+    /env: 'DTP_DIRECT_BLOOMBERG'/.test(SRV) && /env: 'DTP_DIRECT_YAHOO'/.test(SRV)
+    && /source = 'consigne'/.test(SRV));
 
   console.log('\n── L\'ancien argument a disparu PARTOUT ──');
   /* L'aide disait « l'éditeur interdit techniquement l'intégration de sa page » : exact pour la
@@ -158,6 +189,88 @@ function phaseExtraction() {
   const d = fn(RIEN);
   v('une page sans identifiant ne rend RIEN (le contrôle de forme mord)',
     d.video === null && d.chaine === null, JSON.stringify(d));
+  /* ⚠️ LES ÉCRITURES AJOUTÉES LE 05/09, ET POURQUOI ELLES COMPTENT. La page « /live » n'est PAS la
+     plus généreuse en identifiant de chaîne : c'est la page de chaîne elle-même, qui l'écrit sous
+     d'autres formes (`browseId`, une balise `meta itemprop`, un lien canonique vers `/channel/`).
+     Or c'est cet identifiant-là qui alimente le SECOND étage — celui qui marche même hors antenne.
+     Chaque forme est donc éprouvée SEULE : ajoutée en bloc, une seule d'entre elles pourrait
+     fonctionner sans que rien ne le dise. */
+  for (const [nom, page, att] of [
+    ['browseId (page de chaîne)', '<script>{"browseId":"UCdddddddddddddddddddddd"}</script>', 'UCdddddddddddddddddddddd'],
+    ['meta itemprop (page de chaîne)', '<meta itemprop="identifier" content="UCeeeeeeeeeeeeeeeeeeeeee">', 'UCeeeeeeeeeeeeeeeeeeeeee'],
+    ['lien canonique vers /channel/', '<link rel="canonical" href="https://www.youtube.com/channel/UCffffffffffffffffffffff">', 'UCffffffffffffffffffffff'],
+  ]) {
+    const r = fn(page);
+    v('… l\'identifiant de chaîne se lit aussi en ' + nom, r.chaine === att, JSON.stringify(r));
+  }
+}
+
+/* ══ PHASE 2 bis : LA GRAINE NE SE CROIT PAS SUR PAROLE ══════════════════════════════════════
+   05/09, capture de production : la carte affichait « Le direct n'a pas pu être chargé ». La
+   résolution par LECTURE DE PAGE avait donc échoué sur le VPS — cause la plus probable, et la
+   seule qu'on puisse traiter sans réseau ici : le bandeau de consentement de Google, servi aux
+   adresses de centre de données, qui répond 200 et ne contient AUCUN identifiant. La lecture
+   « réussit » et ne rapporte rien.
+   D'où une GRAINE : l'identifiant de CHAÎNE, qui lui est permanent (contrairement à celui d'une
+   vidéo, qui change à chaque redémarrage du flux — c'est pourquoi il n'est toujours pas écrit en
+   dur). Mais une graine écrite de mémoire, sur une machine SANS accès à YouTube, ne se sert pas
+   telle quelle : elle est confirmée à l'exécution par le flux RSS de la chaîne, qui est du XML
+   court, prévu pour les machines, et sans bandeau. Ce sont ces garde-fous qu'on éprouve ici, sur la
+   VRAIE fonction extraite de server.js, avec un `_directHttp` BOUCHONNÉ — le banc ne sort jamais
+   sur le réseau. */
+function phaseGraine() {
+  console.log('\n── La graine de chaîne : confirmée, jamais crue sur parole ──');
+  const i = SRV.indexOf('async function _directVerifierChaine(');
+  if (i < 0) { v('la vérification de chaîne est trouvable dans server.js', false); return; }
+  const fin = SRV.indexOf('\n}\n', i);
+  let faire;
+  try {
+    faire = new Function('_directHttp', SRV.slice(i, fin + 3) + '\nreturn _directVerifierChaine;');
+  } catch (e) { v('la vérification de chaîne s\'évalue', false, e.message); return; }
+  const flux = (titre) => ({ statut: 200, finale: '', corps: '<feed><title>' + titre + '</title></feed>', mur: false });
+  const bouchon = (rep) => faire(async () => rep);
+
+  return (async () => {
+    const BON = 'UCIALMKvObZNtJ6AmdCLP7Lg';
+    const ok = await bouchon(flux('Bloomberg Television'))(BON, /bloomberg/i);
+    v('un flux qui répond ET porte le bon nom confirme la chaîne', ok.ok === true && /Bloomberg/.test(ok.titre), JSON.stringify(ok));
+    /* LES TROIS REFUS. Chacun est le scénario d'une graine fausse : elle n'existe pas (404), elle
+       existe mais désigne une AUTRE chaîne (nom inattendu), ou elle n'a pas même la forme d'un
+       identifiant. Sans eux, une erreur de mémoire s'afficherait aux clients en cadre mort. */
+    const abs = await bouchon({ statut: 404, finale: '', corps: '', mur: false })(BON, /bloomberg/i);
+    v('… une chaîne INCONNUE (404) est refusée', abs.ok === false, JSON.stringify(abs));
+    const autre = await bouchon(flux('Chaîne de cuisine'))(BON, /bloomberg/i);
+    v('… une chaîne qui existe mais porte un AUTRE nom est refusée', autre.ok === false, JSON.stringify(autre));
+    const forme = await bouchon(flux('Bloomberg Television'))('pas-un-identifiant', /bloomberg/i);
+    v('… et un identifiant qui n\'a pas la forme UC + 22 ne part même pas sur le réseau', forme.ok === false, JSON.stringify(forme));
+
+    /* LA GRAINE EST UNE CHAÎNE, JAMAIS UNE VIDÉO — la distinction est tout l'argument. Un
+       identifiant de vidéo écrit en dur pourrit au premier redémarrage du flux, en silence ; un
+       identifiant de chaîne est permanent. Le banc fige donc la RÈGLE, pas la valeur. */
+    const graines = [...SRV.matchAll(/graine:\s*'([^']*)'/g)].map(m => m[1]);
+    v('chaque graine déclarée a bien la forme d\'un identifiant de CHAÎNE (UC + 22)',
+      graines.length >= 2 && graines.every(g => /^UC[\w-]{22}$/.test(g)), JSON.stringify(graines));
+    v('… et chacune est assortie du nom qu\'on attend d\'elle (sans quoi la confirmation ne vérifie rien)',
+      (SRV.match(/graine:\s*'/g) || []).length === (SRV.match(/attendu:\s*\//g) || []).length,
+      'autant de `attendu:` que de `graine:`');
+    /* ⚠️ ET LA GRAINE NE PART QU'APRÈS CONFIRMATION. C'est le contrôle qui empêche de « simplifier »
+       la résolution en servant la graine directement le jour où l'on sera pressé. */
+    const bloc = SRV.slice(SRV.indexOf('async function _directResoudre('), SRV.indexOf("app.get('/api/direct/:cle'"));
+    v('la résolution ne retient la graine qu\'APRÈS confirmation par le flux',
+      /_directVerifierChaine\(d\.graine, d\.attendu\)/.test(bloc) && /if \(ver\.ok\) \{ chaine = d\.graine/.test(bloc),
+      'la graine doit passer par _directVerifierChaine avant d\'être servie');
+    /* LE BANDEAU DE CONSENTEMENT : la cause la plus probable de l'échec observé. On vérifie qu'il
+       est à la fois CONTOURNÉ (témoins envoyés) et RECONNU (pour que le diagnostic le nomme). */
+    v('les témoins de consentement sont envoyés sur toutes les lectures YouTube',
+      /'Cookie':\s*'CONSENT=YES\+1; SOCS=CAI'/.test(SRV), 'sinon Google sert une page 200 sans aucun identifiant');
+    const j = SRV.indexOf('function _directMur(');
+    let mur = null;
+    try { mur = new Function(SRV.slice(j, SRV.indexOf('\n}\n', j) + 3) + '\nreturn _directMur;')(); } catch (e) {}
+    v('… et le bandeau est RECONNU quand il est servi (sans quoi le diagnostic ne peut pas trancher)',
+      !!mur && mur('https://consent.youtube.com/m?continue=x', '') === true
+           && mur('https://www.youtube.com/@markets/live', '<h1>Before you continue to YouTube</h1>') === true
+           && mur('https://www.youtube.com/@markets/live', '<title>Bloomberg</title>') === false);
+  })();
 }
 
 /* ══ PHASE 3 : LES TROIS ÉTAGES DU RENDU, DANS UN VRAI CHROMIUM ══════════════════════════════ */
@@ -173,6 +286,7 @@ const CAS = [
 (async () => {
   phaseSource();
   phaseExtraction();
+  await phaseGraine();
 
   const bin = trouverNavigateur();
   if (!bin) { console.log('\n[Direct] aucun Chromium → phase navigateur abstenue.\n'); process.exit(ko ? 1 : 0); }

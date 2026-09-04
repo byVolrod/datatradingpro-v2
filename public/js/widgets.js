@@ -2269,7 +2269,7 @@
     var cadrer = function (src) {
       host.innerHTML = '<div class="wdg-direct wdg-direct--video">'
         + '<div class="wdg-direct-frame"><iframe src="' + src + '" title="' + d.nom + '"'
-        +   ' allow="accelerometer; encrypted-media; picture-in-picture; fullscreen"'
+        +   ' allow="autoplay; accelerometer; encrypted-media; picture-in-picture; fullscreen"'
         +   ' allowfullscreen frameborder="0" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'
         + '<div class="wdg-direct-pied">' + tete() + lien('Ouvrir chez l\'éditeur') + '</div></div>';
     };
@@ -2277,8 +2277,14 @@
       + '<p class="wdg-direct-txt">Connexion au direct…</p></div>';
     fetch('/api/direct/' + cle).then(function (r) { return r.json(); }).then(function (j) {
       if (!vivant || !host.isConnected) return;
-      if (j && j.ok && j.video) return cadrer('https://www.youtube.com/embed/' + j.video + '?rel=0&modestbranding=1');
-      if (j && j.ok && j.chaine) return cadrer('https://www.youtube.com/embed/live_stream?channel=' + j.chaine + '&rel=0');
+      /* ⚠️ DÉMARRAGE AUTOMATIQUE, SON COUPÉ. Une carte nommée « Live » qui affiche une vignette et
+         un bouton « lecture » ne fait pas ce qu'elle promet : sur un desk, l'antenne doit être là
+         quand on regarde la carte. Le son coupé n'est pas un détail de politesse — c'est la seule
+         forme de démarrage automatique que les navigateurs autorisent, et le lecteur YouTube porte
+         son propre bouton pour le rétablir. */
+      var PARAMS = '&rel=0&modestbranding=1&autoplay=1&mute=1&playsinline=1';
+      if (j && j.ok && j.video) return cadrer('https://www.youtube.com/embed/' + j.video + '?rel=0' + PARAMS);
+      if (j && j.ok && j.chaine) return cadrer('https://www.youtube.com/embed/live_stream?channel=' + j.chaine + PARAMS);
       replierSurLien();
     }).catch(function () { if (vivant && host.isConnected) replierSurLien(); });
     return function () { vivant = false; };

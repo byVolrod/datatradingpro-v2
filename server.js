@@ -1065,26 +1065,53 @@ app.post('/api/read-reports', async (req, res) => {
    redéploiement le jour où l'une d'elles disparaît. */
 const _DIRECTS = {
   bloomberg: { nom: 'Bloomberg Television', poignees: ['@markets', '@BloombergTelevision', '@business'],
-               site: 'https://www.bloomberg.com/live/us' },
+               site: 'https://www.bloomberg.com/live/us',
+               env: 'DTP_DIRECT_BLOOMBERG', graine: 'UCIALMKvObZNtJ6AmdCLP7Lg', attendu: /bloomberg/i },
   yahoo:     { nom: 'Yahoo Finance',        poignees: ['@YahooFinance', '@yahoofinance'],
-               site: 'https://finance.yahoo.com/live/' },
+               site: 'https://finance.yahoo.com/live/',
+               env: 'DTP_DIRECT_YAHOO', graine: 'UCEAZeUIeJs0IjQiqTCdVSIg', attendu: /yahoo/i },
 };
-const _DIRECT_TTL_VIDEO = 30 * 60 * 1000;          // la diffusion en cours : revue toutes les 30 min
+const _DIRECT_TTL_VIDEO = 30 * 60 * 1000;           // la diffusion en cours : revue toutes les 30 min
 const _DIRECT_TTL_CHAINE = 7 * 24 * 60 * 60 * 1000; // l'identifiant de chaîne ne bouge pas
+/* ⚠️ ET ON SE SOUVIENT AUSSI DES ÉCHECS, 5 MINUTES. Sans ça, une carte qui ne résout pas relance
+   la volée complète de lectures à CHAQUE ouverture — sur un VPS à 512 Mo, c'est le défaut qui coûte
+   le plus cher, et il ne se voit pas puisque la carte, elle, se replie proprement. */
+const _DIRECT_TTL_ECHEC = 5 * 60 * 1000;
+const _DIRECT_BUDGET_MS = 12000;                    // le temps TOTAL qu'une résolution peut prendre
 const _directMem = new Map();                       // tampon mémoire : évite même la lecture KV en rafale
 
-/* La lecture de la page. Isolée pour être remplaçable au banc : le banc ne doit JAMAIS sortir sur
-   le réseau, et un banc qui teste une fonction qu'il a réécrite ne teste rien. */
+/* ⚠️ LE BANDEAU DE CONSENTEMENT EST LA PREMIÈRE CAUSE D'UNE LECTURE VIDE DEPUIS UN SERVEUR. Google
+   renvoie aux adresses de centre de données une page « Before you continue » (ou une redirection
+   vers consent.youtube.com) qui répond 200 et ne contient AUCUN des identifiants cherchés : la
+   lecture « réussit » et ne rapporte rien, ce qui est exactement le symptôme observé en production.
+   Les deux témoins de consentement ci-dessous sont ceux qu'un navigateur pose après acceptation ;
+   ils font servir la vraie page. On les envoie sur TOUTES les lectures YouTube. */
+const _DIRECT_ENTETES = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Cookie': 'CONSENT=YES+1; SOCS=CAI',
+};
+/* Reconnaître le mur, pour pouvoir le DIRE. Une lecture qui rapporte 200 et rien d'exploitable est
+   indiscernable d'une chaîne hors antenne : sans ce test, le diagnostic ne peut pas trancher. */
+function _directMur(url, corps) {
+  return /consent\.(youtube|google)\.com/.test(String(url || ''))
+      || /Before you continue|Avant de continuer|consentBumpV2/.test(String(corps || '').slice(0, 30000));
+}
+/* La lecture. Isolée pour être remplaçable au banc : le banc ne doit JAMAIS sortir sur le réseau,
+   et un banc qui teste une fonction qu'il a réécrite ne teste rien. Elle rend TOUJOURS un objet —
+   le statut et l'adresse finale sont la matière du diagnostic, les jeter serait se priver du seul
+   moyen de savoir POURQUOI une résolution échoue sur une machine qu'on n'a pas sous la main. */
 async function _directHttp(url) {
   try {
-    const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 8000);
-    const r = await fetch(url, { signal: ac.signal, redirect: 'follow', headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9' } });
+    const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 6000);
+    const r = await fetch(url, { signal: ac.signal, redirect: 'follow', headers: _DIRECT_ENTETES });
     clearTimeout(t);
-    if (!r.ok) return null;
-    return (await r.text()).slice(0, 400000);   // le début de page suffit : les deux identifiants y sont
-  } catch { return null; }
+    const corps = r.ok ? (await r.text()).slice(0, 400000) : '';   // le début de page suffit
+    return { statut: r.status, finale: r.url || url, corps, mur: _directMur(r.url || url, corps) };
+  } catch (e) {
+    return { statut: 0, finale: url, corps: '', mur: false, erreur: String((e && e.message) || e).slice(0, 120) };
+  }
 }
 /* L'EXTRACTION, ET SES TROIS FILETS. Un seul motif serait fragile : la page change de forme sans
    prévenir. On accepte donc plusieurs écritures du même fait, et on ne retient un identifiant que
@@ -1093,7 +1120,9 @@ async function _directHttp(url) {
    afficherait un cadre mort en croyant avoir réussi. */
 function _directExtraire(html) {
   const h = String(html || '');
-  const chaine = (h.match(/"(?:externalId|channelId)"\s*:\s*"(UC[\w-]{22})"/)
+  const chaine = (h.match(/"(?:externalId|channelId|browseId)"\s*:\s*"(UC[\w-]{22})"/)
+    || h.match(/<meta[^>]+itemprop="(?:identifier|channelId)"[^>]+content="(UC[\w-]{22})"/)
+    || h.match(/<link[^>]+rel="canonical"[^>]+href="https:\/\/www\.youtube\.com\/channel\/(UC[\w-]{22})"/)
     || h.match(/channel_id=(UC[\w-]{22})/)
     || h.match(/\/channel\/(UC[\w-]{22})/) || [])[1] || null;
   /* La vidéo : le lien canonique d'abord (c'est LUI qui désigne la diffusion en cours sur une page
@@ -1105,35 +1134,86 @@ function _directExtraire(html) {
   }
   return { video, chaine };
 }
-async function _directResoudre(cle) {
+/* ══ LA VÉRIFICATION D'UNE CHAÎNE, ET POURQUOI ELLE CHANGE TOUT ═══════════════════════════════
+   Le flux RSS d'une chaîne (`/feeds/videos.xml?channel_id=…`) est un point d'entrée PRÉVU POUR LES
+   MACHINES : du XML court, pas de bandeau de consentement, pas de script. Il répond 404 pour une
+   chaîne inconnue et porte le NOM de la chaîne pour une chaîne connue. C'est donc lui qui permet
+   d'employer une graine sans la croire sur parole : on ne la sert que si YouTube confirme qu'elle
+   existe ET que son nom est bien celui qu'on attend. Une graine fausse est REFUSÉE, pas affichée. */
+async function _directVerifierChaine(id, attendu) {
+  if (!/^UC[\w-]{22}$/.test(String(id || ''))) return { ok: false, pourquoi: 'forme invalide' };
+  const r = await _directHttp('https://www.youtube.com/feeds/videos.xml?channel_id=' + id);
+  if (r.statut !== 200 || !r.corps) return { ok: false, pourquoi: 'flux ' + (r.erreur || r.statut) };
+  const titre = (r.corps.match(/<title>([^<]{1,120})<\/title>/) || [])[1] || '';
+  if (!titre) return { ok: false, pourquoi: 'flux sans titre' };
+  if (attendu && !attendu.test(titre)) return { ok: false, titre, pourquoi: 'nom inattendu' };
+  return { ok: true, titre };
+}
+/* ══ LA RÉSOLUTION, PAR ORDRE DE CONFIANCE DÉCROISSANTE ═══════════════════════════════════════
+   1. la CONSIGNE DE L'EXPLOITANT (`DTP_DIRECT_<CLÉ>` dans le .env du VPS) — elle passe avant tout,
+      c'est la porte de sortie qui ne peut pas échouer le jour où YouTube refuse nos lectures ;
+   2. ce qu'on a DÉJÀ appris (KV `direct:<clé>`) ;
+   3. la LECTURE DES PAGES — le seul chemin qui donne la diffusion EN COURS, donc le cadre exact ;
+   4. la GRAINE, et seulement après confirmation par le flux RSS.
+   ⚠️ UN BUDGET DE TEMPS, PAS UN NOMBRE DE TENTATIVES. Trois poignées × trois formes de page font
+   neuf lectures : à six secondes chacune, une carte pourrait attendre une minute. On s'arrête au
+   budget, et l'échec est mémorisé cinq minutes. */
+async function _directResoudre(cle, opts) {
   const d = _DIRECTS[cle]; if (!d) return null;
+  const diag = (opts && opts.diag) ? [] : null;
   const now = Date.now();
+  const echeance = now + _DIRECT_BUDGET_MS;
   const mem = _directMem.get(cle);
-  if (mem && (now - mem.ts) < _DIRECT_TTL_VIDEO) return mem;
+  if (!diag && mem && (now - mem.ts) < (mem.vide ? _DIRECT_TTL_ECHEC : _DIRECT_TTL_VIDEO)) return mem;
   let cache = null;
   try { cache = await auth.aiCacheGet('direct:' + cle); } catch {}
-  if (cache && cache.ts && (now - cache.ts) < _DIRECT_TTL_VIDEO) { _directMem.set(cle, cache); return cache; }
+  if (!diag && cache && cache.ts && (now - cache.ts) < _DIRECT_TTL_VIDEO) { _directMem.set(cle, cache); return cache; }
 
-  let video = null, chaine = (cache && cache.chaine) || null;
-  const chaineFraiche = cache && cache.chaine && cache.tsChaine && (now - cache.tsChaine) < _DIRECT_TTL_CHAINE;
+  let video = null, chaine = null, source = null;
+  const impose = String(process.env[d.env] || '').trim();
+  if (/^UC[\w-]{22}$/.test(impose)) { chaine = impose; source = 'consigne'; }
+  else if (impose && diag) diag.push({ etape: 'consigne', ok: false, detail: d.env + ' posé mais pas à la forme UC + 22 caractères' });
+  if (!chaine && cache && cache.chaine) { chaine = cache.chaine; source = 'cache'; }
+
+  /* Les formes de page, dans l'ordre de leur rendement : « /live » porte la diffusion EN COURS ;
+     la page de chaîne ne la porte pas mais donne l'identifiant de chaîne presque à coup sûr ;
+     « /streams » rattrape les chaînes dont la page d'accueil est un aiguillage. */
+  const formes = ['/live', '', '/streams'];
   for (const poignee of d.poignees) {
-    const html = await _directHttp('https://www.youtube.com/' + poignee + '/live');
-    if (!html) continue;
-    const x = _directExtraire(html);
-    if (x.chaine) chaine = x.chaine;
-    if (x.video) { video = x.video; break; }
-    if (x.chaine && chaineFraiche) break;   // la chaîne répond mais n'est pas en antenne : inutile d'insister
+    for (const forme of formes) {
+      if (video || Date.now() > echeance) break;
+      if (forme !== '/live' && chaine && source !== 'cache') break;   // on a déjà de quoi cadrer
+      const url = 'https://www.youtube.com/' + poignee + forme;
+      const r = await _directHttp(url);
+      const x = _directExtraire(r.corps);
+      if (diag) diag.push({ etape: 'page', url, statut: r.statut, finale: r.finale, octets: r.corps.length,
+                            mur: r.mur, erreur: r.erreur || null, video: x.video, chaine: x.chaine });
+      if (x.chaine && source !== 'consigne') { chaine = x.chaine; source = 'page'; }
+      if (x.video) { video = x.video; break; }
+    }
+    if (video || Date.now() > echeance) break;
   }
+
+  if (!chaine && d.graine && Date.now() <= echeance) {
+    const ver = await _directVerifierChaine(d.graine, d.attendu);
+    if (diag) diag.push({ etape: 'graine', id: d.graine, ...ver });
+    if (ver.ok) { chaine = d.graine; source = 'graine'; }
+  }
+
   /* ⚠️ UN ÉCHEC NE VIDE PAS LE CACHE. Ces chaînes diffusent en continu : la dernière diffusion
      connue est presque toujours la bonne, et l'afficher vaut mieux qu'un cadre vide au premier
      hoquet de réseau. On ne réécrit le cache que si l'on a appris quelque chose. */
-  if (!video && !chaine) return cache || null;
-  const out = { ts: now, cle, nom: d.nom, site: d.site,
+  if (!video && !chaine) {
+    const rien = { ts: now, cle, nom: d.nom, site: d.site, video: null, chaine: null, vide: true, diag };
+    _directMem.set(cle, rien);
+    return cache || rien;
+  }
+  const out = { ts: now, cle, nom: d.nom, site: d.site, source,
                 video: video || (cache && cache.video) || null,
                 chaine: chaine || null,
-                tsChaine: chaine ? now : (cache && cache.tsChaine) || 0 };
+                tsChaine: chaine ? now : (cache && cache.tsChaine) || 0, diag };
   _directMem.set(cle, out);
-  try { await auth.aiCacheSet('direct:' + cle, out); } catch {}
+  try { await auth.aiCacheSet('direct:' + cle, { ...out, diag: undefined }); } catch {}
   return out;
 }
 app.get('/api/direct/:cle', async (req, res) => {
@@ -1145,6 +1225,24 @@ app.get('/api/direct/:cle', async (req, res) => {
     if (!r || (!r.video && !r.chaine)) return res.json({ ok: false, nom: d.nom, site: d.site });
     res.json({ ok: true, nom: d.nom, site: d.site, video: r.video || null, chaine: r.chaine || null });
   } catch { res.json({ ok: false, nom: d.nom, site: d.site }); }
+});
+/* ⚠️ LE DIAGNOSTIC, PARCE QU'ON NE CORRIGE PAS CE QU'ON NE VOIT PAS. La résolution se fait sur le
+   VPS ; la machine de développement n'a pas accès à YouTube (refus 403 du mandataire, mesuré). Sans
+   cette vue, toute correction suivante serait une supposition. Elle dit, lecture par lecture : le
+   statut, l'adresse finale, la taille, si un bandeau de consentement a été servi, et ce qui a été
+   extrait. Réservée à l'administrateur : elle expose des adresses internes et force les lectures. */
+app.get('/api/admin/direct/:cle', requireAdmin, async (req, res) => {
+  const cle = String(req.params.cle || '').toLowerCase();
+  const d = _DIRECTS[cle];
+  if (!d) return res.status(404).json({ ok: false, cles: Object.keys(_DIRECTS) });
+  try {
+    _directMem.delete(cle);
+    const r = await _directResoudre(cle, { diag: true });
+    res.json({ ok: true, cle, nom: d.nom, consigne: d.env,
+               consigneP: !!String(process.env[d.env] || '').trim(),
+               source: (r && r.source) || null, video: (r && r.video) || null,
+               chaine: (r && r.chaine) || null, etapes: (r && r.diag) || [] });
+  } catch (e) { res.status(500).json({ ok: false, erreur: String((e && e.message) || e).slice(0, 200) }); }
 });
 
 // ── Filtre des catégories de news (« Filtrer les sections »), PERSISTANT PAR COMPTE (KV durable, modèle
@@ -1191,6 +1289,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260905-directs-antenne', ts: Date.UTC(2026, 8, 5, 9, 0), title: 'Bloomberg Live et Yahoo Finance Live : l’antenne s’affiche et démarre dans la carte', desc: 'Votre capture montrait la carte repliée sur son bouton : « Le direct n’a pas pu être chargé dans la carte ». La résolution du flux échouait donc sur le serveur, et la carte se repliait proprement, ce qui est le bon comportement mais pas celui qu’on lui demande. CE QUI SE PASSAIT. Le serveur allait lire la page de la chaîne pour y trouver la diffusion en cours. Cause la plus probable, et de loin : Google sert aux adresses de centre de données un bandeau de consentement à la place de la page. Il répond correctement, il ne contient simplement AUCUN identifiant. La lecture réussissait donc en ne rapportant rien, ce qui est le pire des échecs : silencieux. Les témoins de consentement sont désormais envoyés à chaque lecture, exactement comme le fait un navigateur après acceptation. TROIS AUTRES CHEMINS ONT ÉTÉ AJOUTÉS, parce qu’un seul point d’entrée est un point unique de panne. La page de chaîne et l’onglet des diffusions sont lus quand la page du direct ne dit rien, et l’identifiant de chaîne se reconnait désormais sous quatre écritures au lieu de deux. Un identifiant de chaîne suffit à cadrer l’antenne : c’est le second étage, celui qui marche même quand la diffusion en cours n’est pas identifiable. UNE GRAINE, CONFIRMÉE ET JAMAIS CRUE SUR PAROLE. La chaîne de chaque rédaction porte un identifiant PERMANENT, à ne pas confondre avec celui d’une vidéo, qui change à chaque redémarrage du flux et reste interdit en dur pour cette raison. Cet identifiant permanent sert donc de dernier recours, mais il n’est pas affiché sur la foi de ce qui est écrit : le serveur le confirme d’abord auprès du flux de la chaîne, qui répond en erreur pour une chaîne inconnue et porte le nom pour une chaîne connue. Un identifiant faux, ou qui désignerait une autre chaîne, est REFUSÉ et la carte garde son repli honnête. ET LA VIDÉO DÉMARRE TOUTE SEULE, SON COUPÉ. Une carte nommée Live qui affiche une vignette et un bouton de lecture ne fait pas ce qu’elle promet : sur un desk, l’antenne doit être à l’écran quand on regarde la carte. Le son coupé n’est pas de la politesse, c’est la seule forme de démarrage automatique que les navigateurs acceptent ; le lecteur porte son propre bouton pour le rétablir.' },
   { id: 'dtpu-20260905-journal-notion', ts: Date.UTC(2026, 8, 5, 5, 0), title: 'Le journal de trading est repris en entier : plus aéré, plus clair, sur ses trois onglets', desc: 'Sur demande utilisateur : une refonte plus propre et plus épurée du journal, sur ses trois onglets, avec la même grammaire visuelle que le reste du desk. UN SEUL CADRE PAR IDÉE. Chaque section du tableau de bord était une boîte encadrée qui contenait des cartes elles-mêmes encadrées : deux bordures pour une seule idée, et l’œil finit par compter les cadres au lieu de lire les chiffres. La boîte extérieure disparaît. La hiérarchie est désormais portée par ce qui la porte naturellement : un titre, un filet, et du blanc. La page, puis la section, puis la carte. Trois niveaux de lecture, un seul cadre. Le titre de section gagne au passage un cran de taille et un filet de départ : une étiquette qui flotte dans le vide ne dit pas « ici commence autre chose », un titre souligné, oui. LE TABLEAU DES TRADES PERD SON DAMIER. Chaque cellule portait un filet à droite ET en bas. Mesure faite en remettant le défaut : 2641 traits verticaux sur la page, qui la découpaient en damier. Les filets horizontaux suffisent à suivre une ligne du regard, et c’est ainsi qu’on lit un tableau. Une exception est gardée, parce qu’elle n’est pas décorative : la colonne des paires reste collée à gauche et flotte au-dessus des colonnes qui défilent sous elle. Son filet est le bord d’un élément fixe, pas une ligne de quadrillage. UNE LARGEUR DE LECTURE. Le contenu s’étalait sur toute la largeur de l’écran : sur un moniteur large, quatre chiffres de synthèse s’étiraient sur près d’un mètre et l’œil devait traverser le vide entre eux. Le journal est maintenant borné à une largeur de lecture confortable, et calé à gauche, dans l’axe de la barre d’onglets. Les respirations entre sections, les marges des cartes et les espacements du bilan annuel sont repris ensemble : plus d’air là où il sépare, pas de vide là où il éloigne deux choses qui vont ensemble. LA COHÉRENCE AVEC LE DESK. Les coins doux, les bordures fines et le survol doré sont la charte du desk depuis toujours, et le journal était le seul écran qui ne les appliquait pas. Il les applique désormais, sur les cartes, sur les tuiles de chiffres et sur les pavés du bilan annuel. Aérer cet écran ne l’éloigne donc pas du desk : cela l’en rapproche. Le format téléphone reçoit ses propres marges, plus serrées, pour que la mise en air ne coûte pas un défilement supplémentaire. Quatre contrôles automatiques accompagnent la reprise. Ils ouvrent le vrai journal dans un navigateur et vérifient que la section n’a plus de cadre, que la carte garde le sien, que le tableau a bien perdu son quadrillage vertical, et que la colonne collante a gardé sa frontière. Chacun a été éprouvé en remettant le défaut : les quatre rougissent séparément.' },
   { id: 'dtpu-20260905-fx-fraicheur', ts: Date.UTC(2026, 8, 5, 3, 0), title: 'Le tableau FX vous dit quand ses prix ne sont plus d’actualité', desc: 'Audit de fiabilité sur l’onglet FX, et ce qu’il a trouvé n’était pas une erreur de calcul : c’était un silence. Le tableau ne disait plus rien de l’âge de ses prix. Le petit MAJ HH:MM du coin droit avait été retiré en août, à votre demande, parce qu’il occupait la place sans être consulté ; le code qui l’écrivait, lui, est resté et s’est neutralisé tout seul. Personne ne l’a vu, parce qu’un code qui ne fait rien ne casse rien. OR LE TABLEAU A TROIS RAISONS D’ÊTRE VIEUX. Le week-end, le desk sert délibérément la photo de vendredi et coupe le rafraîchissement des cotations, marché fermé : un dimanche à 15 h vous lisiez des prix de vendredi 22 h, sans un mot. Un rafraîchissement en échec laisse le tableau précédent en place, sans un mot. Et un serveur qui redémarre sert son dernier instantané enregistré, qui peut dater. Les prix ne sont pas faux : ce sont les vrais prix d’un autre moment, affichés comme s’ils étaient de maintenant. C’est exactement ce qu’un terminal ne doit pas faire. CE QUI CHANGE, ET CE QUI NE CHANGE PAS. L’horodatage permanent ne revient pas : le retirer était une bonne décision, et pour la bonne raison, un indicateur qu’on lit tous les jours sans jamais rien y voir cesse d’être lu. Le tableau applique donc la règle que le desk suit déjà sur le graphique de réaction : le cas ordinaire n’écrit rien, le cas anormal garde sa phrase. En semaine, cotations à jour, vous ne voyez rien de nouveau. Si elles ont plus de dix minutes, une pastille orange dit depuis quand. Et quand le marché est fermé, une pastille sobre nomme le jour de clôture : Marché fermé, clôture de vendredi à 22:58. C’est le serveur qui décide si le marché est fermé, au moment où il vous répond, et non une seconde règle recopiée dans le navigateur qui finirait par diverger de la première. Un banc éprouve les quatre cas dans un vrai navigateur, et ils vont par paires : ne rien dire quand c’est frais serait vert sur un code qui ne dit jamais rien, c’est-à-dire sur le défaut d’origine ; parler quand c’est vieux serait vert sur un code qui parle tout le temps, c’est-à-dire sur la nuisance retirée en août. Le quatrième contrôle exige que le retour à la normale efface la pastille.' },
   { id: 'dtpu-20260905-devise-couleur', ts: Date.UTC(2026, 8, 5, 1, 0), title: 'Une devise a désormais UNE couleur dans tout le desk', desc: 'Le récap hebdomadaire écrit le code de chaque devise en couleur : USD, EUR, JPY… Ces huit couleurs venaient d’une table qui lui était propre, différente de celle du graphique Force des Devises. Les huit divergeaient, et l’USD changeait carrément de famille : doré dans le récap, blanc dans le graphique. La même devise portait donc deux couleurs dans le même produit, et l’or, qui est la couleur de MARQUE du desk, faisait au passage un travail de donnée. PLUS GÊNANT : CETTE COPIE N’AVAIT PAS DE VARIANTE POUR LE THÈME CLAIR. Mesuré sur fond blanc, quatre des huit codes tombaient sous le contraste minimum exigé pour du gros texte : l’USD à 1,96, le franc suisse à 1,92, la livre à 2,28, le yen à 2,43. Le graphique avait reçu ce correctif fin août, avec ses couleurs assombries pour le fond blanc ; la copie, elle, ne l’avait jamais reçu. C’est la définition d’une duplication : on répare une fois sur deux sans le savoir. Le récap demande maintenant sa couleur au même endroit que le graphique. Une devise, une couleur, sur les deux thèmes. Rien ne change à l’œil sur le thème sombre, où les deux tables étaient déjà proches, sauf l’USD qui prend enfin la couleur qu’il a partout ailleurs. UN CONTRÔLE AUTOMATIQUE QUI NE POUVAIT PAS VOIR CE DÉFAUT LE VOIT MAINTENANT. Le banc qui vérifie le contraste des huit couleurs existait depuis fin août, mais il tournait derrière le chargement du moteur graphique : sur un poste sans accès à ce moteur, c’est-à-dire pendant tout le développement courant, il ne tournait jamais. Il est remonté avant, avec le reste de ce qui se lit dans le code sans avoir besoin d’un écran. Il refuse désormais aussi qu’une seconde table de couleurs de devises réapparaisse ailleurs, sous quelque nom que ce soit.' },
