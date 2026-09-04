@@ -447,7 +447,16 @@ function phaseServiceWorker() {
           + 'heatmap-seance horloge indices-matieres journal-mini matrice-croisee notes perf-semaine radar-biais '
           + 'reunion-bc risque-historique risque-jauge saison saison-courbe serie-indicateur sessions '
           + 'stats-volatilite taux-cb taux-diff ticklist vol-horaire').split(' ');
-        const CFG = { cfg: { active: 'b', gap: 'tight', gapV: 2, deskV: 99, tipSeen: 1, layouts: [{ id: 'b', name: 'Banc', fav: true,
+        /* ⚠️ `actV: 2` EST INDISPENSABLE DEPUIS LE 04/09, ET SON ABSENCE MESURAIT AUTRE CHOSE. Ce jeu
+           d'essai décrit un compte DÉJÀ MIGRÉ — c'est bien le cas qu'on veut éprouver. Sans `actV`,
+           `ensureDefaultLayout` déclenche sa migration one-shot du 03/08 (« met vue d'ensemble par
+           défaut ») et force `active` sur « Vue générale » : le banc mesurait alors le layout PAR
+           DÉFAUT, pas le sien, et ne trouvait aucun Compte à rebours.
+           Il passait quand même, mais pour une mauvaise raison : `open()` réécrivait ensuite `active`
+           avec le layout ★, ce qui ramenait par accident le bon décor. Cette réécriture est le défaut
+           corrigé le 04/09 (le modèle de l'utilisateur changeait en naviguant) ; en la retirant, on a
+           découvert que ce banc s'appuyait dessus. Le jeu d'essai dit maintenant ce qu'il veut dire. */
+        const CFG = { cfg: { active: 'b', gap: 'tight', gapV: 2, deskV: 99, actV: 2, tipSeen: 1, layouts: [{ id: 'b', name: 'Banc', fav: true,
           items: LIB.map(id => ({ w: id, gw: 12, gh: 10 })) }] } };
         const srvLib = require('http').createServer((rq, rs) => {
           const u = rq.url.split('?')[0];

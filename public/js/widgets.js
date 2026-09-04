@@ -9181,9 +9181,15 @@
         // pastille avec mot du 06/08 cède devant la reprise à l'identique demandée le 20/08 ; le
         // sens reste écrit en toutes lettres dans la ligne d'aide sous la liste.
         +   '<button class="wdg-mgr-def' + (l.fav ? ' on' : '') + '"'
+        /* ⚠️ CE LIBELLÉ A CHANGÉ AVEC LA RÈGLE (04/09, cf. `open()`). Il promettait « le layout qui
+           s'ouvre à l'arrivée sur Mon Desk », ce qui était vrai — et c'était le défaut : le modèle
+           s'imposait aussi à chaque retour d'onglet, écrasant le choix de l'utilisateur. Le ★
+           désigne désormais le modèle PROPOSÉ tant qu'aucun choix n'a été fait, et le filet
+           lorsqu'un modèle disparaît. Un libellé qui décrit une règle abolie ment avec l'autorité
+           du produit. */
         +     ' title="' + (l.fav
-                  ? 'C\'est le layout qui s\'ouvre à l\'arrivée sur Mon Desk. Cliquer pour ne plus l\'imposer (retour au dernier utilisé).'
-                  : 'Faire de « ' + esc(l.name) + ' » le layout qui s\'ouvre à l\'arrivée sur Mon Desk.') + '"'
+                  ? 'Modèle proposé par défaut, tant qu\'aucun autre n\'a été choisi. Cliquer pour retirer cette marque.'
+                  : 'Faire de « ' + esc(l.name) + ' » le modèle proposé par défaut aux nouveaux desks.') + '"'
         +     ' onclick="' + stop + 'DTPWidgets.toggleFav(\'' + l.id + '\')">'
         +     '<i>' + (l.fav ? '★' : '☆') + '</i>'
         +   '</button>'
@@ -9932,15 +9938,38 @@ function _spansAffiches(lay) {
     },
     open: function () {                                   // appelé par activateView('widgets')
       document.body.classList.add('wdg-mode');            // masque la nav principale (Mon Desk = espace autonome)
-      // TEMPLATE PAR DÉFAUT (demande user 23/07) : à l'ARRIVÉE sur Mon Desk (icône/logo, chargement), on ouvre
-      // le layout marqué ★ (par défaut) — pas le dernier utilisé. Sans ★ : dernier actif (comportement d'avant).
-      var _applyDefault = function () {
-        var c = STATE.cfg; if (!c) return;
-        var fav = (c.layouts || []).find(function (l) { return l && l.fav; });
-        if (fav) { c.active = fav.id; fav.hidden = false; }   // le ★ par défaut est toujours ré-affiché à l'arrivée
+      /* ⚠️ NAVIGUER NE CHANGE PLUS LE MODÈLE ACTIF (04/09, demande utilisateur, deux captures) ══════
+         « J'avais sélectionné mon template personnalisé JOT, puis en naviguant vers Journal de
+         trading et en revenant sur Accueil, mon layout a changé automatiquement. »
+         CE QUI SE PASSAIT, et c'est exactement ce que faisait le code : `open()` est appelé par
+         `activateView('widgets')` (charts.js) — donc à CHAQUE retour sur Mon Desk, pas seulement à
+         l'arrivée — et il réécrivait `c.active` avec le layout marqué ★. Un simple aller-retour
+         d'onglet suffisait donc à perdre le modèle choisi. Ce n'était pas un effet de bord : la
+         ligne le faisait délibérément, au nom de la règle du 23/07 (« à l'arrivée sur Mon Desk on
+         ouvre le layout ★, pas le dernier utilisé »). Le mot « arrivée » avait été traduit par
+         « chaque activation de la vue », ce qui n'est pas la même chose.
+         ⚠️ LA RÈGLE DU 23/07 EST LEVÉE, ET C'EST L'UTILISATEUR QUI LA LÈVE : « le template par
+         défaut ne doit être utilisé qu'à la toute première configuration, et ne doit pas écraser un
+         template déjà sélectionné ; il doit rester actif tant que l'utilisateur ne décide pas
+         lui-même d'en changer. » `c.active` EST cette décision, et elle est déjà persistée par
+         compte (`/api/widgets`) : il suffit de ne plus la piétiner. Le ★ garde son sens — c'est le
+         modèle proposé quand aucun choix n'existe encore, et `defaultCfg()` le pose déjà.
+         CE QUI RESTE : un FILET, pas un défaut. Si le modèle actif a disparu (supprimé sur un autre
+         appareil) ou a été masqué, on retombe sur le ★, puis sur le premier visible — sans quoi
+         Mon Desk s'ouvrirait sur une grille vide. Une réparation ne s'applique que quand il y a
+         quelque chose à réparer ; elle ne remplace jamais un choix valide. */
+      var _filet = function () {
+        var c = STATE.cfg; if (!c || !Array.isArray(c.layouts) || !c.layouts.length) return;
+        var cur = c.layouts.find(function (l) { return l && l.id === c.active; });
+        if (cur && !cur.hidden) return;                    // choix valide : on n'y touche pas
+        var fav = c.layouts.find(function (l) { return l && l.fav && !l.hidden; })
+               || c.layouts.find(function (l) { return l && l.fav; })
+               || c.layouts.find(function (l) { return l && !l.hidden; })
+               || c.layouts[0];
+        if (fav) { c.active = fav.id; fav.hidden = false; }
       };
-      if (!STATE.booted) { STATE.booted = true; load().then(function () { _applyDefault(); renderBar(); renderGrid(); }); }
-      else { _applyDefault(); renderBar(); renderGrid(); }
+      if (!STATE.booted) { STATE.booted = true; load().then(function () { _filet(); renderBar(); renderGrid(); }); }
+      else { _filet(); renderBar(); renderGrid(); }
     },
     close: function () { document.body.classList.remove('wdg-mode'); unmountAll(); },   // restaure la nav + libère roots/timers
     // (05/08) Mon Desk est l ecran d arrivee et le desk classique est masque : plus AUCUNE
@@ -10775,8 +10804,13 @@ function _spansAffiches(lay) {
       inp.click();
     },
     toggleFav: function (id) {
-      // ★ = TEMPLATE PAR DÉFAUT (exclusif, demande user 23/07) : une seule étoile — la poser sur un layout la
-      // retire des autres ; re-cliquer la retire (→ retour au comportement « dernier utilisé »).
+      /* ★ = MODÈLE PROPOSÉ PAR DÉFAUT (exclusif) : une seule étoile — la poser sur un layout la retire
+         des autres, re-cliquer la retire tout court.
+         ⚠️ CE QU'ELLE NE FAIT PLUS (04/09) : elle n'IMPOSE plus son layout à chaque arrivée sur Mon
+         Desk. Le modèle actif est celui que l'utilisateur a choisi, et il le reste jusqu'à ce qu'il
+         en change lui-même (cf. la note de `open()`). L'ancien commentaire promettait ici un
+         « retour au comportement dernier utilisé » au décochage : ce comportement est désormais le
+         seul, étoile ou pas. */
       var l = layoutById(id); if (!l) return;
       _delConfirm = null;
       var was = !!l.fav;

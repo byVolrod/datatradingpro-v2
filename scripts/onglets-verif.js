@@ -637,7 +637,16 @@ const LIGNES = /return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \
   console.log('\n── 10. Un widget monté dans un onglet voit sa vraie hauteur ──');
   let srv3 = null, nav3 = null;
   try {
-    const CFG = { cfg: { active: 't', gap: 'tight', gapV: 2, deskV: 99, tipSeen: 1, layouts: [{ id: 't', name: 'Banc', fav: true, items: [
+    /* ⚠️ `actV: 2` EST INDISPENSABLE DEPUIS LE 04/09, ET SON ABSENCE MESURAIT AUTRE CHOSE. Ce jeu
+       d'essai décrit un compte DÉJÀ MIGRÉ — c'est bien le cas qu'on veut éprouver. Sans `actV`,
+       `ensureDefaultLayout` déclenche sa migration one-shot du 03/08 (« met vue d'ensemble par
+       défaut ») et force `active` sur « Vue générale » : le banc mesurait alors le layout PAR
+       DÉFAUT, pas le sien, et ne trouvait aucun Compte à rebours.
+       Il passait quand même, mais pour une mauvaise raison : `open()` réécrivait ensuite `active`
+       avec le layout ★, ce qui ramenait par accident le bon décor. Cette réécriture est le défaut
+       corrigé le 04/09 (le modèle de l'utilisateur changeait en naviguant) ; en la retirant, on a
+       découvert que ce banc s'appuyait dessus. Le jeu d'essai dit maintenant ce qu'il veut dire. */
+    const CFG = { cfg: { active: 't', gap: 'tight', gapV: 2, deskV: 99, actV: 2, tipSeen: 1, layouts: [{ id: 't', name: 'Banc', fav: true, items: [
       /* Le MÊME widget des deux côtés : à gauche dans un onglet, à droite dans une carte
          ordinaire. Sans ce témoin, une sonde cassée rendrait 0 partout et le banc crierait au
          défaut là où il n'y en a pas. */
