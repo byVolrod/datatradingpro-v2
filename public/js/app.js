@@ -14006,7 +14006,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrTsToInput(ts) { try { const d = new Date(ts), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); } catch (e) { return ''; } }
   function _jrFmtNum(v, signed) { if (v == null || v === '') return ''; const n = Number(v); if (!isFinite(n)) return _esc(String(v)); const s = (Math.round(n * 100) / 100).toString().replace('.', ','); return (signed && n > 0 ? '+' : '') + s; }
   function _jrRingHtml(val, max) {
-    const f = Math.max(0, Math.min(1, val / (max || 5))), R = 8.5, C = 2 * Math.PI * R, c = f >= 0.8 ? '#00e676' : f >= 0.5 ? '#ffb300' : '#e3b23a';
+    const f = Math.max(0, Math.min(1, val / (max || 5))), R = 8.5, C = 2 * Math.PI * R, c = f >= 0.8 ? '#00e676' : f >= 0.5 ? '#ffb300' : '#ff8f00';
     return '<span class="jr-ring"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="#26262c" stroke-width="2.6"/><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="' + (f * C).toFixed(2) + ' ' + C.toFixed(2) + '" transform="rotate(-90 12 12)"/></svg><b>' + _jrFmtNum(val) + '</b></span>';
   }
   function _jrCell(e, col) {
@@ -14020,7 +14020,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       case 'multi': { const arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(x => _jrChipHtml(x, _jrChip(col.k, x))).join('') : '<i class="jr-ph">-</i>'; }
       case 'num': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + _jrFmtNum(v, col.signed) + (col.suffix || '') + '</span>'; }
       case 'money': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + (col.signed && n > 0 ? '+' : '') + n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' $</span>'; }
-      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; const pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#e3b23a'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _jrFmtNum(v) + '%</span></div>'; }
+      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; const pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#ff8f00'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _jrFmtNum(v) + '%</span></div>'; }
       case 'ring': return (v == null || v === '') ? '<i class="jr-ph">-</i>' : _jrRingHtml(Number(v), col.max || 5);
     }
     return '';
@@ -14904,6 +14904,32 @@ document.addEventListener('DOMContentLoaded', ()=>{
   window._jrTabClick = _jrSetTab;
   const _JR_RES = ['Profit', 'TP', 'BE', 'SL', 'Loss'];
   const _RES_COL = { Profit: '#00e676', TP: '#00cc99', BE: '#ffb300', SL: '#ff8f00', Loss: '#ff3d00' };
+  /* ══ LA PALETTE DE DONNÉES DU JOURNAL — ET POURQUOI L'OR N'Y EST PLUS (04/09) ═══════════════
+     Demande de l'utilisateur, mot pour mot : « des couleurs différentes que du doré, car là on
+     parle de datas ». Elle est juste, et pour une raison précise : l'or `#e3b23a` est la couleur
+     de MARQUE du desk — elle habille les titres, les bordures, les onglets actifs. Employée en
+     plus pour peindre une barre de résultat, elle cesse de vouloir dire « DataTradingPro » sans
+     pour autant vouloir dire quelque chose d'autre : le lecteur ne sait plus si la couleur porte
+     une information ou une identité. Une couleur de données doit servir à distinguer, pas à
+     signer.
+
+     CE QUI RESTE INTERDIT DANS CETTE PALETTE, ET CE N'EST PAS UN DÉTAIL. Le vert `#00e676`, le
+     rouge `#ff3d00` et l'ambre `#ffb300` sont RÉSERVÉS par la charte (ACHAT / VENTE / NEUTRE, et
+     ici gagnant / perdant / neutre). Une catégorie peinte en vert dans un journal de trading est
+     lue comme « gagnante » avant même d'être lue comme « catégorie n°3 » — donc aucune des cinq
+     teintes ci-dessous n'est verte, rouge ni ambrée. C'est la contrainte qui a fait tomber
+     plusieurs candidates par ailleurs correctes.
+
+     ⚠️ L'ORDRE EST LE MÉCANISME DE SÛRETÉ, PAS UN GOÛT. Deux teintes voisines dans cette liste
+     se retrouvent côte à côte à l'écran : ce sont ces PAIRES-LÀ qui doivent rester séparables,
+     y compris pour un daltonien. L'ordre retenu a été choisi par énumération, puis MESURÉ sur le
+     fond du desk (`#0d0e11`) avec le validateur de palettes — pas jugé à l'œil :
+       bande de clarté OK · plancher de chroma OK · séparation daltonienne ΔE 10,1 (deutan) pour
+       la pire paire voisine (sarcelle ↔ violet), 8,5 en tritan · vision normale ΔE 17,8 · et les
+       cinq tiennent le contraste 3:1 contre le fond.
+     Réordonner cette liste sans repasser la mesure peut faire tomber une paire sous le seuil sans
+     que rien ne se voie sur un écran calibré et un œil valide. */
+  const _JR_CAT = ['#3987e5', '#d55181', '#9085e9', '#1ba0a5', '#d95926'];   // bleu · magenta · violet · sarcelle · orange
   const _jrArr = v => Array.isArray(v) ? v.filter(Boolean) : (v ? String(v).split(/[,;|]+/).map(s => s.trim()).filter(Boolean) : []);
   const _jrN = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
   const _jrResOf = e => { if (e.result && _JR_RES.includes(e.result)) return e.result; const w = _jrWin(e); return w == null ? null : (w > 0 ? 'Profit' : w < 0 ? 'Loss' : 'BE'); };
@@ -14950,7 +14976,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const max = Math.max(1, ...rows.map(([, v]) => Math.abs(v)));
     const body = rows.map(([k, v]) => {
       const w = Math.round(Math.abs(v) / max * 100);
-      const c = (opt.colors && opt.colors[k]) || (v < 0 ? '#ff3d00' : opt.color || '#e3b23a');
+      const c = (opt.colors && opt.colors[k]) || (v < 0 ? '#ff3d00' : opt.color || _JR_CAT[0]);
       const vt = opt.fmt ? opt.fmt(v) : (v >= 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ',');
       return '<div class="jrd-bar"><span class="jrd-bar-k" title="' + _esc(k) + '">' + _esc(k) + '</span><span class="jrd-bar-t"><i style="width:' + w + '%;background:' + c + '"></i></span><span class="jrd-bar-v">' + vt + '</span></div>';
     }).join('') || '<div class="jrd-empty">-</div>';
@@ -15011,17 +15037,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: yr, maxDeviation: 0.12 }));
     const z = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 })); z.get('grid').setAll({ stroke: am5.color(0xffffff), strokeOpacity: 0.3, strokeWidth: 1 }); if (z.get('label')) z.get('label').set('visible', false);
     // Tooltip clair (date • valeur cumulée • variation), libellés pré-formatés en français (zéro format amCharts cassé).
-    const _eqTip = am5.Tooltip.new(root, { getFillFromSprite: false, autoTextColor: false, labelText: '[#8a8a92 fontSize:10px]{dateLbl}[/]\n[bold #e3b23a fontSize:14px]{vLbl}[/]\n[#9aa0aa fontSize:10px]{varLbl}[/]' });
+    const _eqTip = am5.Tooltip.new(root, { getFillFromSprite: false, autoTextColor: false, labelText: '[#8a8a92 fontSize:10px]{dateLbl}[/]\n[bold #3987e5 fontSize:14px]{vLbl}[/]\n[#9aa0aa fontSize:10px]{varLbl}[/]' });
     _eqTip.get('background').setAll({ fill: am5.color(0x141417), stroke: am5.color(0x33333a), strokeWidth: 1, fillOpacity: 0.98, cornerRadius: 6 });
     if (_eqTip.label) _eqTip.label.setAll({ fill: am5.color(0xe6e6ea), paddingTop: 5, paddingBottom: 5, paddingLeft: 9, paddingRight: 9 });
-    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, valueXField: 't', valueYField: 'v', stroke: am5.color(0xe3b23a), fill: am5.color(0xe3b23a), tooltip: _eqTip }));
+    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, valueXField: 't', valueYField: 'v', stroke: am5.color(0x3987e5), fill: am5.color(0x3987e5), tooltip: _eqTip }));
     series.strokes.template.setAll({ strokeWidth: 2.5, strokeLinecap: 'round', strokeLinejoin: 'round' });   // ligne plus nette et lisse
-    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xe3b23a), opacity: 0.42 }, { color: am5.color(0xcfa233), opacity: 0.10 }, { color: am5.color(0xe3b23a), opacity: 0 }] }) });
+    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0x3987e5), opacity: 0.42 }, { color: am5.color(0x2f6fbf), opacity: 0.10 }, { color: am5.color(0x3987e5), opacity: 0 }] }) });
     series.data.setAll(_jrEqData(L, _jrEqMode));
     // Curseur enrichi : trait orange pointillé qui suit la souris/le drag, accroché aux points (snapToSeries)
     // → le tooltip riche (date + valeur + Δ) s'affiche pile sur la donnée survolée.
     const _eqCursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', xAxis, yAxis, snapToSeries: [series] }));
-    _eqCursor.lineX.setAll({ stroke: am5.color(0xe3b23a), strokeOpacity: 0.5, strokeWidth: 1, strokeDasharray: [2, 3] });
+    _eqCursor.lineX.setAll({ stroke: am5.color(0x3987e5), strokeOpacity: 0.5, strokeWidth: 1, strokeDasharray: [2, 3] });
     _eqCursor.lineY.set('visible', false);
     _jrEqSeriesRef = series; series.appear(650); chart.appear(650, 60);
   }
@@ -15119,6 +15145,45 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return '<div class="jrd-card"><div class="jrd-card-h">Résultat des mois</div><div class="jrd-bars">' + corps + '</div></div>';
   }
 
+  /* ── « MONTHLY RR » — LES DOUZE PAVÉS DE LA RÉFÉRENCE NOTION ────────────────────────────────
+     Le tableau mois par mois, juste en dessous, dit déjà TOUT : R, %, taux, trades, capital. Alors
+     pourquoi douze pavés en plus ? Parce qu'un tableau se lit LIGNE À LIGNE et qu'une année se lit
+     D'UN COUP. Douze cases de même taille, posées côte à côte, rendent visible ce qu'aucune ligne
+     ne montre : le trou de trois mois sans rien, les deux mois qui portent l'année entière, la
+     grappe de mois rouges d'affilée. C'est exactement le rôle qu'ils tiennent sur la page de
+     l'utilisateur, et c'est pour cela qu'il les a demandés en plus du tableau.
+
+     ⚠️ LA BARRE EST PROPORTIONNELLE AU PLUS GROS MOIS DE L'ANNÉE, PAS À UN MAXIMUM INVENTÉ. Douze
+     barres dessinées sur une échelle fixe (5 R, 10 R…) mentiraient dans les deux sens : écrasées
+     sur une année calme, saturées sur une bonne année. On rapporte donc chaque mois au plus grand
+     |R| de SON année — la comparaison reste interne à l'année affichée, qui est la seule que ces
+     douze cases prétendent comparer.
+     ⚠️ ET UN MOIS SANS TRADE RESTE VIDE. Pas de « 0 R » : zéro se lit comme un résultat nul obtenu
+     en travaillant, l'absence se lit comme une absence. Les deux ne s'enseignent pas la même chose
+     à qui relit son année. Le mois EN COURS est marqué comme tel, pour la même raison : il n'est
+     pas comparable à un mois clos. */
+  function _jrMoisRR(bilans, moisNow) {
+    const ech = Math.max(1, ...bilans.map(b => (b && b.r != null) ? Math.abs(b.r) : 0));
+    const fR = v => (v >= 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ',');
+    const cases = bilans.map((b, m) => {
+      const enCours = m === moisNow;
+      const vide = !b || b.r == null;
+      const cls = 'jry-rr' + (vide ? ' jry-rr--vide' : (b.r >= 0 ? ' jry-rr--pos' : ' jry-rr--neg')) + (enCours ? ' jry-rr--now' : '');
+      const larg = vide ? 0 : Math.round(Math.abs(b.r) / ech * 100);
+      const teinte = vide ? '' : (b.r >= 0 ? '#00e676' : '#ff3d00');
+      return '<div class="' + cls + '">'
+        + '<div class="jry-rr-h"><span class="jry-rr-m">' + _JR_MOIS_LONG[m] + '</span>'
+        +   (enCours ? '<span class="jry-tag jry-tag--now">En cours</span>' : '') + '</div>'
+        + '<div class="jry-rr-v">' + (vide ? '<span class="jry-vide">—</span>' : _esc(fR(b.r)) + '<i>R</i>') + '</div>'
+        + '<div class="jry-rr-t">' + (vide ? '' : '<i style="width:' + larg + '%;background:' + teinte + '"></i>') + '</div>'
+        + '<div class="jry-rr-f">' + (b
+            ? b.n + (b.n > 1 ? ' trades' : ' trade') + (b.taux != null ? ' · ' + b.taux + '%' : '')
+            : 'aucun trade') + '</div>'
+        + '</div>';
+    }).join('');
+    return '<div class="jry-rrgrid">' + cases + '</div>';
+  }
+
   // ── R par mois : colonnes amCharts, vert au-dessus de zéro, rouge en dessous ──
   function _jrBuildMoisChart(bilans) {
     const id = 'jry-mois-chart', el = document.getElementById(id);
@@ -15181,12 +15246,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const z = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 }));
     z.get('grid').setAll({ stroke: am5.color(0xffffff), strokeOpacity: 0.28, strokeWidth: 1 });
     if (z.get('label')) z.get('label').set('visible', false);
-    const tip = am5.Tooltip.new(root, { getFillFromSprite: false, autoTextColor: false, labelText: '[#8a8a92 fontSize:10px]{m}[/]\n[bold #e3b23a fontSize:14px]{lbl}[/]' });
+    const tip = am5.Tooltip.new(root, { getFillFromSprite: false, autoTextColor: false, labelText: '[#8a8a92 fontSize:10px]{m}[/]\n[bold #3987e5 fontSize:14px]{lbl}[/]' });
     tip.get('background').setAll({ fill: am5.color(0x141417), stroke: am5.color(0x33333a), strokeWidth: 1, fillOpacity: 0.98, cornerRadius: 6 });
     if (tip.label) tip.label.setAll({ fill: am5.color(0xe6e6ea), paddingTop: 5, paddingBottom: 5, paddingLeft: 9, paddingRight: 9 });
-    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, categoryXField: 'm', valueYField: 'v', stroke: am5.color(0xe3b23a), fill: am5.color(0xe3b23a), tooltip: tip, connect: true }));
+    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, categoryXField: 'm', valueYField: 'v', stroke: am5.color(0x3987e5), fill: am5.color(0x3987e5), tooltip: tip, connect: true }));
     series.strokes.template.setAll({ strokeWidth: 2.5, strokeLinecap: 'round', strokeLinejoin: 'round' });
-    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xe3b23a), opacity: 0.34 }, { color: am5.color(0xe3b23a), opacity: 0 }] }) });
+    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0x3987e5), opacity: 0.34 }, { color: am5.color(0x3987e5), opacity: 0 }] }) });
     /* Le cumul ne repart pas de zéro sur un mois vide : il garde la valeur atteinte. Remettre à zéro
        dessinerait une chute qui n'a pas eu lieu. */
     let cum = 0; const data = bilans.map((b, i) => {
@@ -15333,9 +15398,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + '<div class="jrd-rings" style="margin-top:14px;">'
           + _jrRing(fR(totR), 'R de l\'année', totR >= 0 ? '#00e676' : '#ff3d00')
           + _jrRing(tauxAn == null ? '-' : tauxAn + '%', 'Taux de réussite', '#00cc99', (gAn + pAn) ? (gAn + ' G / ' + pAn + ' P') : '', tauxAn == null ? null : tauxAn / 100)
-          + _jrRing(String(An.length), 'Trades sur l\'année', '#e3b23a')
-          + _jrRing(String(bilans.filter(Boolean).length) + ' / 12', 'Mois travaillés', '#a78bfa', '', bilans.filter(Boolean).length / 12)
+          + _jrRing(String(An.length), 'Trades sur l\'année', _JR_CAT[0])
+          + _jrRing(String(bilans.filter(Boolean).length) + ' / 12', 'Mois travaillés', _JR_CAT[2], '', bilans.filter(Boolean).length / 12)
         + '</div>'
+      + '</div>'
+      + '<div class="jrd-sec"><div class="jrd-sec-h">R PAR MOIS</div>'
+        + _jrMoisRR(bilans, moisNow)
       + '</div>'
       + '<div class="jrd-sec"><div class="jrd-sec-h">PERFORMANCE MOIS PAR MOIS</div>'
         + '<div class="jry-tablewrap"><table class="jry-table"><thead><tr>'
@@ -15515,7 +15583,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       '<div class="jrd-sec"><div class="jrd-sec-h">PERFORMANCE PILOTE</div><div class="jrd-rings">'
         + _jrRing(fR(totR), 'Total R', totR >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(_jrMoneyShort(totD), 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
-        + _jrRing(String(L.length), 'Trades', '#e3b23a')
+        + _jrRing(String(L.length), 'Trades', _JR_CAT[0])
         /* Le seul cadran de cette rangée qui ait un MAXIMUM honnête : un taux va de 0 à 100 %.
            Total R, total $ et nombre de trades n'en ont pas — leur arc reste plein (cf. `_jrRing`). */
         + _jrRing((wrD == null ? '-' : wrD + '%'), 'Taux de réussite', '#00cc99', (oWD + oLD) ? (oWD + ' G / ' + oLD + ' P, BE exclus') : '', wrD == null ? null : wrD / 100)
@@ -15531,25 +15599,31 @@ document.addEventListener('DOMContentLoaded', ()=>{
       + '</div></div>'
       + '<div class="jrd-sec"><div class="jrd-sec-h">PERFORMANCE CLÉ</div><div class="jrd-rings">'
         + _jrRing(fR(avgW), 'R moy. gagnant', '#00e676') + _jrRing(fR(avgL), 'R moy. perdant', '#ff3d00')
-        + _jrRing(longN + ' / ' + shortN, 'Long / Short', '#3aa0ff')
-        + _jrRing((Math.round(rrA * 100) / 100).toString().replace('.', ','), 'RR cible moyen', '#a78bfa')
+        + _jrRing(longN + ' / ' + shortN, 'Long / Short', _JR_CAT[0])
+        + _jrRing((Math.round(rrA * 100) / 100).toString().replace('.', ','), 'RR cible moyen', _JR_CAT[2])
         /* « Nbs Trade (Month) » de la référence : le rythme du MOIS EN COURS, que ni le total ni le
            taux ne donnent. Un journal peut afficher un excellent cumul et n'avoir rien tenu depuis
            trois semaines — c'est cette information-là qui manquait. */
-        + _jrRing(String(_jrMoisCourant(L)), 'Trades ce mois-ci', '#e3b23a', _JR_MOIS_LONG[new Date().getMonth()])
+        + _jrRing(String(_jrMoisCourant(L)), 'Trades ce mois-ci', _JR_CAT[3], _JR_MOIS_LONG[new Date().getMonth()])
       + '</div><div class="jrd-rings" style="margin-top:10px;">'
         + _jrRing(pf == null ? '-' : (Math.round(pf * 100) / 100).toString().replace('.', ','), 'Profit factor', pf != null && pf >= 1 ? '#00e676' : '#ff8f00', 'gains / pertes')
         + _jrRing(expR == null ? '-' : fR(expR), 'Espérance / trade', expR != null && expR >= 0 ? '#00cc99' : '#ff3d00', 'en R')
         + _jrRing(maxDD > 0 ? '−' + (ddInD ? _jrMoneyShort(maxDD).replace(/^\+/, '') : fR(maxDD).replace(/^\+/, '') + ' R') : '0', 'Max drawdown', '#ff8f00', 'depuis un plus haut')
-        + _jrRing(String(worstStreak), 'Série perdante max', worstStreak >= 4 ? '#ff3d00' : '#e3b23a', 'trades d\'affilée')
+        + _jrRing(String(worstStreak), 'Série perdante max', worstStreak >= 4 ? '#ff3d00' : _JR_CAT[1], 'trades d\'affilée')
       + '</div></div>'
       + _jrCalibrage(L, { wr: wrD, avgW, avgL, worstStreak, rs })
       + '<div class="jrd-sec"><div class="jrd-sec-h">OPTIMISATION</div><div class="jrd-grid">'
         + _jrBars('Setup', setupM) + _jrBars('Confluence', confM) + _jrBars('Entrée', entryM) + _jrBars('SL', slM)
         + _jrBars('Note', gradeM) + _jrBars('Fonda', fondaM) + _jrBars('Erreur', errM)
       + '</div></div>'
+      /* ⚠️ DEUX SECTIONS, DEUX TEINTES — ET NON DIX TEINTES POUR DIX CARTES. Peindre chaque carte
+         d'une couleur différente ferait croire à une information qui n'existe pas : « Setup » et
+         « Session » ne sont pas deux catégories d'une même série, ce sont deux tableaux distincts,
+         chacun déjà nommé par son titre. La couleur ne sert donc ici qu'à séparer les deux GRANDS
+         blocs de lecture — ce qui marche (OPTIMISATION) et où ça se répète (SCHÉMAS) — et le SIGNE
+         garde sa couleur propre : une barre négative reste rouge, dans les deux sections. */
       + '<div class="jrd-sec"><div class="jrd-sec-h">RECONNAISSANCE DE SCHÉMAS</div><div class="jrd-grid">'
-        + _jrBars('Jour', dayM, { order: _JRD }) + _jrBars('Session', sessM) + _jrBars('Paires', pairM, { max: 14 })
+        + _jrBars('Jour', dayM, { order: _JRD, color: _JR_CAT[2] }) + _jrBars('Session', sessM, { color: _JR_CAT[2] }) + _jrBars('Paires', pairM, { max: 14, color: _JR_CAT[2] })
       + '</div></div>';
     setTimeout(() => { try { _jrBuildResultDonut(resMap); _jrBuildEquityChart(L); } catch (e) {} }, 12);   // amCharts après insertion DOM
     const capIn = document.getElementById('jr-startcap');

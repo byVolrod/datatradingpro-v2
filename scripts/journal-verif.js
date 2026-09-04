@@ -31,6 +31,19 @@
  *    cadran SANS maximum honnête (un total en R, un nombre de trades) garde bien un arc plein
  *    plutôt qu'une proportion inventée.
  *
+ * 5. LES DOUZE PAVÉS « R PAR MOIS » PORTENT LES MÊMES CHIFFRES QUE LE TABLEAU — ET C'EST
+ *    JUSTEMENT POURQUOI ON LES ÉPROUVE SÉPARÉMENT. Deux blocs alimentés aujourd'hui par la même
+ *    fonction divergent le jour où l'on touche à l'un des deux. Le R du mois d'essai est donc
+ *    recalculé CONTRE LE PAVÉ, et le mois vide y reste vide : ni barre, ni zéro.
+ *
+ * 6. LA COULEUR DES DONNÉES N'EST PLUS L'OR DE MARQUE, ET ON LIT LA COULEUR PEINTE. Demande de
+ *    l'utilisateur : « des couleurs différentes que du doré, car là on parle de datas ». Un `grep`
+ *    de `#e3b23a` dans le source ne prouverait rien — il serait rouge pour toutes les occurrences
+ *    légitimes (titres, bordures, onglet actif) et vert si une règle CSS repeignait la barre en or.
+ *    On relit donc `getComputedStyle` des marques rendues. ⚠️ ET PAR PAIRE : « aucune marque dorée »
+ *    est vrai sur une page vide, donc un témoin positif exige qu'une teinte de la palette MESURÉE
+ *    peigne réellement quelque chose.
+ *
  *   node scripts/journal-verif.js
  *
  * Sans Chromium, le banc S'ABSTIENT (code 0).
@@ -115,6 +128,18 @@ function phaseSource() {
   v('… et le réglage mémorisé est validé contre cette même liste',
     /_JR_TABS\.indexOf\(t\) >= 0 \? t : 'log'/.test(A.slice(A.indexOf('DTPPref.get(\'jrtab\''), A.indexOf('function _jrSetTab'))),
     'sinon un `jrtab` devenu invalide rouvrirait silencieusement « Trades »');
+  /* ⚠️ L'ORDRE DE LA PALETTE EST UN RÉSULTAT DE MESURE, PAS UN GOÛT. Les cinq teintes ont été
+     validées SUR LE FOND DU DESK (`#0d0e11`) : bande de clarté, plancher de chroma, séparation
+     daltonienne de chaque paire VOISINE, contraste. Ce sont les paires voisines qui sont mesurées,
+     donc réordonner la liste peut faire tomber l'une d'elles sous le seuil sans que rien ne se voie
+     sur un écran calibré et un œil valide. Ce contrôle fige la liste mesurée ; le jour où elle doit
+     changer, on repasse le validateur AVANT de toucher cette ligne. */
+  v('la palette de données est exactement celle qui a été mesurée',
+    /const _JR_CAT = \['#3987e5', '#d55181', '#9085e9', '#1ba0a5', '#d95926'\]/.test(A),
+    'toute modification de cette liste exige de repasser le validateur de palettes');
+  v('… et aucune des cinq n\'empiète sur les couleurs RÉSERVÉES (vert / rouge / ambre)',
+    !/const _JR_CAT = \[[^\]]*(00e676|ff3d00|ffb300|00cc99|e3b23a)/.test(A),
+    'une teinte verte, rouge ou ambrée serait lue comme « gagnant / perdant / neutre » avant d\'être lue comme une catégorie');
   const H = fs.readFileSync(path.join(RACINE, 'public/index.html'), 'utf8');
   v('les trois onglets existent dans la page', /data-jt="log"/.test(H) && /data-jt="dash"/.test(H) && /data-jt="year"/.test(H));
   v('… et l\'onglet Annuel a son conteneur', /id="jr-year"/.test(H));
@@ -249,6 +274,57 @@ function phaseSource() {
       const totR = A.anneaux.find((r) => /R de l'année/.test(r.lbl || ''));
       v('… et un cadran SANS maximum honnête garde un arc plein',
         !!totR && !totR.arc, 'arc du total R : ' + (totR ? totR.arc : 'anneau absent'));
+
+      /* ══ « R PAR MOIS » : LES DOUZE PAVÉS DE LA RÉFÉRENCE ════════════════════════════════════
+         Le tableau juste en dessous porte les mêmes chiffres — c'est justement pourquoi ce contrôle
+         ne peut pas se contenter de compter douze cases : deux blocs alimentés par la même fonction
+         peuvent diverger dès qu'on touche à l'un des deux. On rejoue donc le R du mois d'essai
+         CONTRE LE PAVÉ, pas contre la ligne du tableau, et on éprouve le mois vide séparément. */
+      const RR = await page.evaluate(() => [...document.querySelectorAll('#jr-year .jry-rr')].map((c) => ({
+        mois: (c.querySelector('.jry-rr-m') || {}).textContent,
+        val: (c.querySelector('.jry-rr-v') || {}).textContent,
+        vide: c.classList.contains('jry-rr--vide'),
+        barre: (c.querySelector('.jry-rr-t i') || {}).getAttribute ? c.querySelector('.jry-rr-t i').getAttribute('style') : null,
+      })));
+      v('« R par mois » rend les douze pavés', RR.length === 12, RR.length + ' pavé(s)');
+      v('… le pavé du mois d\'essai porte le R recalculé (juillet 2026)',
+        !!RR[moisTest] && String(RR[moisTest].val || '').indexOf(txtR) === 0,
+        'affiché « ' + (RR[moisTest] || {}).val + ' », recalculé « ' + txtR + ' »');
+      /* Le mois vide : en pointillé, SANS barre et SANS chiffre. Une barre à 0 % y ferait croire à
+         un résultat nul obtenu en travaillant — la confusion même que ce bloc doit éviter. */
+      v('… et le mois sans trade reste vide, sans barre ni zéro',
+        !!RR[MOIS_VIDE] && RR[MOIS_VIDE].vide === true && RR[MOIS_VIDE].barre == null && !/\d/.test(RR[MOIS_VIDE].val || ''),
+        RR[MOIS_VIDE] ? JSON.stringify(RR[MOIS_VIDE]) : 'pavé absent');
+
+      /* ══ LA COULEUR DES DONNÉES N'EST PLUS L'OR DE MARQUE ════════════════════════════════════
+         Demande de l'utilisateur : « des couleurs différentes que du doré, car là on parle de
+         datas ». L'or `#e3b23a` habille le desk (titres, bordures, onglet actif) ; employé EN PLUS
+         pour peindre une barre de résultat, il ne veut plus rien dire de précis.
+         ⚠️ ON LIT LA COULEUR PEINTE, PAS LE SOURCE. Un `grep` de `#e3b23a` dans app.js serait vert
+         alors qu'une règle CSS de la feuille repeindrait la barre en or — et rouge pour toutes les
+         occurrences légitimes (chrome, onglets, bordures) qui n'ont rien à voir avec les données.
+         ⚠️ ET LE CONTRÔLE VA PAR PAIRE. « Aucune marque dorée » est vrai sur une page vide : sans
+         le témoin positif ci-dessous, ce banc resterait vert le jour où le tableau de bord ne
+         peindrait plus rien du tout. */
+      await page.evaluate(() => { if (typeof _jrTabClick === 'function') _jrTabClick('dash'); });
+      await new Promise((r) => setTimeout(r, 2000));
+      const OR = 'rgb(227, 178, 58)';
+      const PAL = ['rgb(57, 135, 229)', 'rgb(213, 81, 129)', 'rgb(144, 133, 233)', 'rgb(27, 160, 165)', 'rgb(217, 89, 38)'];
+      const C2 = await page.evaluate(() => {
+        const g = (el, prop) => getComputedStyle(el)[prop];
+        return {
+          barres: [...document.querySelectorAll('#jr-dashboard .jrd-bar-t i')].map((i) => g(i, 'backgroundColor')),
+          arcs: [...document.querySelectorAll('#jr-dashboard .jrd-arc-v')].map((a) => g(a, 'stroke')),
+        };
+      });
+      console.log('\n── La couleur des données ──');
+      const dorees = C2.barres.filter((c) => c === OR).length + C2.arcs.filter((c) => c === OR).length;
+      v('aucune marque de donnée n\'est peinte à l\'or de marque',
+        C2.barres.length > 0 && dorees === 0,
+        C2.barres.length ? dorees + ' marque(s) en ' + OR : 'aucune barre rendue — le témoin ne prouve rien');
+      v('… et la palette mesurée est bien celle qui peint (témoin positif)',
+        C2.barres.some((c) => PAL.includes(c)),
+        'couleurs vues : ' + [...new Set(C2.barres)].slice(0, 5).join(' · '));
 
       /* ══ CALIBRAGE DU CAPITAL — LES TROIS VERDICTS (04/09, retour d'un client sur le Discord) ══
          « Je l'utilise, mais pour calibrer mon capital je trouve assez moyen. » Le bloc répond en

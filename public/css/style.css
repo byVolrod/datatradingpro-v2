@@ -21255,11 +21255,37 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
 .jry-wr i { display: block; height: 100%; background: linear-gradient(90deg, #00cc99, #00e676); border-radius: 3px; min-width: 2px; }
 .jry-wrcell b { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); font-weight: var(--fw-bold); }
 
+/* ── « R PAR MOIS » : douze pavés de même taille, l'année lisible d'un seul regard ────────────
+   `auto-fit` et non un `repeat(6, …)` figé : le panneau du journal se resserre (volet ouvert,
+   téléphone), et six colonnes forcées y produiraient un débordement horizontal. Le pavé garde une
+   largeur PLANCHER pour que le chiffre ne se coupe jamais. */
+.jry-rrgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; }
+.jry-rr { border: 1px solid var(--border); border-radius: 6px; padding: 9px 11px 10px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; min-width: 0; transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
+.jry-rr-h { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.jry-rr-m { font-size: 11px; font-weight: var(--fw-semibold); color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jry-rr-v { font-family: var(--font-mono); font-size: 19px; font-weight: var(--fw-bold); line-height: 1; letter-spacing: -.02em; color: var(--text); white-space: nowrap; }
+.jry-rr-v i { font-style: normal; font-size: 11px; color: var(--text3); margin-left: 3px; font-weight: var(--fw-semibold); }
+/* La trame éteinte reste visible même à zéro (charte : « jamais vide ») — sans elle, un mois à
+   très faible R et un mois sans trade se ressembleraient. */
+.jry-rr-t { height: 5px; border-radius: 3px; background: var(--bg2); overflow: hidden; }
+.jry-rr-t i { display: block; height: 100%; border-radius: 3px; min-width: 2px; }
+.jry-rr-f { font-size: 10px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jry-rr--pos .jry-rr-v { color: #00e676; }
+.jry-rr--neg .jry-rr-v { color: #ff3d00; }
+.jry-rr--pos { border-color: rgba(0,230,118,.24); }
+.jry-rr--neg { border-color: rgba(255,61,0,.24); }
+/* Un mois sans trade se DIT en pointillé : ce n'est pas un résultat nul, c'est une absence. */
+.jry-rr--vide { border-style: dashed; opacity: .62; }
+.jry-rr--now { box-shadow: inset 2px 0 0 0 var(--orange); }
+.jry-rr:hover { background: rgba(255,255,255,.02); }
+
 @media (max-width: 768px) {
   /* Sur téléphone la colonne « Capital » et la barre de taux sont les premières à céder : ce sont
      les deux plus larges, et le taux garde son chiffre. */
   .jry-tradeswrap { grid-template-columns: minmax(0, 1fr); }
   .jry-wr { width: 46px; margin-right: 6px; }
+  .jry-rrgrid { grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: 8px; }
+  .jry-rr-v { font-size: 16px; }
   .jry-head-t { font-size: 16px; }
 }
 
