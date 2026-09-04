@@ -36,6 +36,19 @@
  * Au passage, cette épreuve a montré qu'une des « corrections » n'en était pas une : annuler la
  * marge du `<select>` natif ne changeait rien, il n'est jamais affiché. La règle a été retirée.
  *
+ * ⚠️ ET DEPUIS LE 05/09, IL TIENT AUSSI LE MODÈLE DE L'ONGLET ACTIF — pour une raison qui vaut
+ * d'être écrite. Une tâche ouverte demandait de « corriger » l'onglet actif, qui porte un fond
+ * discret « alors que le modèle unifié documenté dit : transparent + soulignement or ». C'était
+ * l'inverse du vrai : le soulignement a été RETIRÉ le 21/08 sur demande explicite de l'utilisateur
+ * (« aucun underline, aucune bordure orange visible »). La tâche ne faisait que répéter ce que HUIT
+ * commentaires de la feuille affirmaient encore au présent, tous écrits avant cette date et jamais
+ * corrigés. L'appliquer aurait défait une décision de l'utilisateur — exactement l'accident du
+ * commentaire périmé de charts.js. Un commentaire périmé ment avec l'autorité du code ; huit
+ * fabriquent une fausse règle, assez solide pour entrer dans une liste de tâches.
+ * Les huit sont corrigés ; ces trois contrôles tiennent la vraie règle, et son exception assumée
+ * du 28/08 (le widget « Panneau à onglets » garde un liseré doré atténué — décision POSTÉRIEURE,
+ * donc elle gagne pour cette famille et ne doit pas être « harmonisée »).
+ *
  *   node scripts/apparence-verif.js      (s'abstient sans Chromium)
  */
 const fs = require('fs');
@@ -236,6 +249,80 @@ function lum(css) {
           b.curseurs.remplissage != null && b.curseurs.remplissage >= 90,
           'les lettres n\'occupent que ' + b.curseurs.remplissage + ' % de la boîte qui affiche la main');
       }
+
+      /* ══ L'ONGLET ACTIF NE SE SOULIGNE PLUS — ET ON EMPÊCHE LE RETOUR EN ARRIÈRE (05/09) ══════
+         DÉCISION UTILISATEUR DU 21/08, verbatim : « Aucun underline, aucune bordure orange visible.
+         L'effet doit rester très discret, élégant et proche d'un terminal institutionnel. » Ce qui
+         marque l'onglet actif depuis : encre blanche, graisse, et un fond à peine plus clair.
+
+         ⚠️ POURQUOI CE CONTRÔLE EXISTE, ET IL VAUT D'ÊTRE RACONTÉ. Le 05/09, une tâche ouverte
+         demandait de « corriger » l'onglet actif parce qu'il portait un fond au lieu du
+         « soulignement or du modèle unifié documenté ». C'était l'inverse du vrai : la tâche
+         répétait ce que HUIT commentaires de la feuille affirmaient encore au présent, tous écrits
+         AVANT le 21/08 et jamais corrigés. Appliquer cette tâche aurait défait une décision
+         explicite de l'utilisateur — exactement ce qui était arrivé avec le commentaire périmé de
+         charts.js. Un commentaire périmé ment avec l'autorité du code ; huit commentaires périmés
+         fabriquent une fausse règle. Les huit sont corrigés, et ce banc tient la vraie.
+
+         ⚠️ ON MESURE LE PSEUDO-ÉLÉMENT RENDU, PAS LA FEUILLE. Les règles `::after` dorées sont
+         TOUJOURS ÉCRITES dans le fichier, dix mille lignes avant le bloc qui les annule : un `grep`
+         les trouverait et conclurait l'inverse de ce que voit un client. Seul `getComputedStyle(el,
+         '::after')` tranche.
+
+         ⚠️ ET LA PAIRE. « Aucun soulignement » est vrai sur une page où plus rien ne distingue
+         l'onglet actif — c'est-à-dire sur un desk cassé. Le contrôle jumeau exige donc que le
+         marquage de remplacement soit RÉELLEMENT PEINT : un fond plus clair que la barre.
+
+         ⚠️ ET L'EXCEPTION ASSUMÉE. `.wdgt-tab.on` (widget « Panneau à onglets ») garde un liseré
+         doré atténué : le 28/08, l'utilisateur l'a regardé et a demandé « réduis légèrement la
+         clarté de ce trait doré », pas de le retirer. Décision POSTÉRIEURE, donc elle gagne pour
+         cette famille. Le banc la fige aussi — sans quoi une prochaine « harmonisation » la
+         supprimerait au nom du 21/08. */
+      {
+        const page = await nav.newPage();
+        await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+        await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await new Promise((r) => setTimeout(r, 2600));
+        const O = await page.evaluate(() => {
+          const lum = (c) => {
+            const m = String(c).match(/[\d.]+/g) || [];
+            const [r, g, b, a] = [+m[0] || 0, +m[1] || 0, +m[2] || 0, m[3] === undefined ? 1 : +m[3]];
+            return { l: (0.2126 * r + 0.7152 * g + 0.0722 * b), a: a };
+          };
+          const familles = ['.nav-item--active', '.right-tab--active', '.sym-subtab--active',
+                            '.np-tab--active', '.jr-tab--active'];
+          const vus = [];
+          for (const sel of familles) {
+            const el = document.querySelector(sel); if (!el) continue;
+            const a = getComputedStyle(el, '::after');
+            const b = getComputedStyle(el);
+            vus.push({ sel,
+              trait: (a.content !== 'none' && parseFloat(a.height) > 0),
+              bordBas: lum(b.borderBottomColor).a > 0 && parseFloat(b.borderBottomWidth) > 0,
+              ombre: /rgb/.test(b.boxShadow) ? b.boxShadow : '',
+              fondA: lum(b.backgroundColor).a });
+          }
+          return { vus };
+        }).catch(() => null);
+        await page.close();
+        const fam = (O && O.vus) || [];
+        /* Le sujet DOIT exister : « aucune famille trouvée » passerait les deux contrôles suivants. */
+        v('les familles d\'onglets actifs sont mesurables sur le desk', fam.length >= 4,
+          fam.length + ' famille(s) : ' + fam.map((f) => f.sel).join(' · '));
+        const souligne = fam.filter((f) => f.trait || f.bordBas || /227, 178, 58|e3b23a/.test(f.ombre));
+        v('AUCUN onglet actif du desk ne porte de soulignement or (décision utilisateur du 21/08)',
+          fam.length >= 4 && souligne.length === 0,
+          souligne.map((f) => f.sel + ' → ' + (f.trait ? '::after' : f.bordBas ? 'border-bottom' : f.ombre)).join(' · '));
+        v('… et le marquage qui l\'a remplacé est bien PEINT (sinon plus rien ne distingue l\'actif)',
+          fam.length >= 4 && fam.every((f) => f.fondA > 0),
+          fam.map((f) => f.sel + ' alpha ' + f.fondA).join(' · '));
+      }
+      /* L'exception du 28/08 se lit dans la feuille : ce widget ne se monte pas sur le desk de
+         départ, et un contrôle qui ne trouve pas son sujet serait vert pour rien. */
+      v('… sauf le widget « Panneau à onglets », qui garde son liseré doré ATTÉNUÉ (décision du 28/08)',
+        /\.wdgt-tab\.on \{[^}]*box-shadow: inset 0 -2px 0 rgba\(227, 178, 58, \.55\)/
+          .test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')),
+        'décision POSTÉRIEURE au 21/08 : elle gagne pour cette famille, ne pas « harmoniser »');
     }
 
     for (const theme of ['dark', 'light']) {

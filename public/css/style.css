@@ -2481,7 +2481,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 .right-tab:hover { color: var(--text); background: rgba(255,255,255,0.035); }   /* hover unifie avec .nav-item */
 
-/* Onglet actif : texte OR + soulignement or 2px (coherent avec la nav principale) */
+/* ⚠️ COMMENTAIRE PÉRIMÉ, CORRIGÉ LE 05/09 : il annonçait « texte OR + soulignement or 2px » —
+   c'était vrai jusqu'au 21/08, où l'utilisateur a fait retirer TOUS les soulignements d'onglet
+   (« aucun underline, aucune bordure orange visible »). Le bloc qui fait foi est en FIN de
+   fichier (« ONGLETS ACTIFS : PLUS AUCUN SOULIGNEMENT OR »). Mesuré au rendu : ::after à
+   `content: none`, hauteur 0. Ce qui marque l'onglet actif est un fond à peine plus clair. */
 .right-tab--active {
   color: var(--orange, #e3b23a) !important;
   background: transparent;
@@ -11584,7 +11588,10 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 .topbar-icon--ai{width:auto !important;gap:5px;padding:0 9px;}
 .ai-spark-txt{font-size:12px;font-weight:var(--fw-bold);color:#00e676;letter-spacing:.02em;line-height:1;}
 
-/* Onglet nav actif : trait dore RESTAURE (demande utilisateur — souligne l'onglet actif facon CALENDRIER) */
+/* ⚠️ PÉRIMÉ, CORRIGÉ LE 05/09. Ce trait doré a été RESTAURÉ ici à une époque, puis RETIRÉ le
+   21/08 sur demande de l'utilisateur. Les règles `::after` ci-dessous sont donc MORTES : le bloc
+   de fin de fichier les annule avec `content: none !important`. On les laisse en place plutôt
+   que de toucher à une cascade de 22 000 lignes, mais elles ne peignent RIEN — mesuré. */
 .nav-item{position:relative;}
 .nav-item--active:not(.nav-item--symbol),.nav-item.active:not(.nav-item--symbol){box-shadow:none !important;}
 .nav-item--active:not(.nav-item--symbol)::after,.nav-item.active:not(.nav-item--symbol)::after{content:'' !important;position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--orange,#e3b23a) !important;border:0 !important;border-radius:2px 2px 0 0;transform-origin:center;animation:navUnderlineIn var(--t-med) var(--ease-out) both;}
@@ -11611,7 +11618,7 @@ body.theme-light .clock-gmt { color: var(--text2) !important; }
 
 /* === (1) Onglet droit actif -> DORE (coherent avec la nav principale) === */
 .right-tab--active{color:var(--orange,#e3b23a) !important;background:transparent !important;}
-.right-tab--active::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--orange,#e3b23a);border-radius:2px 2px 0 0;}   /* meme soulignement or que la nav principale */
+.right-tab--active::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--orange,#e3b23a);border-radius:2px 2px 0 0;}   /* ⚠️ RÈGLE MORTE depuis le 21/08 : annulée en fin de fichier (content:none). Mesuré au rendu. */
 
 /* ═══════════════════ ONGLETS — MODELE UNIFIE (coherence absolue, terminal institutionnel) ═══════════
    UN seul design pour TOUTES les barres d'onglets : nav principale (.nav-item), sous-onglets de widgets
@@ -12488,7 +12495,7 @@ html[data-theme="light"] .wdg-set-chip.on { color: #fff; }
 /* ── Barre Mon Desk : contrôles COMPACTS façon desk (demande user « les 2 boutons sont gros » —
      alignés sur les contrôles du desk type .sbs-cdd : 11px, fonds feutrés, or en accent, pas de pilule massive) ── */
 #view-widgets .panel-header { padding: 0 12px 0 0; gap: 9px; height: var(--navbar-h, 40px); }   /* barre = MÊME hauteur que la navbar ET padding-left 0 comme .navbar → les onglets démarrent au MÊME x que › ACTUS (les items portent leur 14px) */
-#view-widgets .panel-header-left { align-self: stretch; }   /* les onglets remplissent la hauteur → soulignement or FLUSH en bas (comme .nav-item) */
+#view-widgets .panel-header-left { align-self: stretch; }   /* les onglets remplissent la hauteur → leur FOND d'actif descend jusqu'au filet du bas, comme sur .nav-item (la raison d'origine parlait du soulignement or, retiré le 21/08 ; la règle, elle, reste nécessaire) */
 .wdg-btn {
   display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 11px; font-size: 11px; font-weight: 600;
   font-family: var(--tight, 'Inter Tight', sans-serif); letter-spacing: .01em;
@@ -13051,8 +13058,9 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
 .wdg-layouts { display: flex; align-items: stretch; height: 100%; gap: 0; overflow-x: auto; max-width: 52vw; }
 .wdg-layouts::-webkit-scrollbar { height: 0; }                 /* pas de scrollbar visible sur la barre d'onglets */
 .wdg-layouts { scrollbar-width: none; }   /* volontairement masquée : la règle globale la ferait réapparaître */
-/* Onglets de templates = IDENTIQUES à la nav du desk (.nav-item) : plat, capitales, chevron ›, pleine hauteur,
-   soulignement or ANIMÉ ::after quand actif (même mécanisme + même animation navUnderlineIn que .nav-item--active). */
+/* Onglets de templates = IDENTIQUES à la nav du desk (.nav-item) : plat, capitales, chevron ›, pleine
+   hauteur, et MÊME marquage d'actif — un fond à peine plus clair, sans soulignement (21/08). La
+   rédaction d'avant annonçait un « soulignement or ANIMÉ ::after » : périmé, corrigé le 05/09. */
 /* Les onglets de Mon Desk SONT des .nav-item (voir renderBar) : police, taille, graisse,
    interlettrage, casse, marges, couleurs, survol et soulignement actif viennent tous de la nav du
    desk. On ne déclare ici QUE les deux ajouts propres à Mon Desk : l'espacement du chevron et de
@@ -13061,9 +13069,11 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
    sans ça le fond gris par défaut du navigateur apparaît au repos. Ce n'est pas une recopie de
    valeur de la nav, c'est la neutralisation d'un style d'agent utilisateur. */
 .wdg-lay { gap: 5px; max-width: 190px; border: none; background: transparent; -webkit-appearance: none; appearance: none; }
-/* Soulignement or de l'onglet actif : fourni par .nav-item--active::after (règle du desk).
-   Le doublon qui vivait ici empilait DEUX traits — le soulignement paraissait plus épais que sur
-   « › ACTUS ». Ne pas le réintroduire. */
+/* Marquage de l'onglet actif : fourni par la règle du desk (.nav-item--active), c'est-à-dire un
+   fond à peine plus clair depuis le 21/08. L'AVERTISSEMENT RESTE ENTIER : un doublon a vécu ici
+   et empilait DEUX marquages — à l'époque deux traits, aujourd'hui deux fonds superposés, donc
+   un actif plus clair ici qu'ailleurs. Ne pas le réintroduire. (Rédaction corrigée le 05/09 :
+   elle parlait encore du soulignement or, retiré depuis.) */
 .wdg-lay-chv { color: inherit; font-weight: 400; margin-right: 1px; }   /* › : même couleur que le libellé, comme la nav */
 .wdg-lay.on .wdg-lay-chv { color: inherit; }                    /* › blanc quand actif (comme « › ACTUS »), pas d'or */
 .wdg-lay-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -15708,8 +15718,9 @@ body.home-mode .view-panel { visibility: hidden; }
 /* Titres de cartes : l'interlettrage de .08em à 11,5px hachait les mots en capitales. */
 .wdg-title { font-size: 12px; letter-spacing: .055em; }
 
-/* Onglets d'un panneau : l'inactif était au gris le plus faible (text3) — il devient lisible
-   sans voler la vedette à l'actif (qui reste blanc + soulignement or). */
+/* Onglets d'un panneau : l'inactif était au gris le plus faible (text3) — il devient lisible sans
+   voler la vedette à l'actif (encre blanche + graisse, et pour CETTE famille seulement le liseré
+   doré atténué, dernier survivant du nettoyage du 21/08 — voir .wdgt-tab.on). */
 .wdgt-tab { font-size: 11px; letter-spacing: .045em; color: var(--text2, #c9cdd4); }
 .wdgt-tab:not(.on) { opacity: .82; }
 .wdgt-tab:hover { opacity: 1; }
@@ -19793,8 +19804,10 @@ html[data-theme="light"] #wdg-mgr-list .wdg-mgr-eye.on { color: #15803d; border-
     --navbar-h: 26px;
     --topbar-h: 50px;
   }
-  /* Onglets : plus compacts, inactifs plus discrets ; l'actif garde le soulignement or 2px déjà
-     en place (l.10832) et gagne juste un texte plus net. */
+  /* Onglets : plus compacts, inactifs plus discrets ; l'actif garde son marquage déjà en place —
+     un fond à peine plus clair depuis le 21/08 — et gagne juste un texte plus net. (La rédaction
+     d'avant citait « le soulignement or 2px (l.10832) » : périmé, et un numéro de ligne ne
+     survit à aucune insertion. Corrigé le 05/09.) */
   body .nav-item { padding: 0 11px; font-size: 10.5px; letter-spacing: .07em; }
   body .nav-item:not(.nav-item--active):not(.active) { color: var(--w-t10, #8a8f99); }
   /* En-têtes de panneaux : padding réduit, titre d'un demi-cran plus petit. */
