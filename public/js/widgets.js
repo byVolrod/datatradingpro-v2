@@ -2443,7 +2443,9 @@
            `.cs-badge-val--seul` et le libellé du réglage annonçaient tous trois la valeur seule.
            Réparé le 02/09 sur capture de référence de l'utilisateur ; un contrôle de force-verif
            regarde désormais le HTML rendu dans les deux positions du réglage. */
-        { k: 'valeurs', lbl: 'Valeur sur les étiquettes', type: 'bascule', def: false },
+        /* Coché par défaut depuis le 04/09 (cf. `_avecValeur` dans charts.js) : l'étiquette porte
+           la valeur, le code vivant déjà dans la légende. Décocher rend la pastille au code. */
+        { k: 'valeurs', lbl: 'Valeur sur les étiquettes', type: 'bascule', def: true },
       ],
       mount: function (host, it) {
         var W = this;

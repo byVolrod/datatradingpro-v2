@@ -597,6 +597,45 @@ function _rattacherPastilles() {
     /\.cs-badge-val--seul \{[^}]*min-width: 5em/.test(CSS)
     && /\.cs-dense \.cs-badge-val--seul \{[^}]*min-width: 4\.2em/.test(CSS),
     (CSS.match(/\.cs-badge-val--seul \{[^}]*\}/) || [''])[0]);
+
+  /* ══ ET LA VALEUR EST LE DÉFAUT (04/09, demande utilisateur, capture de référence) ══════════════
+     « Met comme la 2e image pour la colonne là où il y a les étiquettes, tu vois, le nombre. » Le
+     terminal de référence range huit NOMBRES au bout de ses huit courbes ; le desk rangeait huit
+     CODES — l'information la moins utile des deux, puisque le code est déjà dans la légende du
+     haut, en permanence et avec sa teinte. Le réglage reste, il est coché par défaut.
+     ⚠️ `!== false` ET NON `!!` : un appelant muet doit recevoir la valeur, un appelant qui écrit
+     `false` doit recevoir le code. Écrit `!!opts.avecValeur`, le défaut serait resté le code et ce
+     banc aurait vu passer un réglage « par défaut » qui ne l'était pas. */
+  v('l\'étiquette porte la valeur SANS qu\'on la demande',
+    /const _avecValeur = opts\.avecValeur !== false;/.test(CH),
+    (CH.match(/const _avecValeur = [^\n]*/) || [''])[0]);
+  const WG = fs.readFileSync(path.join(__dirname, '..', 'public/js/widgets.js'), 'utf8');
+  v('… et le réglage du widget est coché par défaut, pas seulement le code',
+    /\{ k: 'valeurs', lbl: 'Valeur sur les étiquettes', type: 'bascule', def: true \}/.test(WG),
+    'un défaut de code et un réglage décoché se contrediraient');
+
+  /* ══ LES DEVISES DÉCOCHÉES SE MÉMORISENT (04/09, demande utilisateur) ═══════════════════════════
+     « Quand l'utilisateur décoche certaines devises et qu'il change d'onglet puis revient, ça doit
+     mémoriser. » Le magasin est `DTPPref` : compte d'abord, `localStorage` en cache — le choix suit
+     donc l'utilisateur d'un appareil à l'autre, comme les autres réglages d'affichage. */
+  v('le masquage d\'une devise est écrit dans le magasin de compte',
+    /DTPPref\.set\(_CS_MEMO_KEY/.test(CH) && /DTPPref\.get\(_CS_MEMO_KEY/.test(CH));
+  v('… et rejoué au montage suivant (courbe masquée d\'emblée)',
+    /if \(_memoOff && _memoOff\.has\(ccy\)\) \{ try \{ series\.hide\(0\); \} catch \{\} \}/.test(CH));
+  /* ⚠️ `appear` RÉ-AFFICHE CE QU'ON VIENT DE MASQUER — le piège est déjà connu du mode « paire »,
+     et il se rejoue à l'identique ici. Sans cette exclusion, la devise décochée réapparaissait au
+     bout de l'animation d'entrée : la mémoire aurait eu l'air de ne pas fonctionner. */
+  v('… sans que l\'animation d\'apparition ne la ressuscite',
+    /if \(_memoOff && _memoOff\.has\(s\.get\('name'\)\)\) return;/.test(CH));
+  /* On n'écrit que sur un CLIC : nos propres masquages de restauration ne doivent pas se réécrire. */
+  v('la mémoire ne s\'écrit qu\'après la construction (jamais sur sa propre restauration)',
+    /let _memoActif = false;/.test(CH) && /_memoActif = true;/.test(CH)
+    && /if \(_memoOff && _memoActif\) _csMemoEcris/.test(CH));
+  /* Un rapport ou un courriel ne peut pas dépendre de qui le lit : la mémoire est réservée au
+     panneau principal. */
+  v('un graphique isolé, en focus ou en mode paire n\'hérite JAMAIS de cette mémoire',
+    /const _memoOff = \(!opts\.isolated && !opts\.focusCurrency && !\(Array\.isArray\(opts\.onlyCurrencies\) && opts\.onlyCurrencies\.length\)\)/.test(CH),
+    (CH.match(/const _memoOff = [^\n]*/) || [''])[0]);
 }
 
 function _densiteEtIntegrite() {

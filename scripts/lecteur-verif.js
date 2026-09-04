@@ -176,6 +176,11 @@ function phaseFeuille() {
             _fxr: { day: '2026-09-04', v: 1, dateLabel: '4 septembre 2026', title: 'FX Daily Recap',
               summary: bloc(6, 'Synthèse'), geo: bloc(5, 'Géopolitique'), macro: bloc(6, 'Macro'),
               fils: Array.from({ length: 3 }, (_, i) => 'Fil ouvert numéro ' + i + '.'),
+              /* Les phrases EXACTES de la capture du 04/09 : un chiffre au-dessus du consensus, un
+                 en dessous, un conforme. C'est leur COULEUR PEINTE qu'on vient mesurer plus bas. */
+              macro: ['CPI Suisse (août) : **+0,8%** y/y contre +0,5% attendu (préc. +0,4%) → inflation surprise à la hausse.',
+                      'Balance commerciale Canada (juillet) : **0,77 Md** CAD contre 3,6 Md CAD attendu (préc. 4,2 Md CAD) → excédent nettement inférieur aux attentes.',
+                      'Initial Jobless Claims US : **206K**, conforme aux attentes (préc. 204K) → marché du travail stable.'],
               lookahead: evs, tags: ['fed', 'politique monétaire'] } });
           arlibShowReader();
         } catch (e) { return String(e && e.message); }
@@ -214,6 +219,17 @@ function phaseFeuille() {
           if (d > horsCadre) { horsCadre = d; quoi = String(td.className).slice(0, 24); }
         });
 
+        /* [2 bis] LA COULEUR D'UN CHIFFRE PUBLIÉ EST-ELLE VRAIMENT PEINTE ? (04/09, capture user :
+           « met les couleurs ici aussi, c'est du Récap Quotidien ».)
+           ⚠️ ON LIT LA COULEUR CALCULÉE, PAS LA CLASSE. C'est tout l'objet de ce contrôle : le
+           calcul était juste depuis le 02/09 — `_verdictColore` posait bien
+           `<strong class="dtp-val-pos">` — et l'écran restait BLANC, parce que
+           `.wr-bullet strong { color: #fff }` (0,1,1) battait `.dtp-val-pos` (0,1,0). Un banc qui
+           se contente de chercher la classe dans le HTML aurait été vert tout du long. */
+        const puces = [...c.querySelectorAll('.wr-bullet strong[class*="dtp-val-"]')];
+        const teintes = puces.map((e) => ({ cls: (String(e.className).match(/dtp-val-\w+/) || [''])[0],
+                                            col: getComputedStyle(e).color }));
+
         /* [3] EN MODE CARTE, UNE VALEUR DOIT DIRE CE QU'ELLE EST. Trois nombres nus l'un à côté de
            l'autre ne se lisent pas : c'est `data-lbl` qui les nomme, et il est posé par le rendu
            du rapport (app.js). Sans lui, la carte serait « - 3,2 % 3,0 % ». */
@@ -221,7 +237,7 @@ function phaseFeuille() {
         const nommees = vals.filter((t) => (t.getAttribute('data-lbl') || '').trim()).length;
         const etiq = new Set(vals.map((t) => t.getAttribute('data-lbl')));
 
-        return { pieges, horsCadre, quoi, vals: vals.length, nommees, etiq: [...etiq],
+        return { pieges, horsCadre, quoi, vals: vals.length, nommees, etiq: [...etiq], teintes,
                  sH: c.scrollHeight, cH: c.clientHeight,
                  padding: getComputedStyle(c).padding,
                  gauche: Math.round(parseFloat(getComputedStyle(c).paddingLeft)) };
@@ -235,6 +251,16 @@ function phaseFeuille() {
         m.pieges.map((p) => p.cls + ' (débordement ' + p.dx + '×' + p.dy + ' px, overflow ' + p.ox + '/' + p.oy + ')').join(' · '));
       v('aucun chiffre du calendrier ne sort du cadre du lecteur',
         m.horsCadre <= 1, m.horsCadre + ' px hors cadre sur « ' + m.quoi + ' »');
+      /* Trois puces, trois verdicts : au-dessus (vert), en dessous (rouge), conforme (ambre). */
+      {
+        const ATT = { 'dtp-val-pos': 'rgb(0, 230, 118)', 'dtp-val-neg': 'rgb(255, 61, 0)', 'dtp-val-neu': 'rgb(255, 179, 0)' };
+        const vues = (m.teintes || []).map((t) => t.cls).sort();
+        v('les chiffres publiés des puces Macro sont bien colorés à l\'écran',
+          (m.teintes || []).length >= 3 && m.teintes.every((t) => ATT[t.cls] === t.col),
+          (m.teintes || []).map((t) => t.cls + ' peint ' + t.col).join(' · ') || 'aucune valeur colorée trouvée');
+        v('… et les trois verdicts sortent, pas un seul répété',
+          new Set(vues).size === 3, vues.join(', '));
+      }
       v('chaque valeur porte son étiquette (Réel / Prév. / Préc.)',
         m.vals > 0 && m.nommees === m.vals, m.nommees + '/' + m.vals + ' — étiquettes : ' + JSON.stringify(m.etiq));
       /* Le padding mobile : la règle muette rendait 32 px de chaque côté sur un écran de 390. */

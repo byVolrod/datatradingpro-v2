@@ -3216,7 +3216,11 @@ var _VD_MULT = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 };
    unité suivi d'un espace ressortait « <strong>51,7 </strong> », l'espace figé dans le gras/la
    couleur. Un seul groupe optionnel (espace + unité ENSEMBLE) : l'espace n'est capturé que s'il
    introduit vraiment une unité, jamais seul. */
-var _VD_NUM = "[+\\-−]?\\d+(?:[.,]\\d+)?(?:\\s?(?:%|K|M|B|T|bn|bln|mln|bps|pts?))?";
+/* ⚠️ « Md » AVANT « M » : L'ALTERNATION EST ORDONNÉE (04/09). « 1,923 Md AUD » se coupait en
+   « 1,923 M » coloré et un « d » resté blanc juste derrière — le nombre paraissait tronqué au
+   milieu d'un mot. En français, Md abrège milliard : c'est une unité entière, elle doit être
+   proposée AVANT M, sans quoi M gagne toujours et laisse le d dehors. */
+var _VD_NUM = "[+\\-−]?\\d+(?:[.,]\\d+)?(?:\\s?(?:%|K|Md|M|B|T|bn|bln|mln|bps|pts?))?";
 function _vdNombre(t) {
   var m = /^([+\-−]?)(\d+(?:[.,]\d+)?)\s?([KMBT])?/.exec(String(t || '').trim());
   if (!m) return null;

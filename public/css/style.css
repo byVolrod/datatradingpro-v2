@@ -21129,6 +21129,33 @@ html[data-theme="light"] .calc-card--risque .calc-v, html[data-theme="light"] .c
   .fxdr-callike .cal-day-sep > td { font-size: 13px !important; }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   LA COULEUR D'UN CHIFFRE PUBLIÉ GAGNE SUR CELLE DE SON CONTENEUR (04/09, capture utilisateur)
+   ══════════════════════════════════════════════════════════════════════════════════════════════
+   « Met les couleurs ici aussi, c'est du Récap Quotidien » — capture des puces INFLATION / EMPLOI /
+   CROISSANCE ÉCONOMIQUE : « CPI Suisse : +0,8% y/y contre +0,5% attendu » avec le chiffre publié en
+   BLANC, alors que la règle du desk le veut vert au-dessus du consensus.
+   ⚠️ LE CALCUL ÉTAIT JUSTE, C'EST LA FEUILLE QUI L'EFFAÇAIT — et c'est pour cela que l'annonce du
+   02/09 a pu annoncer le correctif de bonne foi. Rejoué sur le VRAI `_verdictColore` avec les
+   phrases de la capture : il produit bien `<strong class="dtp-val-pos">+0,8%</strong>`. Mais la
+   balise atterrit dans une puce, et `.wr-bullet strong { color: #fff }` (0,1,1) bat
+   `.dtp-val-pos` (0,1,0). Le chiffre était donc coloré dans le HTML et peint en blanc à l'écran.
+   Et ce conteneur n'est pas seul : `.arlib-rbullet strong`, `.dtpd-bullets li strong`,
+   `.wr-cb-bullet strong`, `.wr-drv strong`… une douzaine de règles font la même chose, certaines
+   plus spécifiques encore (`.dtpd-bullets li strong` vaut 0,2,1). Aligner la spécificité au cas par
+   cas serait à refaire à chaque nouveau conteneur.
+   La couleur d'une donnée publiée est une règle de CHARTE, pas une décoration de conteneur : elle
+   passe donc en `!important`, une fois, ici. Les trois teintes du thème clair suivent — sans quoi
+   le sombre l'emporterait sur elles.
+   Banc : `scripts/lecteur-verif.js` lit la couleur CALCULÉE d'un chiffre dans une vraie puce, pas
+   la classe posée dans le HTML — c'est très exactement la différence qui a laissé le défaut vivre. */
+.dtp-val-pos, strong.dtp-val-pos { color: #00e676 !important; }
+.dtp-val-neg, strong.dtp-val-neg { color: #ff3d00 !important; }
+.dtp-val-neu, strong.dtp-val-neu { color: #ffb300 !important; }
+html[data-theme="light"] .dtp-val-pos, body.theme-light .dtp-val-pos { color: #047857 !important; }
+html[data-theme="light"] .dtp-val-neg, body.theme-light .dtp-val-neg { color: #c2410c !important; }
+html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a16207 !important; }
+
 /* ÉCLAIRAGES IA : JAMAIS de carte coupée (23/08, capture user : badge « NEUTRE » tronqué au bord).
    Les cartes à largeur FIXE laissaient dépasser une fraction de la 3e — badge coupé en plein
    milieu. Elles se dimensionnent désormais pour qu'un nombre ENTIER tienne (3 → 2 → 1 selon la

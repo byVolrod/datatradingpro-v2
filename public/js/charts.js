@@ -913,15 +913,52 @@ function _csBadgeHtml(ccy, fullHex, valStr, dy, hors) {
   }
   return `<div class="cs-badge${hors ? ' cs-badge--hors' : ''}">${filet}<span class="cs-badge-ccy" style="background:${fullHex};color:${txtPlein}">${chev}${ccy}</span></div>`;
 }
+/* ══ LES DEVISES DÉCOCHÉES SE MÉMORISENT (04/09, demande utilisateur) ═══════════════════════════
+   « Quand l'utilisateur décoche certaines devises et qu'il change d'onglet puis revient, ça doit
+   mémoriser, comme ça il reprend le travail où il en était. »
+   Le clic de légende ne vivait que dans l'instance du graphique : changer de période, d'onglet ou
+   recharger le remettait à huit courbes. Sur un panneau dont on se sert justement pour ISOLER deux
+   ou trois devises, c'est un réglage à refaire à chaque aller-retour.
+   Le magasin est `DTPPref` — le même que les autres réglages d'affichage : source de vérité sur le
+   COMPTE, `localStorage` en simple cache instantané, donc le choix suit l'utilisateur d'un appareil
+   à l'autre. On stocke les devises MASQUÉES et non les visibles : une devise ajoutée un jour à la
+   liste des huit apparaîtra par défaut, ce qui est le comportement attendu.
+   ⚠️ SEUL LE PANNEAU PRINCIPAL MÉMORISE. Un graphique isolé (rapport, courriel), un graphique en
+   mode « focus » sur une devise et le mode « paire » (`onlyCurrencies`) posent eux-mêmes leur
+   sélection : y appliquer une mémoire d'utilisateur produirait un rapport dont le contenu dépend de
+   qui le lit. */
+const _CS_MEMO_KEY = 'csoff';
+function _csMemoLu() {
+  try {
+    const v = window.DTPPref ? DTPPref.get(_CS_MEMO_KEY, '') : '';
+    return new Set(String(v || '').split(',').map(x => x.trim()).filter(Boolean));
+  } catch (e) { return new Set(); }
+}
+function _csMemoEcris(set) {
+  try { if (window.DTPPref) DTPPref.set(_CS_MEMO_KEY, Array.from(set).join(',')); } catch (e) {}
+}
 function buildStrengthChart(containerId, data, opts = {}) {
-  // Reglage « Valeur sur les etiquettes » : le badge porte TOUJOURS le code ; la valeur est en option.
-  const _avecValeur = !!opts.avecValeur;
+  /* ══ L'ÉTIQUETTE PORTE LA VALEUR PAR DÉFAUT (04/09, demande utilisateur, capture de référence à
+     l'appui : « met comme la 2e image pour la colonne là où il y a les étiquettes, tu vois, le
+     nombre »). Le terminal de référence range huit nombres au bout de ses huit courbes ; le desk
+     rangeait huit codes de devise, l'information la moins utile des deux — le code est déjà dans
+     la légende du haut, en permanence, avec sa teinte. La colonne de droite disait donc deux fois
+     la même chose et jamais où en est la devise.
+     Le réglage « Valeur sur les étiquettes » ne disparaît pas : il est simplement COCHÉ par défaut,
+     et le décocher rend la pastille au code, à l'identique. `!== false` et non `!!` : un appelant
+     qui ne dit rien reçoit la valeur, un appelant qui dit `false` reçoit le code. */
+  const _avecValeur = opts.avecValeur !== false;
   const _focus = opts.focusCurrency || null;   // (optionnel) 1 devise mise en avant, les autres grisées
   const _iso   = !!opts.isolated;              // graphique autonome (rapport) → ne touche pas la réf. globale
   // (optionnel) n'afficher QUE ces devises (ex. les 2 de la paire EURAUD → EUR+AUD) : les autres
   // sont masquées d'emblée ET exclues de l'animation d'apparition (sinon `appear` les ré-affiche).
   const _only  = (Array.isArray(opts.onlyCurrencies) && opts.onlyCurrencies.length) ? new Set(opts.onlyCurrencies) : null;
   const _legendVal = !!opts.legendValues;      // (mail) affiche la valeur TD a DROITE de chaque devise dans la legende
+  /* La mémoire des devises décochées : lue une fois au montage, et seulement pour le panneau
+     principal (cf. la note de `_csMemoLu`). `_memoActif` reste faux pendant la construction — sans
+     quoi les masquages QUE NOUS venons de rejouer se ré-écriraient comme s'ils venaient d'un clic. */
+  const _memoOff = (!opts.isolated && !opts.focusCurrency && !(Array.isArray(opts.onlyCurrencies) && opts.onlyCurrencies.length)) ? _csMemoLu() : null;
+  let _memoActif = false;
   /* ⚠️ UNE RECONSTRUCTION N'EST PAS UNE PREMIÈRE OUVERTURE (29/08, demande user : « il y a souvent
      des rafraîchissements/actualisations, cache-moi ça »). Le shimmer premium et l'animation
      d'apparition des huit courbes sont faits pour le PREMIER rendu ; rejoués à chaque
@@ -1546,8 +1583,8 @@ function buildStrengthChart(containerId, data, opts = {}) {
     // DOUBLE écoute (événements + propriété `visible`) : si un événement rate (update pendant
     // l'animation de masquage), l'état est de toute façon ré-imposé par declutter()/update()
     // qui lisent la visibilité RÉELLE de la série (cf. plus bas).
-    series.events.on('hidden', () => { _hiddenCcy.add(ccy); setTimeout(() => { cadrerSurLePaquet(_dernieresDonnees); scheduleDeclutter(0); }, 0); try { range.get('label')?.setAll({ forceHidden: true, visible: false });  range.get('grid')?.set('forceHidden', true);  } catch {} });
-    series.events.on('shown',  () => { _hiddenCcy.delete(ccy); setTimeout(() => { cadrerSurLePaquet(_dernieresDonnees); scheduleDeclutter(0); }, 0); try { range.get('label')?.setAll({ forceHidden: false, visible: true }); range.get('grid')?.set('forceHidden', false); } catch {} });
+    series.events.on('hidden', () => { _hiddenCcy.add(ccy); if (_memoOff && _memoActif) _csMemoEcris(_hiddenCcy); setTimeout(() => { cadrerSurLePaquet(_dernieresDonnees); scheduleDeclutter(0); }, 0); try { range.get('label')?.setAll({ forceHidden: true, visible: false });  range.get('grid')?.set('forceHidden', true);  } catch {} });
+    series.events.on('shown',  () => { _hiddenCcy.delete(ccy); if (_memoOff && _memoActif) _csMemoEcris(_hiddenCcy); setTimeout(() => { cadrerSurLePaquet(_dernieresDonnees); scheduleDeclutter(0); }, 0); try { range.get('label')?.setAll({ forceHidden: false, visible: true }); range.get('grid')?.set('forceHidden', false); } catch {} });
     series.on('visible', (vis) => {
       if (vis) _hiddenCcy.delete(ccy); else _hiddenCcy.add(ccy);
       try { range.get('label')?.set('forceHidden', !vis); range.get('grid')?.set('forceHidden', !vis); } catch {}
@@ -1556,6 +1593,9 @@ function buildStrengthChart(containerId, data, opts = {}) {
     // Mode « paire » : on masque d'emblée les devises hors-paire (courbe + badge). La légende les
     // conserve (grisées, re-cliquables), exactement la référence pro.
     if (_only && !_only.has(ccy)) { try { series.hide(0); } catch {} }
+    // …et la MÉMOIRE de l'utilisateur, rejouée à l'identique : la devise qu'il avait décochée
+    // repart décochée, courbe et pastille comprises (le gestionnaire `hidden` ci-dessus s'en charge).
+    if (_memoOff && _memoOff.has(ccy)) { try { series.hide(0); } catch {} }
   }
 
   // ── Légende cliquable (en haut) : clic sur une devise = masquer / réafficher sa courbe ──
@@ -1627,7 +1667,14 @@ function buildStrengthChart(containerId, data, opts = {}) {
   if (seriesArr[0]) seriesArr[0].events.once('datavalidated', () => { try { xAxis.zoom(0.08, 1); } catch (e) {} });   // on montre ~92 % de la session (vs 65 %) → bien plus de points/pixel = texture dense visible d'emblée (pan toujours dispo, donnée inchangée)
 
   // Apparition animée : SAUF les devises masquées du mode « paire » (sinon `appear` les ré-afficherait).
-  if (!_rebuild) chart.series.values.forEach((s, i) => { if (_only && !_only.has(s.get('name'))) return; s.appear(500, i * 20); });
+  if (!_rebuild) chart.series.values.forEach((s, i) => {
+    if (_only && !_only.has(s.get('name'))) return;
+    if (_memoOff && _memoOff.has(s.get('name'))) return;   // même raison que le mode « paire » : `appear` la ré-afficherait
+    s.appear(500, i * 20);
+  });
+  /* À partir d'ici, tout masquage vient d'un CLIC : la mémoire peut écrire. Armé après la boucle
+     d'apparition, sinon nos propres `hide(0)` de restauration se réécriraient eux-mêmes. */
+  _memoActif = true;
 
   // ── Anti-collision des badges : écarte verticalement ceux trop proches ───────
   let _dcRedo = 0, _dcApres = 0, _hbPlein = 0;        // garde-fous de boucle + hauteur nominale de pastille (hors mode compact)
