@@ -2225,6 +2225,65 @@
   /* ── CATALOGUE ─────────────────────────────────────────────────────────────────────────────────
      mount(host) reçoit un conteneur VIDE et VISIBLE ; il renvoie sa fonction de nettoyage.
      RÈGLE : un widget ne doit JAMAIS écrire un id DOM en dur — il peut vivre en 2 exemplaires. */
+  /* ══ LES DIRECTS : LA VIDÉO DANS LA CARTE, ET UN REPLI QUI NE MENT PAS (04/09) ═══════════════
+     Demande de l'utilisateur, capture à l'appui : « pour Bloomberg et Yahoo on doit avoir la vidéo
+     DANS le widget, tu comprends le but du widget ? ». Une carte nommée « Bloomberg Live » qui
+     n'affiche qu'un bouton ne fait pas ce que son nom promet.
+
+     ⚠️ CE QUE DISAIT L'ANCIENNE AIDE ÉTAIT VRAI DE LA MAUVAISE PAGE. Elle expliquait que « l'éditeur
+     interdit techniquement l'intégration de sa page » — exact pour `bloomberg.com/live/us`, qui
+     refuse d'être encadrée. Mais ces deux rédactions diffusent AUSSI leur antenne en continu sur
+     leur chaîne officielle, dont le lecteur est fait pour être intégré et porte leur publicité et
+     leur marque. La phrase servait donc d'argument contre quelque chose que personne n'avait
+     essayé. Elle est retirée ici ET dans l'aide des deux cartes — un commentaire périmé ment avec
+     l'autorité du code.
+
+     ⚠️ L'IDENTIFIANT N'EST PAS ÉCRIT EN DUR, ET C'EST LE CŒUR DU MÉCANISME. Une chaîne en continu
+     redémarre son flux régulièrement, et chaque redémarrage crée une nouvelle vidéo : un
+     identifiant figé dans ce fichier deviendrait un cadre mort sans que rien ne le signale. Le
+     serveur va donc le chercher et le cache (`/api/direct/<clé>`, voir server.js).
+
+     TROIS ÉTAGES, DU PLUS PRÉCIS AU PLUS SÛR : la diffusion en cours ; à défaut la chaîne (cadre
+     « dernière diffusion », qui ne périme jamais) ; à défaut la carte-lien d'avant, mot pour mot.
+     Le lien vers le site de l'éditeur reste présent DANS LES TROIS CAS : le desk emmène chez la
+     source, il ne la remplace pas. */
+  function _directMonter(host, cle, teinte) {
+    var vivant = true;
+    var d = { bloomberg: { nom: 'Bloomberg Live', site: 'https://www.bloomberg.com/live/us' },
+              yahoo: { nom: 'Yahoo Finance Live', site: 'https://finance.yahoo.com/live/' } }[cle];
+    var tete = function () {
+      return '<div class="wdg-direct-tete"><span class="wdg-direct-pastille" style="background:' + teinte + '"></span>'
+        + '<span class="wdg-direct-nom">' + d.nom + '</span></div>';
+    };
+    var lien = function (txt) {
+      return '<a class="wdg-direct-src" href="' + d.site + '" target="_blank" rel="noopener noreferrer">' + txt + '</a>';
+    };
+    /* LE REPLI, INCHANGÉ. C'est exactement la carte d'avant : si la résolution échoue, le client
+       retrouve ce qu'il avait, jamais un cadre vide. */
+    var replierSurLien = function () {
+      host.innerHTML = '<div class="wdg-direct">' + tete()
+        + '<p class="wdg-direct-txt">Le direct n\'a pas pu être chargé dans la carte.</p>'
+        + '<a class="wdg-direct-btn" href="' + d.site + '" target="_blank" rel="noopener noreferrer">Ouvrir le direct</a>'
+        + '<p class="wdg-direct-note">S\'ouvre chez l\'éditeur, dans un nouvel onglet.</p></div>';
+    };
+    var cadrer = function (src) {
+      host.innerHTML = '<div class="wdg-direct wdg-direct--video">'
+        + '<div class="wdg-direct-frame"><iframe src="' + src + '" title="' + d.nom + '"'
+        +   ' allow="accelerometer; encrypted-media; picture-in-picture; fullscreen"'
+        +   ' allowfullscreen frameborder="0" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'
+        + '<div class="wdg-direct-pied">' + tete() + lien('Ouvrir chez l\'éditeur') + '</div></div>';
+    };
+    host.innerHTML = '<div class="wdg-direct">' + tete()
+      + '<p class="wdg-direct-txt">Connexion au direct…</p></div>';
+    fetch('/api/direct/' + cle).then(function (r) { return r.json(); }).then(function (j) {
+      if (!vivant || !host.isConnected) return;
+      if (j && j.ok && j.video) return cadrer('https://www.youtube.com/embed/' + j.video + '?rel=0&modestbranding=1');
+      if (j && j.ok && j.chaine) return cadrer('https://www.youtube.com/embed/live_stream?channel=' + j.chaine + '&rel=0');
+      replierSurLien();
+    }).catch(function () { if (vivant && host.isConnected) replierSurLien(); });
+    return function () { vivant = false; };
+  }
+
   var CATALOG = [
     {
       id: 'graphique', name: 'Graphique', tag: 'CHART', cat: 'Marchés', h: 340,
@@ -7273,40 +7332,20 @@
       },
     },
     {
-      id: 'direct-bloomberg', name: 'Bloomberg Live', tag: 'DIRECT', cat: 'Marchés', h: 186,
-      desc: 'Ouvre le direct Bloomberg Live dans un nouvel onglet.',
-      aide: "<p>La chaîne américaine en continu : ouverture des marchés, entretiens de dirigeants, réactions aux publications macro.</p><p><strong>Pourquoi un lien et non une vidéo encadrée :</strong> l'éditeur interdit techniquement l'intégration de sa page par un autre site, et rediffuser son flux dans un terminal payant relève de ses droits de diffusion. Le desk vous y emmène plutôt que de la recopier.</p>",
-      src: "Lien direct vers Bloomberg Live. Aucun contenu n'est repris ni stocké par le desk : la page s'ouvre chez l'éditeur, sous ses conditions.",
+      id: 'direct-bloomberg', name: 'Bloomberg Live', tag: 'DIRECT', cat: 'Marchés', h: 210,
+      desc: 'L’antenne Bloomberg en continu, dans la carte : ouverture des marchés, entretiens, réactions macro.',
+      aide: "<p>La chaîne américaine en continu : ouverture des marchés, entretiens de dirigeants, réactions aux publications macro. La diffusion officielle de la rédaction est encadrée <strong>dans la carte</strong> — son lecteur, sa marque, sa publicité.</p><p><strong>Si le cadre reste vide :</strong> la chaîne n'est pas en antenne, ou son lecteur a été bloqué par une extension de navigateur. Le bouton vers le site de l'éditeur reste disponible dans tous les cas.</p>",
+      src: "Diffusion officielle de la rédaction, encadrée telle quelle. Le desk ne réencode ni ne stocke aucune image : il résout l'adresse du direct en cours et laisse le lecteur de l'éditeur faire le reste.",
       watch: "Utile en séance américaine et sur les rendez-vous majeurs (décision de la Fed, emploi US) : le direct commente le chiffre pendant que le marché bouge.",
-      mount: function (host) {
-        host.innerHTML =
-          '<div class="wdg-direct">'
-          + '<div class="wdg-direct-tete"><span class="wdg-direct-pastille" style="background:#e3b23a"></span>'
-          + '<span class="wdg-direct-nom">Bloomberg Live</span></div>'
-          + '<p class="wdg-direct-txt">La chaîne américaine en continu : ouverture des marchés, entretiens de dirigeants, réactions aux publications macro.</p>'
-          + '<a class="wdg-direct-btn" href="https://www.bloomberg.com/live/us" target="_blank" rel="noopener noreferrer">Ouvrir le direct</a>'
-          + '<p class="wdg-direct-note">S\'ouvre chez l\'éditeur, dans un nouvel onglet.</p>'
-          + '</div>';
-        return null;   // rien à nettoyer : aucun minuteur, aucune requête, aucun graphique
-      },
+      mount: function (host) { return _directMonter(host, 'bloomberg', '#e3b23a'); },
     },
     {
-      id: 'direct-yahoo', name: 'Yahoo Finance Live', tag: 'DIRECT', cat: 'Marchés', h: 186,
-      desc: 'Ouvre le direct Yahoo Finance Live dans un nouvel onglet.',
-      aide: "<p>Le direct de Yahoo Finance : actualité de marché, valeurs américaines, entretiens.</p><p><strong>Pourquoi un lien et non une vidéo encadrée :</strong> l'éditeur interdit techniquement l'intégration de sa page par un autre site, et rediffuser son flux dans un terminal payant relève de ses droits de diffusion. Le desk vous y emmène plutôt que de la recopier.</p>",
-      src: "Lien direct vers Yahoo Finance Live. Aucun contenu n'est repris ni stocké par le desk : la page s'ouvre chez l'éditeur, sous ses conditions.",
+      id: 'direct-yahoo', name: 'Yahoo Finance Live', tag: 'DIRECT', cat: 'Marchés', h: 210,
+      desc: 'Le direct Yahoo Finance dans la carte : actualité de marché, valeurs américaines, entretiens.',
+      aide: "<p>Le direct de Yahoo Finance : actualité de marché, valeurs américaines, entretiens. La diffusion officielle de la rédaction est encadrée <strong>dans la carte</strong> — son lecteur, sa marque, sa publicité.</p><p><strong>Si le cadre reste vide :</strong> la chaîne n'est pas en antenne, ou son lecteur a été bloqué par une extension de navigateur. Le bouton vers le site de l'éditeur reste disponible dans tous les cas.</p>",
+      src: "Diffusion officielle de la rédaction, encadrée telle quelle. Le desk ne réencode ni ne stocke aucune image : il résout l'adresse du direct en cours et laisse le lecteur de l'éditeur faire le reste.",
       watch: "Plus tourné actions et valeurs individuelles que macro : un complément quand une publication d'entreprise déplace un indice.",
-      mount: function (host) {
-        host.innerHTML =
-          '<div class="wdg-direct">'
-          + '<div class="wdg-direct-tete"><span class="wdg-direct-pastille" style="background:#60a5fa"></span>'
-          + '<span class="wdg-direct-nom">Yahoo Finance Live</span></div>'
-          + '<p class="wdg-direct-txt">Le direct de Yahoo Finance : actualité de marché, valeurs américaines, entretiens.</p>'
-          + '<a class="wdg-direct-btn" href="https://finance.yahoo.com/live/" target="_blank" rel="noopener noreferrer">Ouvrir le direct</a>'
-          + '<p class="wdg-direct-note">S\'ouvre chez l\'éditeur, dans un nouvel onglet.</p>'
-          + '</div>';
-        return null;   // rien à nettoyer : aucun minuteur, aucune requête, aucun graphique
-      },
+      mount: function (host) { return _directMonter(host, 'yahoo', '#60a5fa'); },
     },
     {
       id: 'horloge', name: 'Horloge mondiale', cat: 'Macro', h: 210,
@@ -9480,6 +9519,47 @@
   // chaque vignette évoque le RENDU réel du widget (courbes, barres, matrice…). viewBox commun 120×56.
   var _PV = 'viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"';
   var WPREV = {
+    /* ── LES DEUX DIRECTS : DEUX VIGNETTES DISTINCTES ──────────────────────────────────────────
+       04/09, demande de l'utilisateur : « améliore leur aperçu de widget ». Le défaut n'était pas
+       l'absence de vignette mais pire — les deux cartes retombaient sur l'icône `WICO`, et cette
+       icône est LA MÊME pour les deux (le même symbole d'ondes, copié). Dans la bibliothèque, deux
+       lignes voisines affichaient donc exactement le même dessin : la vignette, qui est censée
+       aider à choisir, ne distinguait rien.
+       Chacune montre maintenant ce que la carte fait VRAIMENT depuis qu'elle encadre la vidéo : un
+       lecteur, avec le bandeau propre à sa rédaction. Bloomberg porte un bandeau de dépêches façon
+       terminal, Yahoo un bandeau de cotations — c'est la différence de ligne éditoriale entre les
+       deux, et c'est ce qu'on choisit en ajoutant l'une ou l'autre.
+       ⚠️ PAS DE PASTILLE ROUGE « LIVE », malgré l'usage télévisuel. La charte du desk réserve le
+       rouge au baissier et à l'alerte ; c'est la décision déjà prise pour le badge FERMÉ de la
+       frise des sessions, où la référence affichait du rouge et où le desk ne l'a pas suivie. La
+       pastille prend donc la teinte de la carte. */
+    'direct-bloomberg': '<svg ' + _PV + '>'
+      + '<rect x="8" y="6" width="104" height="33" rx="3" fill="#101014" stroke="#26262c"/>'
+      + '<path d="M53 16.5 L63 22.5 L53 28.5 Z" fill="#e3b23a" opacity=".92"/>'
+      + '<circle cx="16" cy="12.5" r="2.1" fill="#e3b23a"/>'
+      + '<rect x="21" y="10.8" width="19" height="3.4" rx="1.7" fill="#e3b23a" opacity=".45"/>'
+      + '<rect x="8" y="33" width="104" height="6" fill="#0a0a0c"/>'
+      + '<rect x="11" y="34.8" width="26" height="2.6" rx="1.3" fill="#9aa1ac" opacity=".55"/>'
+      + '<rect x="40" y="34.8" width="34" height="2.6" rx="1.3" fill="#9aa1ac" opacity=".38"/>'
+      + '<rect x="77" y="34.8" width="22" height="2.6" rx="1.3" fill="#9aa1ac" opacity=".28"/>'
+      + '<rect x="8" y="44" width="30" height="3.6" rx="1.8" fill="#3a3d44" opacity=".85"/>'
+      + '<rect x="42" y="44" width="46" height="3.6" rx="1.8" fill="#3a3d44" opacity=".55"/>'
+      + '</svg>',
+    'direct-yahoo': '<svg ' + _PV + '>'
+      + '<rect x="8" y="6" width="104" height="33" rx="3" fill="#101014" stroke="#26262c"/>'
+      + '<path d="M53 16.5 L63 22.5 L53 28.5 Z" fill="#60a5fa" opacity=".92"/>'
+      + '<circle cx="16" cy="12.5" r="2.1" fill="#60a5fa"/>'
+      + '<rect x="21" y="10.8" width="19" height="3.4" rx="1.7" fill="#60a5fa" opacity=".45"/>'
+      + '<rect x="8" y="33" width="104" height="6" fill="#0a0a0c"/>'
+      + (function () { var v = [1, -1, 1, 1, -1, 1, -1], h = '';
+          for (var i = 0; i < v.length; i++) { var x = 12 + i * 14;
+            h += '<rect x="' + x + '" y="34.6" width="6" height="3" rx="1.2" fill="#9aa1ac" opacity=".45"/>'
+              + '<path d="M' + (x + 9) + ' ' + (v[i] > 0 ? '37.4 l2.6 -2.8 l2.6 2.8' : '34.6 l2.6 2.8 l2.6 -2.8')
+              + '" fill="none" stroke="' + (v[i] > 0 ? '#00e676' : '#ff3d00') + '" stroke-width="1.1" opacity=".8"/>'; }
+          return h; })()
+      + '<rect x="8" y="44" width="24" height="3.6" rx="1.8" fill="#3a3d44" opacity=".85"/>'
+      + '<rect x="36" y="44" width="52" height="3.6" rx="1.8" fill="#3a3d44" opacity=".55"/>'
+      + '</svg>',
     // Statistiques DMX : la table statistique DMX — deux lignes par paire (point rouge =
     // Short, vert = Long), colonnes de chiffres estompées, et la colonne Écart qui juge (vert/rouge).
     'dmx-stats': '<svg ' + _PV + '>'

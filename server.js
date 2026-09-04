@@ -1029,6 +1029,124 @@ app.post('/api/read-reports', async (req, res) => {
   } catch { res.status(500).json({ ok: false }); }
 });
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   LES DIRECTS DANS LA CARTE — ON RÉSOUT LA CHAÎNE, ON NE DEVINE PAS UN IDENTIFIANT (04/09)
+   ══════════════════════════════════════════════════════════════════════════════════════════════
+   Demande de l'utilisateur, capture à l'appui : « pour Bloomberg et Yahoo on doit avoir la vidéo
+   DANS le widget, tu comprends le but du widget ? ». Il a raison : une carte nommée « Bloomberg
+   Live » qui n'affiche qu'un bouton « Ouvrir le direct » ne fait pas ce que son nom promet.
+
+   ⚠️ POURQUOI UN ENDPOINT SERVEUR ET PAS UN IDENTIFIANT ÉCRIT EN DUR. Deux raisons, et la seconde
+   est la vraie :
+     1. Un identifiant de vidéo écrit dans le code est PÉRIMABLE. Une chaîne d'information en
+        continu redémarre son flux régulièrement (maintenance, changement d'émission), et chaque
+        redémarrage crée une NOUVELLE vidéo. Le desk afficherait alors un cadre mort, sans que rien
+        ne le signale — la panne silencieuse que ce dépôt traque partout ailleurs.
+     2. Personne ici n'a pu VÉRIFIER cet identifiant. L'environnement de développement de cette
+        session n'a pas accès à YouTube (refus 403 du proxy, mesuré). Écrire un identifiant de
+        mémoire aurait été livrer une supposition à des clients payants. On livre donc le MÉCANISME
+        qui va le chercher, et un repli qui vaut exactement le comportement d'aujourd'hui.
+
+   COMMENT. On demande à YouTube la page « /<poignée>/live » de la chaîne : elle redirige vers la
+   diffusion EN COURS, et son lien canonique porte l'identifiant du jour. On en tire deux choses,
+   par ordre de préférence :
+     · l'identifiant de la diffusion en cours (`videoId`) → cadre exact, celui que le client veut ;
+     · à défaut l'identifiant de CHAÎNE (`channelId`) → cadre « dernière diffusion de cette chaîne »,
+       qui ne périme jamais mais montre un écran d'attente hors antenne.
+   Aucun des deux → la carte-lien d'avant. Trois étages, chacun honnête sur ce qu'il sait.
+
+   ⚠️ ET ON CACHE, PARCE QU'UN VPS À 512 Mo NE FAIT PAS UNE REQUÊTE PAR OUVERTURE DE CARTE. Le KV
+   Supabase (`direct:<clé>`) porte le résultat ; la diffusion en cours est revérifiée toutes les
+   30 min, l'identifiant de chaîne est gardé une semaine (il ne change jamais). Un échec de
+   résolution NE VIDE PAS le cache : mieux vaut servir la diffusion d'il y a une heure — qui est
+   presque toujours la même, ces chaînes tournant en continu — qu'un cadre vide.
+   ⚠️ PLUSIEURS POIGNÉES PAR CHAÎNE, ESSAYÉES DANS L'ORDRE. Une chaîne peut être renommée ; la
+   première poignée qui répond gagne. C'est ce qui permet au mécanisme de se réparer seul sans
+   redéploiement le jour où l'une d'elles disparaît. */
+const _DIRECTS = {
+  bloomberg: { nom: 'Bloomberg Television', poignees: ['@markets', '@BloombergTelevision', '@business'],
+               site: 'https://www.bloomberg.com/live/us' },
+  yahoo:     { nom: 'Yahoo Finance',        poignees: ['@YahooFinance', '@yahoofinance'],
+               site: 'https://finance.yahoo.com/live/' },
+};
+const _DIRECT_TTL_VIDEO = 30 * 60 * 1000;          // la diffusion en cours : revue toutes les 30 min
+const _DIRECT_TTL_CHAINE = 7 * 24 * 60 * 60 * 1000; // l'identifiant de chaîne ne bouge pas
+const _directMem = new Map();                       // tampon mémoire : évite même la lecture KV en rafale
+
+/* La lecture de la page. Isolée pour être remplaçable au banc : le banc ne doit JAMAIS sortir sur
+   le réseau, et un banc qui teste une fonction qu'il a réécrite ne teste rien. */
+async function _directHttp(url) {
+  try {
+    const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 8000);
+    const r = await fetch(url, { signal: ac.signal, redirect: 'follow', headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9' } });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    return (await r.text()).slice(0, 400000);   // le début de page suffit : les deux identifiants y sont
+  } catch { return null; }
+}
+/* L'EXTRACTION, ET SES TROIS FILETS. Un seul motif serait fragile : la page change de forme sans
+   prévenir. On accepte donc plusieurs écritures du même fait, et on ne retient un identifiant que
+   s'il a la FORME attendue — 11 caractères pour une vidéo, « UC » + 22 pour une chaîne. Sans ce
+   contrôle de forme, un morceau de script quelconque passerait pour un identifiant et le desk
+   afficherait un cadre mort en croyant avoir réussi. */
+function _directExtraire(html) {
+  const h = String(html || '');
+  const chaine = (h.match(/"(?:externalId|channelId)"\s*:\s*"(UC[\w-]{22})"/)
+    || h.match(/channel_id=(UC[\w-]{22})/)
+    || h.match(/\/channel\/(UC[\w-]{22})/) || [])[1] || null;
+  /* La vidéo : le lien canonique d'abord (c'est LUI qui désigne la diffusion en cours sur une page
+     « /live »), puis les formes internes. On exige `isLive` sur la forme interne : sans elle, on
+     ramasserait la dernière vidéo ARCHIVÉE de la chaîne et on l'appellerait « direct ». */
+  let video = (h.match(/<link[^>]+rel="canonical"[^>]+href="https:\/\/www\.youtube\.com\/watch\?v=([\w-]{11})"/) || [])[1] || null;
+  if (!video && /"isLiveNow"\s*:\s*true|"isLive"\s*:\s*true/.test(h)) {
+    video = (h.match(/"videoId"\s*:\s*"([\w-]{11})"/) || [])[1] || null;
+  }
+  return { video, chaine };
+}
+async function _directResoudre(cle) {
+  const d = _DIRECTS[cle]; if (!d) return null;
+  const now = Date.now();
+  const mem = _directMem.get(cle);
+  if (mem && (now - mem.ts) < _DIRECT_TTL_VIDEO) return mem;
+  let cache = null;
+  try { cache = await auth.aiCacheGet('direct:' + cle); } catch {}
+  if (cache && cache.ts && (now - cache.ts) < _DIRECT_TTL_VIDEO) { _directMem.set(cle, cache); return cache; }
+
+  let video = null, chaine = (cache && cache.chaine) || null;
+  const chaineFraiche = cache && cache.chaine && cache.tsChaine && (now - cache.tsChaine) < _DIRECT_TTL_CHAINE;
+  for (const poignee of d.poignees) {
+    const html = await _directHttp('https://www.youtube.com/' + poignee + '/live');
+    if (!html) continue;
+    const x = _directExtraire(html);
+    if (x.chaine) chaine = x.chaine;
+    if (x.video) { video = x.video; break; }
+    if (x.chaine && chaineFraiche) break;   // la chaîne répond mais n'est pas en antenne : inutile d'insister
+  }
+  /* ⚠️ UN ÉCHEC NE VIDE PAS LE CACHE. Ces chaînes diffusent en continu : la dernière diffusion
+     connue est presque toujours la bonne, et l'afficher vaut mieux qu'un cadre vide au premier
+     hoquet de réseau. On ne réécrit le cache que si l'on a appris quelque chose. */
+  if (!video && !chaine) return cache || null;
+  const out = { ts: now, cle, nom: d.nom, site: d.site,
+                video: video || (cache && cache.video) || null,
+                chaine: chaine || null,
+                tsChaine: chaine ? now : (cache && cache.tsChaine) || 0 };
+  _directMem.set(cle, out);
+  try { await auth.aiCacheSet('direct:' + cle, out); } catch {}
+  return out;
+}
+app.get('/api/direct/:cle', async (req, res) => {
+  const cle = String(req.params.cle || '').toLowerCase();
+  const d = _DIRECTS[cle];
+  if (!d) return res.status(404).json({ ok: false });
+  try {
+    const r = await _directResoudre(cle);
+    if (!r || (!r.video && !r.chaine)) return res.json({ ok: false, nom: d.nom, site: d.site });
+    res.json({ ok: true, nom: d.nom, site: d.site, video: r.video || null, chaine: r.chaine || null });
+  } catch { res.json({ ok: false, nom: d.nom, site: d.site }); }
+});
+
 // ── Filtre des catégories de news (« Filtrer les sections »), PERSISTANT PAR COMPTE (KV durable, modèle
 //    symrecent → suit la reconnexion / le changement d'appareil). On stocke les catégories DÉSACTIVÉES
 //    (décochées) : une nouvelle catégorie absente de la liste reste ACTIVE par défaut. Valeur = { off: [...] }.
@@ -1073,6 +1191,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260904-directs-video', ts: Date.UTC(2026, 8, 4, 22, 0), title: 'Bloomberg Live et Yahoo Finance Live affichent la vidéo dans la carte', desc: 'Vous nous l’aviez signalé, capture à l’appui : une carte qui s’appelle Bloomberg Live et qui n’affiche qu’un bouton ne fait pas ce que son nom promet. Les deux cartes encadrent désormais la diffusion officielle de la rédaction, directement dans le desk : son lecteur, sa marque, sa publicité. Le texte descriptif qui occupait la carte a été retiré, il n’a plus lieu d’être. Et le lien vers le site de l’éditeur reste présent sous le cadre, dans tous les cas : le desk vous emmène chez la source, il ne la remplace pas. L’AIDE DE CES DEUX CARTES DISAIT LE CONTRAIRE, ET ELLE AVAIT TORT. Elle expliquait que l’éditeur interdit techniquement d’intégrer sa page. C’est exact de la page de son site, qui refuse d’être encadrée. Ça ne l’est pas de la diffusion officielle en continu de ces deux rédactions, dont le lecteur est fait pour être intégré. L’argument servait donc contre quelque chose que personne n’avait essayé ; il est retiré des deux aides. L’ADRESSE DU DIRECT N’EST PAS ÉCRITE EN DUR, ET C’EST LE POINT TECHNIQUE QUI COMPTE. Une chaîne d’information en continu redémarre son flux régulièrement, et chaque redémarrage crée une nouvelle diffusion. Une adresse figée dans le code serait devenue un cadre noir au premier redémarrage, sans que rien ne le signale. Le desk va donc chercher l’adresse de la diffusion en cours et la garde en mémoire une demi-heure. Trois niveaux, du plus précis au plus sûr : la diffusion en cours ; à défaut la chaîne, qui ne périme jamais ; à défaut la carte avec son bouton, exactement comme avant. Vous ne perdez donc rien si la chaîne n’est pas en antenne. LES DEUX VIGNETTES DE LA BIBLIOTHÈQUE SONT ENFIN DIFFÉRENTES. Vous demandiez aussi de meilleurs aperçus. Le défaut n’était pas l’absence de vignette, mais pire : les deux cartes retombaient sur la même icône, copiée de l’une à l’autre. Deux lignes voisines de la bibliothèque affichaient donc le même dessin, et la vignette, censée aider à choisir, ne distinguait rien. Chacune montre maintenant un lecteur avec le bandeau propre à sa rédaction : dépêches façon terminal pour Bloomberg, cotations pour Yahoo, c’est-à-dire la différence de ligne éditoriale entre les deux.' },
   { id: 'dtpu-20260904-journal-couleurs', ts: Date.UTC(2026, 8, 4, 20, 0), title: 'Journal de trading : les couleurs des données, et l’année en douze pavés', desc: 'Deux changements sur le journal, demandés captures à l’appui. LES DONNÉES NE SE PEIGNENT PLUS À L’OR DU DESK. L’or est la couleur de MARQUE de DataTradingPro : il habille les titres, les bordures, l’onglet actif. Employé EN PLUS pour peindre une barre de résultat ou une courbe de performance, il cessait de vouloir dire DataTradingPro sans pour autant vouloir dire autre chose, et l’on ne savait plus si la couleur portait une information ou une signature. Le tableau de bord et la vue annuelle passent donc à une palette de données : cinq teintes, bleu, magenta, violet, sarcelle et orange. La courbe de performance et le pourcentage cumulé de l’année sont désormais bleus, la section Reconnaissance de schémas se distingue en violet de la section Optimisation, et les cadrans qui restaient dorés prennent leur teinte de la palette. Ce qui NE change pas, et c’est volontaire : le vert, le rouge et l’ambre gardent leur sens. Un résultat gagnant reste vert, un perdant reste rouge, un neutre reste ambré, que ce soit dans une barre, dans un cadran ou dans le camembert de répartition. Aucune des cinq teintes n’est verte, rouge ni ambrée, précisément pour cela : dans un journal de trading, une catégorie peinte en vert est lue comme gagnante avant d’être lue comme catégorie. Les cinq teintes ne sont pas choisies à l’œil : elles ont été mesurées sur le fond sombre du desk (clarté, saturation, contraste, et surtout séparation de chaque paire voisine pour un œil daltonien). Un banc relit la couleur RÉELLEMENT peinte à l’écran, pas le code : c’est la seule vérification qui aurait vu une règle de style repeindre une barre en or malgré un code correct. L’ANNÉE SE LIT EN DOUZE PAVÉS. Sous le tableau de bord annuel, une nouvelle section R par mois pose douze cases de même taille, une par mois : le R du mois, une barre à l’échelle du plus gros mois de l’année, le nombre de trades et le taux de réussite. Le tableau mois par mois, juste en dessous, porte déjà ces chiffres, mais un tableau se lit ligne à ligne quand une année se lit d’un coup. Douze cases côte à côte rendent visible ce qu’aucune ligne ne montre : le trou de trois mois sans rien, les deux mois qui portent l’année entière, la grappe de mois rouges d’affilée. La barre est rapportée au plus gros mois de l’année affichée et non à une échelle fixe, qui écraserait une année calme et saturerait une bonne année. Un mois sans trade reste VIDE, en pointillé, sans barre et sans zéro : un zéro se lit comme un résultat nul obtenu en travaillant, une absence se lit comme une absence, et les deux n’enseignent pas la même chose à qui relit son année. Le mois en cours est marqué comme tel, pour la même raison : il n’est pas comparable à un mois clos.' },
   { id: 'dtpu-20260904-calibrage', ts: Date.UTC(2026, 8, 4, 18, 0), title: 'Le journal calibre votre capital, et sait dire quand il n’a rien à conseiller', desc: 'Trois changements, dont un né du retour d’un de vos clients sur le Discord. LE JOURNAL VOUS AIDE MAINTENANT À CALIBRER VOTRE CAPITAL. « Je l’utilise, mais pour calibrer mon capital je trouve assez moyen ; ça reste un très bon outil pour tracker. » Le diagnostic était juste : le journal savait dire ce qui s’était passé, pas ce que vos résultats impliquent sur la taille à prendre au trade suivant. Un bloc CALIBRAGE DU CAPITAL rejoint donc le tableau de bord, et tout y est calculé sur VOS trades. D’abord ce que vous risquez réellement : votre perte moyenne, en dollars et en pourcentage de votre capital. Ensuite le coût du retour de votre pire série déjà traversée, à 0,5%, 1% et 2% de risque par trade : ce n’est pas une prévision, c’est l’arithmétique d’une série que vous avez vécue. Enfin un verdict. ET CE VERDICT PEUT ÊTRE UN REFUS, C’EST MÊME LE POINT. Quand vos statistiques dégagent un avantage, le desk propose un risque par trade, calculé par le critère de Kelly dont il ne retient que la MOITIÉ, plafonnée à 2% : la formule suppose des probabilités connues, les vôtres sont estimées sur un échantillon, et le Kelly plein impose des baisses de capital que personne ne tient. Quand vos statistiques ne dégagent AUCUN avantage, le desk le dit et ne conseille aucune taille : aucune taille de position ne rend une série perdante gagnante, c’est la méthode qu’il faut reprendre. Et sous trente trades clos, il refuse de conclure, parce qu’un taux de réussite sur dix trades ne distingue pas un avantage d’une bonne série. Un bloc de calibrage qui conseille toujours quelque chose se tromperait une fois sur deux. UNE NOUVELLE CARTE : LE SCENARIO DESK. Elle dit à partir de quel chiffre une publication fait bouger sa devise, une échéance après l’autre, avec deux encadrés face à face, haussier et baissier. Les seuils sont calculés d’un pas de la dernière décimale publiée autour du consensus, dans le sens propre à chaque indicateur : pour le chômage, un chiffre plus élevé est une mauvaise nouvelle et la carte le dit ainsi. Sans consensus publié, aucun seuil n’est affiché. LE JOURNAL ET LA CALCULATRICE S’AFFICHENT EN GRAND. Vous nous avez signalé que la rangée d’onglets visible dans ces deux écrans n’était pas celle de votre modèle. Elle ne pouvait pas l’être : c’était la navigation du desk classique, qui appartient à un autre écran. Ces deux vues sont des outils, pas des onglets du desk : elles prennent désormais toute la hauteur, et les trois icônes de la barre du haut restent le chemin de retour.' },
   { id: 'dtpu-20260904-scenario-desk', ts: Date.UTC(2026, 8, 4, 16, 0), title: 'Scenario Desk : à partir de quel chiffre une publication fait bouger sa devise', desc: 'Une nouvelle carte rejoint la bibliothèque de Mon Desk : le Scenario Desk. Elle répond à une question que le calendrier ne traite pas. Le calendrier dit quand tombe un chiffre et quel consensus l’attend ; celle-ci dit À PARTIR DE QUEL CHIFFRE la publication change quelque chose pour la devise. C’est la question qu’on se pose la veille, pas pendant. COMMENT ELLE SE LIT. Les prochaines échéances, groupées par jour, avec leur heure, leur devise, leur impact, leur consensus et leur précédent. Un clic déplie deux encadrés face à face : le scénario haussier et le scénario baissier, chacun avec son seuil chiffré. Deux réglages : l’impact minimum retenu et l’horizon, de quarante-huit heures à quatorze jours. D’OÙ VIENNENT LES SEUILS, ET POURQUOI C’EST IMPORTANT. Ils sont CALCULÉS, jamais rédigés : un pas de la dernière décimale publiée, de part et d’autre du consensus. Un consensus à 0,5% donne donc 0,6% ou plus d’un côté, 0,4% ou moins de l’autre, exactement comme sur le terminal de référence que vous nous avez montré. Le pas suit la NOTATION du chiffre : un consensus écrit 0,25 se déplace de 0,01, un chiffre d’emploi écrit 75K se déplace de 1K. Un pas fixe inventerait une marche que la publication ne connaît pas. ET LE SENS DE LECTURE EST CELUI DE L’INDICATEUR. Pour le chômage, les inscriptions ou les stocks, un chiffre au-dessus des attentes est une MAUVAISE nouvelle : la carte place alors le scénario haussier sous le consensus, pas au-dessus. Elle utilise pour cela la même fiche d’indicateurs que le Décryptage DTP, plutôt qu’une seconde table qui finirait par diverger. Enfin, une échéance sans consensus publié n’affiche AUCUN seuil et le dit : il n’y a alors rien à comparer, et fabriquer une référence absente serait pire que se taire. Conformément à votre précision, la carte ne porte aucun graphique de prix : c’est une liste d’échéances et de seuils, et un contrôle automatique veille à ce qu’elle le reste.' },

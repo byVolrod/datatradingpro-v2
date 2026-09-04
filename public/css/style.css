@@ -22447,3 +22447,19 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
 }
 .wdg-direct-btn:hover { background: #f0c455; border-color: #f0c455; }
 .wdg-direct-note { margin: 0; font-size: 10px; color: #6b7280; text-align: center; }
+
+/* ── LE DIRECT ENCADRÉ (04/09) ────────────────────────────────────────────────────────────────
+   La carte passe du bouton à la VIDÉO : le cadre prend toute la place disponible et le bandeau
+   d'identité descend SOUS lui. Deux points qui ne sont pas cosmétiques :
+   · `flex: 1 1 auto` + `min-height: 0` sur le cadre — sans le `min-height: 0`, un enfant flex
+     refuse de descendre sous sa taille de contenu et l'iframe pousse la carte au lieu de s'y
+     plier ; c'est le piège flexbox classique, et il se voit seulement sur une carte basse.
+   · le lien vers l'éditeur reste TOUJOURS rendu, sous le cadre : le desk emmène chez la source,
+     il ne la remplace pas. */
+.wdg-direct--video { padding: 0; gap: 0; }
+.wdg-direct-frame { flex: 1 1 auto; min-height: 0; background: #000; overflow: hidden; }
+.wdg-direct-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+.wdg-direct-pied { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-top: 1px solid var(--hud-line, #131316); flex: none; }
+.wdg-direct-pied .wdg-direct-tete { min-width: 0; flex: 1 1 auto; }
+.wdg-direct-src { margin-left: auto; flex: none; font-size: 10.5px; font-weight: var(--fw-semibold); color: var(--text3, #8b93a1); text-decoration: none; border-bottom: 1px solid transparent; transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease); }
+.wdg-direct-src:hover { color: var(--orange); border-bottom-color: rgba(227,178,58,.45); }
