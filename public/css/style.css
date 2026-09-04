@@ -11111,7 +11111,15 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .jrd-sec-h { font-size: 11px; font-weight: var(--fw-bold); letter-spacing: .08em; color: var(--orange); text-transform: uppercase; margin-bottom: 14px; }
 .jrd-rings { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
 .jrd-ring { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 0; }
-.jrd-ring-c { width: 98px; height: 98px; border-radius: 50%; border: 4px solid; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 0 4px; box-sizing: border-box; }
+/* ⚠️ L'ANNEAU EST UN ARC, PLUS UNE BORDURE (04/09, refonte demandée, capture de référence).
+   Une bordure pleine ne porte qu'une information — sa couleur — et sa surface ne veut rien dire.
+   L'arc, lui, se lit avant le chiffre : à quatre cadrans côte à côte, l'œil compare des remplissages
+   et non des nombres. La PISTE éteinte reste toujours visible (règle de la charte : une jauge n'est
+   jamais « vide »), et un cadran sans maximum honnête garde un arc plein — voir `_jrRing`. */
+.jrd-ring-c { position: relative; width: 98px; height: 98px; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 0 4px; box-sizing: border-box; border-radius: 50%; }
+.jrd-arc { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.jrd-arc-t { fill: none; stroke: var(--bg5, #232429); stroke-width: 7; }
+.jrd-arc-v { fill: none; stroke-width: 7; stroke-linecap: round; transition: stroke-dasharray .45s var(--ease, ease); }
 /* white-space:nowrap → la valeur (ex. "+12,3 k$") ne passe JAMAIS à la ligne dans l'anneau (le "$" ne saute plus) */
 .jrd-ring-v { font-family: var(--font-mono); font-size: 17px; font-weight: var(--fw-bold); white-space: nowrap; line-height: 1; letter-spacing: -0.2px; }
 .jrd-ring-l { font-size: 11px; color: var(--text2); font-weight: var(--fw-semibold); }
@@ -21182,6 +21190,78 @@ html[data-theme="light"] .calc-card--risque .calc-v, html[data-theme="light"] .c
 html[data-theme="light"] .dtp-val-pos, body.theme-light .dtp-val-pos { color: #047857 !important; }
 html[data-theme="light"] .dtp-val-neg, body.theme-light .dtp-val-neg { color: #c2410c !important; }
 html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a16207 !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   JOURNAL DE TRADING — ONGLET « ANNUEL » (04/09, demande utilisateur : « ajoute à côté de tableau
+   de bord YEARLY … ajoute aussi ce monthly qui se trouve dans yearly en bas … que tout soit refait
+   et encore mieux aligné avec le DTP niveau design »)
+   ══════════════════════════════════════════════════════════════════════════════════════════════
+   Habillage DTP et non copie de la référence : fond sombre, filets fins, or de marque sur les
+   titres et l'accent, cartes à coins doux. Les couleurs d'état viennent de la charte immuable —
+   vert `#00e676`, rouge `#ff3d00`, ambre `#ffb300` — et pas des bleus de la capture. */
+.jry-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
+.jry-head-t { font-family: var(--font-serif, 'Fraunces', serif); font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: -.01em; }
+.jry-ans { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.jry-an {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--text3);
+  font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-bold);
+  padding: 4px 12px; border-radius: 20px; cursor: pointer;
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.jry-an:hover { color: var(--text); border-color: var(--border2); }
+.jry-an.active { background: rgba(227,178,58,.15); border-color: rgba(227,178,58,.5); color: var(--orange); }
+
+/* Trois cartes de tête. `auto-fit` + `minmax` et non trois colonnes figées : la même grille sert le
+   desk plein écran et une carte étroite de Mon Desk, sans second jeu de règles. */
+.jry-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.jry-chart { width: 100%; height: 190px; display: block; }
+.jry-chart--trades { height: 230px; }
+.jry-tradeswrap { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 14px; align-items: center; }
+.jry-total { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.jry-total-v { font-family: var(--font-mono); font-size: 20px; font-weight: var(--fw-bold); letter-spacing: -.02em; }
+.jry-total-l { font-size: 10px; color: var(--text3); }
+
+/* ── LE TABLEAU DES DOUZE MOIS ─────────────────────────────────────────────────────────────────
+   Douze lignes, TOUJOURS douze : un mois sans trade garde sa ligne, en pointillé. La faire
+   disparaître donnerait une année à sept mois et ferait perdre le rythme, qui est justement ce
+   qu'on vient lire ici. */
+.jry-tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; }
+.jry-table { width: 100%; border-collapse: collapse; min-width: 720px; }
+.jry-table thead th {
+  position: sticky; top: 0; z-index: 2; background: var(--head-bg); text-align: left;
+  padding: 9px 11px; font-size: 9px; font-weight: var(--fw-bold); text-transform: uppercase;
+  letter-spacing: .05em; color: var(--text3); border-bottom: 1px solid var(--border2); white-space: nowrap;
+}
+.jry-table td { padding: 8px 11px; font-size: 12px; color: var(--text2); border-bottom: 1px solid var(--hud-line, #131316); white-space: nowrap; }
+.jry-table tbody tr:last-child td { border-bottom: none; }
+.jry-row:hover td { background: rgba(255,255,255,.025); }
+.jry-row--vide td { opacity: .5; }
+/* Le mois EN COURS se distingue par un filet or à gauche : il n'est pas comparable à un mois clos. */
+.jry-row--now td:first-child { box-shadow: inset 2px 0 0 0 var(--orange); }
+.jry-mois { font-weight: var(--fw-semibold); color: var(--text); display: flex; align-items: center; gap: 8px; }
+.jry-num { font-family: var(--font-mono); color: var(--text); }
+.jry-pos { color: #00e676; } .jry-neg { color: #ff3d00; }
+.jry-vide { color: var(--text4, #55555c); }
+.jry-tag { font-size: 9.5px; font-weight: var(--fw-bold); letter-spacing: .03em; padding: 2px 8px; border-radius: 20px; border: 1px solid; white-space: nowrap; }
+.jry-tag--pos { color: #00e676; background: rgba(0,230,118,.10); border-color: rgba(0,230,118,.32); }
+.jry-tag--neg { color: #ff3d00; background: rgba(255,61,0,.10); border-color: rgba(255,61,0,.32); }
+.jry-tag--neu { color: #ffb300; background: rgba(255,179,0,.10); border-color: rgba(255,179,0,.32); }
+.jry-tag--now { color: var(--orange); background: rgba(227,178,58,.10); border-color: rgba(227,178,58,.34); }
+.jry-tag--vide { color: var(--text4, #55555c); background: transparent; border-color: var(--border); }
+/* Taux de réussite : la barre AVANT le nombre, comme dans la référence — on compare des longueurs
+   bien plus vite que des pourcentages. */
+.jry-wrcell { min-width: 132px; }
+.jry-wr { display: inline-block; width: 74px; height: 6px; background: var(--bg2); border-radius: 3px; overflow: hidden; vertical-align: middle; margin-right: 8px; }
+.jry-wr i { display: block; height: 100%; background: linear-gradient(90deg, #00cc99, #00e676); border-radius: 3px; min-width: 2px; }
+.jry-wrcell b { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); font-weight: var(--fw-bold); }
+
+@media (max-width: 768px) {
+  /* Sur téléphone la colonne « Capital » et la barre de taux sont les premières à céder : ce sont
+     les deux plus larges, et le taux garde son chiffre. */
+  .jry-tradeswrap { grid-template-columns: minmax(0, 1fr); }
+  .jry-wr { width: 46px; margin-right: 6px; }
+  .jry-head-t { font-size: 16px; }
+}
 
 /* ÉCLAIRAGES IA : JAMAIS de carte coupée (23/08, capture user : badge « NEUTRE » tronqué au bord).
    Les cartes à largeur FIXE laissaient dépasser une fraction de la 3e — badge coupé en plein

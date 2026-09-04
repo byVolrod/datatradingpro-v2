@@ -14886,15 +14886,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // ═══ DASHBOARD DE STATS (Performance Dashboard 3.0, identité HUD) : CSS/SVG, 0 dépendance ═══
   // Onglet Log / Tableau de bord : mémorisé par compte (12/08) — celui qui vit dans les stats ne
   // repasse plus par le journal brut à chaque ouverture.
-  let _jrTab = (function () { try { return window.DTPPref ? DTPPref.get('jrtab', 'log') : 'log'; } catch (e) { return 'log'; } })();
+  const _JR_TABS = ['log', 'dash', 'year'];
+  let _jrTab = (function () { try { const t = window.DTPPref ? DTPPref.get('jrtab', 'log') : 'log'; return _JR_TABS.indexOf(t) >= 0 ? t : 'log'; } catch (e) { return 'log'; } })();
   function _jrSetTab(t) {
-    _jrTab = (t === 'dash') ? 'dash' : 'log';
+    /* ⚠️ LA LISTE FAIT FOI, PAS UN TERNAIRE. L'ancienne version écrivait `(t === 'dash') ? 'dash' :
+       'log'` : ajouter un troisième onglet sans toucher cette ligne l'aurait silencieusement
+       renvoyé sur « Trades », et le réglage mémorisé aurait fait de même au chargement suivant.
+       Un aiguillage à deux branches ne se rallonge pas, il se remplace. */
+    _jrTab = _JR_TABS.indexOf(t) >= 0 ? t : 'log';
     try { if (window.DTPPref) DTPPref.set('jrtab', _jrTab); } catch (e) {}
-    const log = document.getElementById('jr-log-view'), dash = document.getElementById('jr-dashboard');
-    if (log) log.classList.toggle('hidden', _jrTab === 'dash');
-    if (dash) dash.classList.toggle('hidden', _jrTab !== 'dash');
+    const vues = { log: 'jr-log-view', dash: 'jr-dashboard', year: 'jr-year' };
+    Object.keys(vues).forEach(k => { const el = document.getElementById(vues[k]); if (el) el.classList.toggle('hidden', k !== _jrTab); });
     document.querySelectorAll('.jr-tab').forEach(b => b.classList.toggle('jr-tab--active', b.dataset.jt === _jrTab));
     if (_jrTab === 'dash') _jrRenderDashboard();
+    if (_jrTab === 'year') _jrRenderYear();
   }
   window._jrTabClick = _jrSetTab;
   const _JR_RES = ['Profit', 'TP', 'BE', 'SL', 'Loss'];
@@ -14905,8 +14910,36 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const _jrRof = e => _jrN(e.r);
   const _JRD = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
   const _jrDayOf = e => { try { const d = new Date(e.ts).getDay(); return (d >= 1 && d <= 5) ? _JRD[d - 1] : null; } catch (er) { return null; } };
-  function _jrRing(val, label, color, sub) {
-    return '<div class="jrd-ring"><div class="jrd-ring-c" style="border-color:' + color + '"><span class="jrd-ring-v" style="color:' + color + '">' + val + '</span></div><div class="jrd-ring-l">' + _esc(label) + '</div>' + (sub ? '<div class="jrd-ring-s">' + _esc(sub) + '</div>' : '') + '</div>';
+  /* ══ L'ANNEAU DIT DÉSORMAIS COMBIEN, PAS SEULEMENT QUOI (04/09, refonte demandée par l'utilisateur,
+     captures de son tableau annuel à l'appui) ═══════════════════════════════════════════════════
+     L'ancien anneau était une BORDURE pleine : un cercle de couleur uniforme autour d'un nombre.
+     Il ne portait donc qu'une information — la couleur — et la surface du cercle ne voulait rien
+     dire. Les cadrans de la référence, eux, remplissent un ARC proportionnel à la valeur : on lit
+     le niveau avant même le chiffre, et deux cadrans côte à côte se comparent d'un coup d'œil.
+     `frac` (0 à 1) est la part remplie. Elle est FACULTATIVE : sans elle, l'arc est plein et
+     l'anneau retombe exactement sur l'ancien rendu — un total en R ou un nombre de trades n'ont
+     pas de maximum, donc pas de fraction honnête à dessiner. On ne fabrique pas une proportion
+     là où il n'y en a pas ; c'est la même règle que pour la couleur d'une donnée sans consensus.
+     SVG et non `conic-gradient` : l'arc doit garder ses extrémités arrondies et sa piste éteinte
+     visible (la trame « jamais vide » de la charte), ce qu'un dégradé conique ne sait pas faire. */
+  function _jrRing(val, label, color, sub, frac) {
+    const R = 42, C = 2 * Math.PI * R;
+    const f = (frac == null || !isFinite(frac)) ? null : Math.max(0, Math.min(1, frac));
+    const arc = f == null ? '' :
+      '<circle class="jrd-arc-v" cx="50" cy="50" r="' + R + '" stroke="' + color + '"'
+      + ' stroke-dasharray="' + (C * f).toFixed(1) + ' ' + (C * (1 - f) + 1).toFixed(1) + '"></circle>';
+    const plein = f == null
+      ? '<circle class="jrd-arc-v" cx="50" cy="50" r="' + R + '" stroke="' + color + '"></circle>' : arc;
+    return '<div class="jrd-ring">'
+      + '<div class="jrd-ring-c">'
+      +   '<svg class="jrd-arc" viewBox="0 0 100 100" aria-hidden="true">'
+      +     '<circle class="jrd-arc-t" cx="50" cy="50" r="' + R + '"></circle>' + plein
+      +   '</svg>'
+      +   '<span class="jrd-ring-v" style="color:' + color + '">' + val + '</span>'
+      + '</div>'
+      + '<div class="jrd-ring-l">' + _esc(label) + '</div>'
+      + (sub ? '<div class="jrd-ring-s">' + _esc(sub) + '</div>' : '')
+      + '</div>';
   }
   function _jrBars(title, map, opt) {
     opt = opt || {};
@@ -15013,6 +15046,323 @@ document.addEventListener('DOMContentLoaded', ()=>{
     series.appear(600);
   }
   function _jrResultLegend(resMap) { return '<div class="jrd-legend">' + _JR_RES.filter(k => resMap[k]).map(k => '<span class="jrd-leg"><i style="background:' + _RES_COL[k] + '"></i>' + _jrDisp('result', k) + ' <b>' + resMap[k] + '</b></span>').join('') + '</div>'; }
+  /* ══════════════════════════════════════════════════════════════════════════════════════════════
+     ONGLET « ANNUEL » — LA LECTURE PAR MOIS (04/09, demande utilisateur, captures de son tableau
+     annuel et de sa performance mensuelle à l'appui)
+     ══════════════════════════════════════════════════════════════════════════════════════════════
+     « Je souhaite ajouter à côté de Tableau de bord un ANNUEL, puis réorganiser, refonte totale
+      pour qu'il soit mieux ; ajoute aussi le MONTHLY qui se trouve dans yearly en bas. »
+
+     CE QUE CET ONGLET APPORTE, ET QUE LES DEUX AUTRES NE DONNENT PAS. « Trades » montre la ligne,
+     « Tableau de bord » montre le cumul depuis toujours. Ni l'un ni l'autre ne répond à « comment
+     s'est passé mars », ni à « est-ce que je progresse d'un mois sur l'autre » — or c'est
+     exactement la question que se pose un journal de trading tenu sur une année.
+
+     ⚠️ AUCUN CHIFFRE NOUVEAU N'EST INVENTÉ ICI. Les mêmes trades, les mêmes fonctions de lecture
+     (`_jrRof`, `_jrOutcome`, `_jrN`) que le tableau de bord — seule la MAILLE change. Un mois sans
+     trade reste VIDE et ne vaut pas zéro : un zéro se lit comme un résultat nul alors qu'il n'y a
+     eu aucune prise de position, et cette différence-là compte pour qui relit son année.
+     ⚠️ ET LE MOIS EN COURS EST MARQUÉ « EN COURS », comme sur la capture : le comparer à un mois
+     clos serait le comparer à autre chose que lui-même. */
+  const _JR_MOIS_LONG = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  let _jrAnnee = null;                      // année affichée ; null = la plus récente qui porte des trades
+
+  function _jrAn(e) { const t = +e.ts; return isFinite(t) && t > 0 ? new Date(t).getFullYear() : null; }
+  function _jrMois(e) { const t = +e.ts; return isFinite(t) && t > 0 ? new Date(t).getMonth() : null; }
+  /* Le nombre de trades du MOIS CIVIL EN COURS (cadran « Trades ce mois-ci » du tableau de bord). */
+  function _jrMoisCourant(L) {
+    const d = new Date(), a = d.getFullYear(), m = d.getMonth();
+    return (L || []).filter(e => _jrAn(e) === a && _jrMois(e) === m).length;
+  }
+  function _jrAnneesDispo(L) {
+    const s = new Set();
+    (L || []).forEach(e => { const a = _jrAn(e); if (a) s.add(a); });
+    if (!s.size) s.add(new Date().getFullYear());
+    return [...s].sort((x, y) => y - x);
+  }
+
+  /* Le bilan d'UN mois. Retourne `null` quand le mois n'a aucun trade — c'est le « mois vide » dont
+     la ligne reste en pointillé plutôt que d'afficher des zéros. */
+  function _jrBilanMois(L, an, mois) {
+    const M = (L || []).filter(e => _jrAn(e) === an && _jrMois(e) === mois);
+    if (!M.length) return null;
+    const som = a => a.reduce((x, y) => x + y, 0);
+    const rs = M.map(_jrRof).filter(r => r != null);
+    const outs = M.map(_jrOutcome).filter(o => o != null);
+    const g = outs.filter(o => o > 0).length, p = outs.filter(o => o < 0).length, be = outs.filter(o => o === 0).length;
+    const pcts = M.map(e => _jrN(e.pnlPct)).filter(v => v != null);
+    const eqs = M.map(e => _jrN(e.equity)).filter(v => v != null);
+    return {
+      n: M.length, r: rs.length ? som(rs) : null, pct: pcts.length ? som(pcts) : null,
+      gagnants: g, perdants: p, be,
+      taux: (g + p) ? Math.round(g / (g + p) * 100) : null,
+      dollars: som(M.map(e => _jrN(e.pl) || 0)),
+      equity: eqs.length ? eqs[eqs.length - 1] : null,
+    };
+  }
+
+  /* La barre horizontale « Résultat » de la capture : la part des mois positifs, neutres et négatifs
+     de l'année. On compte des MOIS et non des trades — c'est ce que montre la référence, et c'est la
+     lecture utile à cette maille : douze points de comparaison, pas trois cents. */
+  function _jrBarresResultat(bilans) {
+    const pos = bilans.filter(b => b && b.r != null && b.r > 0).length;
+    const neg = bilans.filter(b => b && b.r != null && b.r < 0).length;
+    const neu = bilans.filter(b => b && b.r != null && b.r === 0).length;
+    const tot = pos + neg + neu;
+    const L = [['Positif', pos, '#00e676'], ['Neutre', neu, '#ffb300'], ['Négatif', neg, '#ff3d00']];
+    const corps = tot ? L.map(([k, n, c]) => {
+      const w = Math.round(n / tot * 100);
+      return '<div class="jrd-bar"><span class="jrd-bar-k">' + k + '</span>'
+        + '<span class="jrd-bar-t"><i style="width:' + w + '%;background:' + c + '"></i></span>'
+        + '<span class="jrd-bar-v">' + n + '</span></div>';
+    }).join('') : '<div class="jrd-empty">-</div>';
+    return '<div class="jrd-card"><div class="jrd-card-h">Résultat des mois</div><div class="jrd-bars">' + corps + '</div></div>';
+  }
+
+  // ── R par mois : colonnes amCharts, vert au-dessus de zéro, rouge en dessous ──
+  function _jrBuildMoisChart(bilans) {
+    const id = 'jry-mois-chart', el = document.getElementById(id);
+    if (!el) return;
+    /* ⚠️ UN CADRE VIDE NE DIT RIEN, ET C'EST PIRE QU'UN MESSAGE. Si amCharts n'a pas pu être
+       chargé (réseau coupé, bloqueur), l'ancien `return` laissait 190 px de noir : le lecteur
+       ne peut pas distinguer « aucun trade ce mois » de « le graphique n'a pas chargé ». Même
+       remède que partout ailleurs sur le desk (« Force des devises indisponible. »). */
+    if (typeof am5 === 'undefined' || typeof am5xy === 'undefined') {
+      el.innerHTML = '<div class="jrd-empty">Graphique indisponible.</div>'; return;
+    }
+    _jrDisposeRoot(id);
+    const root = _dtpAncre(am5.Root.new(id)); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
+    const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 0, paddingRight: 2, paddingTop: 8, paddingBottom: 2 }));
+    const xr = am5xy.AxisRendererX.new(root, { minGridDistance: 22 });
+    xr.grid.template.set('forceHidden', true);
+    xr.labels.template.setAll({ fill: am5.color(0x6b7280), fontSize: 9, rotation: -35, centerY: am5.p50, centerX: am5.p100 });
+    const xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, { categoryField: 'm', renderer: xr }));
+    const yr = am5xy.AxisRendererY.new(root, { opposite: true, minWidth: 34 });
+    yr.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.16, strokeDasharray: [2, 4] });
+    yr.labels.template.setAll({ fill: am5.color(0x94a3b8), fontSize: 9 });
+    yr.labels.template.adapters.add('text', t => t == null ? t : String(t).replace('.', ','));
+    const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: yr }));
+    const tip = am5.Tooltip.new(root, { getFillFromSprite: false, autoTextColor: false, labelText: '[#8a8a92 fontSize:10px]{m}[/]\n[bold fontSize:14px]{lbl}[/]' });
+    tip.get('background').setAll({ fill: am5.color(0x141417), stroke: am5.color(0x33333a), strokeWidth: 1, fillOpacity: 0.98, cornerRadius: 6 });
+    if (tip.label) tip.label.setAll({ fill: am5.color(0xe6e6ea), paddingTop: 5, paddingBottom: 5, paddingLeft: 9, paddingRight: 9 });
+    const series = chart.series.push(am5xy.ColumnSeries.new(root, { xAxis, yAxis, categoryXField: 'm', valueYField: 'v', tooltip: tip }));
+    series.columns.template.setAll({ width: am5.percent(58), cornerRadiusTL: 3, cornerRadiusTR: 3, strokeOpacity: 0, templateField: 'st' });
+    const data = bilans.map((b, i) => {
+      const v = b && b.r != null ? +b.r.toFixed(2) : null;
+      const c = v == null ? 0x3a3a42 : (v >= 0 ? 0x00e676 : 0xff3d00);
+      return { m: _JR_MOIS_LONG[i].slice(0, 4), v, lbl: v == null ? 'aucun trade' : (v >= 0 ? '+' : '') + String(v).replace('.', ',') + ' R', st: { fill: am5.color(c) } };
+    });
+    xAxis.data.setAll(data); series.data.setAll(data); series.appear(600);
+  }
+
+  // ── % PNL cumulé sur l'année : la courbe de la capture, mois après mois ──
+  function _jrBuildAnPctChart(bilans) {
+    const id = 'jry-pct-chart', el = document.getElementById(id);
+    if (!el) return;
+    /* ⚠️ UN CADRE VIDE NE DIT RIEN, ET C'EST PIRE QU'UN MESSAGE. Si amCharts n'a pas pu être
+       chargé (réseau coupé, bloqueur), l'ancien `return` laissait 190 px de noir : le lecteur
+       ne peut pas distinguer « aucun trade ce mois » de « le graphique n'a pas chargé ». Même
+       remède que partout ailleurs sur le desk (« Force des devises indisponible. »). */
+    if (typeof am5 === 'undefined' || typeof am5xy === 'undefined') {
+      el.innerHTML = '<div class="jrd-empty">Graphique indisponible.</div>'; return;
+    }
+    _jrDisposeRoot(id);
+    const root = _dtpAncre(am5.Root.new(id)); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
+    const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 0, paddingRight: 2, paddingTop: 8, paddingBottom: 2 }));
+    const xr = am5xy.AxisRendererX.new(root, { minGridDistance: 26 });
+    xr.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.14, strokeDasharray: [2, 4] });
+    xr.labels.template.setAll({ fill: am5.color(0x6b7280), fontSize: 9 });
+    const xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, { categoryField: 'm', renderer: xr }));
+    const yr = am5xy.AxisRendererY.new(root, { opposite: true, minWidth: 40 });
+    yr.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.16, strokeDasharray: [2, 4] });
+    yr.labels.template.setAll({ fill: am5.color(0x94a3b8), fontSize: 9 });
+    yr.labels.template.adapters.add('text', t => t == null ? t : String(t).replace('.', ',') + '%');
+    const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: yr, maxDeviation: 0.12 }));
+    const z = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 }));
+    z.get('grid').setAll({ stroke: am5.color(0xffffff), strokeOpacity: 0.28, strokeWidth: 1 });
+    if (z.get('label')) z.get('label').set('visible', false);
+    const tip = am5.Tooltip.new(root, { getFillFromSprite: false, autoTextColor: false, labelText: '[#8a8a92 fontSize:10px]{m}[/]\n[bold #e3b23a fontSize:14px]{lbl}[/]' });
+    tip.get('background').setAll({ fill: am5.color(0x141417), stroke: am5.color(0x33333a), strokeWidth: 1, fillOpacity: 0.98, cornerRadius: 6 });
+    if (tip.label) tip.label.setAll({ fill: am5.color(0xe6e6ea), paddingTop: 5, paddingBottom: 5, paddingLeft: 9, paddingRight: 9 });
+    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, categoryXField: 'm', valueYField: 'v', stroke: am5.color(0xe3b23a), fill: am5.color(0xe3b23a), tooltip: tip, connect: true }));
+    series.strokes.template.setAll({ strokeWidth: 2.5, strokeLinecap: 'round', strokeLinejoin: 'round' });
+    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xe3b23a), opacity: 0.34 }, { color: am5.color(0xe3b23a), opacity: 0 }] }) });
+    /* Le cumul ne repart pas de zéro sur un mois vide : il garde la valeur atteinte. Remettre à zéro
+       dessinerait une chute qui n'a pas eu lieu. */
+    let cum = 0; const data = bilans.map((b, i) => {
+      if (b && b.pct != null) cum += b.pct;
+      return { m: _JR_MOIS_LONG[i].slice(0, 4), v: +cum.toFixed(2), lbl: (cum >= 0 ? '+' : '') + (Math.round(cum * 100) / 100).toString().replace('.', ',') + '%' };
+    });
+    xAxis.data.setAll(data); series.data.setAll(data); series.appear(600); chart.appear(600, 60);
+  }
+
+  /* ── PERFORMANCE MENSUELLE (le bloc du bas de la capture) : un trait par TRADE, dans l'ordre du
+     temps, en R ou en $. C'est la dispersion que le tableau ne montre pas — douze lignes de
+     moyennes cachent une série de six pertes suivie d'un gros gain. ── */
+  let _jrAnUnite = 'r';
+  function _jrBuildAnTradesChart(L, an) {
+    const id = 'jry-trades-chart', el = document.getElementById(id);
+    if (!el) return;
+    /* ⚠️ UN CADRE VIDE NE DIT RIEN, ET C'EST PIRE QU'UN MESSAGE. Si amCharts n'a pas pu être
+       chargé (réseau coupé, bloqueur), l'ancien `return` laissait 190 px de noir : le lecteur
+       ne peut pas distinguer « aucun trade ce mois » de « le graphique n'a pas chargé ». Même
+       remède que partout ailleurs sur le desk (« Force des devises indisponible. »). */
+    if (typeof am5 === 'undefined' || typeof am5xy === 'undefined') {
+      el.innerHTML = '<div class="jrd-empty">Graphique indisponible.</div>'; return;
+    }
+    _jrDisposeRoot(id);
+    const root = _dtpAncre(am5.Root.new(id)); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
+    const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 0, paddingRight: 2, paddingTop: 8, paddingBottom: 2 }));
+    const xr = am5xy.AxisRendererX.new(root, { minGridDistance: 60 });
+    xr.grid.template.set('forceHidden', true);
+    xr.labels.template.setAll({ fill: am5.color(0x6b7280), fontSize: 9 });
+    const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, { baseInterval: { timeUnit: 'day', count: 1 }, renderer: xr }));
+    xAxis.set('dateFormats', { day: 'dd MMM', week: 'dd MMM', month: 'MMM' });
+    const yr = am5xy.AxisRendererY.new(root, { opposite: true, minWidth: 34 });
+    yr.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.16, strokeDasharray: [2, 4] });
+    yr.labels.template.setAll({ fill: am5.color(0x94a3b8), fontSize: 9 });
+    yr.labels.template.adapters.add('text', t => t == null ? t : String(t).replace('.', ','));
+    const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: yr }));
+    const z = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 }));
+    z.get('grid').setAll({ stroke: am5.color(0xffffff), strokeOpacity: 0.3, strokeWidth: 1 });
+    if (z.get('label')) z.get('label').set('visible', false);
+    const tip = am5.Tooltip.new(root, { getFillFromSprite: false, autoTextColor: false, labelText: '[#8a8a92 fontSize:10px]{d}[/]\n[bold fontSize:14px]{lbl}[/]\n[#9aa0aa fontSize:10px]{pair}[/]' });
+    tip.get('background').setAll({ fill: am5.color(0x141417), stroke: am5.color(0x33333a), strokeWidth: 1, fillOpacity: 0.98, cornerRadius: 6 });
+    if (tip.label) tip.label.setAll({ fill: am5.color(0xe6e6ea), paddingTop: 5, paddingBottom: 5, paddingLeft: 9, paddingRight: 9 });
+    const series = chart.series.push(am5xy.ColumnSeries.new(root, { xAxis, yAxis, valueXField: 't', valueYField: 'v', tooltip: tip }));
+    series.columns.template.setAll({ width: 3, strokeOpacity: 0, templateField: 'st' });
+    const unite = _jrAnUnite;
+    const arr = (L || []).filter(e => _jrAn(e) === an)
+      .map(e => ({ e, v: unite === 'r' ? _jrRof(e) : _jrN(e.pl) }))
+      .filter(x => x.v != null)
+      .sort((a, b) => (a.e.ts || 0) - (b.e.ts || 0));
+    const fmt = v => (v >= 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ',') + (unite === 'r' ? ' R' : ' $');
+    series.data.setAll(arr.map(x => {
+      const d = new Date(x.e.ts);
+      return { t: x.e.ts, v: +x.v.toFixed(2), pair: x.e.pair || '', lbl: fmt(x.v),
+        d: d.getDate() + ' ' + (_JR_MONTHS_FR[d.getMonth()] || ''),
+        st: { fill: am5.color(x.v >= 0 ? 0x00e676 : 0xff3d00) } };
+    }));
+    series.appear(600); chart.appear(600, 60);
+  }
+  /* ⚠️ LE GLOBAL NE PORTE PAS LE MÊME NOM QUE L'ÉTAT. `window._jrAnUnite = function…` à côté d'un
+     `let _jrAnUnite = 'r'` compile parfaitement — le module voit la chaîne, l'attribut `onclick`
+     voit la fonction — et c'est exactement le genre de cohabitation qui explose le jour où une
+     ligne du module appelle `_jrAnUnite('r')` en croyant appeler la fonction. Un nom, une chose. */
+  window._jrAnSetUnite = function (u) {
+    if (u !== 'r' && u !== 'pl') return;
+    _jrAnUnite = u;
+    document.querySelectorAll('.jry-unite button').forEach(b => b.classList.toggle('active', b.dataset.u === u));
+    const an = _jrAnneeActive();
+    try { _jrBuildAnTradesChart(_jrList || [], an); } catch (e) {}
+    const tot = document.getElementById('jry-trades-total');
+    if (tot) tot.innerHTML = _jrTotalAnnee(_jrList || [], an, u);
+  };
+  window._jrAnChange = function (a) { _jrAnnee = +a; _jrRenderYear(); };
+
+  function _jrAnneeActive() {
+    const dispo = _jrAnneesDispo(_jrList || []);
+    return (_jrAnnee != null && dispo.indexOf(_jrAnnee) >= 0) ? _jrAnnee : dispo[0];
+  }
+  function _jrTotalAnnee(L, an, unite) {
+    const arr = (L || []).filter(e => _jrAn(e) === an)
+      .map(e => unite === 'r' ? _jrRof(e) : _jrN(e.pl)).filter(v => v != null);
+    const t = arr.reduce((a, b) => a + b, 0);
+    const txt = (t >= 0 ? '+' : '') + (Math.round(t * 100) / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + (unite === 'r' ? ' R' : ' $');
+    return '<span class="jry-total-v" style="color:' + (t >= 0 ? '#00e676' : '#ff3d00') + '">' + _esc(txt) + '</span>'
+      + '<span class="jry-total-l">Total de l\'année</span>';
+  }
+
+  function _jrRenderYear() {
+    const host = document.getElementById('jr-year'); if (!host) return;
+    const L = _jrList || [];
+    if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucune statistique pour le moment : ajoutez votre premier trade ou importez votre journal (Notion .zip / CSV) depuis « Trades ».</div>'; return; }
+    const an = _jrAnneeActive(), dispo = _jrAnneesDispo(L);
+    const bilans = Array.from({ length: 12 }, (_, m) => _jrBilanMois(L, an, m));
+    const moisNow = (new Date().getFullYear() === an) ? new Date().getMonth() : -1;
+
+    const som = a => a.reduce((x, y) => x + y, 0);
+    const An = L.filter(e => _jrAn(e) === an);
+    const rsAn = An.map(_jrRof).filter(r => r != null);
+    const outsAn = An.map(_jrOutcome).filter(o => o != null);
+    const gAn = outsAn.filter(o => o > 0).length, pAn = outsAn.filter(o => o < 0).length;
+    const tauxAn = (gAn + pAn) ? Math.round(gAn / (gAn + pAn) * 100) : null;
+    const totR = rsAn.length ? som(rsAn) : 0;
+    const fR = v => (v >= 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ',');
+    const fPct = v => v == null ? '-' : (v >= 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ',') + '%';
+
+    /* Le sélecteur d'année : des BOUTONS et non un menu déroulant. Un journal couvre deux ou trois
+       années, pas trente : les montrer toutes coûte moins qu'un clic pour les découvrir. */
+    const choix = dispo.map(a => '<button class="jry-an' + (a === an ? ' active' : '') + '" onclick="_jrAnChange(' + a + ')">' + a + '</button>').join('');
+
+    // ── Le tableau du mois : douze lignes, toujours douze, même vides (c'est l'année entière) ──
+    const lignes = bilans.map((b, m) => {
+      const enCours = m === moisNow;
+      const cls = 'jry-row' + (b ? '' : ' jry-row--vide') + (enCours ? ' jry-row--now' : '');
+      const badge = !b
+        ? (enCours ? '<span class="jry-tag jry-tag--now">En cours</span>' : '<span class="jry-tag jry-tag--vide">—</span>')
+        : (b.r == null ? '<span class="jry-tag jry-tag--vide">—</span>'
+          : b.r > 0 ? '<span class="jry-tag jry-tag--pos">Positif</span>'
+          : b.r < 0 ? '<span class="jry-tag jry-tag--neg">Négatif</span>'
+          : '<span class="jry-tag jry-tag--neu">Neutre</span>');
+      const taux = (b && b.taux != null)
+        ? '<span class="jry-wr"><i style="width:' + b.taux + '%"></i></span><b>' + b.taux + '%</b>' : '<span class="jry-vide">—</span>';
+      const c = (v) => '<td>' + v + '</td>';
+      return '<tr class="' + cls + '">'
+        + '<td class="jry-mois">' + _JR_MOIS_LONG[m] + (enCours ? '<span class="jry-tag jry-tag--now">En cours</span>' : '') + '</td>'
+        + c(badge)
+        + c(b && b.r != null ? '<span class="jry-num ' + (b.r >= 0 ? 'jry-pos' : 'jry-neg') + '">' + fR(b.r) + '</span>' : '<span class="jry-vide">—</span>')
+        + c(b && b.pct != null ? '<span class="jry-num ' + (b.pct >= 0 ? 'jry-pos' : 'jry-neg') + '">' + fPct(b.pct) + '</span>' : '<span class="jry-vide">—</span>')
+        + '<td class="jry-wrcell">' + taux + '</td>'
+        + c(b ? '<span class="jry-num">' + b.n + '</span>' : '<span class="jry-vide">—</span>')
+        + c(b ? '<span class="jry-num jry-neg">' + b.perdants + '</span>' : '<span class="jry-vide">—</span>')
+        + c(b ? '<span class="jry-num">' + b.be + '</span>' : '<span class="jry-vide">—</span>')
+        + c(b ? '<span class="jry-num jry-pos">' + b.gagnants + '</span>' : '<span class="jry-vide">—</span>')
+        + c(b && b.equity != null ? '<span class="jry-num">' + (Math.round(b.equity * 100) / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' $</span>' : '<span class="jry-vide">—</span>')
+        + '</tr>';
+    }).join('');
+
+    host.innerHTML =
+      '<div class="jry-head"><div class="jry-head-t">Bilan annuel</div><div class="jry-ans">' + choix + '</div></div>'
+      + '<div class="jrd-sec"><div class="jrd-sec-h">TABLEAU DE BORD ANNUEL</div>'
+        + '<div class="jry-top">'
+          + _jrBarresResultat(bilans)
+          + '<div class="jrd-card"><div class="jrd-card-h">R par mois</div><div id="jry-mois-chart" class="jr-chart-am jry-chart"></div></div>'
+          + '<div class="jrd-card"><div class="jrd-card-h">% cumulé sur l\'année</div><div id="jry-pct-chart" class="jr-chart-am jry-chart"></div></div>'
+        + '</div>'
+        + '<div class="jrd-rings" style="margin-top:14px;">'
+          + _jrRing(fR(totR), 'R de l\'année', totR >= 0 ? '#00e676' : '#ff3d00')
+          + _jrRing(tauxAn == null ? '-' : tauxAn + '%', 'Taux de réussite', '#00cc99', (gAn + pAn) ? (gAn + ' G / ' + pAn + ' P') : '', tauxAn == null ? null : tauxAn / 100)
+          + _jrRing(String(An.length), 'Trades sur l\'année', '#e3b23a')
+          + _jrRing(String(bilans.filter(Boolean).length) + ' / 12', 'Mois travaillés', '#a78bfa', '', bilans.filter(Boolean).length / 12)
+        + '</div>'
+      + '</div>'
+      + '<div class="jrd-sec"><div class="jrd-sec-h">PERFORMANCE MOIS PAR MOIS</div>'
+        + '<div class="jry-tablewrap"><table class="jry-table"><thead><tr>'
+          + '<th>Mois</th><th>Résultat</th><th>R</th><th>%</th><th>Taux de réussite</th>'
+          + '<th>Trades</th><th>Perdants</th><th>BE</th><th>Gagnants</th><th>Capital</th>'
+        + '</tr></thead><tbody>' + lignes + '</tbody></table></div>'
+      + '</div>'
+      + '<div class="jrd-sec"><div class="jrd-sec-h">PERFORMANCE PAR TRADE</div>'
+        + '<div class="jrd-card"><div class="jrd-card-h">Chaque trade de l\'année, dans l\'ordre'
+          + '<span class="jrd-eqtoggle jry-unite">'
+            + '<button data-u="r" class="' + (_jrAnUnite === 'r' ? 'active' : '') + '" onclick="_jrAnSetUnite(\'r\')">R</button>'
+            + '<button data-u="pl" class="' + (_jrAnUnite === 'pl' ? 'active' : '') + '" onclick="_jrAnSetUnite(\'pl\')">$ PNL</button>'
+          + '</span></div>'
+          + '<div class="jry-tradeswrap">'
+            + '<div id="jry-trades-chart" class="jr-chart-am jry-chart jry-chart--trades"></div>'
+            + '<div class="jry-total" id="jry-trades-total">' + _jrTotalAnnee(L, an, _jrAnUnite) + '</div>'
+          + '</div>'
+        + '</div>'
+      + '</div>';
+
+    setTimeout(() => {
+      try { _jrBuildMoisChart(bilans); } catch (e) {}
+      try { _jrBuildAnPctChart(bilans); } catch (e) {}
+      try { _jrBuildAnTradesChart(L, an); } catch (e) {}
+    }, 12);
+  }
+
   function _jrRenderDashboard() {
     const host = document.getElementById('jr-dashboard'); if (!host) return;
     const L = _jrList || [];
@@ -15045,7 +15395,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const grp = keyFn => { const m = {}; for (const e of L) for (const k of _jrArr(keyFn(e))) m[k] = (m[k] || 0) + valR(e); return m; };
     const setupM = grp(e => e.setup), confM = grp(e => e.conf), gradeM = grp(e => e.grade), entryM = grp(e => e.entryT);
     const slM = grp(e => e.sl), errM = grp(e => e.err), sessM = grp(e => e.session), dayM = grp(_jrDayOf), pairM = grp(e => e.pair);
-    const fondaM = {}; L.forEach(e => { const f = _jrN(e.fonda); if (f != null) { const k = f >= 87.5 ? '100 %' : f >= 62.5 ? '75 %' : '50 %'; fondaM[k] = (fondaM[k] || 0) + valR(e); } });
+    const fondaM = {}; L.forEach(e => { const f = _jrN(e.fonda); if (f != null) { const k = f >= 87.5 ? '100%' : f >= 62.5 ? '75%' : '50%'; fondaM[k] = (fondaM[k] || 0) + valR(e); } });
     const rrA = (() => { const a = L.map(e => _jrN(e.rr)).filter(x => x != null); return a.length ? sum(a) / a.length : 0; })();
     const fR = v => (v >= 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ',');
     // Montant COMPACT et insécable (k$/M$) → tient dans l'anneau sans passer à la ligne (le « $ » ne saute plus)
@@ -15055,7 +15405,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + _jrRing(fR(totR), 'Total R', totR >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(_jrMoneyShort(totD), 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(String(L.length), 'Trades', '#e3b23a')
-        + _jrRing((wrD == null ? '-' : wrD + '%'), 'Taux de réussite', '#00cc99', (oWD + oLD) ? (oWD + ' G / ' + oLD + ' P, BE exclus') : '')
+        /* Le seul cadran de cette rangée qui ait un MAXIMUM honnête : un taux va de 0 à 100 %.
+           Total R, total $ et nombre de trades n'en ont pas — leur arc reste plein (cf. `_jrRing`). */
+        + _jrRing((wrD == null ? '-' : wrD + '%'), 'Taux de réussite', '#00cc99', (oWD + oLD) ? (oWD + ' G / ' + oLD + ' P, BE exclus') : '', wrD == null ? null : wrD / 100)
       + '</div><div class="jrd-row jrd-row--charts">'
         + '<div class="jrd-card jrd-card--donut"><div class="jrd-card-h">Répartition des résultats</div><div id="jr-result-donut" class="jr-chart-am jr-chart-am--donut"></div>' + _jrResultLegend(resMap) + '</div>'
         + '<div class="jrd-card jrd-card--eq"><div class="jrd-card-h">Courbe de performance<span class="jrd-eqtoggle">'
@@ -15070,6 +15422,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + _jrRing(fR(avgW), 'R moy. gagnant', '#00e676') + _jrRing(fR(avgL), 'R moy. perdant', '#ff3d00')
         + _jrRing(longN + ' / ' + shortN, 'Long / Short', '#3aa0ff')
         + _jrRing((Math.round(rrA * 100) / 100).toString().replace('.', ','), 'RR cible moyen', '#a78bfa')
+        /* « Nbs Trade (Month) » de la référence : le rythme du MOIS EN COURS, que ni le total ni le
+           taux ne donnent. Un journal peut afficher un excellent cumul et n'avoir rien tenu depuis
+           trois semaines — c'est cette information-là qui manquait. */
+        + _jrRing(String(_jrMoisCourant(L)), 'Trades ce mois-ci', '#e3b23a', _JR_MOIS_LONG[new Date().getMonth()])
       + '</div><div class="jrd-rings" style="margin-top:10px;">'
         + _jrRing(pf == null ? '-' : (Math.round(pf * 100) / 100).toString().replace('.', ','), 'Profit factor', pf != null && pf >= 1 ? '#00e676' : '#ff8f00', 'gains / pertes')
         + _jrRing(expR == null ? '-' : fR(expR), 'Espérance / trade', expR != null && expR >= 0 ? '#00cc99' : '#ff3d00', 'en R')
