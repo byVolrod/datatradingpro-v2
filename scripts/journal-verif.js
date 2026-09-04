@@ -57,6 +57,15 @@
  *    n'a pas les largeurs de colonne de la vraie grille et ne reproduit pas le défaut — première
  *    tentative verte des deux côtés du correctif, ce qui est pire que pas de contrôle du tout.
  *
+ * 9. L'ÉPURATION SE MESURE SUR DEUX BOUTS, PAS SUR UNE DÉCLARATION. « Refonte propre, épurée, en
+ *    mode Notion » se traduit par deux décisions vérifiables : la section n'est plus une boîte
+ *    (elle encadrait des cartes déjà encadrées) et le tableau des trades perd son treillis vertical
+ *    — 2641 filets droits mesurés avant reprise. Les deux vont par paire avec leur contraire : la
+ *    carte doit GARDER son cadre, la colonne collante doit GARDER son filet, en-tête compris. Ce
+ *    dernier point n'est pas un ornement du contrôle : la première rédaction accrochait le filet à
+ *    une classe que rien n'écrit, l'en-tête de la colonne figée n'en portait aucun, et le contrôle
+ *    voisin restait vert parce qu'il ne regardait que le corps du tableau.
+ *
  *   node scripts/journal-verif.js
  *
  * Sans Chromium, le banc S'ABSTIENT (code 0).
@@ -400,6 +409,64 @@ function phaseSource() {
       v('aucun cadre de graphique n\'est noir ET muet (bibliothèque ' + (LIS.amcharts ? 'présente' : 'absente') + ')',
         LIS.cadres.length > 0 && muets.length === 0,
         muets.length ? 'muet(s) : ' + muets.join(' · ') : LIS.cadres.length + ' cadre(s) relus');
+
+      /* ══ L'ÉPURATION : UN SEUL CADRE PAR IDÉE, ET PAS DE TREILLIS (05/09) ═════════════════════
+         Demande utilisateur : « refonte plus propre, épurée, en mode Notion », sur tous les onglets,
+         « et il faut que ça suive la cohérence avec le desk ». Deux décisions structurent la reprise,
+         et ce sont elles qu'on garde ici — pas le détail des marges, qui se règle à l'œil.
+
+         ⚠️ ON MESURE LE STYLE CALCULÉ, PAS LA DÉCLARATION. Ces deux règles se défont par une ligne
+         de cascade posée cent lignes plus bas, sans erreur ni exception : le seul juge est ce que le
+         navigateur peint. */
+      console.log('\n── L\'épuration : un seul cadre par idée ──');
+      await page.evaluate(() => { if (typeof _jrTabClick === 'function') _jrTabClick('dash'); });
+      await new Promise((r) => setTimeout(r, 1800));
+      const EP = await page.evaluate(() => {
+        const bord = (el) => { const c = getComputedStyle(el); return { w: parseFloat(c.borderBottomWidth) || 0, st: c.borderBottomStyle }; };
+        const sec = document.querySelector('#jr-dashboard .jrd-sec');
+        const carte = document.querySelector('#jr-dashboard .jrd-card');
+        return { sec: sec ? bord(sec) : null, carte: carte ? bord(carte) : null };
+      });
+      /* LA PAIRE. « La section n'a pas de cadre » serait vert sur une page qui n'en a NULLE PART —
+         c'est-à-dire sur un écran où plus rien ne se distingue. La carte, elle, doit garder le sien :
+         c'est lui qui porte la hiérarchie une fois la boîte extérieure retirée. */
+      v('la section n\'est plus une boîte (elle encadrait des cartes déjà encadrées)',
+        !!EP.sec && (EP.sec.w === 0 || EP.sec.st === 'none'), JSON.stringify(EP.sec));
+      v('… et la carte, elle, garde son cadre (c\'est lui qui porte la hiérarchie)',
+        !!EP.carte && EP.carte.w > 0 && EP.carte.st !== 'none', JSON.stringify(EP.carte));
+
+      /* LE TREILLIS DU TABLEAU. Chaque cellule portait un filet à droite ET en bas. Mesuré en
+         retirant le correctif : 2641 cellules à filet droit, donc autant de traits verticaux qui
+         découpent la page en damier. Les filets horizontaux suffisent à suivre une
+         ligne. ⚠️ AVEC SON EXCEPTION FONCTIONNELLE : la colonne « Paires » est COLLANTE, elle flotte
+         au-dessus des colonnes qui défilent sous elle — son filet droit est le bord d'un élément
+         fixe, pas une décoration de tableau. Sans ce second contrôle, on pourrait tout retirer et
+         laisser la colonne collante sans frontière. */
+      await page.evaluate(() => { if (typeof _jrTabClick === 'function') _jrTabClick('log'); });
+      await new Promise((r) => setTimeout(r, 1800));
+      const TR = await page.evaluate(() => {
+        const d = (el) => el ? parseFloat(getComputedStyle(el).borderRightWidth) || 0 : null;
+        const cells = [...document.querySelectorAll('.jr-grid tbody td')];
+        const ord = cells.filter((c) => !c.classList.contains('jr-c--title'));
+        const thTit = [...document.querySelectorAll('.jr-grid thead th')]
+          .find((t) => t.dataset && t.dataset.k === 'pair');
+        return { ordinaires: ord.length, avecFilet: ord.filter((c) => d(c) > 0).length,
+                 collante: d(document.querySelector('.jr-grid tbody td.jr-c--title')),
+                 enTete: d(thTit) };
+      });
+      v('le tableau des trades a perdu son quadrillage vertical',
+        TR.ordinaires > 20 && TR.avecFilet === 0,
+        TR.avecFilet + ' cellule(s) à filet droit sur ' + TR.ordinaires + ' relues');
+      /* ⚠️ ET SON EN-TÊTE AVEC. Première rédaction du correctif : le filet était accroché à
+         `thead th:first-child` (la case à cocher, 30 px) et à une classe `.jr-th--title` que rien
+         n'écrit — l'en-tête de la colonne « Paires » ne portait donc AUCUN filet, et la frontière
+         du bloc figé s'arrêtait sous la ligne de titres. Le contrôle d'à côté était vert : il ne
+         regardait que le corps. Un sélecteur mort ne se voit pas en relisant du CSS, il se voit en
+         mesurant les DEUX bouts du trait. L'en-tête se désigne par `data-k="pair"`, la seule clé
+         qui suive la colonne quand on la déplace. */
+      v('… sauf la colonne COLLANTE, dont le filet est le bord d\'un élément fixe',
+        TR.collante > 0 && TR.enTete > 0,
+        'filet de la colonne « Paires » : corps ' + TR.collante + ' px, en-tête ' + TR.enTete + ' px');
 
       /* ══ AU DOIGT, LA COMMANDE « OUVRIR » RECOUVRAIT LE NOM DE LA PAIRE ═══════════════════════
          04/09, mesuré sur capture : dans la toute PREMIÈRE colonne du journal, chaque ligne se

@@ -11039,12 +11039,33 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 
 .jr-grid-wrap { flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
 .jr-grid { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
-.jr-grid thead th { position: sticky; top: 0; z-index: 3; background: var(--head-bg); text-align: left; padding: 8px 11px; font-size: 9px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .05em; color: var(--text3); border-bottom: 1px solid var(--border2); border-right: 1px solid var(--hud-line); white-space: nowrap; }
+/* L'en-tête suit : plus de filets verticaux, et un cran de lisibilité sur des intitulés de 9 px. */
+.jr-grid thead th { position: sticky; top: 0; z-index: 3; background: var(--head-bg); text-align: left; padding: 9px 11px; font-size: 9.5px; font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: .05em; color: var(--text3); border-bottom: 1px solid var(--border2); white-space: nowrap; }
 .jr-grid thead th.jr-th-act { border-right: none; min-width: 36px; }
 .jr-grid thead th:first-child { left: 0; z-index: 5; }
-.jr-grid td { border-bottom: 1px solid var(--hud-line); border-right: 1px solid var(--hud-line); vertical-align: middle; }
+/* ══ L'ONGLET TRADES GARDE SA DENSITÉ, MAIS PERD SON QUADRILLAGE (05/09) ═══════════════════════
+   Demande : « épuré, en mode Notion », sur TOUS les onglets. Ici la réponse n'est PAS d'aérer :
+   c'est un tableau de cent vingt lignes et dix-neuf colonnes, on l'ouvre pour en voir beaucoup à la
+   fois — lui retirer de la densité serait lui retirer sa raison d'être.
+   Ce qui l'alourdissait n'était pas la densité mais le TREILLIS : chaque cellule portait un filet
+   à droite ET en bas, soit près de deux mille traits à l'écran, qui découpent la page en damier et
+   fatiguent avant de guider. Les filets HORIZONTAUX suffisent à suivre une ligne — c'est ce que
+   font Notion et tous les tableaux qui se lisent bien. On garde donc les rangées, on retire les
+   colonnes.
+   ⚠️ UNE SEULE EXCEPTION, ET ELLE EST FONCTIONNELLE : la colonne « Paires » est COLLANTE (elle
+   reste à l'écran quand on fait défiler vers la droite). Sans un filet à sa droite, elle flotterait
+   par-dessus les colonnes qui défilent dessous, sans frontière visible. Son filet n'est pas une
+   décoration de tableau, c'est le bord d'un élément fixe. */
+.jr-grid td { border-bottom: 1px solid var(--hud-line); vertical-align: middle; }
+/* ⚠️ LE TRAIT SE DESSINE SUR LES DEUX BOUTS, ET IL SE DÉSIGNE PAR SA CLÉ. Première rédaction :
+   `thead th:first-child` (qui est la case à cocher de 30 px, pas la colonne « Paires ») plus une
+   classe `.jr-th--title` que RIEN n'écrit. La frontière du bloc figé s'arrêtait donc sous la ligne
+   de titres. Un sélecteur mort ne se voit pas en relisant du CSS. L'en-tête se désigne par
+   `data-k="pair"` : c'est la seule marque qui suive la colonne quand on la déplace au glisser. */
+.jr-grid td.jr-c--title, .jr-grid thead th[data-k="pair"] { border-right: 1px solid var(--hud-line); }
 .jr-grid tbody tr:hover td { background: var(--row-hover); }
-.jr-c { padding: 5px 9px; font-size: var(--fs-title); color: var(--text2); line-height: 1.35; cursor: pointer; max-width: 250px; }
+/* Deux pixels de plus par cellule : la ligne respire sans qu'on en perde une seule à l'écran. */
+.jr-c { padding: 7px 10px; font-size: var(--fs-title); color: var(--text2); line-height: 1.35; cursor: pointer; max-width: 250px; }
 .jr-c--multi, .jr-c--select { white-space: normal; }
 .jr-grid td.jr-c:hover { background: #1d1f25; }
 .jr-grid td.jr-c--title { position: sticky; left: 0; z-index: 2; background: var(--bg); }
@@ -11118,9 +11139,51 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 #jr-log-view.hidden, #jr-dashboard.hidden { display: none; }
 
 /* ════════ Performance Dashboard (façon Performance Dashboard 3.0, identité HUD) ════════ */
-.jrd { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 20px; }
-.jrd-sec { border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px 16px; background: var(--bg); }
-.jrd-sec-h { font-size: 11px; font-weight: var(--fw-bold); letter-spacing: .08em; color: var(--orange); text-transform: uppercase; margin-bottom: 14px; }
+/* ══ LE JOURNAL EST UNE PAGE, PAS UNE GRILLE DE COCKPIT (05/09) ════════════════════════════════
+   Demande utilisateur : « refonte plus propre, épurée, en mode Notion », ET « il faut que ça suive
+   la cohérence avec le desk ». Les deux ne s'opposent pas, contrairement à ce qu'on pourrait
+   croire, et c'est la charte elle-même qui les réconcilie : elle demande des « cartes à COINS DOUX
+   (--radius = 6px) + bordures fines + HOVER DORÉ ». Le journal ne le faisait nulle part — coins à
+   4 px, aucun survol. L'aérer le RAPPROCHE donc du desk au lieu de l'en éloigner.
+   ⚠️ ET LA DENSITÉ HUD N'EST PAS EN CAUSE. Elle vaut pour la GRILLE de Mon Desk, où huit cartes se
+   partagent un écran et où chaque pixel est disputé. Le journal est une page-outil qu'on ouvre
+   seule, en plein écran, et qu'on LIT — la barre d'onglets du desk y est même masquée depuis le
+   04/09. Deux surfaces, deux régimes : le cockpit est dense, le document respire.
+   La largeur de lecture est bornée : au-delà, une ligne de tuiles s'étire sur 1900 px et l'œil
+   perd le fil entre le libellé et sa valeur. ⚠️ Cette borne ne touche QUE les deux vues de lecture
+   (`#jr-dashboard` et `#jr-year`, seules porteuses de `.jrd`) : la grille de trades vit dans
+   `#jr-log-view`, hors de cette classe, et garde toute la largeur — c'est un tableau, il a besoin
+   de ses colonnes. */
+.jrd { flex: 1; min-height: 0; overflow-y: auto; padding: 26px 28px 44px; display: flex; flex-direction: column; gap: 30px; }
+/* ⚠️ BORNÉE À GAUCHE, PAS CENTRÉE. Premier essai : colonne centrée, façon page Notion. Mesuré à
+   1600 px de large, ça laissait 270 px de vide À GAUCHE pendant que la barre d'onglets du journal,
+   juste au-dessus, restait collée au bord — deux alignements différents à dix pixels l'un de
+   l'autre, et un contenu qui semble flotter. Tout le desk est aligné à gauche : la page se borne
+   donc en largeur (pour ne pas étirer une ligne de tuiles sur 1900 px) mais part du même bord que
+   ce qui la surmonte. L'aération ne doit pas coûter la cohérence. */
+.jrd > * { width: 100%; max-width: 1280px; margin-left: 0; margin-right: auto; }
+/* ⚠️ L'AÉRATION EST UNE AFFAIRE DE LARGEUR DISPONIBLE. 28 px de marge de chaque côté, c'est du
+   confort sur un écran de bureau et 56 px pris sur 390 sur un téléphone — soit un septième de la
+   page rendu au vide, au détriment des chiffres. La page respire donc à proportion de ce qu'elle a. */
+@media (max-width: 768px) {
+  .jrd { padding: 16px 14px 32px; gap: 22px; }
+  .jrd-sec-h { margin-bottom: 14px; padding-bottom: 8px; }
+  .jrd-card { padding: 13px 14px; }
+  .jrd-ring { padding: 11px 13px; }
+  .jry-head-t { font-size: 19px; }
+  .jry-table td { padding: 10px 11px; }
+}
+/* ⚠️ LA SECTION N'EST PLUS UNE BOÎTE, ET C'EST LE CŒUR DE L'ÉPURATION. Elle encadrait des cartes
+   elles-mêmes encadrées : une boîte dans une boîte, deux bordures pour une seule idée. L'œil compte
+   les cadres au lieu de lire les chiffres. La hiérarchie est désormais portée par ce qui la porte
+   naturellement — un TITRE, un filet, et du BLANC : page › section (titre + espace) › carte (cadre).
+   Trois niveaux, un seul cadre. */
+.jrd-sec { border: 0; border-radius: 0; padding: 0; background: none; }
+/* Le titre garde l'or et les capitales — c'est la grammaire de section du desk, on ne la change
+   pas pour cette page-ci — mais il devient LISIBLE : un cran plus grand, et un filet qui marque le
+   départ de la section. Une étiquette de 11 px flottant dans le vide ne dit pas « ici commence
+   autre chose » ; un titre souligné, oui. */
+.jrd-sec-h { font-size: 12px; font-weight: var(--fw-bold); letter-spacing: .09em; color: var(--orange); text-transform: uppercase; margin: 0 0 18px; padding-bottom: 10px; border-bottom: 1px solid var(--hud-line, #131316); }
 /* ══ LES CHIFFRES DU JOURNAL : DES TUILES DENSES, ET UNE JAUGE SEULEMENT LÀ OÙ ELLE COMPTE ═════
    04/09, demande utilisateur : « améliore la lisibilité du journal, revois l'UX/UI, vérifie la
    cohérence avec le desk ». Mesuré sur capture avant reprise : TREIZE cadrans de 98 px, tous de la
@@ -11135,9 +11198,16 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
    La tuile fait 3 lignes de texte contre un cercle, s'aligne en grille, et la JAUGE prend la place
    du filet de couleur exactement quand la valeur a un maximum honnête. Le cercle n'a pas disparu :
    il est devenu le signal « ce chiffre-ci a une échelle », au lieu d'être la décoration de tous. */
-.jrd-rings { display: grid; grid-template-columns: repeat(auto-fit, minmax(184px, 1fr)); gap: 10px; }
-.jrd-ring { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
-.jrd-ring:hover { border-color: var(--border2); background: rgba(255,255,255,.02); }
+/* ⚠️ LA LARGEUR MINIMALE DÉCIDE DU DÉCOUPAGE DES RANGÉES, et huit tuiles se coupent mal en six.
+   Mesuré dans la largeur de lecture (1280 px) : à 190 px on obtient six colonnes, donc 6 + 2 et une
+   seconde rangée quasi vide qui déséquilibre le bloc. À 280 px on obtient QUATRE colonnes : 4 + 4
+   pour « Performance clé », une rangée pleine pour les quatre tuiles de « Performance pilote » et
+   pour celles du bilan annuel. Le nombre de colonnes n'est pas un réglage esthétique, c'est ce qui
+   décide si une section se lit comme un bloc ou comme un reste. */
+.jrd-rings { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.jrd-ring { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 13px 15px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius, 6px); transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
+/* Même survol doré que les cartes : une seule grammaire d'interaction sur toute la page. */
+.jrd-ring:hover { border-color: rgba(227,178,58,.34); background: rgba(255,255,255,.015); }
 /* Le filet : l'identité de la mesure, quand le chiffre n'a pas de maximum à montrer. */
 .jrd-ring-b { flex: none; width: 3px; align-self: stretch; min-height: 34px; border-radius: 2px; }
 .jrd-ring-c { position: relative; flex: none; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; }
@@ -11145,24 +11215,27 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .jrd-arc-t { fill: none; stroke: var(--bg5, #232429); stroke-width: 11; }
 .jrd-arc-v { fill: none; stroke-width: 11; stroke-linecap: round; transition: stroke-dasharray .45s var(--ease, ease); }
 .jrd-ring-t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.jrd-ring-v { font-family: var(--font-mono); font-size: 17px; font-weight: var(--fw-bold); white-space: nowrap; line-height: 1.15; letter-spacing: -.02em; }
-.jrd-ring-l { font-size: 11px; color: var(--text2); font-weight: var(--fw-semibold); line-height: 1.25; }
+.jrd-ring-v { font-family: var(--font-mono); font-size: 18px; font-weight: var(--fw-bold); white-space: nowrap; line-height: 1.2; letter-spacing: -.02em; }
+.jrd-ring-l { font-size: 11.5px; color: var(--text2); font-weight: var(--fw-semibold); line-height: 1.3; }
 .jrd-ring-s { font-size: 10px; color: var(--text3); line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jrd-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; margin-top: 14px; }
-.jrd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-.jrd-card { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 11px 13px; min-width: 0; }
-.jrd-card-h { display: flex; align-items: center; font-size: var(--fs-title); font-weight: var(--fw-bold); color: var(--text); margin-bottom: 11px; }
-.jrd-bars { display: flex; flex-direction: column; gap: 7px; }
-.jrd-bar { display: grid; grid-template-columns: 92px 1fr 46px; align-items: center; gap: 8px; }
-.jrd-bar-k { font-size: 11px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jrd-bar-t { height: 8px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+.jrd-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 16px; margin-top: 16px; }
+.jrd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; }
+.jrd-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius, 6px); padding: 15px 17px; min-width: 0; transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
+/* « hover doré sur les cartes » — charte DTP, que le journal n'appliquait pas. */
+.jrd-card:hover { border-color: rgba(227,178,58,.34); }
+.jrd-card-h { display: flex; align-items: center; font-size: 12.5px; font-weight: var(--fw-bold); color: var(--text); margin-bottom: 15px; letter-spacing: -.005em; }
+.jrd-bars { display: flex; flex-direction: column; gap: 10px; }
+/* 92 px coupaient « Confluence » et « Reconnaissance » : le libellé est ce qu'on lit EN PREMIER. */
+.jrd-bar { display: grid; grid-template-columns: 108px 1fr 52px; align-items: center; gap: 10px; }
+.jrd-bar-k { font-size: 11.5px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jrd-bar-t { height: 7px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
 .jrd-bar-t i { display: block; height: 100%; border-radius: 4px; min-width: 2px; transition: width .3s; }
-.jrd-bar-v { font-family: var(--font-mono); font-size: 11px; color: var(--text); text-align: right; }
+.jrd-bar-v { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); text-align: right; }
 .jrd-eq { width: 100%; height: 150px; display: block; }
 .jrd-empty { color: var(--text3); font-size: 12px; padding: 14px 0; text-align: center; }
 .jrd-empty-big { color: var(--text3); font-size: 13px; text-align: center; padding: 44px 16px; }
 /* amCharts : courbe de performance + donut de répartition */
-.jrd-row--charts { grid-template-columns: 224px minmax(0, 1fr); }
+.jrd-row--charts { grid-template-columns: 264px minmax(0, 1fr); }
 .jrd-card--donut, .jrd-card--eq { display: flex; flex-direction: column; }
 .jr-chart-am { width: 100%; min-width: 0; }
 .jr-chart-am--eq { height: 234px; }
@@ -21223,8 +21296,10 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
    Habillage DTP et non copie de la référence : fond sombre, filets fins, or de marque sur les
    titres et l'accent, cartes à coins doux. Les couleurs d'état viennent de la charte immuable —
    vert `#00e676`, rouge `#ff3d00`, ambre `#ffb300` — et pas des bleus de la capture. */
-.jry-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
-.jry-head-t { font-family: var(--font-serif, 'Fraunces', serif); font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: -.01em; }
+.jry-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 2px; }
+/* Le titre de page prend la serif de la marque et la taille qui va avec : c'est le seul vrai
+   titre de l'écran, il doit se distinguer des titres de section. */
+.jry-head-t { font-family: var(--font-serif, 'Fraunces', serif); font-size: 22px; font-weight: 600; color: var(--text); letter-spacing: -.015em; }
 .jry-ans { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
 .jry-an {
   background: var(--bg3); border: 1px solid var(--border); color: var(--text3);
@@ -21241,7 +21316,7 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
    « Résultat des mois » porte trois barres, soit ~90 px de contenu, et se retrouvait tirée à la
    hauteur des deux graphiques voisins (190 px) — près de 200 px de noir sous ses trois lignes. Une
    carte n'a pas à mentir sur ce qu'elle contient pour faire joli avec sa voisine. */
-.jry-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start; }
+.jry-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; align-items: start; }
 .jry-chart { width: 100%; height: 190px; display: block; }
 .jry-chart--trades { height: 230px; }
 .jry-tradeswrap { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 14px; align-items: center; }
@@ -21253,14 +21328,16 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
    Douze lignes, TOUJOURS douze : un mois sans trade garde sa ligne, en pointillé. La faire
    disparaître donnerait une année à sept mois et ferait perdre le rythme, qui est justement ce
    qu'on vient lire ici. */
-.jry-tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; }
+.jry-tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius, 6px); }
 .jry-table { width: 100%; border-collapse: collapse; min-width: 720px; }
 .jry-table thead th {
   position: sticky; top: 0; z-index: 2; background: var(--head-bg); text-align: left;
   padding: 9px 11px; font-size: 9px; font-weight: var(--fw-bold); text-transform: uppercase;
   letter-spacing: .05em; color: var(--text3); border-bottom: 1px solid var(--border2); white-space: nowrap;
 }
-.jry-table td { padding: 8px 11px; font-size: 12px; color: var(--text2); border-bottom: 1px solid var(--hud-line, #131316); white-space: nowrap; }
+/* Une ligne de tableau se lit d'autant mieux qu'elle respire : douze lignes seulement ici, la
+   hauteur ne coûte rien et le regard suit sa ligne sans se tromper de mois. */
+.jry-table td { padding: 12px 14px; font-size: 12.5px; color: var(--text2); border-bottom: 1px solid var(--hud-line, #131316); white-space: nowrap; }
 .jry-table tbody tr:last-child td { border-bottom: none; }
 .jry-row:hover td { background: rgba(255,255,255,.025); }
 .jry-row--vide td { opacity: .5; }
@@ -21287,8 +21364,13 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
    `auto-fit` et non un `repeat(6, …)` figé : le panneau du journal se resserre (volet ouvert,
    téléphone), et six colonnes forcées y produiraient un débordement horizontal. Le pavé garde une
    largeur PLANCHER pour que le chiffre ne se coupe jamais. */
-.jry-rrgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; }
-.jry-rr { border: 1px solid var(--border); border-radius: 6px; padding: 9px 11px 10px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; min-width: 0; transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
+/* ⚠️ SIX PAR RANGÉE, ET C'EST UN CHOIX DE LECTURE. À 136 px de largeur minimale, la largeur de
+   lecture (1280 px) rendait 8 + 4 : une rangée pleine et un reste, qui ne ressemble ni à une année
+   ni à un calendrier. Six et six se lisent comme deux semestres, chaque pavé respire, et la
+   propriété qui fait tout l'intérêt du bloc reste entière — les douze mois sous les yeux d'un seul
+   coup, sans défilement. */
+.jry-rrgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.jry-rr { border: 1px solid var(--border); border-radius: var(--radius, 6px); padding: 12px 13px 13px; background: var(--bg); display: flex; flex-direction: column; gap: 7px; min-width: 0; transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
 .jry-rr-h { display: flex; align-items: center; gap: 6px; min-width: 0; }
 /* Le nom du mois passe AVANT le badge : mesuré, « Septembre » se rendait « Septe… » parce que le
    badge « En cours » gardait sa largeur pendant que le nom, seul à porter `overflow: hidden`,
@@ -21309,7 +21391,7 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
 /* Un mois sans trade se DIT en pointillé : ce n'est pas un résultat nul, c'est une absence. */
 .jry-rr--vide { border-style: dashed; opacity: .62; }
 .jry-rr--now { box-shadow: inset 2px 0 0 0 var(--orange); }
-.jry-rr:hover { background: rgba(255,255,255,.02); }
+.jry-rr:hover { background: rgba(255,255,255,.02); border-color: rgba(227,178,58,.34); }
 
 @media (max-width: 768px) {
   /* Sur téléphone la colonne « Capital » et la barre de taux sont les premières à céder : ce sont
