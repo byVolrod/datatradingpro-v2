@@ -4631,13 +4631,62 @@ function renderFxList() {
   ).join('');
   if (window._dtpDataIn) window._dtpDataIn(body, 'fxl');   // fondu d'arrivee (1re fois seulement, jamais aux refresh silencieux)
 
-  const upd = document.getElementById('fxl-updated');
-  if (upd && _fxlData.updatedAt) {
-    const d = new Date(_fxlData.updatedAt);
-    const _t = 'MAJ ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    if (upd.textContent && upd.textContent !== _t && window._dtpFlash) window._dtpFlash(upd);   // flash discret : heure de MAJ réellement plus fraîche
-    upd.textContent = _t;
+  _fxlEtatFraicheur();
+}
+
+/* ══ LE TABLEAU NE PARLE DE SA FRAÎCHEUR QUE QUAND ELLE POSE PROBLÈME (04/09) ═══════════════════
+   CE QU'ON A TROUVÉ EN AUDITANT « fiabilité des données et temps réel ». Le bloc qui écrivait
+   « MAJ HH:MM » était MORT depuis le 04/08 : l'élément `#fxl-updated` a été retiré de la page ce
+   jour-là, à la demande de l'utilisateur (« l'heure occupait le coin droit sans être consultée »),
+   et le code s'est neutralisé tout seul sur son `if (upd && …)`. Le tableau ne dit donc PLUS RIEN
+   de son âge — et il a des raisons d'être vieux :
+     · le WEEK-END, le serveur sert délibérément la photo de vendredi et coupe le rafraîchissement
+       des cotations (marché fermé). Un dimanche à 15 h, on lit des prix de vendredi 22 h sans que
+       rien ne le dise ;
+     · un rafraîchissement en échec laisse le tableau précédent en place, sans un mot ;
+     · un conteneur réveillé sert son dernier instantané persisté, qui peut dater.
+   Des prix faux ne sont pas le problème : ce sont les VRAIS prix d'un autre moment, affichés comme
+   s'ils étaient d'maintenant.
+
+   ⚠️ ON NE REMET PAS L'HORODATAGE PERMANENT : sa suppression était une bonne décision, et pour la
+   bonne raison — un indicateur qu'on lit tous les jours sans jamais rien y voir cesse d'être lu,
+   c'est la leçon du keep-alive vert qui ne pinguait rien. La règle retenue est donc celle que ce
+   desk applique DÉJÀ au graphique de réaction : le cas ordinaire n'écrit rien, le cas anormal garde
+   sa phrase. Rien à l'écran quand la donnée est fraîche ; une ligne quand elle ne l'est pas.
+   ⚠️ ET C'EST LE SERVEUR QUI DIT SI LE MARCHÉ EST FERMÉ (`marcheFerme`), pas une seconde règle de
+   week-end recopiée ici : deux sources de vérité divergent le jour où l'une des deux change. */
+const _FXL_FRAIS_MS = 10 * 60 * 1000;   // le serveur rafraîchit les cotations toutes les 150 s et la vue interroge toutes les 90 s : au-delà de dix minutes, quelque chose ne tourne plus
+function _fxlEtatFraicheur() {
+  const barre = document.querySelector('.fxl-toolbar');
+  if (!barre) return;
+  let el = document.getElementById('fxl-etat');
+  const d = _fxlData && _fxlData.updatedAt ? new Date(_fxlData.updatedAt) : null;
+  const age = (d && !isNaN(d)) ? (Date.now() - d.getTime()) : null;
+  const ferme = !!(_fxlData && _fxlData.marcheFerme);
+  /* LE CAS ORDINAIRE : on se tait, et on retire ce qu'on avait pu dire. Sans ce retrait, la ligne
+     survivrait au retour à la normale et deviendrait le mensonge inverse. */
+  if (age == null || (!ferme && age < _FXL_FRAIS_MS)) { if (el) el.remove(); return; }
+  const h = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  let txt;
+  if (ferme) {
+    /* On NOMME le jour : « 22:58 » lu un dimanche se comprend comme « ce soir ». Au-delà de trois
+       jours, le nom du jour redevient ambigu (quel vendredi ?) et la date s'ajoute. */
+    const j = d.toLocaleDateString('fr-FR', { weekday: 'long' });
+    const loin = age > 3 * 24 * 3600e3;
+    txt = 'Marché fermé · clôture de ' + j + (loin ? ' ' + d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '') + ' à ' + h;
+  } else {
+    const min = Math.round(age / 60000);
+    const depuis = min < 90 ? min + ' min' : Math.round(min / 60) + ' h';
+    txt = 'Cotations de ' + h + ', il y a ' + depuis;
   }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'fxl-etat';
+    el.className = 'fxl-etat';
+    barre.appendChild(el);
+  }
+  el.classList.toggle('fxl-etat--ferme', ferme);
+  if (el.textContent !== txt) el.textContent = txt;
 }
 
 async function loadFxListView(force = false, silent = false) {

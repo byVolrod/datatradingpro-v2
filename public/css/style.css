@@ -10506,6 +10506,18 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .fxl-title-sep, .fxl-title-tag { color: var(--orange); font-weight: var(--fw-bold); }   /* séparateur | et [Forex] en or vif */
 .fxl-toolbar-right { display: flex; align-items: center; gap: 10px; }
 .fxl-updated { font-size: 10px; color: var(--text3); font-family: var(--font-mono); }
+/* ── L'ÉTAT DE FRAÎCHEUR : visible seulement quand il y a quelque chose à dire (04/09) ──────────
+   Il n'est PAS discret, et c'est délibéré : il ne s'affiche que sur une donnée qui n'est plus
+   d'actualité, donc le lecteur DOIT le voir. Un avertissement en gris clair au coin d'un tableau
+   est un avertissement qu'on n'a pas donné.
+   ⚠️ Orange d'alerte `#ff8f00` — celui que le desk emploie déjà pour le max drawdown et le SL — et
+   NON l'ambre `#ffb300`, qui est le jeton réservé de l'état NEUTRE d'un marché : un tableau vieux
+   n'est pas un marché neutre. */
+.fxl-etat { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: var(--fw-semibold); color: #ff8f00; background: rgba(255,143,0,.10); border: 1px solid rgba(255,143,0,.32); border-radius: 20px; padding: 2px 10px; white-space: nowrap; }
+.fxl-etat::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+/* Marché fermé : ce n'est pas une anomalie, c'est un état du monde. Il se dit sans crier. */
+.fxl-etat--ferme { color: var(--text2); background: var(--bg2); border-color: var(--border); }
+@media (max-width: 768px) { .fxl-etat { font-size: 9.5px; padding: 2px 7px; } }
 .fxl-refresh {
   background: var(--bg3); border: 1px solid var(--border2); color: var(--text2);
   border-radius: var(--radius); width: 24px; height: 24px; cursor: pointer; font-size: 13px; line-height: 1;
