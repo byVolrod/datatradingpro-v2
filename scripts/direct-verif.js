@@ -349,6 +349,63 @@ const CAS = [
       v('… sans erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
       await page.close();
     }
+
+    /* ══ PHASE 4 : UN CADRE QUE YOUTUBE REFUSE DE JOUER SE REPLIE ════════════════════════════
+       Le serveur confirme qu'une chaîne EXISTE (flux RSS) — nécessaire, pas suffisant : « elle
+       existe » ne dit ni qu'elle passe à l'antenne, ni qu'elle s'autorise à être encadrée. Dans ces
+       cas, le lecteur affiche SA page d'erreur, en anglais, à l'intérieur d'une carte DTP. C'est
+       pire que le repli, qui lui est honnête et emmène chez l'éditeur.
+       ⚠️ ON ÉPROUVE LE HANDLER, PAS YOUTUBE. Le banc ne sort jamais sur le réseau : on fabrique le
+       message que le lecteur enverrait et on regarde ce que la carte en fait. C'est bien NOTRE code
+       qui est en cause — le protocole de YouTube, lui, ne nous appartient pas.
+       ⚠️ ET LA PAIRE EST TOUT L'INTÉRÊT. « Une erreur replie la carte » serait vert sur un code qui
+       replie à la MOINDRE réception — donc qui démonte un lecteur qui marche à la première mesure
+       d'audience venue. Le contrôle jumeau exige donc que le bruit (autre origine, message qui n'est
+       pas une erreur, charge illisible) ne démonte RIEN. */
+    console.log('\n── Le lecteur dit « non » : la carte se replie, elle ne montre pas l\'erreur ──');
+    reponse = CAS[1].rep;
+    const pj = await nav.newPage();
+    const fatalesJ = [];
+    pj.on('pageerror', (e) => fatalesJ.push(String(e.message).slice(0, 160)));
+    await pj.setRequestInterception(true);
+    pj.on('request', (rq) => {
+      if (/youtube\.com|ytimg\.com|google\.com/.test(rq.url())) return rq.abort();
+      rq.continue();
+    });
+    await pj.setViewport({ width: 1280, height: 900 });
+    await pj.goto(`http://localhost:${PORT + 1}/index.html`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await new Promise((r) => setTimeout(r, 3400));
+    const src0 = await pj.evaluate(() => {
+      const f = document.querySelector('.wdg-direct-frame iframe');
+      return f ? f.getAttribute('src') : null;
+    });
+    v('le cadre demande au lecteur de PARLER (enablejsapi) — sans quoi il n\'émet jamais rien',
+      !!src0 && /enablejsapi=1/.test(src0), 'cadre : ' + src0);
+    const bruit = await pj.evaluate(() => {
+      const f = document.querySelector('.wdg-direct-frame iframe');
+      const post = (data, origin) => window.dispatchEvent(new MessageEvent('message',
+        { data: data, origin: origin, source: f.contentWindow }));
+      post(JSON.stringify({ event: 'onError', info: 150 }), 'https://evil.example');
+      post(JSON.stringify({ event: 'onReady' }), 'https://www.youtube.com');
+      post(JSON.stringify({ event: 'infoDelivery', info: { playerState: 1 } }), 'https://www.youtube.com');
+      post('ceci n\'est pas du json', 'https://www.youtube.com');
+      return !!document.querySelector('.wdg-direct-frame iframe');
+    });
+    v('le bruit ne démonte RIEN (autre origine, message sans erreur, charge illisible)', bruit === true);
+    const apres = await pj.evaluate(async () => {
+      const f = document.querySelector('.wdg-direct-frame iframe');
+      window.dispatchEvent(new MessageEvent('message',
+        { data: JSON.stringify({ event: 'onError', info: 150 }), origin: 'https://www.youtube.com', source: f.contentWindow }));
+      await new Promise((r) => setTimeout(r, 250));
+      return { cadre: !!document.querySelector('.wdg-direct-frame iframe'),
+               bouton: !!document.querySelector('.wdg-direct-btn'),
+               lien: !!document.querySelector('.wdg-direct-btn[href*="bloomberg.com/live"]') };
+    });
+    v('… mais une erreur du lecteur (150 : intégration refusée) replie la carte sur son lien',
+      apres.cadre === false && apres.bouton === true, JSON.stringify(apres));
+    v('… et ce repli est bien celui qui emmène chez l\'éditeur', apres.lien === true);
+    v('… sans erreur d\'exécution', fatalesJ.length === 0, [...new Set(fatalesJ)].slice(0, 3).join(' | '));
+    await pj.close();
   } catch (e) {
     console.log('\n[Direct] phase navigateur interrompue : ' + (e && e.message));
   } finally {

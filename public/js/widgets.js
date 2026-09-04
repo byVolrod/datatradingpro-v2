@@ -2266,12 +2266,53 @@
         + '<a class="wdg-direct-btn" href="' + d.site + '" target="_blank" rel="noopener noreferrer">Ouvrir le direct</a>'
         + '<p class="wdg-direct-note">S\'ouvre chez l\'éditeur, dans un nouvel onglet.</p></div>';
     };
+    /* ══ LE DERNIER TROU : UN CADRE QUE YOUTUBE REFUSE DE JOUER ══════════════════════════════
+       Le serveur confirme désormais qu'une chaîne EXISTE (flux RSS), et c'est bien ce qu'il faut
+       pour ne pas servir un identifiant inventé. Mais « elle existe » ne veut pas dire « elle passe
+       à l'antenne » ni « elle s'autorise à être encadrée ». Dans ces deux cas, le lecteur affiche
+       SA propre page d'erreur — en anglais, aux couleurs de YouTube, à l'intérieur d'une carte DTP.
+       C'est pire que le repli, qui lui est honnête et emmène chez l'éditeur.
+       Le lecteur SAIT le dire : avec `enablejsapi`, il émet `onError` (100 vidéo absente, 101 et
+       150 intégration refusée, 2 paramètre invalide). On l'écoute.
+       ⚠️ ON NE SE REPLIE QUE SUR UNE ERREUR EXPLICITE, JAMAIS SUR LE SILENCE. Un délai d'attente
+       serait tentant et faux : si le protocole du lecteur change, ou si la poignée de main se perd
+       sur une connexion lente, on démonterait un lecteur qui MARCHE. Le silence laisse donc le
+       cadre en place — au pire on revient au comportement d'avant, jamais en dessous.
+       ⚠️ ET ON VÉRIFIE L'ORIGINE DU MESSAGE. `window` reçoit les messages de tout le monde : sans
+       ce filtre, n'importe quel cadre de la page pourrait replier la carte en postant un faux
+       `onError`. */
+    var ecoute = null;
+    var deposerEcoute = function () {
+      if (ecoute) { window.removeEventListener('message', ecoute); ecoute = null; }
+    };
     var cadrer = function (src) {
       host.innerHTML = '<div class="wdg-direct wdg-direct--video">'
-        + '<div class="wdg-direct-frame"><iframe src="' + src + '" title="' + d.nom + '"'
+        + '<div class="wdg-direct-frame"><iframe src="' + src + '&enablejsapi=1" title="' + d.nom + '"'
         +   ' allow="autoplay; accelerometer; encrypted-media; picture-in-picture; fullscreen"'
         +   ' allowfullscreen frameborder="0" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'
         + '<div class="wdg-direct-pied">' + tete() + lien('Ouvrir chez l\'éditeur') + '</div></div>';
+      var cadre = host.querySelector('iframe');
+      if (!cadre) return;
+      /* La poignée de main du lecteur : sans ce message, il n'émet RIEN. C'est ce que fait la
+         bibliothèque officielle sous le capot ; on ne la charge pas pour trois lignes. */
+      cadre.addEventListener('load', function () {
+        try {
+          cadre.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }),
+            'https://www.youtube.com');
+        } catch (e) {}
+      });
+      deposerEcoute();
+      ecoute = function (ev) {
+        if (!vivant || !host.isConnected) return;
+        if (String(ev.origin || '').indexOf('youtube.com') < 0) return;
+        if (cadre.contentWindow && ev.source !== cadre.contentWindow) return;
+        var m = null;
+        try { m = JSON.parse(ev.data); } catch (e) { return; }
+        if (!m || m.event !== 'onError') return;
+        deposerEcoute();
+        replierSurLien();
+      };
+      window.addEventListener('message', ecoute);
     };
     host.innerHTML = '<div class="wdg-direct">' + tete()
       + '<p class="wdg-direct-txt">Connexion au direct…</p></div>';
@@ -2287,7 +2328,7 @@
       if (j && j.ok && j.chaine) return cadrer('https://www.youtube.com/embed/live_stream?channel=' + j.chaine + PARAMS);
       replierSurLien();
     }).catch(function () { if (vivant && host.isConnected) replierSurLien(); });
-    return function () { vivant = false; };
+    return function () { vivant = false; deposerEcoute(); };
   }
 
   var CATALOG = [
