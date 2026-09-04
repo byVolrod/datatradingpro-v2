@@ -1395,9 +1395,45 @@ function buildStrengthChart(containerId, data, opts = {}) {
       return { min: lo - m, max: hi + m };
     } catch (e) { return null; }
   }
+  /* ══ UN CADRE NE COUPE PLUS JAMAIS UNE COURBE (05/09, demande utilisateur, deux captures) ═══════
+     « Je ne vois pas la courbe JPY, corrige ça afin qu'on ait une vue d'ensemble à chaque fois que
+     le prix fait des hikes hyper hauts — car à chaque fois je dois te dire pour que tu corriges. »
+     C'est une RÈGLE qu'il pose, pas un cas particulier, et elle tranche une tension que ce fichier
+     portait depuis le 29/08.
+     MESURÉ SUR SA CAPTURE : cadre à peu près [-48 ; +20], la courbe JPY sort par le haut vers le
+     02/09 et n'y revient jamais, et SEPT pastilles sur huit à droite — celle du JPY manque. Le
+     resserrement sur le paquet fait donc exactement ce pour quoi il a été écrit : il sacrifie la
+     fuyarde pour que les sept autres se distinguent. C'était le bon arbitrage pour la plainte du
+     29/08 (« je ne vois pas à vue d'œil toutes les courbes »), ce n'est plus celui que l'utilisateur
+     veut aujourd'hui, et c'est lui qui décide.
+     ⚠️ ON NE SUPPRIME PAS `bornesPaquet` POUR AUTANT, et c'est délibéré : le resserrement reste
+     utile quand il ne coûte RIEN. On lui ajoute donc une condition — il ne s'applique que si AUCUN
+     point d'AUCUNE série visible ne tombe hors du cadre qu'il propose. Dès qu'il couperait quoi que
+     ce soit, on prend le cadre plein. En pratique, sur une fuyarde, il renonce ; sur un champ
+     homogène, il resserre comme avant.
+     ⚠️ ET LA VÉRIFICATION PORTE SUR TOUS LES POINTS, PAS SUR LES FINS. `bornesPaquet` raisonne sur
+     les valeurs de FIN ; une courbe peut très bien finir dans le paquet après avoir culminé bien
+     au-dessus. Ne contrôler que les fins laisserait passer précisément le « hike » dont il est
+     question. */
+  function paquetSansCouper(d, b) {
+    if (!b) return null;
+    try {
+      var vis = (d.currencies || []).filter(function (c) { return !_hiddenCcy.has(c) && (!_only || _only.has(c)); });
+      if (vis.length < 4) vis = (d.currencies || []).filter(function (c) { return !_only || _only.has(c); });
+      for (var i = 0; i < vis.length; i++) {
+        var serie = d.series[vis[i]] || [];
+        for (var k = 0; k < serie.length; k++) {
+          var v = serie[k].v; if (v == null) continue;
+          v *= scaleFactor;
+          if (v < b.min || v > b.max) return null;                    // il couperait : on renonce
+        }
+      }
+      return b;
+    } catch (e) { return null; }
+  }
   function cadrerSurLePaquet(d) {
     try {
-      var b = (_cadreLibre ? null : bornesPaquet(d, scaleFactor)) || bornesPleines(d);
+      var b = (_cadreLibre ? null : paquetSansCouper(d, bornesPaquet(d, scaleFactor))) || bornesPleines(d);
       if (b) yAxis.setAll({ min: b.min, max: b.max, strictMinMax: true });
       else   yAxis.setAll({ min: null, max: null, strictMinMax: false });
       ancrerBadges();

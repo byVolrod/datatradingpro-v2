@@ -131,6 +131,20 @@ const JEUX = {
      compression active, fin hors cadre. */
   echappee: jeu(1400, 300000, { USD: 42, AUD: 5.5, GBP: 1.6, CAD: 1.2, JPY: -0.9, NZD: -1.6, EUR: -5.4, CHF: -6.8 }, { USD: 0.7 }),
   ecrase:  jeu(1400, 300000, { USD: 42, EUR: -38, JPY: 33, GBP: -31, AUD: 1.4, CHF: -1.2, CAD: 0.9, NZD: -1.6 }),
+  /* ⚠️ LE « HIKE » : le pic monte TRÈS haut puis REVIENT dans le paquet (05/09, demande utilisateur
+     « une vue d'ensemble à chaque fois que le prix fait des hikes hyper hauts »). C'est le régime
+     que `bornesPaquet` ne peut pas voir : elle arbitre sur les valeurs de FIN, et cette fin-là est
+     parfaitement rangée. Sans ce jeu, la condition « le cadre ne coupe jamais une courbe » ne serait
+     éprouvée que sur des fuyardes, c'est-à-dire jamais sur le cas qui a motivé la demande. */
+  hike:    (function () {
+    const d = jeu(1400, 300000, { USD: 6.5, AUD: 6.0, GBP: 1.5, CAD: 1.2, JPY: 2.0, NZD: -1.5, EUR: -5.9, CHF: -7.2 });
+    const se = d.series.JPY, n = se.length, a = Math.floor(n * 0.45), b = Math.floor(n * 0.72);
+    for (let k = a; k < b; k++) {
+      const t = (k - a) / (b - a);                                    // 0 → 1 → 0, un pic puis le retour
+      se[k].v += 0.60 * Math.sin(Math.PI * t);
+    }
+    return d;
+  })(),
 };
 
 /* ON REJOUE LE VRAI `bornesPaquet` — celui de charts.js, extrait, pas une copie — pour VÉRIFIER que
@@ -260,6 +274,15 @@ const SONDE = () => {
         if (d.v < bLo) bLo = d.v; if (d.v > bHi) bHi = d.v;
       }));
       const partPaquet = (isFinite(bLo) && isFinite(bHi) && min != null && max > min) ? Math.round((bHi - bLo) / (max - min) * 100) : null;
+      /* ⚠️ COMBIEN DE POINTS SONT COUPÉS PAR LE CADRE ? La mesure de « je ne vois pas la courbe
+         JPY ». On compte les points de séries VISIBLES qui tombent hors des bornes, et on nomme les
+         devises concernées — « il en manque » ne se corrige pas, « JPY est coupée » si. */
+      const coupees = {};
+      let ptsHors = 0;
+      vues.forEach(s => s.data.values.forEach(d => {
+        if (d.v == null || min == null || max == null) return;
+        if (d.v < min || d.v > max) { ptsHors++; coupees[s.get('name')] = (coupees[s.get('name')] || 0) + 1; }
+      }));
       let nEtiqX = 0;
       try { xAx.get('renderer').labels.each(l => { if (l && !l.get('forceHidden') && l.get('visible') !== false) nEtiqX++; }); } catch (e) {}
       /* Repères de l'axe des VALEURS réellement lisibles : ceux qu'amCharts fabrique MOINS ceux que
@@ -281,6 +304,7 @@ const SONDE = () => {
         legendeH: lg ? Math.round(lg.height()) : 0, legendeW: lg ? Math.round(lg.width()) : 0,
         gouttiere: Math.round(yAx.width()),
         yMin: min == null ? null : +min.toFixed(2), yMax: max == null ? null : +max.toFixed(2),
+        ptsHors, coupees: Object.keys(coupees).map(c => c + ':' + coupees[c]),
         ecartMin: ecarts.length ? Math.min(...ecarts) : null, ecarts,
         fins: fins.map(f => f.ccy + ':' + f.v.toFixed(1)) };
     }
@@ -444,6 +468,10 @@ const CAS = [
   { nom: 'carte haute',                            w: 900,  h: 480, p: 'echappee' },
   { nom: 'thème clair',                            w: 600,  h: 300, p: 'fuyarde', t: 'light' },
   { nom: 'mode paire (EUR + AUD)',                 w: 600,  h: 300, p: 'fuyarde', o: { onlyCurrencies: ['EUR', 'AUD'] } },
+  /* Le régime du 05/09 : un pic qui monte très haut PUIS revient dans le paquet. Deux géométries,
+     parce que le cadrage dépend de la hauteur disponible. */
+  { nom: 'un pic hyper haut qui redescend',        w: 950,  h: 480, p: 'hike' },
+  { nom: 'un pic hyper haut, carte courte',        w: 600,  h: 200, p: 'hike' },
 ];
 
 module.exports = { JEUX, CAS, SONDE, SONDE_GRILLE, SONDE_OPACITES, SONDE_POS_LEGENDE, SONDE_POS_TRACE, serveur, trouverNavigateur, PORT, _regimes, _bornesPaquetReel };
@@ -904,6 +932,20 @@ function controler(mesures) {
       r.nPastilles + '/' + attendu + ' — absente(s) : ' + ((r.pastillesManquantes || []).join(', ') || '(non identifiée)'));
     v('aucune pastille n\'en recouvre une autre', (r.heurtees || []).length === 0, (r.heurtees || []).join(' · '));
     v('aucune pastille ne sort du cadre', (r.debordent || []).length === 0, (r.debordent || []).join(' · '));
+    /* ══ INVARIANT 0 — LE CADRE NE COUPE JAMAIS UNE COURBE (05/09) ═══════════════════════════════
+       Demande utilisateur, deux captures : « je ne vois pas la courbe JPY, corrige ça afin qu'on ait
+       une vue d'ensemble à chaque fois que le prix fait des hikes hyper hauts — car à chaque fois je
+       dois te dire pour que tu corriges ». C'est une règle, pas un cas, et elle passe devant le
+       resserrement sur le paquet : celui-ci ne s'applique plus que s'il ne coupe RIEN.
+       ⚠️ ON COMPTE DES POINTS, PAS DES FINS. `bornesPaquet` arbitre sur les valeurs de fin ; le pic
+       du jeu « hike » revient dans le paquet, donc sa fin est parfaitement rangée. Un contrôle sur
+       les fins serait vert sur le défaut même qui a motivé la demande.
+       ⚠️ ET IL VA PAR PAIRE avec la part de hauteur occupée, mesurée juste en dessous : « rien n'est
+       coupé » est trivialement vrai sur un cadre immense où les huit courbes tiennent dans 4 % de la
+       hauteur — c'est-à-dire sur la plainte INVERSE, celle du 29/08. Les deux ensemble disent : tout
+       est dans le cadre, ET le cadre est serré sur ce qu'il contient. */
+    v('le cadre ne coupe AUCUNE courbe (vue d\'ensemble, même sur un pic)',
+      (m.ptsHors || 0) === 0, (m.coupees || []).join(' · ') + ' — ' + (m.ptsHors || 0) + ' point(s) hors cadre');
     /* ══ INVARIANT 1 bis — LA COLONNE EST DROITE (02/09, demande utilisateur sur capture) ═════════
        « tous les labels parfaitement alignés sur le même axe vertical… un rendu propre, symétrique
        et parfaitement homogène. »

@@ -6945,20 +6945,31 @@ function _sbOpenDetail(curr, opts) {
       + fieldRel('PPI', inf.ppi)
       + fieldRel('Salaires', inf.wages)
       + `</section>`;
-    // v42 : NIVEAU (mesuré : PMI vs 50, chômage vs sa moyenne) puis DYNAMIQUE — deux lignes distinctes,
-    // comme l'inflation. `dyn` absent = ancien snapshot → seule la ligne Tendance s'affiche.
+    /* v42 : NIVEAU (mesuré : PMI vs 50, chômage vs sa moyenne) puis DYNAMIQUE — deux lignes
+       distinctes, comme l'inflation. `dyn` absent = ancien snapshot → seule la ligne Tendance
+       s'affiche.
+       ⚠️ LES DEUX LIBELLÉS SONT RÉÉCRITS (05/09, demande utilisateur, capture à l'appui : « simplifie
+       les termes pour mieux comprendre si c'est une tendance ou autre, le terme niveau et dynamique
+       ce n'est pas très compréhensible »). Le reproche est juste, et il est plus précis qu'il n'y
+       paraît : la ligne affichait « Niveau : Haussière ». Un NIVEAU qui vaut « haussière » ne veut
+       rien dire — un niveau se lit haut ou bas, pas haussier. Le mot décrivait le CALCUL (l'indicateur
+       comparé à son seuil neutre) et pas ce que la ligne RÉPOND. Les deux lignes disent en réalité
+       « où on en est » et « dans quel sens ça va » : elles le disent maintenant en toutes lettres.
+       ⚠️ « Niveau » RESTE sur la carte Inflation, et ce n'est pas un oubli : là, la valeur est bien
+       un niveau (élevée, modérée, faible). Le mot n'était ambigu que là où il portait une valeur de
+       tendance. */
     const dynTag = v => v ? `<span class="mt-tag ${_mtCls('gedyn', v)}">${esc(MT_LBL.gedyn[v] || v)}</span>` : na;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Croissance économique</h4>`
-      + (gr.level ? field('Niveau', trendTag(gr.level)) : '')
-      + field(gr.dyn ? 'Dynamique' : 'Tendance', gr.dyn ? dynTag(gr.dyn) : trendTag(gr.trend))
+      + (gr.level ? field('Situation actuelle', trendTag(gr.level)) : '')
+      + field(gr.dyn ? 'Évolution récente' : 'Tendance', gr.dyn ? dynTag(gr.dyn) : trendTag(gr.trend))
       + fieldRel('PIB', gr.gdp)
       + fieldRel('PMI / ISM', gr.pmi)
       + fieldRel('Ventes au détail', gr.retail)
       + fieldRel('Confiance conso.', gr.confidence)
       + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Emploi</h4>`
-      + (em.level ? field('Niveau', trendTag(em.level)) : '')
-      + field(em.dyn ? 'Dynamique' : 'Tendance', em.dyn ? dynTag(em.dyn) : trendTag(em.trend))
+      + (em.level ? field('Situation actuelle', trendTag(em.level)) : '')
+      + field(em.dyn ? 'Évolution récente' : 'Tendance', em.dyn ? dynTag(em.dyn) : trendTag(em.trend))
       + fieldRel('Taux de chômage', em.unemployment)
       + fieldRel("Créations d'emplois", em.payrolls)
       + fieldRel('Inscriptions chômage', em.claims)
