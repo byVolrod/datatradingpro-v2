@@ -28,10 +28,15 @@
  *    l'appeler « direct » serait le mensonge le plus facile à commettre ici.
  *
  * 3. LES TROIS ÉTAGES DU RENDU, DANS UN VRAI CHROMIUM. Diffusion en cours → cadre sur CET
- *    identifiant. Chaîne seule → cadre « dernière diffusion ». Rien → la carte-lien d'avant. Le
- *    troisième est le plus important : c'est celui qui garantit qu'un client ne perd rien.
- *    ⚠️ ET LE LIEN VERS L'ÉDITEUR EST EXIGÉ DANS LES TROIS CAS : le desk emmène chez la source, il
- *    ne la remplace pas.
+ *    identifiant. Chaîne seule → cadre « direct de la chaîne ». Hors antenne → la dernière émission,
+ *    NOMMÉE. Rien → la carte-lien d'avant. Le dernier est le plus important : c'est celui qui
+ *    garantit qu'un client ne perd rien.
+ *    ⚠️ RÈGLE CHANGÉE LE 05/09 : ce banc exigeait le lien vers l'éditeur DANS LES TROIS CAS (« le
+ *    desk emmène chez la source, il ne la remplace pas »). L'utilisateur a fait retirer la barre
+ *    qui le portait sous la vidéo, capture à l'appui — elle répétait le titre déjà présent dans
+ *    l'en-tête de la carte et un lien que le lecteur YouTube porte lui-même, pour 32 px d'image en
+ *    moins. La règle est LEVÉE sur les étages vidéo, ENTIÈRE sur le repli. Les deux moitiés sont
+ *    exigées séparément : sans la seconde, « plus de lien » deviendrait vrai partout.
  *
  * 4. LES DEUX VIGNETTES DIFFÈRENT. C'était le défaut exact signalé : les deux cartes retombaient
  *    sur l'icône `WICO`, identique pour les deux, donc la bibliothèque affichait deux fois le même
@@ -52,6 +57,18 @@
  *    est confirmée À L'EXÉCUTION par le flux RSS de la chaîne (du XML court, sans bandeau, qui
  *    répond 404 pour une chaîne inconnue et porte le NOM pour une chaîne connue). Le banc éprouve
  *    les quatre refus et la confirmation sur la VRAIE fonction, avec un `_directHttp` bouchonné.
+ *
+ * 7. HORS ANTENNE N'EST PAS EN PANNE (05/09). « Résous le problème de yahoo finance live, ça
+ *    fonctionne pas », alors que Bloomberg marchait. La différence n'est pas dans le code — les
+ *    deux cartes partagent la même fonction — elle est dans les chaînes : Bloomberg Television
+ *    diffuse EN CONTINU, Yahoo Finance seulement aux heures de marché. Hors de ces heures il n'y a
+ *    rien à cadrer, et la carte se repliait sur son bouton la moitié de la journée. Le serveur
+ *    distingue désormais TROIS états (`enAntenne` vrai / faux / inconnu — « lu, et pas à
+ *    l'antenne » n'est pas « je n'ai rien pu lire »), et la carte descend une liste d'étapes dont
+ *    la dernière est l'émission la plus récente, tirée du flux de la chaîne.
+ *    ⚠️ ET ELLE SE NOMME : montrer un enregistrement sous un titre « Live » sans le dire serait un
+ *    mensonge. Le banc exige la pastille sur l'enregistrement ET son ABSENCE sur un vrai direct —
+ *    une pastille qui s'affiche toujours mentirait dans l'autre sens.
  *
  *   node scripts/direct-verif.js
  *
@@ -276,11 +293,20 @@ function phaseGraine() {
 /* ══ PHASE 3 : LES TROIS ÉTAGES DU RENDU, DANS UN VRAI CHROMIUM ══════════════════════════════ */
 const CAS = [
   { nom: 'diffusion en cours → le cadre porte CET identifiant', rep: { ok: true, video: 'abcDEF12345', chaine: 'UCaaaaaaaaaaaaaaaaaaaaaa', site: 'https://www.bloomberg.com/live/us' },
-    attendu: (s) => /\/embed\/abcDEF12345/.test(s || ''), cadre: true },
-  { nom: 'chaîne seule → cadre « dernière diffusion » (jamais périmé)', rep: { ok: true, video: null, chaine: 'UCaaaaaaaaaaaaaaaaaaaaaa', site: 'https://www.bloomberg.com/live/us' },
-    attendu: (s) => /\/embed\/live_stream\?channel=UCaaaaaaaaaaaaaaaaaaaaaa/.test(s || ''), cadre: true },
+    attendu: (s) => /\/embed\/abcDEF12345/.test(s || ''), cadre: true, lien: false, marque: null },
+  { nom: 'chaîne seule → cadre « direct de la chaîne »', rep: { ok: true, video: null, chaine: 'UCaaaaaaaaaaaaaaaaaaaaaa', site: 'https://www.bloomberg.com/live/us' },
+    attendu: (s) => /\/embed\/live_stream\?channel=UCaaaaaaaaaaaaaaaaaaaaaa/.test(s || ''), cadre: true, lien: false, marque: null },
+  /* ⚠️ LE CAS DE YAHOO, ET C'EST LUI QUI MOTIVE TOUTE L'ÉTAPE (05/09). Le serveur a LU la page et
+     vu que la chaîne n'émet pas : `enAntenne: false`. Cadrer « live_stream » ne pourrait alors que
+     échouer — Bloomberg diffuse en continu, Yahoo Finance seulement aux heures de marché. On saute
+     donc directement à la dernière émission, et on la NOMME. */
+  { nom: 'hors antenne → la dernière émission, et le cadre le DIT',
+    rep: { ok: true, video: null, chaine: 'UCaaaaaaaaaaaaaaaaaaaaaa', enAntenne: false,
+           derniere: { id: 'derNIERE123', titre: 'Emission du jour' }, site: 'https://finance.yahoo.com/live/' },
+    attendu: (s) => /\/embed\/derNIERE123/.test(s || '') && !/live_stream/.test(s || ''),
+    cadre: true, lien: false, marque: /hors antenne/i },
   { nom: 'résolution en échec → la carte-lien d\'avant, jamais un cadre vide', rep: { ok: false, site: 'https://www.bloomberg.com/live/us' },
-    attendu: null, cadre: false },
+    attendu: null, cadre: false, lien: true, marque: null },
 ];
 
 (async () => {
@@ -334,18 +360,43 @@ const CAS = [
       const vu = await page.evaluate(() => {
         const f = document.querySelector('.wdg-direct-frame iframe');
         const a = [...document.querySelectorAll('.wdg-direct a')].map((x) => x.getAttribute('href'));
+        const m = document.querySelector('.wdg-direct-marque');
         return { src: f ? f.getAttribute('src') : null, liens: a,
-                 bouton: !!document.querySelector('.wdg-direct-btn') };
+                 bouton: !!document.querySelector('.wdg-direct-btn'),
+                 marque: m ? (m.textContent || '').trim() : null,
+                 pied: !!document.querySelector('.wdg-direct-pied') };
       });
       if (c.cadre) {
         v(c.nom, !!vu.src && c.attendu(vu.src), 'cadre : ' + vu.src);
       } else {
         v(c.nom, vu.src === null && vu.bouton === true, 'cadre : ' + vu.src + ' · bouton : ' + vu.bouton);
       }
-      /* LE LIEN VERS L'ÉDITEUR, DANS LES TROIS CAS. Le desk emmène chez la source, il ne la
-         remplace pas — et c'est vrai aussi quand le cadre marche. */
-      v('… et le lien vers l\'éditeur reste présent',
-        vu.liens.some((h) => /bloomberg\.com\/live/.test(h || '')), vu.liens.join(' · ') || 'aucun lien');
+      /* ⚠️ RÈGLE CHANGÉE LE 05/09, ET LES DEUX MOITIÉS SONT ÉPROUVÉES. Le 04/09, ce banc exigeait le
+         lien vers l'éditeur DANS LES TROIS CAS (« le desk emmène chez la source, il ne la remplace
+         pas »). L'utilisateur a fait retirer la barre qui le portait sous la vidéo, capture à
+         l'appui : elle répétait le titre déjà présent dans l'en-tête de la carte et un lien que le
+         lecteur YouTube porte lui-même, pour 32 px d'image en moins. La règle est donc LEVÉE sur
+         les étages vidéo et ENTIÈRE sur le repli — où le bouton est la seule chose que la carte a à
+         offrir. Les deux sont exigées séparément : sans la seconde, « plus de lien » deviendrait
+         vrai partout, y compris là où il est utile. */
+      if (c.lien) {
+        v('… et le lien vers l\'éditeur est là, car c\'est tout ce que la carte peut offrir',
+          vu.liens.some((h) => /bloomberg\.com\/live|yahoo\.com\/live/.test(h || '')),
+          vu.liens.join(' · ') || 'aucun lien');
+      } else {
+        v('… et la barre sous la vidéo a bien disparu (demande utilisateur du 05/09)',
+          vu.pied === false && !vu.liens.some((h) => /bloomberg\.com\/live|yahoo\.com\/live/.test(h || '')),
+          'pied : ' + vu.pied + ' · liens : ' + (vu.liens.join(' · ') || 'aucun'));
+      }
+      /* La pastille va par paire, elle aussi : présente quand on montre un ENREGISTREMENT, absente
+         quand on montre le direct — sans quoi elle mentirait dans l'autre sens. */
+      if (c.marque) {
+        v('… et la pastille « Hors antenne » nomme ce qu\'on regarde',
+          !!vu.marque && c.marque.test(vu.marque), 'pastille : ' + vu.marque);
+      } else if (c.cadre) {
+        v('… et AUCUNE pastille « hors antenne » sur un vrai direct', vu.marque === null,
+          'pastille : ' + vu.marque);
+      }
       v('… sans erreur d\'exécution', fatales.length === 0, [...new Set(fatales)].slice(0, 3).join(' | '));
       await page.close();
     }

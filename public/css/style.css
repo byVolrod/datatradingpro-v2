@@ -11159,13 +11159,23 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
    `#jr-log-view`, hors de cette classe, et garde toute la largeur — c'est un tableau, il a besoin
    de ses colonnes. */
 .jrd { flex: 1; min-height: 0; overflow-y: auto; padding: 26px 28px 44px; display: flex; flex-direction: column; gap: 30px; }
-/* ⚠️ BORNÉE À GAUCHE, PAS CENTRÉE. Premier essai : colonne centrée, façon page Notion. Mesuré à
-   1600 px de large, ça laissait 270 px de vide À GAUCHE pendant que la barre d'onglets du journal,
-   juste au-dessus, restait collée au bord — deux alignements différents à dix pixels l'un de
-   l'autre, et un contenu qui semble flotter. Tout le desk est aligné à gauche : la page se borne
-   donc en largeur (pour ne pas étirer une ligne de tuiles sur 1900 px) mais part du même bord que
-   ce qui la surmonte. L'aération ne doit pas coûter la cohérence. */
-.jrd > * { width: 100%; max-width: 1280px; margin-left: 0; margin-right: auto; }
+/* ⚠️ LE PLAFOND DE LARGEUR EST RETIRÉ (05/09, retour utilisateur : « pourquoi t'as pas exploité
+   toute la largeur »). Il valait 1280 px, et c'était une erreur de ma part, pas un compromis :
+   mesuré sur SA capture, en 1920 px et avec le `zoom: 0.9` du desk, le contenu s'arrêtait à
+   1055 px — près de la MOITIÉ de l'écran en noir, sous un desk dont tout le reste va d'un bord à
+   l'autre. Le raisonnement d'origine (« une ligne de tuiles étirée sur 1900 px se lit mal ») était
+   juste, mais il se règle là où il se pose — dans les grilles, en ajoutant des COLONNES quand la
+   place existe — et pas en rendant la moitié de l'écran au vide.
+   Reste vrai, et c'est pourquoi la règle survit sans son plafond : la page part du bord GAUCHE,
+   dans l'axe de la barre d'onglets qui la surmonte. Une colonne centrée avait laissé 270 px de
+   vide à gauche pendant que les onglets restaient collés au bord — deux alignements à dix pixels
+   l'un de l'autre, et un contenu qui semble flotter.
+   ⚠️ ET C'EST UN CONTENEUR DE REQUÊTE. Les grilles qui suivent comptent leurs colonnes sur la
+   largeur de CETTE boîte, jamais sur celle de la fenêtre : le journal se monte aussi dans une
+   carte de Mon Desk, où la fenêtre peut faire 1900 px pendant que la carte en fait 400. Une
+   requête de média y forcerait six colonnes dans un mouchoir de poche. */
+.jrd { container-type: inline-size; }
+.jrd > * { width: 100%; margin-left: 0; margin-right: auto; }
 /* ⚠️ L'AÉRATION EST UNE AFFAIRE DE LARGEUR DISPONIBLE. 28 px de marge de chaque côté, c'est du
    confort sur un écran de bureau et 56 px pris sur 390 sur un téléphone — soit un septième de la
    page rendu au vide, au détriment des chiffres. La page respire donc à proportion de ce qu'elle a. */
@@ -11209,6 +11219,14 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
    pour celles du bilan annuel. Le nombre de colonnes n'est pas un réglage esthétique, c'est ce qui
    décide si une section se lit comme un bloc ou comme un reste. */
 .jrd-rings { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+/* ⚠️ QUATRE COLONNES AU-DELÀ DE 900 px, ET C'EST UN COMPTE, PAS UN GOÛT. Les sections de tuiles en
+   portent QUATRE (« Performance pilote », le bilan annuel) ou HUIT (« Performance clé ») : quatre
+   colonnes remplissent donc TOUJOURS leurs rangées — 4, puis 4 + 4. Laissé en `auto-fit` sans
+   plafond, un écran de 1900 px en fabriquerait six, et la section de huit se lirait 6 + 2, une
+   rangée pleine et un reste. Et `auto-fit` seul ne suffisait pas non plus dans l'autre sens : il
+   ÉCRASE les colonnes vides, donc quatre tuiles s'étiraient à 450 px chacune.
+   En dessous de 900 px, `auto-fit` reprend la main et descend proprement à 2 puis 1. */
+@container (min-width: 900px) { .jrd-rings { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .jrd-ring { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 13px 15px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius, 6px); transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
 /* Même survol doré que les cartes : une seule grammaire d'interaction sur toute la page. */
 .jrd-ring:hover { border-color: rgba(227,178,58,.34); background: rgba(255,255,255,.015); }
@@ -21383,6 +21401,12 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
    propriété qui fait tout l'intérêt du bloc reste entière — les douze mois sous les yeux d'un seul
    coup, sans défilement. */
 .jry-rrgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+/* ⚠️ DOUZE MOIS SE COUPENT EN 6, 4, 3 OU 2 — JAMAIS EN 5, ENCORE MOINS EN 9. Sans plafond de
+   largeur, `auto-fit` en fabriquait NEUF sur un écran de 1900 px : 9 + 3, ce qui ne ressemble ni à
+   une année ni à un calendrier. Six et six se lisent comme deux semestres, quatre et quatre et
+   quatre comme des trimestres. Les seuils sont posés sur le CONTENEUR, pas sur la fenêtre. */
+@container (min-width: 820px)  { .jry-rrgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@container (min-width: 1250px) { .jry-rrgrid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 .jry-rr { border: 1px solid var(--border); border-radius: var(--radius, 6px); padding: 12px 13px 13px; background: var(--bg); display: flex; flex-direction: column; gap: 7px; min-width: 0; transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
 .jry-rr-h { display: flex; align-items: center; gap: 6px; min-width: 0; }
 /* Le nom du mois passe AVANT le badge : mesuré, « Septembre » se rendait « Septe… » parce que le
@@ -22596,9 +22620,19 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
    · le lien vers l'éditeur reste TOUJOURS rendu, sous le cadre : le desk emmène chez la source,
      il ne la remplace pas. */
 .wdg-direct--video { padding: 0; gap: 0; }
-.wdg-direct-frame { flex: 1 1 auto; min-height: 0; background: #000; overflow: hidden; }
+.wdg-direct-frame { position: relative; flex: 1 1 auto; min-height: 0; background: #000; overflow: hidden; }
+/* La pastille « Hors antenne » : posée SUR l'image, jamais dans une barre sous elle — la barre est
+   ce que l'utilisateur a fait retirer le 05/09. Discrète, mais lisible : montrer un enregistrement
+   sous un titre « Live » sans le dire serait un mensonge. */
+.wdg-direct-marque {
+  position: absolute; top: 8px; left: 8px; z-index: 2; pointer-events: none;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 9.5px; font-weight: var(--fw-bold, 700);
+  letter-spacing: .07em; text-transform: uppercase; color: #e8e8ea;
+  background: rgba(10, 10, 12, .78); border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 3px; padding: 3px 7px; backdrop-filter: blur(3px);
+}
 .wdg-direct-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
-.wdg-direct-pied { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-top: 1px solid var(--hud-line, #131316); flex: none; }
-.wdg-direct-pied .wdg-direct-tete { min-width: 0; flex: 1 1 auto; }
-.wdg-direct-src { margin-left: auto; flex: none; font-size: 10.5px; font-weight: var(--fw-semibold); color: var(--text3, #8b93a1); text-decoration: none; border-bottom: 1px solid transparent; transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease); }
-.wdg-direct-src:hover { color: var(--orange); border-bottom-color: rgba(227,178,58,.45); }
+/* (.wdg-direct-pied / .wdg-direct-src supprimés le 05/09, demande utilisateur : « enlève cette
+   ligne du widget bloomberg live ». La barre sous la vidéo répétait le titre déjà porté par
+   l'en-tête de la carte et un lien que le lecteur YouTube porte lui-même, pour 32 px d'image en
+   moins. Le lien vers l'éditeur reste ENTIER dans le repli, où il est la seule chose utile.) */

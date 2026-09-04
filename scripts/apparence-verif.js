@@ -181,6 +181,12 @@ function lum(css) {
           return { h: Math.round(e.getBoundingClientRect().height), bg: c.backgroundColor };
         };
         const cur = (sel) => { const e = document.querySelector(sel); return e ? getComputedStyle(e).cursor : null; };
+        /* ⚠️ UNE ÉTIQUETTE QUI RÉPOND, ET UNE QUI NE RÉPOND PAS — DÉSIGNÉES PAR CE QU'ELLES FONT,
+           jamais par leur position. Voir le commentaire du contrôle, plus bas : `querySelector` sur
+           la première étiquette venue prenait tantôt l'une, tantôt l'autre, au gré de l'heure. */
+        const tags = [...document.querySelectorAll('.news-tags .tag')];
+        const tAct = tags.find((t) => typeof t.onclick === 'function');
+        const tInerte = tags.find((t) => typeof t.onclick !== 'function');
         /* UN TITRE QUI NE DÉPLIE RIEN : app.js ne pose `--clickable` que s'il y a un panneau. On en
            fabrique un ici plutôt que d'espérer en trouver un dans le jeu d'essai — sinon le contrôle
            passerait au vert faute de sujet, ce qui est pire que pas de contrôle du tout. */
@@ -205,7 +211,11 @@ function lum(css) {
         }
         return { fil: un('.panel-header'), vue: un('.chart-header'),
           curseurs: { ligne: cur('.news-item'), titre: cur('.news-headline--clickable'),
-                      etiquette: cur('.news-tags .tag'), inerte: inerte, remplissage: remplissage } };
+                      etiqAct: tAct ? getComputedStyle(tAct).cursor : null,
+                      etiqActNom: tAct ? (tAct.textContent || '').trim().slice(0, 16) : null,
+                      etiqInerte: tInerte ? getComputedStyle(tInerte).cursor : null,
+                      etiqInerteNom: tInerte ? (tInerte.textContent || '').trim().slice(0, 16) : null,
+                      inerte: inerte, remplissage: remplissage } };
       }).catch(() => null);
       await page.close();
       v('les deux familles de bandeaux sont mesurables', !!(b && b.fil && b.vue), JSON.stringify(b));
@@ -231,7 +241,27 @@ function lum(css) {
           b.curseurs.ligne === 'default', 'curseur = ' + b.curseurs.ligne);
         v('… mais le TITRE, lui, garde la main : c\'est lui qui porte le clic',
           b.curseurs.titre === 'pointer', 'curseur = ' + b.curseurs.titre);
-        v('… et les étiquettes aussi', b.curseurs.etiquette === 'pointer', 'curseur = ' + b.curseurs.etiquette);
+        /* ══ CE CONTRÔLE ÉTAIT FAUX, ET IL A MIS TROIS JOURS À LE MONTRER (05/09) ══════════════
+           Il lisait `querySelector('.news-tags .tag')` — LA PREMIÈRE étiquette venue — et exigeait
+           qu'elle porte la main. Or une rangée d'étiquettes mélange deux espèces :
+             · celles qui RÉPONDENT (Info, Analyse, Réaction, Impact marché, et la paire cliquable
+               d'une news importante) : app.js leur pose un `onclick` ET `cursor: pointer` ;
+             · celles qui ne répondent pas (thèmes, devises) : de simples badges, qui gardent
+               `cursor: default` — et c'est EXACTEMENT ce que ce banc défend deux lignes plus haut,
+               « la main ne s'affiche que sur ce qui répond ».
+           Laquelle vient en premier dépend du contenu du fil, donc de l'HEURE. Le contrôle était
+           vert par chance depuis le 02/09 ; il est passé au rouge tout seul un soir, sans qu'une
+           seule ligne du desk ait changé — vérifié en le rejouant sur le dépôt sans modification.
+           Un contrôle dont le SUJET est tiré au sort ne prouve rien, et finit par accuser à tort.
+           On désigne donc les deux espèces par ce qu'elles FONT (la présence d'un `onclick`), et on
+           les éprouve TOUTES LES DEUX : sans la seconde, « tout mettre en main » repasserait au
+           vert alors que c'est le défaut d'origine. */
+        v('… et une étiquette qui RÉPOND garde la main',
+          b.curseurs.etiqAct === 'pointer',
+          '« ' + b.curseurs.etiqActNom +' » → ' + b.curseurs.etiqAct);
+        v('… tandis qu\'une étiquette qui ne répond pas rend le curseur classique',
+          b.curseurs.etiqInerte === 'default',
+          '« ' + b.curseurs.etiqInerteNom + ' » → ' + b.curseurs.etiqInerte);
         /* ══ ET LES DEUX MOITIÉS OUBLIÉES (01/09, photo user : la main dans le vide) ══════════════
            Le correctif du 02/09 n'avait fait que la moitié du chemin, et l'utilisateur a dû le
            signaler une seconde fois. Ces deux contrôles disent pourquoi :

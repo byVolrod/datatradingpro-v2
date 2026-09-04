@@ -1147,7 +1147,20 @@ async function _directVerifierChaine(id, attendu) {
   const titre = (r.corps.match(/<title>([^<]{1,120})<\/title>/) || [])[1] || '';
   if (!titre) return { ok: false, pourquoi: 'flux sans titre' };
   if (attendu && !attendu.test(titre)) return { ok: false, titre, pourquoi: 'nom inattendu' };
-  return { ok: true, titre };
+  /* ⚠️ ET LA DERNIÈRE ÉMISSION, TANT QU'ON Y EST (05/09). Le même flux porte les quinze dernières
+     vidéos de la chaîne, en clair. C'est ce qui permet à une carte de rester utile quand la chaîne
+     n'est PAS à l'antenne — le cas de Yahoo Finance, qui ne diffuse qu'aux heures de marché, alors
+     que Bloomberg Television tourne en continu. Sans elle, la carte de Yahoo est vide la moitié de
+     la journée, et c'est exactement ce que l'utilisateur a signalé.
+     ⚠️ ON COUPE AVANT LA PREMIÈRE ENTRÉE POUR LE TITRE : le premier `<title>` du flux est celui de
+     la CHAÎNE, pas celui de la vidéo. Les lire dans le même document sans découper donnerait le nom
+     de la chaîne en guise de titre d'émission. */
+  const iEntree = r.corps.indexOf('<entry');
+  const entree = iEntree >= 0 ? r.corps.slice(iEntree, iEntree + 4000) : '';
+  const vid = (entree.match(/<yt:videoId>([\w-]{11})<\/yt:videoId>/) || [])[1] || null;
+  const vtitre = (entree.match(/<title>([^<]{1,200})<\/title>/) || [])[1] || '';
+  const vdate = (entree.match(/<published>([^<]{1,40})<\/published>/) || [])[1] || '';
+  return { ok: true, titre, derniere: vid ? { id: vid, titre: vtitre, date: vdate } : null };
 }
 /* ══ LA RÉSOLUTION, PAR ORDRE DE CONFIANCE DÉCROISSANTE ═══════════════════════════════════════
    1. la CONSIGNE DE L'EXPLOITANT (`DTP_DIRECT_<CLÉ>` dans le .env du VPS) — elle passe avant tout,
@@ -1169,7 +1182,12 @@ async function _directResoudre(cle, opts) {
   try { cache = await auth.aiCacheGet('direct:' + cle); } catch {}
   if (!diag && cache && cache.ts && (now - cache.ts) < _DIRECT_TTL_VIDEO) { _directMem.set(cle, cache); return cache; }
 
-  let video = null, chaine = null, source = null;
+  /* ⚠️ « HORS ANTENNE » EST UNE RÉPONSE, PAS UNE ABSENCE DE RÉPONSE (05/09). Une page « /live » lue
+     avec succès qui ne porte AUCUNE diffusion en cours dit quelque chose de précis : la chaîne
+     existe et n'émet pas. Le confondre avec « je n'ai rien pu lire » coûtait cher — on servait
+     alors un cadre `live_stream` qui ne pouvait QUE échouer, et le client voyait une carte morte.
+     Trois états, donc : true (à l'antenne), false (lu, et pas à l'antenne), null (rien de lisible). */
+  let video = null, chaine = null, source = null, enAntenne = null, derniere = null;
   const impose = String(process.env[d.env] || '').trim();
   if (/^UC[\w-]{22}$/.test(impose)) { chaine = impose; source = 'consigne'; }
   else if (impose && diag) diag.push({ etape: 'consigne', ok: false, detail: d.env + ' posé mais pas à la forme UC + 22 caractères' });
@@ -1189,6 +1207,7 @@ async function _directResoudre(cle, opts) {
       if (diag) diag.push({ etape: 'page', url, statut: r.statut, finale: r.finale, octets: r.corps.length,
                             mur: r.mur, erreur: r.erreur || null, video: x.video, chaine: x.chaine });
       if (x.chaine && source !== 'consigne') { chaine = x.chaine; source = 'page'; }
+      if (forme === '/live' && r.statut === 200 && !r.mur && r.corps) enAntenne = !!x.video;
       if (x.video) { video = x.video; break; }
     }
     if (video || Date.now() > echeance) break;
@@ -1197,7 +1216,16 @@ async function _directResoudre(cle, opts) {
   if (!chaine && d.graine && Date.now() <= echeance) {
     const ver = await _directVerifierChaine(d.graine, d.attendu);
     if (diag) diag.push({ etape: 'graine', id: d.graine, ...ver });
-    if (ver.ok) { chaine = d.graine; source = 'graine'; }
+    if (ver.ok) { chaine = d.graine; source = 'graine'; derniere = ver.derniere || null; }
+  }
+  /* La dernière émission de la chaîne retenue, quand la graine ne nous l'a pas déjà donnée. Un
+     appel de plus, sur du XML court sans bandeau — et c'est lui qui garde la carte utile hors
+     antenne. On ne le tente pas si le budget est épuisé : mieux vaut une carte sans repli qu'une
+     carte qui met une minute à s'afficher. */
+  if (chaine && !derniere && Date.now() <= echeance) {
+    const f = await _directVerifierChaine(chaine, null);
+    if (diag) diag.push({ etape: 'derniere', id: chaine, ok: f.ok, titre: f.titre, derniere: f.derniere });
+    if (f.ok && f.derniere) derniere = f.derniere;
   }
 
   /* ⚠️ UN ÉCHEC NE VIDE PAS LE CACHE. Ces chaînes diffusent en continu : la dernière diffusion
@@ -1208,9 +1236,9 @@ async function _directResoudre(cle, opts) {
     _directMem.set(cle, rien);
     return cache || rien;
   }
-  const out = { ts: now, cle, nom: d.nom, site: d.site, source,
+  const out = { ts: now, cle, nom: d.nom, site: d.site, source, enAntenne,
                 video: video || (cache && cache.video) || null,
-                chaine: chaine || null,
+                chaine: chaine || null, derniere: derniere || (cache && cache.derniere) || null,
                 tsChaine: chaine ? now : (cache && cache.tsChaine) || 0, diag };
   _directMem.set(cle, out);
   try { await auth.aiCacheSet('direct:' + cle, { ...out, diag: undefined }); } catch {}
@@ -1223,7 +1251,8 @@ app.get('/api/direct/:cle', async (req, res) => {
   try {
     const r = await _directResoudre(cle);
     if (!r || (!r.video && !r.chaine)) return res.json({ ok: false, nom: d.nom, site: d.site });
-    res.json({ ok: true, nom: d.nom, site: d.site, video: r.video || null, chaine: r.chaine || null });
+    res.json({ ok: true, nom: d.nom, site: d.site, video: r.video || null, chaine: r.chaine || null,
+               enAntenne: (r.enAntenne === undefined ? null : r.enAntenne), derniere: r.derniere || null });
   } catch { res.json({ ok: false, nom: d.nom, site: d.site }); }
 });
 /* ⚠️ LE DIAGNOSTIC, PARCE QU'ON NE CORRIGE PAS CE QU'ON NE VOIT PAS. La résolution se fait sur le
@@ -1241,7 +1270,8 @@ app.get('/api/admin/direct/:cle', requireAdmin, async (req, res) => {
     res.json({ ok: true, cle, nom: d.nom, consigne: d.env,
                consigneP: !!String(process.env[d.env] || '').trim(),
                source: (r && r.source) || null, video: (r && r.video) || null,
-               chaine: (r && r.chaine) || null, etapes: (r && r.diag) || [] });
+               chaine: (r && r.chaine) || null, enAntenne: (r && r.enAntenne),
+               derniere: (r && r.derniere) || null, etapes: (r && r.diag) || [] });
   } catch (e) { res.status(500).json({ ok: false, erreur: String((e && e.message) || e).slice(0, 200) }); }
 });
 
@@ -1289,6 +1319,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260905-journal-largeur', ts: Date.UTC(2026, 8, 5, 15, 0), title: 'Le journal de trading occupe toute la largeur de votre écran', desc: 'Retour utilisateur, capture à l’appui : « pourquoi tu n’as pas exploité toute la largeur ». Il avait raison, et c’était une erreur de ma part, pas un compromis. La refonte de ce matin bornait la page du journal à une largeur de lecture confortable. Mesuré sur son écran de 1920 pixels : le contenu s’arrêtait à 1055, soit près de la MOITIÉ de l’écran laissée en noir, sous un desk dont tout le reste va d’un bord à l’autre. Le raisonnement d’origine, qu’une ligne de tuiles étirée sur 1900 pixels se lit mal, était juste ; mais il se règle là où il se pose, dans les grilles, en ajoutant des COLONNES quand la place existe, et pas en rendant la moitié de l’écran au vide. Le plafond est retiré : les trois onglets occupent toute la largeur disponible. Les grilles, elles, comptent désormais leurs colonnes sur la place réelle. Les chiffres clés passent à quatre colonnes au-delà d’une certaine largeur, parce que les sections en portent quatre ou huit : quatre colonnes remplissent donc TOUJOURS leurs rangées. Les douze pavés de mois se coupent en six et six, ou quatre et quatre et quatre, jamais en neuf et trois, qui ne ressemble ni à une année ni à un calendrier. UNE PRÉCISION QUI ÉVITE UN DÉFAUT CLASSIQUE : ces seuils sont mesurés sur la BOÎTE qui contient le journal, pas sur la fenêtre. Le journal se monte aussi dans une carte de votre desk, où la fenêtre peut faire 1900 pixels pendant que la carte en fait 400. Une règle calée sur la fenêtre y forcerait six colonnes dans un mouchoir de poche.' },
+  { id: 'dtpu-20260905-directs-antenne2', ts: Date.UTC(2026, 8, 5, 13, 0), title: 'Les cartes de direct gagnent leur bandeau en hauteur d’image, et restent utiles hors antenne', desc: 'Deux corrections sur les cartes Bloomberg Live et Yahoo Finance Live, toutes deux signalées captures à l’appui. LA BARRE SOUS LA VIDÉO DISPARAIT. Elle portait le nom de la chaîne et un lien « Ouvrir chez l’éditeur ». Le nom était déjà écrit dans l’en-tête de la carte, juste au-dessus, et le lecteur porte lui-même son lien vers la chaîne : la barre répétait donc deux fois la même chose en prenant 32 pixels de hauteur d’image. Le lien reste ENTIER dans le cas où aucune vidéo ne peut être affichée, puisque le bouton est alors la seule chose que la carte a à offrir. HORS ANTENNE N’EST PAS EN PANNE. La carte Yahoo restait vide alors que celle de Bloomberg fonctionnait. La différence n’était pas dans le desk, les deux cartes partagent le même mécanisme : elle est dans les chaînes. Bloomberg Television diffuse en continu, Yahoo Finance seulement aux heures de marché. En dehors, il n’y a tout simplement rien à afficher, et la carte se repliait sur son bouton la moitié de la journée. Le serveur fait désormais la différence entre trois états : à l’antenne, lu et pas à l’antenne, et rien de lisible. Quand la chaîne n’émet pas, la carte affiche sa DERNIÈRE ÉMISSION plutôt que rien. ET ELLE LE DIT. Une pastille discrète, posée sur l’image, écrit « Hors antenne ». Montrer un enregistrement sous un titre « Live » sans le préciser serait un mensonge, et cette pastille n’apparait jamais sur une vraie diffusion en cours.' },
   { id: 'dtpu-20260905-directs-erreur', ts: Date.UTC(2026, 8, 5, 11, 0), title: 'Une carte de direct ne vous montre plus la page d’erreur de YouTube', desc: 'Suite du correctif publié plus tôt aujourd’hui, sur le dernier trou qui restait. Le serveur confirme désormais qu’une chaîne EXISTE avant de la servir. Nécessaire, mais pas suffisant : qu’une chaîne existe ne dit ni qu’elle passe à l’antenne, ni qu’elle s’autorise à être encadrée. Dans ces deux cas, le lecteur affichait SA propre page d’erreur, en anglais, aux couleurs de YouTube, à l’intérieur d’une carte du desk. C’est pire que le repli, qui lui est honnête et vous emmène chez l’éditeur en un clic. Le lecteur sait pourtant le dire. On le lui demande maintenant, et quand il annonce une erreur, la carte se replie sur son bouton au lieu de laisser l’erreur à l’écran. UNE PRÉCISION QUI EST TOUT LE SOIN DU CORRECTIF : on ne se replie QUE sur une erreur annoncée, jamais sur le silence. Un simple délai d’attente aurait été plus court à écrire et faux : le jour où le lecteur tarde à répondre sur une connexion lente, ou change sa façon de parler, on démonterait une antenne qui marche très bien. Le silence laisse donc le cadre en place. Au pire on revient au comportement d’avant, jamais en dessous. Les messages venus d’ailleurs que du lecteur sont ignorés, et une carte fermée cesse d’écouter.' },
   { id: 'dtpu-20260905-directs-antenne', ts: Date.UTC(2026, 8, 5, 9, 0), title: 'Bloomberg Live et Yahoo Finance Live : l’antenne s’affiche et démarre dans la carte', desc: 'Votre capture montrait la carte repliée sur son bouton : « Le direct n’a pas pu être chargé dans la carte ». La résolution du flux échouait donc sur le serveur, et la carte se repliait proprement, ce qui est le bon comportement mais pas celui qu’on lui demande. CE QUI SE PASSAIT. Le serveur allait lire la page de la chaîne pour y trouver la diffusion en cours. Cause la plus probable, et de loin : Google sert aux adresses de centre de données un bandeau de consentement à la place de la page. Il répond correctement, il ne contient simplement AUCUN identifiant. La lecture réussissait donc en ne rapportant rien, ce qui est le pire des échecs : silencieux. Les témoins de consentement sont désormais envoyés à chaque lecture, exactement comme le fait un navigateur après acceptation. TROIS AUTRES CHEMINS ONT ÉTÉ AJOUTÉS, parce qu’un seul point d’entrée est un point unique de panne. La page de chaîne et l’onglet des diffusions sont lus quand la page du direct ne dit rien, et l’identifiant de chaîne se reconnait désormais sous quatre écritures au lieu de deux. Un identifiant de chaîne suffit à cadrer l’antenne : c’est le second étage, celui qui marche même quand la diffusion en cours n’est pas identifiable. UNE GRAINE, CONFIRMÉE ET JAMAIS CRUE SUR PAROLE. La chaîne de chaque rédaction porte un identifiant PERMANENT, à ne pas confondre avec celui d’une vidéo, qui change à chaque redémarrage du flux et reste interdit en dur pour cette raison. Cet identifiant permanent sert donc de dernier recours, mais il n’est pas affiché sur la foi de ce qui est écrit : le serveur le confirme d’abord auprès du flux de la chaîne, qui répond en erreur pour une chaîne inconnue et porte le nom pour une chaîne connue. Un identifiant faux, ou qui désignerait une autre chaîne, est REFUSÉ et la carte garde son repli honnête. ET LA VIDÉO DÉMARRE TOUTE SEULE, SON COUPÉ. Une carte nommée Live qui affiche une vignette et un bouton de lecture ne fait pas ce qu’elle promet : sur un desk, l’antenne doit être à l’écran quand on regarde la carte. Le son coupé n’est pas de la politesse, c’est la seule forme de démarrage automatique que les navigateurs acceptent ; le lecteur porte son propre bouton pour le rétablir.' },
   { id: 'dtpu-20260905-journal-notion', ts: Date.UTC(2026, 8, 5, 5, 0), title: 'Le journal de trading est repris en entier : plus aéré, plus clair, sur ses trois onglets', desc: 'Sur demande utilisateur : une refonte plus propre et plus épurée du journal, sur ses trois onglets, avec la même grammaire visuelle que le reste du desk. UN SEUL CADRE PAR IDÉE. Chaque section du tableau de bord était une boîte encadrée qui contenait des cartes elles-mêmes encadrées : deux bordures pour une seule idée, et l’œil finit par compter les cadres au lieu de lire les chiffres. La boîte extérieure disparaît. La hiérarchie est désormais portée par ce qui la porte naturellement : un titre, un filet, et du blanc. La page, puis la section, puis la carte. Trois niveaux de lecture, un seul cadre. Le titre de section gagne au passage un cran de taille et un filet de départ : une étiquette qui flotte dans le vide ne dit pas « ici commence autre chose », un titre souligné, oui. LE TABLEAU DES TRADES PERD SON DAMIER. Chaque cellule portait un filet à droite ET en bas. Mesure faite en remettant le défaut : 2641 traits verticaux sur la page, qui la découpaient en damier. Les filets horizontaux suffisent à suivre une ligne du regard, et c’est ainsi qu’on lit un tableau. Une exception est gardée, parce qu’elle n’est pas décorative : la colonne des paires reste collée à gauche et flotte au-dessus des colonnes qui défilent sous elle. Son filet est le bord d’un élément fixe, pas une ligne de quadrillage. UNE LARGEUR DE LECTURE. Le contenu s’étalait sur toute la largeur de l’écran : sur un moniteur large, quatre chiffres de synthèse s’étiraient sur près d’un mètre et l’œil devait traverser le vide entre eux. Le journal est maintenant borné à une largeur de lecture confortable, et calé à gauche, dans l’axe de la barre d’onglets. Les respirations entre sections, les marges des cartes et les espacements du bilan annuel sont repris ensemble : plus d’air là où il sépare, pas de vide là où il éloigne deux choses qui vont ensemble. LA COHÉRENCE AVEC LE DESK. Les coins doux, les bordures fines et le survol doré sont la charte du desk depuis toujours, et le journal était le seul écran qui ne les appliquait pas. Il les applique désormais, sur les cartes, sur les tuiles de chiffres et sur les pavés du bilan annuel. Aérer cet écran ne l’éloigne donc pas du desk : cela l’en rapproche. Le format téléphone reçoit ses propres marges, plus serrées, pour que la mise en air ne coûte pas un défilement supplémentaire. Quatre contrôles automatiques accompagnent la reprise. Ils ouvrent le vrai journal dans un navigateur et vérifient que la section n’a plus de cadre, que la carte garde le sien, que le tableau a bien perdu son quadrillage vertical, et que la colonne collante a gardé sa frontière. Chacun a été éprouvé en remettant le défaut : les quatre rougissent séparément.' },

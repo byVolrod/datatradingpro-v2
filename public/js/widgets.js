@@ -2255,9 +2255,16 @@
       return '<div class="wdg-direct-tete"><span class="wdg-direct-pastille" style="background:' + teinte + '"></span>'
         + '<span class="wdg-direct-nom">' + d.nom + '</span></div>';
     };
-    var lien = function (txt) {
-      return '<a class="wdg-direct-src" href="' + d.site + '" target="_blank" rel="noopener noreferrer">' + txt + '</a>';
-    };
+    /* ⚠️ LE PIED A ÉTÉ RETIRÉ LE 05/09, SUR DEMANDE DE L'UTILISATEUR (capture à l'appui : « enlève
+       cette ligne du widget bloomberg live »). Il portait le nom de la chaîne et un lien
+       « Ouvrir chez l'éditeur », et il tenait une règle que ce dépôt s'était donnée le 04/09 : « le
+       lien vers le site de l'éditeur reste présent DANS LES TROIS CAS, le desk emmène chez la
+       source, il ne la remplace pas ». Cette règle est LEVÉE pour les étages VIDÉO : la carte porte
+       déjà son titre dans l'en-tête du widget, et le lecteur YouTube porte son propre lien vers la
+       chaîne. Le pied répétait donc deux fois la même chose en volant 32 px de hauteur d'image.
+       ⚠️ ELLE RESTE ENTIÈRE POUR LE REPLI : quand aucune vidéo ne peut être cadrée, le bouton
+       « Ouvrir le direct » est la seule chose que la carte a à offrir. Le banc éprouve les deux
+       moitiés — sans quoi « plus de lien » deviendrait vrai partout, y compris là où il est utile. */
     /* LE REPLI, INCHANGÉ. C'est exactement la carte d'avant : si la résolution échoue, le client
        retrouve ce qu'il avait, jamais un cadre vide. */
     var replierSurLien = function () {
@@ -2285,12 +2292,13 @@
     var deposerEcoute = function () {
       if (ecoute) { window.removeEventListener('message', ecoute); ecoute = null; }
     };
-    var cadrer = function (src) {
+    var cadrer = function (src, marque) {
       host.innerHTML = '<div class="wdg-direct wdg-direct--video">'
         + '<div class="wdg-direct-frame"><iframe src="' + src + '&enablejsapi=1" title="' + d.nom + '"'
         +   ' allow="autoplay; accelerometer; encrypted-media; picture-in-picture; fullscreen"'
-        +   ' allowfullscreen frameborder="0" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'
-        + '<div class="wdg-direct-pied">' + tete() + lien('Ouvrir chez l\'éditeur') + '</div></div>';
+        +   ' allowfullscreen frameborder="0" referrerpolicy="strict-origin-when-cross-origin"></iframe>'
+        +   (marque ? '<span class="wdg-direct-marque">' + marque + '</span>' : '')
+        + '</div></div>';
       var cadre = host.querySelector('iframe');
       if (!cadre) return;
       /* La poignée de main du lecteur : sans ce message, il n'émet RIEN. C'est ce que fait la
@@ -2310,9 +2318,33 @@
         try { m = JSON.parse(ev.data); } catch (e) { return; }
         if (!m || m.event !== 'onError') return;
         deposerEcoute();
-        replierSurLien();
+        essayerSuivant();
       };
       window.addEventListener('message', ecoute);
+    };
+    /* ══ UNE CHAÎNE QUI N'EST PAS À L'ANTENNE N'EST PAS UNE CHAÎNE EN PANNE (05/09) ═════════════
+       Signalé par l'utilisateur : « résous le problème de yahoo finance live, ça fonctionne pas »,
+       alors que Bloomberg, lui, marchait. La différence n'est pas dans le code — les deux cartes
+       partagent la même fonction — elle est dans les chaînes : Bloomberg Television diffuse EN
+       CONTINU, Yahoo Finance ne diffuse qu'aux heures de marché. Hors de ces heures, il n'y a
+       simplement rien à cadrer, et la carte se repliait sur son bouton la moitié de la journée.
+       On descend donc une liste d'étapes, de la plus précise à la plus sûre, et chaque erreur
+       ANNONCÉE par le lecteur fait passer à la suivante :
+         1. la diffusion EN COURS ;
+         2. le cadre « direct de la chaîne » — sauté quand le serveur a LU la page et vu que la
+            chaîne n'émet pas (`enAntenne: false`), parce qu'il ne pourrait alors que échouer ;
+         3. la DERNIÈRE ÉMISSION, tirée du flux de la chaîne ;
+         4. la carte-lien d'avant.
+       ⚠️ L'ÉTAPE 3 SE NOMME. Montrer un enregistrement sous un titre « Live » sans le dire serait
+       un mensonge, et c'est le genre de mensonge que ce desk ne fait pas : une pastille discrète
+       écrit « Hors antenne » sur le cadre. Elle est posée SUR l'image, pas dans une barre sous
+       elle — la barre est précisément ce que l'utilisateur vient de faire retirer. */
+    var etapes = [], rang = 0;
+    var essayerSuivant = function () {
+      if (!vivant || !host.isConnected) return;
+      if (rang >= etapes.length) return replierSurLien();
+      var e = etapes[rang++];
+      cadrer(e.src, e.marque);
     };
     host.innerHTML = '<div class="wdg-direct">' + tete()
       + '<p class="wdg-direct-txt">Connexion au direct…</p></div>';
@@ -2324,9 +2356,17 @@
          forme de démarrage automatique que les navigateurs autorisent, et le lecteur YouTube porte
          son propre bouton pour le rétablir. */
       var PARAMS = '&rel=0&modestbranding=1&autoplay=1&mute=1&playsinline=1';
-      if (j && j.ok && j.video) return cadrer('https://www.youtube.com/embed/' + j.video + '?rel=0' + PARAMS);
-      if (j && j.ok && j.chaine) return cadrer('https://www.youtube.com/embed/live_stream?channel=' + j.chaine + PARAMS);
-      replierSurLien();
+      if (j && j.ok) {
+        if (j.video) etapes.push({ src: 'https://www.youtube.com/embed/' + j.video + '?rel=0' + PARAMS });
+        if (j.chaine && j.enAntenne !== false) {
+          etapes.push({ src: 'https://www.youtube.com/embed/live_stream?channel=' + j.chaine + PARAMS });
+        }
+        if (j.derniere && j.derniere.id) {
+          etapes.push({ src: 'https://www.youtube.com/embed/' + j.derniere.id + '?rel=0' + PARAMS,
+                        marque: 'Hors antenne' });
+        }
+      }
+      essayerSuivant();
     }).catch(function () { if (vivant && host.isConnected) replierSurLien(); });
     return function () { vivant = false; deposerEcoute(); };
   }
