@@ -12075,6 +12075,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
     if (ups.length) npPush(ups, { silent: true });
   }).catch(() => {});
+  /* ── ALERTE DISQUE — ADMIN UNIQUEMENT (07/09) ────────────────────────────────────────────────
+     Le 07/09 le disque du VPS a atteint 100 %. nginx ne pouvait plus écrire ses fichiers
+     temporaires et TRONQUAIT toute réponse de plus de ~750 Ko sans la moindre erreur HTTP : le
+     desk arrivait en HTML nu, et ce panneau-ci ne s'ouvrait même pas pour le dire. Un e-mail part
+     désormais aux seuils, mais un e-mail se lit quand on le lit ; le desk, lui, est ouvert toute
+     la journée. L'alerte s'affiche donc aussi ici, en urgent (survol rouge).
+
+     ⚠️ ADMIN UNIQUEMENT, ET CE N'EST PAS UN DÉTAIL DE CONFORT. Un abonné qui verrait passer
+     « Disque serveur à 92 % » perdrait confiance dans le produit pour une information qui ne le
+     concerne pas et sur laquelle il ne peut rien. La garde tient à DEUX endroits : `requireAdmin`
+     sur la route (la seule qui compte vraiment, un rôle lu côté navigateur se falsifie) et ce
+     test-ci, qui évite simplement d'envoyer une requête vouée au 403 à chaque abonné.
+
+     ⚠️ ON ATTEND `_pdUser`, ON NE LE SUPPOSE PAS. Il est posé par `/api/auth/me` dans index.html,
+     donc APRÈS un aller-retour réseau : le lire à l'ouverture du document donnerait `null` sur
+     toutes les connexions un peu lentes, et l'alerte ne s'afficherait jamais — sans que rien ne le
+     signale, ce qui est exactement la maladie qu'on répare aujourd'hui. On l'attend 10 s au plus. */
+  (function _dtpAlerteDisque(reste) {
+    var u = null;
+    try { u = window._pdUser; } catch (e) { u = null; }
+    if (!u) { if (reste > 0) setTimeout(function () { _dtpAlerteDisque(reste - 1); }, 1000); return; }
+    if (u.role !== 'admin') return;
+    fetch('/api/admin/disque').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !d.niveau || d.niveau < 2) return;
+      npPush([{
+        /* L'IDENTIFIANT CHANGE À L'HEURE ET AU NIVEAU, jamais à la minute : npPush déduplique, donc
+           un identifiant recalculé à chaque passage rejouerait la même alerte indéfiniment et
+           couvrirait le fil. Au niveau critique on carillonne (silent: false) ; à 80 % on dépose
+           sans bruit — une alerte qui sonne trop tôt finit ignorée le jour où elle compte. */
+        id: 'disque-' + d.niveau + '-' + Math.floor((d.t || Date.now()) / 36e5),
+        headline: 'Disque serveur ' + d.nom + ' — ' + d.pct + '% utilisé',
+        description: d.libreGo + ' Go libres sur ' + d.totalGo + ' Go'
+          + (d.jours != null ? ' · saturation projetée dans ' + d.jours + ' jour(s) au rythme actuel' : '')
+          + '. Un disque plein fait tronquer les fichiers du desk sans aucune erreur : le desk arrive alors sans style ni script.',
+        timestamp: d.t || Date.now(),
+        source: 'DTP', category: 'Système', urgent: true,
+      }], { silent: d.niveau < 3 });
+    }).catch(function () {});
+  })(10);
   // ONGLETS DÉRIVÉS DE LA TAXONOMIE : un onglet par type, dans l'ordre de NP_KINDS, à la suite de
   // « Tout » posé dans le HTML. Ainsi un type ajouté ou renommé se propage seul aux trois endroits
   // (onglet, badge, panneau Filtre) — c'est la raison d'être de la taxonomie unique.

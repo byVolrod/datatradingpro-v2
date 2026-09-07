@@ -7260,6 +7260,126 @@ function _aiAlertNote(level, code, msg) {
   _aiAlertLog.unshift({ t: Date.now(), level, code, msg });
   if (_aiAlertLog.length > 120) _aiAlertLog.length = 120;
 }
+
+/* ═══ SURVEILLANCE DU DISQUE, DEPUIS L'APPLICATION (07/09) ═══════════════════════════════════════
+   POURQUOI ELLE VIT ICI ET PAS SEULEMENT DANS systemd. La sentinelle `scripts/vps/dtp-disque.sh`
+   fait le même travail sur l'hôte, et elle est indispensable : elle survit à un conteneur mort.
+   Mais elle a un angle mort qui compte — elle n'existe que si quelqu'un a lancé l'installateur.
+   C'est EXACTEMENT le défaut qui a laissé le keep-alive absent pendant deux mois et demi, et la
+   sauvegarde n'exister que sous forme d'une ligne à recopier à la main. On ne repose donc pas la
+   protection sur une étape manuelle : celle-ci part avec le desk, toujours.
+   Les deux ne font pas doublon, elles ne meurent pas au même moment.
+
+   ⚠️ LE CONTENEUR VOIT LE MÊME DISQUE QUE L'HÔTE, c'est ce qui rend la mesure possible d'ici.
+   Vérifié le 07/09 pendant l'incident : `df` dans le conteneur rendait `overlay 23G 22G 0 100%`,
+   les mêmes octets que `/` sur l'hôte. La couche overlay n'a pas de réserve propre.
+
+   CE QUE ÇA A COÛTÉ DE NE PAS L'AVOIR. Disque plein → nginx ne pouvait plus écrire ses fichiers
+   temporaires et TRONQUAIT toute réponse de plus de ~750 Ko, sans la moindre erreur HTTP : le desk
+   arrivait en HTML nu. Docker ne pouvait plus construire, donc le correctif ne pouvait pas partir.
+   La sauvegarde échouait en silence. Trois pannes, une cause, et zéro signal. ═══════════════════ */
+const _DISQUE_SEUILS = { surveillance: 70, alerte: 80, critique: 90, action: 95 };
+const _DISQUE_PREVISION_J = 7;          // sous ce délai avant saturation, on alerte même à bas niveau
+const _DISQUE_HIST_F = path.join(_CACHE_DIR, 'disque_historique.json');
+/* ⚠️ L'HISTORIQUE VIT DANS `_CACHE_DIR`, DONC SUR LE VOLUME, ET C'EST TOUT L'ENJEU. Gardé en
+   mémoire, il repartirait vide à chaque déploiement — or la projection a besoin de plusieurs jours
+   de recul. Un desk redéployé deux fois par semaine n'aurait JAMAIS trois points, donc ne
+   prédirait jamais rien : la surveillance aurait l'air de tourner sans jamais pouvoir alerter tôt. */
+const _DISQUE_DEST = String(process.env.DISK_ALERT_EMAILS
+  || ['muhammedatay@outlook.fr', process.env.ADMIN_EMAIL].filter(Boolean).join(', ')).trim();
+let _disqueHist = [];
+try { _disqueHist = JSON.parse(fs.readFileSync(_DISQUE_HIST_F, 'utf8')) || []; } catch { _disqueHist = []; }
+let _disqueEtat = { pct: null, libreGo: null, totalGo: null, niveau: 0, nom: 'inconnu', jours: null, t: 0 };
+let _disqueNiveauVu = 0, _disqueDernierMail = 0;
+
+function _disqueLire() {
+  return new Promise((ok) => {
+    try {
+      execFile('df', ['-P', '/'], { timeout: 5000 }, (e, out) => {
+        if (e || !out) return ok(null);
+        const l = String(out).trim().split('\n').pop().trim().split(/\s+/);
+        /* ⚠️ COLONNES COMPTÉES DEPUIS LA FIN. Un nom de périphérique contenant un espace décale tout
+           découpage fait depuis le début : mesuré au banc, le pourcentage sortait à « 134271896% »
+           et le disque à « 0.0 Go ». Même règle que dans scripts/vps/dtp-disque.sh — les deux
+           mesures doivent rester d'accord, sinon le panneau et l'e-mail se contrediront un jour. */
+        const pct = parseInt(String(l[l.length - 2] || '').replace('%', ''), 10);
+        const libreKo = parseInt(l[l.length - 3], 10), totalKo = parseInt(l[l.length - 5], 10);
+        if (!Number.isFinite(pct) || pct < 0 || pct > 100) return ok(null);
+        ok({ pct, libreGo: +(libreKo / 1048576).toFixed(1), totalGo: +(totalKo / 1048576).toFixed(1) });
+      });
+    } catch { ok(null); }
+  });
+}
+
+/* Régression des moindres carrés sur 7 jours → jours restants avant 100 %.
+   Renvoie null sous 3 points ou si le disque ne monte pas : REFUSER DE PRÉDIRE vaut mieux que
+   prédire n'importe quoi sur deux mesures. Une fausse échéance ferait perdre confiance dans
+   l'alerte, et c'est la confiance qui fait qu'on la lit le jour où elle compte. */
+function _disqueProjection(pct) {
+  const now = Date.now(), lim = now - 7 * 864e5;
+  const pts = _disqueHist.filter(p => p && p.t >= lim);
+  if (pts.length < 3) return null;
+  let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (const p of pts) { const x = (p.t - now) / 864e5; n++; sx += x; sy += p.pct; sxx += x * x; sxy += x * p.pct; }
+  const d = n * sxx - sx * sx; if (!d) return null;
+  const pente = (n * sxy - sx * sy) / d;
+  if (pente <= 0.05) return null;
+  return +((100 - pct) / pente).toFixed(1);
+}
+
+async function _disqueCheck() {
+  const m = await _disqueLire();
+  if (!m) return;
+  const now = Date.now();
+  _disqueHist.push({ t: now, pct: m.pct });
+  _disqueHist = _disqueHist.filter(p => p && p.t >= now - 30 * 864e5);
+  try { fs.writeFileSync(_DISQUE_HIST_F, JSON.stringify(_disqueHist)); } catch {}
+
+  const S = _DISQUE_SEUILS;
+  let niveau = m.pct >= S.action ? 4 : m.pct >= S.critique ? 3 : m.pct >= S.alerte ? 2 : m.pct >= S.surveillance ? 1 : 0;
+  let nom = ['normal', 'surveillance', 'ALERTE', 'CRITIQUE', 'ACTION REQUISE'][niveau];
+  const jours = _disqueProjection(m.pct);
+  /* La projection peut FAIRE MONTER le niveau, jamais le faire descendre : un disque à 62 % qui
+     sature dans trois jours mérite la même alerte qu'un disque à 80 % stable depuis six mois.
+     Un seuil, seul, ne sait pas faire cette différence — c'est là toute la valeur du calcul. */
+  let motif = '';
+  if (jours !== null && jours <= _DISQUE_PREVISION_J) {
+    motif = ' — saturation projetée dans ' + jours + ' j au rythme actuel';
+    if (niveau < 2) { niveau = 2; nom = 'ALERTE (tendance)'; }
+  }
+  _disqueEtat = { pct: m.pct, libreGo: m.libreGo, totalGo: m.totalGo, niveau, nom, jours, t: now };
+
+  const resume = m.pct + '% utilisé — ' + m.libreGo + ' Go libres sur ' + m.totalGo + ' Go' + motif;
+  if (niveau >= 2 && niveau > _disqueNiveauVu) _aiAlertNote(niveau >= 3 ? 'critical' : 'warn', 'disque', 'Disque ' + nom + ' : ' + resume);
+  else if (niveau === 0 && _disqueNiveauVu >= 2) _aiAlertNote('info', 'disque', 'Disque revenu à la normale : ' + resume);
+
+  /* Anti-répétition : à la MONTÉE, puis au plus un rappel par jour tant qu'on reste haut. Une
+     alerte qui arrive toutes les cinq minutes finit dans une règle de tri — et c'est justement le
+     jour où elle comptait qu'on ne la lira pas. */
+  const doitEcrire = (niveau >= 2 && niveau > _disqueNiveauVu) || (niveau >= 2 && now - _disqueDernierMail >= 864e5);
+  _disqueNiveauVu = niveau;
+  if (doitEcrire && _DISQUE_DEST) {
+    _disqueDernierMail = now;
+    const html = '<p><b>' + resume + '</b></p>'
+      + (jours !== null ? '<p>Au rythme des 7 derniers jours, saturation dans <b>' + jours + ' jour(s)</b>.</p>' : '')
+      + (niveau >= 3 ? '<p>Le nettoyage automatique se déclenche à 95 % (images sans conteneur, cache de construction, journaux). Aucune donnée, aucun volume n\'est touché.</p>' : '')
+      + '<p style="color:#6b7280;font-size:12px;">Rappel de l\'incident du 07/09 : un disque plein fait tronquer par nginx toute réponse de plus de ~750 Ko, sans erreur HTTP — le desk arrive alors sans style ni script.</p>';
+    try { await mailer.sendAdminAlert({ subject: 'Disque ' + nom + ' — ' + m.pct + '%', html, to: _DISQUE_DEST }); }
+    catch (e) { console.warn('[disque] e-mail non envoyé:', e.message); }
+  }
+}
+
+// Toutes les 5 min, et un premier passage 30 s après le démarrage (le temps que le conteneur se pose).
+setTimeout(() => { _disqueCheck().catch(() => {}); }, 30000);
+setInterval(() => { _disqueCheck().catch(() => {}); }, 5 * 60 * 1000);
+
+/* Lu par le panneau admin ET par le desk (notification urgente, admin uniquement — voir app.js).
+   ⚠️ `requireAdmin` N'EST PAS DÉCORATIF ICI : un abonné qui lirait « Disque VPS à 92 % » y perdrait
+   confiance pour une information qui ne le concerne pas et sur laquelle il ne peut rien. */
+app.get('/api/admin/disque', requireAdmin, (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ ..._disqueEtat, seuils: _DISQUE_SEUILS, previsionJours: _DISQUE_PREVISION_J });
+});
 // Filet de secours OK ? → l'utilisateur n'est IMPACTÉ que si le repli 0-token/cache est lui-même KO.
 // Conditions réelles « on ne peut plus rien servir » : feed news cassé OU cache durable (KV) injoignable.
 // (La matrice Bias a un seed permanent, l'analyse/insights ont un repli extractif → jamais « vides ».)

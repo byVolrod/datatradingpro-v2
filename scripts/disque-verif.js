@@ -131,5 +131,47 @@ v('vps-resilience-installer.sh copie l’unité dtp-disque', /dtp-sauvegarde dtp
   'un fichier présent dans le dépôt mais jamais installé, c’est exactement la panne que cet installateur avait été écrit pour corriger.');
 v('… et active son minuteur', /systemctl enable --now[^\n]*dtp-disque\.timer/.test(INSTALL));
 
+console.log('\n── La mesure côté application (desk) ──');
+/* DEUX MESURES POUR LA MÊME CHOSE, ET C'EST VOULU : la sentinelle systemd survit à un conteneur
+   mort, celle-ci survit à un installateur jamais lancé — le défaut exact qui a laissé le keep-alive
+   absent deux mois et demi. Elles ne meurent pas au même moment, donc elles ne font pas doublon.
+   MAIS ELLES DOIVENT DIRE LA MÊME CHOSE. Deux jeux de seuils qui divergent, et le panneau admin
+   contredira l'e-mail un jour de panne — le moment où l'on a le moins besoin d'hésiter. */
+const SRV_JS = lire('server.js');
+const APP = lire('public/js/app.js');
+v('server.js mesure le disque et expose son état', /_DISQUE_SEUILS/.test(SRV_JS) && /\/api\/admin\/disque/.test(SRV_JS));
+const sj = /_DISQUE_SEUILS = \{ surveillance: (\d+), alerte: (\d+), critique: (\d+), action: (\d+) \}/.exec(SRV_JS);
+v('… avec EXACTEMENT les mêmes seuils que la sentinelle systemd',
+  !!sj && seuils.every((s, i) => +sj[i + 1] === s),
+  'shell = ' + seuils.join('/') + '  ·  server.js = ' + (sj ? sj.slice(1, 5).join('/') : 'illisible')
+  + ' — deux jeux qui divergent feraient dire au panneau autre chose qu’à l’e-mail.');
+v('… et la même règle de projection (7 jours, refus sous 3 points)',
+  /_DISQUE_PREVISION_J = 7/.test(SRV_JS) && /pts\.length < 3/.test(SRV_JS));
+v('… en lisant `df` depuis la FIN des colonnes, comme le shell',
+  /l\.length - 2/.test(SRV_JS) && /l\.length - 3/.test(SRV_JS) && /l\.length - 5/.test(SRV_JS),
+  'un nom de périphérique avec un espace décalerait un découpage fait depuis le début.');
+/* L'HISTORIQUE DOIT SURVIVRE AUX DÉPLOIEMENTS. Gardé en mémoire, il repartirait vide à chaque mise
+   en ligne : un desk redéployé deux fois par semaine n'aurait jamais trois points, donc ne
+   prédirait JAMAIS rien. La surveillance aurait l'air de tourner sans pouvoir alerter tôt. */
+v('… et son historique est écrit sur le volume, pas gardé en mémoire',
+  /_DISQUE_HIST_F = path\.join\(_CACHE_DIR/.test(SRV_JS),
+  'un historique en mémoire repart vide à chaque déploiement : la projection ne se déclencherait jamais.');
+v('la route est réservée à l’admin', /app\.get\('\/api\/admin\/disque', requireAdmin/.test(SRV_JS),
+  'un abonné qui lit « Disque à 92 % » perd confiance pour une information qui ne le concerne pas.');
+v('l’alerte remonte dans le journal du panneau admin', /_aiAlertNote\([^)]*'disque'/.test(SRV_JS));
+
+console.log('\n── La notification dans le desk ──');
+v('app.js pose l’alerte disque', /_dtpAlerteDisque/.test(APP));
+v('… en urgent (le survol rouge de .news-item--urgent)', /urgent: true/.test(APP));
+v('… réservée au rôle admin côté client aussi', /u\.role !== 'admin'/.test(APP),
+  'la garde serveur suffit à la sécurité, celle-ci évite un 403 par abonné à chaque ouverture.');
+v('… et elle ATTEND que le compte soit connu au lieu de le supposer',
+  /reste > 0/.test(APP),
+  '`_pdUser` est posé par /api/auth/me, donc après un aller-retour réseau : le lire tout de suite'
+  + ' donnerait null sur toute connexion lente, et l’alerte ne s’afficherait jamais en silence.');
+v('le survol rouge existe toujours dans la feuille de style',
+  /\.news-item--urgent:hover/.test(lire('public/css/style.css')),
+  'l’alerte perdrait sa signalétique sans que rien ne le dise.');
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec' : '✓ ' + ok + ' contrôles au vert') + '\n');
 process.exit(ko ? 1 : 0);
