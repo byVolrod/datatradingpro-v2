@@ -10,6 +10,7 @@ const axios     = require('axios');
 const session   = require('cookie-session');   // session stockée côté navigateur → survit aux redémarrages
 const helmet    = require('helmet');
 const cors      = require('cors');
+const compression = require('compression');   // gzip des reponses -- voir le bloc COMPRESSION HTTP plus bas
 const Anthropic = require('@anthropic-ai/sdk');
 const { scrapeFinancialJuice, initFinancialJuice, setOnPushCallback, backfillHistoricalNews } = require('./scrapers/financialjuice');
 const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory');
@@ -89,6 +90,31 @@ app.use(cors({
     cb(new Error('CORS: origin not allowed'));
   },
   credentials: true,
+}));
+
+// ─── COMPRESSION HTTP ─────────────────────────────────────────────────────────
+// ⚠️ CE MIDDLEWARE EST UN CORRECTIF DE PANNE, PAS SEULEMENT UNE OPTIMISATION.
+// Le reverse-proxy de production TRONQUE toute réponse dépassant ~730 Ko : il ferme la connexion
+// vers 719 700 octets sans jamais émettre d'erreur HTTP — le code reste 200, seul le corps est
+// amputé. Les trois seuls fichiers du projet à dépasser ce seuil étaient précisément ceux dont le
+// desk dépend : style.css (1,4 Mo), app.js (1,1 Mo) et widgets.js (896 Ko). Or un navigateur qui
+// reçoit moins d'octets que le Content-Length annoncé JETTE la ressource ENTIÈRE : ni style, ni
+// script, donc une page en HTML nu, figée sur ses libellés « Chargement… ».
+// La page de connexion, elle, porte ses styles en <style> inline : elle restait intacte. D'où un
+// symptôme qui n'apparaissait qu'APRÈS l'authentification — et une panne qu'on a donc longtemps
+// cherchée du côté du login, où elle n'a jamais été.
+// Compressés, ces fichiers tombent à 404 / 370 / 274 Ko : largement sous le seuil.
+// ⚠️ DOIT RESTER AVANT `express.static`. Une compression enregistrée APRÈS ne voit jamais passer
+// les réponses statiques : la panne reviendrait sans qu'aucune ligne n'ait l'air d'avoir changé.
+// ⚠️ LE FLUX SSE EST EXCLU EXPLICITEMENT (/api/ai/chat/stream). Bufferisé, il n'arriverait plus
+// token par token : l'assistant resterait muet, puis cracherait tout d'un coup. Cette route pose
+// déjà `no-transform`, que `compression` respecte — mais une garantie de streaming qui ne tient
+// qu'à un en-tête posé dans une AUTRE route finit toujours par se perdre à la première refonte.
+app.use(compression({
+  filter: (req, res) => {
+    if (/^text\/event-stream/i.test(String(res.getHeader('Content-Type') || ''))) return false;
+    return compression.filter(req, res);
+  },
 }));
 
 const PORT = process.env.PORT || 3000;
