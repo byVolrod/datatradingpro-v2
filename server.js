@@ -7362,7 +7362,7 @@ async function _disqueCheck() {
     _disqueDernierMail = now;
     const html = '<p><b>' + resume + '</b></p>'
       + (jours !== null ? '<p>Au rythme des 7 derniers jours, saturation dans <b>' + jours + ' jour(s)</b>.</p>' : '')
-      + (niveau >= 3 ? '<p>Le nettoyage automatique se déclenche à 95 % (images sans conteneur, cache de construction, journaux). Aucune donnée, aucun volume n\'est touché.</p>' : '')
+      + (niveau >= 3 ? '<p>Le nettoyage automatique se déclenche à 95% (images sans conteneur, cache de construction, journaux). Aucune donnée, aucun volume n\'est touché.</p>' : '')
       + '<p style="color:#6b7280;font-size:12px;">Rappel de l\'incident du 07/09 : un disque plein fait tronquer par nginx toute réponse de plus de ~750 Ko, sans erreur HTTP — le desk arrive alors sans style ni script.</p>';
     try { await mailer.sendAdminAlert({ subject: 'Disque ' + nom + ' — ' + m.pct + '%', html, to: _DISQUE_DEST }); }
     catch (e) { console.warn('[disque] e-mail non envoyé:', e.message); }
