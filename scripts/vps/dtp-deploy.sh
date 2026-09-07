@@ -106,7 +106,24 @@ echo "$(horo) deploye ${DISTANT:0:7} sante=$SANTE"
 # ── 6. MÉNAGE ────────────────────────────────────────────────────────────────
 # Le disque est à 84 % : chaque build laisse une image intermédiaire. Sans ce
 # ménage, c'est le disque plein qui finit par empêcher tout déploiement.
-docker image prune -f >/dev/null 2>&1
+#
+# ⚠️ CE COMMENTAIRE AVAIT RAISON, ET LA COMMANDE EN DESSOUS NE FAISAIT PAS CE
+# QU'IL DÉCRIVAIT. Le 07/09/2026 le disque a atteint 100 % : nginx ne pouvait
+# plus écrire ses fichiers temporaires et TRONQUAIT toute réponse de plus de
+# ~750 Ko sans la moindre erreur HTTP — le desk arrivait en HTML nu. Le garde-fou
+# existait sur le papier depuis des mois et ne retenait rien, pour deux raisons :
+#   · `prune -f` SANS `-a` ne retire que les images SANS NOM. Celles qui
+#     s'entassaient étaient nommées et inutilisées (`node:20`,
+#     `datatradingpro-datatradingpro:latest`) : 14,87 Go invisibles pour elle.
+#   · le CACHE DE CONSTRUCTION n'était purgé nulle part : 3,42 Go de plus.
+# Une commande qui tourne sans erreur et ne libère rien est pire qu'absente :
+# elle donne l'impression que le sujet est traité.
+#
+# `until=168h` garde une semaine d'images, donc le retour arrière par simple
+# redémarrage de conteneur reste possible ; au-delà, on borne la croissance.
+# L'image EN SERVICE n'est jamais concernée (un conteneur tourne dessus).
+docker image prune -a -f --filter until=168h >/dev/null 2>&1 || true
+docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
 
 # ── 7. CAMOUFLAGE DU 502 (23/08, demande user : « cache l'erreur, camoufle ») ─
 # Pendant la fenêtre de redéploiement (ou un crash), nginx rendait un « 502 Bad

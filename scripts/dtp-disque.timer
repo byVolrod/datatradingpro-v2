@@ -1,0 +1,25 @@
+# Toutes les 15 minutes. Le rythme n'est pas arbitraire : un disque se remplit lentement, mais quand
+# il déborde c'est brutal (un journal emballé, une construction qui tourne mal). Un quart d'heure
+# borne les dégâts sans réveiller la machine pour rien — et le niveau 4 se protège de lui-même par
+# un garde-fou d'une purge par heure, donc rien ne s'emballe si l'on repasse souvent.
+#
+# OnBootSec=5min : après un redémarrage, on veut savoir TÔT si la machine repart avec un disque déjà
+# plein — c'est précisément l'état dans lequel les services échouent en silence les uns après les
+# autres, et personne ne pense à regarder le disque.
+#
+# ⚠️ PAS DE Persistent=true ICI, ET CE N'EST PAS UN OUBLI. Cette option ne rattrape que les minuteurs
+# à OnCalendar. Sur un minuteur cadencé (OnUnitActiveSec), elle ne fait rien : la copier depuis
+# dtp-sauvegarde.timer donnerait l'illusion d'un rattrapage qui n'existe pas. Le rattrapage, ici,
+# c'est OnBootSec.
+[Unit]
+Description=DTP sentinelle disque : un passage tous les quarts d'heure
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+RandomizedDelaySec=60
+AccuracySec=1min
+Unit=dtp-disque.service
+
+[Install]
+WantedBy=timers.target

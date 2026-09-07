@@ -65,23 +65,40 @@ else
 fi
 
 # ── 3. LES UNITÉS ──────────────────────────────────────────────────────────────────────────────
-for u in dtp-sauvegarde dtp-keepalive; do
+# ⚠️ dtp-disque REJOINT LA LISTE LE 07/09/2026, APRÈS UNE PANNE QUE PERSONNE N'A VUE VENIR.
+# Le disque a atteint 100 %. nginx, ne pouvant plus écrire ses fichiers temporaires, s'est mis à
+# TRONQUER toute réponse dépassant ~750 Ko sans émettre la moindre erreur HTTP : le desk arrivait
+# en HTML nu. Docker ne pouvait plus construire, donc le correctif ne pouvait pas se déployer. Et
+# la sauvegarde quotidienne échouait en silence depuis plusieurs jours — c'est-à-dire que le filet
+# posé par CET installateur était déjà tombé, sans que rien ne le signale.
+# La sentinelle surveille désormais ce que ces deux tâches supposaient acquis : de la place.
+for u in dtp-sauvegarde dtp-keepalive dtp-disque; do
   cp "scripts/$u.service" "/etc/systemd/system/$u.service"
   cp "scripts/$u.timer"   "/etc/systemd/system/$u.timer"
 done
+chmod +x scripts/vps/dtp-disque.sh 2>/dev/null || true
 systemctl daemon-reload
-systemctl enable --now dtp-sauvegarde.timer dtp-keepalive.timer
+systemctl enable --now dtp-sauvegarde.timer dtp-keepalive.timer dtp-disque.timer
 
 echo
 echo "✓ Sauvegarde quotidienne  : 04h10, archive chiffrée, 3 versions conservées."
 echo "✓ Keep-alive Supabase     : toutes les 6 h, sur les 4 bases, avec reprise auto des projets en pause."
+echo "✓ Sentinelle disque       : toutes les 15 min — alerte à 80/90 %, nettoie seule à 95 %,"
+echo "                            et prévient DÈS QUE le rythme de remplissage mène au mur sous 7 jours."
 echo
-echo "  Premier passage du keep-alive tout de suite (la sauvegarde, elle, attendra son créneau) :"
+echo "  Premier passage du keep-alive et de la sentinelle tout de suite (la sauvegarde attendra son créneau) :"
 systemctl start dtp-keepalive.service || true
+systemctl start dtp-disque.service || true
+echo
+echo "  État du disque, à la demande et sans rien modifier :"
+echo "      bash scripts/vps/dtp-disque.sh --etat"
+echo "  Vérifier que les e-mails d'alerte partent bien :"
+echo "      bash scripts/vps/dtp-disque.sh --test"
 echo
 echo "  Suivi     : systemctl list-timers 'dtp-*'"
 echo "  Journaux  : journalctl -u dtp-keepalive.service -n 40 --no-pager"
 echo "              journalctl -u dtp-sauvegarde.service -n 40 --no-pager"
+echo "              journalctl -u dtp-disque.service -n 40 --no-pager"
 echo
 echo "  ⚠ RAPPEL : les archives restent SUR CETTE MACHINE. Les rapatriter ailleurs est une étape"
 echo "    à part — une sauvegarde qui vit sur le disque qu'elle protège ne protège de rien."

@@ -15,6 +15,20 @@ services:
     # → puppeteer (FF-News, FJ, myfxbook) relance correctement après chaque redéploiement/redémarrage.
     command: sh -c "rm -f /app/.chrome_profile_fj/Singleton* /app/.chrome_profile_ff/Singleton* /app/.chrome_profile_myfxbook/Singleton* 2>/dev/null; exec node server.js"
     restart: unless-stopped          # redémarre tout seul (reboot NAS inclus)
+    # ── PLAFOND SUR LES JOURNAUX ────────────────────────────────────────────────────────────
+    # Le pilote par défaut de Docker (json-file) n'a AUCUNE limite de taille : le fichier de log
+    # du conteneur grossit indéfiniment. Ici il ne pesait que 28 Mo — ce n'est donc PAS ce qui a
+    # rempli le disque le 07/09/2026 (c'étaient les images et le cache de construction, désormais
+    # purgés à chaque déploiement). On le borne quand même : ce serveur écrit beaucoup (scrapers,
+    # WebSocket, IA), une boucle d'erreur bavarde suffirait à remplir 20 Go en une nuit, et la
+    # panne qu'on vient de vivre a montré ce que coûte un disque plein — nginx tronque les
+    # réponses en silence et le desk arrive nu. Cinq fichiers de 20 Mo = 100 Mo au maximum,
+    # largement de quoi enquêter, et une cause de saturation définitivement fermée.
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     ports:
       - "3000:3000"                  # accès : http://IP-DU-NAS:3000
     env_file:

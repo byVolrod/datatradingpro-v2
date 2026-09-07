@@ -66,6 +66,32 @@ for i in $(seq 1 20); do
   if curl -fsS --max-time 5 "$URL/healthz" >/dev/null 2>&1; then
     echo "$CIBLE" > "$MARQUE"
     echo "[autodeploiement] ✓ ${CIBLE:0:7} en ligne ($URL)"
+
+    # ── MÉNAGE APRÈS DÉPLOIEMENT — LE TROU PAR LEQUEL LE DISQUE S'EST REMPLI (07/09/2026) ──────
+    # Ce chemin-ci est celui qui tourne à CHAQUE push, et il ne nettoyait RIEN. Chaque construction
+    # laissait derrière elle son image et ses couches de cache ; en quelques mois le disque a
+    # atteint 100 %, et à partir de là nginx s'est mis à tronquer toute réponse dépassant ~750 Ko
+    # sans jamais émettre d'erreur : le desk arrivait en HTML nu. La panne a coûté des heures parce
+    # qu'aucun de ses symptômes ne parlait de disque.
+    #
+    # ⚠️ POURQUOI `-a`, ALORS QUE deploy.sh se contentait de `prune -f`. Sans `-a`, seules les
+    # images SANS NOM sont retirées. Or celles qui se sont accumulées ici étaient NOMMÉES et
+    # inutilisées — `node:20`, `datatradingpro-datatradingpro:latest`, restes de configurations
+    # précédentes. La commande tournait, ne signalait aucune erreur, et ne libérait rien.
+    #
+    # ⚠️ POURQUOI `until=168h` ET PAS UNE PURGE TOTALE. Garder une semaine d'images permet de
+    # revenir à la version précédente par un simple redémarrage de conteneur. Tout purger
+    # obligerait à reconstruire depuis Git (~10 min) le jour où il faut revenir en arrière vite —
+    # c'est-à-dire le pire jour pour attendre dix minutes. Une semaine borne la croissance sans
+    # sacrifier le retour arrière.
+    #
+    # L'image EN SERVICE n'est jamais concernée : un conteneur tourne dessus, Docker la protège.
+    # Les montages liés data/* et les volumes ne sont pas touchés (aucun `--volumes` ici).
+    # `|| true` : un ménage qui échoue ne doit JAMAIS faire échouer un déploiement réussi.
+    docker image prune -a -f --filter until=168h >/dev/null 2>&1 || true
+    docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
+    echo "[autodeploiement] ménage : images et cache de plus de 7 jours retirés — $(df -P / | tail -1 | awk '{print $(NF-1)}') utilisé"
+
     exit 0
   fi
   sleep 3

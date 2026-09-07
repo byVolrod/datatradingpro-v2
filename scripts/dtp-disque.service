@@ -1,0 +1,30 @@
+# Sentinelle disque : mesure le remplissage, projette la date de saturation, alerte par paliers et
+# nettoie d'elle-même à 95 %. La raison d'être complète est en tête de scripts/vps/dtp-disque.sh.
+#
+# ExecStart pointe LA COPIE DU DÉPÔT, comme le tireur d'auto-déploiement et la sauvegarde : le
+# script se met donc à jour tout seul à chaque déploiement, sans qu'on ait à recopier quoi que ce
+# soit dans /usr/local/bin. Une copie manuelle finit toujours par diverger de l'original.
+#
+# ⚠️ AUCUN EnvironmentFile ICI, CONTRAIREMENT À LA SAUVEGARDE, et c'est voulu : la sentinelle
+# n'a besoin d'aucune clé. Elle envoie ses e-mails en passant par le mailer DÉJÀ CHARGÉ dans le
+# conteneur (docker exec), qui détient ses propres variables. Une clé de moins à lire, à échapper
+# et à désynchroniser.
+#
+# After=docker.service : sans Docker, ni le diagnostic (`docker system df`) ni l'envoi d'e-mail ne
+# fonctionnent. Le script survit à leur absence — il journalise et continue — mais le démarrer
+# après Docker évite une première alerte muette à chaque redémarrage du serveur.
+[Unit]
+Description=DTP sentinelle disque : alerte par paliers et nettoyage preventif avant saturation
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/datatradingpro
+ExecStart=/opt/datatradingpro/scripts/vps/dtp-disque.sh
+# Un passage normal prend une seconde. Au niveau 4 il purge des images : quelques minutes suffisent
+# largement. Au-delà, quelque chose est bloqué et il vaut mieux abandonner que retenir le minuteur.
+TimeoutStartSec=900
+# Une sentinelle ne doit jamais ralentir le desk : elle passe après tout le monde.
+Nice=15
+IOSchedulingClass=idle
