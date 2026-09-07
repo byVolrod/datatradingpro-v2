@@ -1,0 +1,26 @@
+# PREMIER DIMANCHE DU MOIS, 05h30. Le créneau est raisonné, pas choisi au hasard :
+#   · le desk suit le FOREX, qui ferme le vendredi soir et rouvre le dimanche vers 22 h UTC.
+#     Dimanche 05h30, il n'y a pas de marché à manquer — c'est la seule vraie fenêtre morte de la
+#     semaine, et la seule où une minute d'indisponibilité ne coûte rien à personne.
+#   · c'est APRÈS la sauvegarde de 04h10, qui a donc eu le temps de finir son archive.
+#   · c'est avant que quiconque n'ouvre son desk.
+# `Sun *-*-01..07` = le dimanche qui tombe dans les sept premiers jours, donc exactement un par mois.
+#
+# ⚠️ Persistent=true A TOUT SON SENS ICI, contrairement au minuteur de la sentinelle disque : celui-ci
+# est un minuteur À CALENDRIER, et c'est la seule famille que cette option rattrape. Un serveur
+# éteint le premier dimanche du mois ferait sinon sauter le ménage — sans bruit, et pour un mois.
+#
+# RandomizedDelaySec=900 : un quart d'heure de flou. Rien d'autre ne tourne à cette heure-là, mais
+# une heure pile est une heure que d'autres outils choisissent aussi, chez l'hébergeur comme ailleurs.
+[Unit]
+Description=DTP redemarrage mensuel : le premier dimanche, marche ferme
+
+[Timer]
+OnCalendar=Sun *-*-01..07 05:30:00
+Persistent=true
+RandomizedDelaySec=900
+AccuracySec=1min
+Unit=dtp-redemarrage.service
+
+[Install]
+WantedBy=timers.target

@@ -72,19 +72,24 @@ fi
 # la sauvegarde quotidienne échouait en silence depuis plusieurs jours — c'est-à-dire que le filet
 # posé par CET installateur était déjà tombé, sans que rien ne le signale.
 # La sentinelle surveille désormais ce que ces deux tâches supposaient acquis : de la place.
-for u in dtp-sauvegarde dtp-keepalive dtp-disque; do
+for u in dtp-sauvegarde dtp-keepalive dtp-disque dtp-redemarrage dtp-redemarrage-controle; do
   cp "scripts/$u.service" "/etc/systemd/system/$u.service"
   cp "scripts/$u.timer"   "/etc/systemd/system/$u.timer"
 done
-chmod +x scripts/vps/dtp-disque.sh 2>/dev/null || true
+chmod +x scripts/vps/dtp-disque.sh scripts/vps/dtp-redemarrage.sh 2>/dev/null || true
 systemctl daemon-reload
-systemctl enable --now dtp-sauvegarde.timer dtp-keepalive.timer dtp-disque.timer
+systemctl enable --now dtp-sauvegarde.timer dtp-keepalive.timer dtp-disque.timer \
+  dtp-redemarrage.timer dtp-redemarrage-controle.timer
 
 echo
 echo "✓ Sauvegarde quotidienne  : 04h10, archive chiffrée, 3 versions conservées."
 echo "✓ Keep-alive Supabase     : toutes les 6 h, sur les 4 bases, avec reprise auto des projets en pause."
 echo "✓ Sentinelle disque       : toutes les 15 min — alerte à 80/90 %, nettoie seule à 95 %,"
 echo "                            et prévient DÈS QUE le rythme de remplissage mène au mur sous 7 jours."
+echo "✓ Redémarrage mensuel     : 1er dimanche 05h30 (marché fermé, après la sauvegarde)."
+echo "                            Il S'ABSTIENT si un déploiement ou une sauvegarde tourne, si la"
+echo "                            machine a moins de 7 jours, ou si le desk est DÉJÀ en panne."
+echo "                            Un second message confirme le retour du desk — ou son absence."
 echo
 echo "  Premier passage du keep-alive et de la sentinelle tout de suite (la sauvegarde attendra son créneau) :"
 systemctl start dtp-keepalive.service || true

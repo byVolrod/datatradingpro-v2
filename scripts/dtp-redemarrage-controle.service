@@ -1,0 +1,27 @@
+# CONTRÔLE DU RETOUR APRÈS REDÉMARRAGE — la moitié qui rend le redémarrage mensuel acceptable.
+#
+# Programmer un redémarrage sans vérifier le retour, c'est programmer une panne un dimanche matin,
+# découverte le lundi par un client. Ce service attend que /healthz réponde et écrit pour dire
+# comment ça s'est passé — succès ou échec, jamais silence.
+#
+# ⚠️ IL NE PARLE QUE SI C'EST NOUS QUI AVONS REDÉMARRÉ. Le script exige une marque posée juste avant
+# la coupure. Sans elle, un redémarrage de l'hébergeur ou un `reboot` tapé à la main enverrait un
+# « redémarrage mensuel réussi » — un message faux, et un message faux use la confiance qu'on
+# accorde à tous les autres.
+#
+# ⚠️ CE QU'IL NE PEUT PAS COUVRIR : si la machine ne redémarre JAMAIS, ce service ne tourne pas et
+# personne n'est prévenu — le messager est à bord. Ce trou-là ne se bouche que depuis l'extérieur,
+# par une sonde sur /healthz. Écrit ici pour qu'on ne croie pas la surveillance complète.
+[Unit]
+Description=DTP controle du retour apres un redemarrage mensuel
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/datatradingpro
+ExecStart=/opt/datatradingpro/scripts/vps/dtp-redemarrage.sh --verifier
+# Il attend le desk jusqu'à 5 min, puis rend compte. La marge couvre la construction éventuelle
+# d'une image au démarrage.
+TimeoutStartSec=900
+Nice=5

@@ -1,0 +1,22 @@
+# Trois minutes après chaque démarrage. Le délai laisse à Docker le temps de relancer le conteneur
+# (`restart: unless-stopped`) avant qu'on ne conclue à une absence ; le script, lui, patiente encore
+# cinq minutes de son côté.
+#
+# ⚠️ PAS DE Persistent=true, ET CE N'EST PAS UN OUBLI : l'option ne rattrape que les minuteurs à
+# OnCalendar. Sur un minuteur au démarrage elle ne ferait rien, et la copier depuis
+# dtp-redemarrage.timer donnerait l'illusion d'un rattrapage qui n'existe pas. Ici le déclencheur
+# EST le démarrage : il n'y a rien à rattraper.
+#
+# Il tourne à CHAQUE démarrage, pas seulement après les nôtres — et sort en silence quand la marque
+# est absente. C'est voulu : un minuteur conditionnel au dernier redémarrage serait un état de plus
+# à tenir juste, pour économiser une seconde de processeur par mois.
+[Unit]
+Description=DTP controle du retour : un passage a chaque demarrage
+
+[Timer]
+OnBootSec=3min
+AccuracySec=10s
+Unit=dtp-redemarrage-controle.service
+
+[Install]
+WantedBy=timers.target
