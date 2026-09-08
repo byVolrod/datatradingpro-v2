@@ -7278,19 +7278,47 @@ function _aiAlertNote(level, code, msg) {
    temporaires et TRONQUAIT toute réponse de plus de ~750 Ko, sans la moindre erreur HTTP : le desk
    arrivait en HTML nu. Docker ne pouvait plus construire, donc le correctif ne pouvait pas partir.
    La sauvegarde échouait en silence. Trois pannes, une cause, et zéro signal. ═══════════════════ */
-const _DISQUE_SEUILS = { surveillance: 70, alerte: 80, critique: 90, action: 95 };
-const _DISQUE_PREVISION_J = 7;          // sous ce délai avant saturation, on alerte même à bas niveau
+/* ═══ SURVEILLANCE DU DISQUE CÔTÉ APPLICATION — ÉTAT, FREIN, OBSERVABILITÉ (07/09, étendu 08/09) ═══
+   Rôle DISTINCT de la sentinelle systemd (scripts/vps/dtp-disque.sh), et complémentaire :
+     · la SENTINELLE est le nettoyeur et l'émetteur d'e-mail : elle survit à la mort du desk, elle
+       seule agit sur le disque, elle seule écrit (elle a le résultat du nettoyage à rapporter) ;
+     · l'APPLICATION, ici, réagit plus vite (toutes les 5 min contre 15), pilote le FREIN de
+       génération, alimente la notification du desk et le journal du panneau admin — mais N'ENVOIE
+       PAS d'e-mail, pour ne pas doubler celui de la sentinelle. Un seul émetteur = zéro spam.
+   Les deux partagent EXACTEMENT les mêmes seuils : un banc l'exige, sinon le panneau et l'e-mail
+   se contrediraient un jour de panne.
+
+   ⚠️ HISTORIQUE SUR LE VOLUME (_CACHE_DIR) : en mémoire, il repartirait vide à chaque déploiement,
+   et la projection n'aurait jamais assez de recul pour prévenir tôt. */
+const _n = (v, d) => { const x = parseFloat(process.env[v]); return Number.isFinite(x) ? x : d; };
+const _DISQUE_SEUILS = {                       // les cinq paliers (%), surchargeables par l'env
+  surveillance: _n('DTP_SEUIL_SURVEILLANCE', 70), alerte: _n('DTP_SEUIL_ALERTE', 80),
+  critique: _n('DTP_SEUIL_CRITIQUE', 90), urgence: _n('DTP_SEUIL_URGENCE', 95),
+  dernier: _n('DTP_SEUIL_DERNIER', 98),
+};
+const _DISQUE_GO = {                            // planchers en Go absolus (le second critère)
+  alerte: _n('DTP_GO_ALERTE', 2.0), critique: _n('DTP_GO_CRITIQUE', 1.0), urgence: _n('DTP_GO_URGENCE', 0.5),
+};
+const _DISQUE_NOMS = ['normal', 'surveillance', 'ALERTE', 'CRITIQUE', 'URGENCE', 'DERNIER RECOURS'];
+const _DISQUE_PREVISION_J = _n('DTP_PREVISION_JOURS', 7);
 const _DISQUE_HIST_F = path.join(_CACHE_DIR, 'disque_historique.json');
-/* ⚠️ L'HISTORIQUE VIT DANS `_CACHE_DIR`, DONC SUR LE VOLUME, ET C'EST TOUT L'ENJEU. Gardé en
-   mémoire, il repartirait vide à chaque déploiement — or la projection a besoin de plusieurs jours
-   de recul. Un desk redéployé deux fois par semaine n'aurait JAMAIS trois points, donc ne
-   prédirait jamais rien : la surveillance aurait l'air de tourner sans jamais pouvoir alerter tôt. */
+const _DISQUE_CLEAN_F = path.join(_CACHE_DIR, 'disque_nettoyages.log');   // écrit par la sentinelle (volume partagé)
 const _DISQUE_DEST = String(process.env.DISK_ALERT_EMAILS
   || ['muhammedatay@outlook.fr', process.env.ADMIN_EMAIL].filter(Boolean).join(', ')).trim();
 let _disqueHist = [];
 try { _disqueHist = JSON.parse(fs.readFileSync(_DISQUE_HIST_F, 'utf8')) || []; } catch { _disqueHist = []; }
-let _disqueEtat = { pct: null, libreGo: null, totalGo: null, niveau: 0, nom: 'inconnu', jours: null, t: 0 };
-let _disqueNiveauVu = 0, _disqueDernierMail = 0;
+let _disqueEtat = { pct: null, libreGo: null, totalGo: null, niveau: 0, nom: 'inconnu', jours: null, heures: null, motif: '', frein: false, t: 0 };
+let _disqueNiveauVu = 0;
+
+/* ⚠️ LE FREIN — CE QUI EMPÊCHE LE DISQUE DE GROSSIR PENDANT QU'ON ESSAIE DE LE VIDER (point 3/5 du
+   cahier des charges). À partir de l'URGENCE (95 %+), les écritures NON ESSENTIELLES sur disque
+   sont sautées. « Non essentiel » = ce qui se régénère sans conséquence : le cache PDF (le PDF est
+   quand même SERVI au client, on ne fait que ne pas le persister), les backfills d'historique.
+   ⚠️ LA LECTURE TEMPS RÉEL DU MARCHÉ N'EST JAMAIS TOUCHÉE : prix, calendrier, fil, biais passent
+   toujours — couper ça pour économiser du disque trahirait la fonction même du desk.
+   Il ÉCHOUE OUVERT : niveau inconnu (mesure impossible) → on laisse écrire. La priorité reste la
+   stabilité du desk ; le vrai rempart contre la saturation est la sentinelle, pas ce frein. */
+function _disqueFreinActif() { return _disqueEtat.niveau >= 4; }
 
 function _disqueLire() {
   return new Promise((ok) => {
@@ -7298,10 +7326,9 @@ function _disqueLire() {
       execFile('df', ['-P', '/'], { timeout: 5000 }, (e, out) => {
         if (e || !out) return ok(null);
         const l = String(out).trim().split('\n').pop().trim().split(/\s+/);
-        /* ⚠️ COLONNES COMPTÉES DEPUIS LA FIN. Un nom de périphérique contenant un espace décale tout
-           découpage fait depuis le début : mesuré au banc, le pourcentage sortait à « 134271896% »
-           et le disque à « 0.0 Go ». Même règle que dans scripts/vps/dtp-disque.sh — les deux
-           mesures doivent rester d'accord, sinon le panneau et l'e-mail se contrediront un jour. */
+        /* ⚠️ COLONNES DEPUIS LA FIN — un nom de périphérique avec un espace décalerait un découpage
+           fait depuis le début (mesuré : « 134271896% »). Même règle que la sentinelle : les deux
+           mesures DOIVENT rester d'accord. */
         const pct = parseInt(String(l[l.length - 2] || '').replace('%', ''), 10);
         const libreKo = parseInt(l[l.length - 3], 10), totalKo = parseInt(l[l.length - 5], 10);
         if (!Number.isFinite(pct) || pct < 0 || pct > 100) return ok(null);
@@ -7311,62 +7338,60 @@ function _disqueLire() {
   });
 }
 
-/* Régression des moindres carrés sur 7 jours → jours restants avant 100 %.
-   Renvoie null sous 3 points ou si le disque ne monte pas : REFUSER DE PRÉDIRE vaut mieux que
-   prédire n'importe quoi sur deux mesures. Une fausse échéance ferait perdre confiance dans
-   l'alerte, et c'est la confiance qui fait qu'on la lit le jour où elle compte. */
-function _disqueProjection(pct) {
-  const now = Date.now(), lim = now - 7 * 864e5;
+// Régression sur une fenêtre → heures/jours avant 100 %. null sous le minimum de points ou si ça ne
+// monte pas : refuser de prédire vaut mieux qu'une fausse échéance, qui use la confiance dans l'alerte.
+function _disquePente(fenetreMs, minPts, unite) {
+  const now = Date.now(), lim = now - fenetreMs;
   const pts = _disqueHist.filter(p => p && p.t >= lim);
-  if (pts.length < 3) return null;
+  if (pts.length < minPts) return null;
   let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
-  for (const p of pts) { const x = (p.t - now) / 864e5; n++; sx += x; sy += p.pct; sxx += x * x; sxy += x * p.pct; }
+  for (const p of pts) { const x = (p.t - now) / unite; n++; sx += x; sy += p.pct; sxx += x * x; sxy += x * p.pct; }
   const d = n * sxx - sx * sx; if (!d) return null;
   const pente = (n * sxy - sx * sy) / d;
-  if (pente <= 0.05) return null;
-  return +((100 - pct) / pente).toFixed(1);
+  return pente;
+}
+function _disqueHeures(pct) { const p = _disquePente(30 * 60000, 2, 3600000); if (p === null || p <= 0.1) return null; return +((100 - pct) / p).toFixed(1); }
+function _disqueJours(pct) { const p = _disquePente(7 * 864e5, 3, 864e5); if (p === null || p <= 0.05) return null; return +((100 - pct) / p).toFixed(1); }
+
+/* DÉCISION DE NIVEAU — le MAXIMUM de trois critères, une escalade ne fait que monter. Identique en
+   esprit à _decider() du shell ; le banc vérifie que les seuils des deux coïncident. */
+function _disqueNiveau(pct, libreGo, heures, jours) {
+  const S = _DISQUE_SEUILS;
+  let niv = pct >= S.dernier ? 5 : pct >= S.urgence ? 4 : pct >= S.critique ? 3 : pct >= S.alerte ? 2 : pct >= S.surveillance ? 1 : 0;
+  let motif = '';
+  const esc = libreGo < _DISQUE_GO.urgence ? 4 : libreGo < _DISQUE_GO.critique ? 3 : libreGo < _DISQUE_GO.alerte ? 2 : 0;
+  if (esc > niv) { niv = esc; motif = 'seulement ' + libreGo + ' Go libres'; }
+  if (heures !== null) { const e2 = heures <= 0.5 ? 4 : heures <= 2 ? 3 : 0; if (e2 > niv) { niv = e2; motif = 'remplissage rapide : 100% projeté dans ' + heures + ' h'; } }
+  let nom = _DISQUE_NOMS[niv];
+  if (jours !== null && jours <= _DISQUE_PREVISION_J) { if (niv < 2) { niv = 2; nom = 'ALERTE (tendance)'; } if (!motif) motif = 'saturation projetée dans ' + jours + ' j au rythme actuel'; }
+  return { niveau: niv, nom, motif };
+}
+
+// Les derniers nettoyages écrits par la sentinelle (volume partagé) → observabilité du panneau admin.
+function _disqueNettoyages() {
+  try { return fs.readFileSync(_DISQUE_CLEAN_F, 'utf8').trim().split('\n').filter(Boolean).slice(-10).reverse(); }
+  catch { return []; }
 }
 
 async function _disqueCheck() {
   const m = await _disqueLire();
-  if (!m) return;
+  if (!m) return;   // mesure impossible → on ne touche à rien, le frein reste ouvert
   const now = Date.now();
   _disqueHist.push({ t: now, pct: m.pct });
   _disqueHist = _disqueHist.filter(p => p && p.t >= now - 30 * 864e5);
   try { fs.writeFileSync(_DISQUE_HIST_F, JSON.stringify(_disqueHist)); } catch {}
 
-  const S = _DISQUE_SEUILS;
-  let niveau = m.pct >= S.action ? 4 : m.pct >= S.critique ? 3 : m.pct >= S.alerte ? 2 : m.pct >= S.surveillance ? 1 : 0;
-  let nom = ['normal', 'surveillance', 'ALERTE', 'CRITIQUE', 'ACTION REQUISE'][niveau];
-  const jours = _disqueProjection(m.pct);
-  /* La projection peut FAIRE MONTER le niveau, jamais le faire descendre : un disque à 62 % qui
-     sature dans trois jours mérite la même alerte qu'un disque à 80 % stable depuis six mois.
-     Un seuil, seul, ne sait pas faire cette différence — c'est là toute la valeur du calcul. */
-  let motif = '';
-  if (jours !== null && jours <= _DISQUE_PREVISION_J) {
-    motif = ' — saturation projetée dans ' + jours + ' j au rythme actuel';
-    if (niveau < 2) { niveau = 2; nom = 'ALERTE (tendance)'; }
-  }
-  _disqueEtat = { pct: m.pct, libreGo: m.libreGo, totalGo: m.totalGo, niveau, nom, jours, t: now };
+  const heures = _disqueHeures(m.pct), jours = _disqueJours(m.pct);
+  const { niveau, nom, motif } = _disqueNiveau(m.pct, m.libreGo, heures, jours);
+  _disqueEtat = { pct: m.pct, libreGo: m.libreGo, totalGo: m.totalGo, niveau, nom, jours, heures, motif, frein: niveau >= 4, t: now };
 
-  const resume = m.pct + '% utilisé — ' + m.libreGo + ' Go libres sur ' + m.totalGo + ' Go' + motif;
-  if (niveau >= 2 && niveau > _disqueNiveauVu) _aiAlertNote(niveau >= 3 ? 'critical' : 'warn', 'disque', 'Disque ' + nom + ' : ' + resume);
+  const resume = m.pct + '% utilisé — ' + m.libreGo + ' Go libres sur ' + m.totalGo + ' Go' + (motif ? ' — ' + motif : '');
+  /* Journal du panneau admin (PAS d'e-mail ici : la sentinelle en envoie un, avec le résultat du
+     nettoyage — deux e-mails pour le même seuil, c'est le spam qu'on veut éviter). À la MONTÉE
+     seulement, et une info au retour à la normale. */
+  if (niveau >= 2 && niveau > _disqueNiveauVu) _aiAlertNote(niveau >= 3 ? 'critical' : 'warn', 'disque', 'Disque ' + nom + ' : ' + resume + (niveau >= 4 ? ' — frein de génération ACTIF, nettoyage par la sentinelle.' : ''));
   else if (niveau === 0 && _disqueNiveauVu >= 2) _aiAlertNote('info', 'disque', 'Disque revenu à la normale : ' + resume);
-
-  /* Anti-répétition : à la MONTÉE, puis au plus un rappel par jour tant qu'on reste haut. Une
-     alerte qui arrive toutes les cinq minutes finit dans une règle de tri — et c'est justement le
-     jour où elle comptait qu'on ne la lira pas. */
-  const doitEcrire = (niveau >= 2 && niveau > _disqueNiveauVu) || (niveau >= 2 && now - _disqueDernierMail >= 864e5);
   _disqueNiveauVu = niveau;
-  if (doitEcrire && _DISQUE_DEST) {
-    _disqueDernierMail = now;
-    const html = '<p><b>' + resume + '</b></p>'
-      + (jours !== null ? '<p>Au rythme des 7 derniers jours, saturation dans <b>' + jours + ' jour(s)</b>.</p>' : '')
-      + (niveau >= 3 ? '<p>Le nettoyage automatique se déclenche à 95% (images sans conteneur, cache de construction, journaux). Aucune donnée, aucun volume n\'est touché.</p>' : '')
-      + '<p style="color:#6b7280;font-size:12px;">Rappel de l\'incident du 07/09 : un disque plein fait tronquer par nginx toute réponse de plus de ~750 Ko, sans erreur HTTP — le desk arrive alors sans style ni script.</p>';
-    try { await mailer.sendAdminAlert({ subject: 'Disque ' + nom + ' — ' + m.pct + '%', html, to: _DISQUE_DEST }); }
-    catch (e) { console.warn('[disque] e-mail non envoyé:', e.message); }
-  }
 }
 
 // Toutes les 5 min, et un premier passage 30 s après le démarrage (le temps que le conteneur se pose).
@@ -7378,7 +7403,7 @@ setInterval(() => { _disqueCheck().catch(() => {}); }, 5 * 60 * 1000);
    confiance pour une information qui ne le concerne pas et sur laquelle il ne peut rien. */
 app.get('/api/admin/disque', requireAdmin, (_req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json({ ..._disqueEtat, seuils: _DISQUE_SEUILS, previsionJours: _DISQUE_PREVISION_J });
+  res.json({ ..._disqueEtat, seuils: _DISQUE_SEUILS, planchersGo: _DISQUE_GO, previsionJours: _DISQUE_PREVISION_J, nettoyages: _disqueNettoyages() });
 });
 // Filet de secours OK ? → l'utilisateur n'est IMPACTÉ que si le repli 0-token/cache est lui-même KO.
 // Conditions réelles « on ne peut plus rien servir » : feed news cassé OU cache durable (KV) injoignable.
@@ -9713,7 +9738,7 @@ async function _thinInsightsText(url, pdfUrl, printUrl) {
       try { if (fs.existsSync(_cf)) _buf = fs.readFileSync(_cf); } catch {}
       if (!_buf) {
         try { _buf = await _renderPdf(_target); } catch {}
-        if (_buf && _buf.length >= 1200 && _buf.slice(0, 5).toString('latin1') === '%PDF-') { try { fs.writeFileSync(_cf, _buf); } catch {} }
+        if (_buf && _buf.length >= 1200 && _buf.slice(0, 5).toString('latin1') === '%PDF-') { if (!_disqueFreinActif()) { try { fs.writeFileSync(_cf, _buf); } catch {} } }   // frein disque ≥95 % : le PDF reste SERVI (_buf), on saute seulement sa persistance en cache
         else _buf = null;
       }
       if (_buf) {
@@ -10079,7 +10104,7 @@ app.get('/api/pdf-proxy', async (req, res) => {
   const looksPdf = /pdf/i.test(ct) || (buf && buf.slice(0, 5).toString('latin1') === '%PDF-');
   if (!looksPdf) return res.status(415).end(isHead ? undefined : 'not a pdf');
   // 2) GET complet → on STOCKE le PDF sur disque (pas la sonde HEAD partielle) pour les prochaines ouvertures.
-  if (!isHead && buf && buf.length > 1200 && buf.slice(0, 5).toString('latin1') === '%PDF-') { try { fs.writeFileSync(_cf, buf); } catch {} }
+  if (!isHead && buf && buf.length > 1200 && buf.slice(0, 5).toString('latin1') === '%PDF-' && !_disqueFreinActif()) { try { fs.writeFileSync(_cf, buf); } catch {} }   // frein disque ≥95 % : le PDF est servi juste après, on saute seulement sa mise en cache
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'inline');
   res.setHeader('Cache-Control', 'public, max-age=86400');
