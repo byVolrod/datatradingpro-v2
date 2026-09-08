@@ -142,5 +142,65 @@ if (!bash) {
   v('99 % déclenche BIEN le DERNIER RECOURS (ballast + nettoyage)', sim(['99', '0.2']) === 5, 'obtenu ' + sim(['99', '0.2']));
 }
 
+console.log('\n── La couche intelligente (apprentissage, prédiction, anomalie) ──');
+const BLOC_INT = (() => { const i = SRV.indexOf('COUCHE INTELLIGENTE'); const j = SRV.indexOf('// Toutes les 5 min'); return i >= 0 && j > i ? SRV.slice(i, j) : ''; })();
+v('baseline apprise (vitesse habituelle)', /_disqueBaselineGoJ/.test(BLOC_INT));
+v('vitesse actuelle en Go/h', /_disqueVitesseGoH/.test(BLOC_INT));
+v('détection d’anomalie (actuel ≫ habituel)', /_disqueAnomalie/.test(BLOC_INT));
+v('prédiction : heures et jours avant saturation', /_disqueHeures/.test(SRV) && /_disqueJours/.test(SRV));
+v('identification de la source (shell, à partir du critique)', /du -xh[^\n]*sort -rh/.test(SH) && /nouvelle source dominante/.test(SH));
+v('historique d’incidents journalisé (borné)', /_disqueAppendBorne\(_DISQUE_INC_F/.test(BLOC_INT) && /, 500\)/.test(BLOC_INT));
+v('heartbeat mutuel : l’app écrit le sien', /_DISQUE_HB_APP_F/.test(BLOC_INT) && /writeFileSync\(_DISQUE_HB_APP_F/.test(BLOC_INT));
+v('… et lit celui de la sentinelle (watchdog muet détectable)', /_disqueSentinelleAgeMin/.test(BLOC_INT) && /> 45/.test(BLOC_INT));
+v('la sentinelle écrit son battement et lit celui de l’app (monitoring mort détectable)', /HB_SENT/.test(SH) && /MONITORING_HS/.test(SH));
+v('la route admin expose toute la télémétrie', /vitesseGoH/.test(SRV) && /baselineGoJ/.test(SRV) && /incidents:/.test(SRV) && /seuilsEffectifs/.test(SRV));
+
+console.log('\n── ⚠️ L’APPRENTISSAGE NE PEUT JAMAIS BAISSER LA SÉCURITÉ ──');
+v('le cran de prudence est MONOTONE (jamais décrémenté)',
+  /_prud = Math\.min\(15, _prud \+ 1\)/.test(BLOC_INT) && !/_prud\s*=\s*[^;]*-\s*1/.test(BLOC_INT) && !/_prud--/.test(BLOC_INT),
+  'un apprentissage qui pourrait redescendre la prudence pourrait affaiblir la protection.');
+v('… et il n’abaisse QUE surveillance/alerte, jamais les seuils d’ACTION',
+  /surveillance: Math\.max\(50, _DISQUE_SEUILS\.surveillance - _prud\)/.test(BLOC_INT)
+  && /alerte: Math\.max\(60, _DISQUE_SEUILS\.alerte - _prud\)/.test(BLOC_INT)
+  && !/critique:[^\n]*- _prud/.test(BLOC_INT) && !/urgence:[^\n]*- _prud/.test(BLOC_INT) && !/dernier:[^\n]*- _prud/.test(BLOC_INT),
+  'apprendre doit faire REGARDER plus tôt, jamais AGIR destructivement plus bas.');
+v('une anomalie ne fait que MONTER la surveillance', /anomalie && niveau < 2/.test(BLOC_INT) && !/anomalie[^\n]*niveau\s*=\s*0/.test(BLOC_INT));
+
+// Preuve exécutée : le cliquet, poussé au maximum, ne touche JAMAIS critique/urgence/dernier.
+try {
+  const grab = (re) => { const m = re.exec(SRV); if (!m) throw new Error('x'); return m[0]; };
+  const code = ["const process={env:{}};",
+    grab(/const _n = \(v, d\) => \{[^]*?\};/),
+    grab(/const _DISQUE_SEUILS = \{[^]*?\};/),
+    "let _prud=0;",
+    grab(/function _disqueSeuilsEff\(\) \{[^]*?\n\}/),
+    "module.exports={set:v=>_prud=v,_disqueSeuilsEff,_DISQUE_SEUILS};"].join("\n");
+  const mm = new module.constructor(); mm._compile(code, 'r.js');
+  const base = mm.exports._DISQUE_SEUILS;
+  mm.exports.set(15);   // prudence MAX
+  const eff = mm.exports._disqueSeuilsEff();
+  v('[exécuté] prudence=15 : critique/urgence/dernier INCHANGÉS',
+    eff.critique === base.critique && eff.urgence === base.urgence && eff.dernier === base.dernier,
+    JSON.stringify(eff));
+  v('[exécuté] prudence=15 : surveillance/alerte abaissés mais planchonnés (≥50/60)',
+    eff.surveillance === Math.max(50, base.surveillance - 15) && eff.alerte === Math.max(60, base.alerte - 15),
+    JSON.stringify(eff));
+} catch (e) { v('[exécuté] cliquet de prudence', false, 'extraction impossible: ' + e.message); }
+
+// Scénario runtime : monitoring figé → la sentinelle le détecte et alerte (via le battement partagé).
+if (bash) {
+  try {
+    const os = require('os');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dtpmon-'));
+    fs.writeFileSync(path.join(dir, 'disque_hb_app'), String(Date.now() - 30 * 60000)); // 30 min (déjà en ms) → figé
+    const out = cp.execFileSync('bash', ['-lc',
+      'STUB=$(mktemp -d); printf \'#!/bin/sh\\necho "Filesystem 1024-blocks Used Available Capacity Mounted on"; echo "s 24000000 12000000 12000000 50%% /"\\n\' > "$STUB/df"; printf \'#!/bin/sh\\nexit 0\\n\' > "$STUB/curl"; printf \'#!/bin/sh\\nexit 0\\n\' > "$STUB/logger"; printf \'#!/bin/sh\\ncase "$1" in ps) exit 0;; *) echo x;; esac\\n\' > "$STUB/docker"; chmod +x "$STUB"/*; ST=$(mktemp -d); PATH="$STUB:$PATH" DTP_CLEAN_SHARED_DIR="' + dir.replace(/\\/g, '/') + '" DTP_DISQUE_ETAT="$ST" DTP_BALLAST="$ST/b" DTP_BALLAST_MO=1 bash scripts/vps/dtp-disque.sh 2>&1 | grep -o "monitoring fige" | head -1'],
+      { cwd: RACINE, encoding: 'utf8', timeout: 20000 });
+    v('[exécuté] monitoring figé (battement >15 min) → la sentinelle alerte, disque à 50 %',
+      /monitoring fige/.test(out), 'sortie: ' + out.trim());
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+  } catch (e) { v('[exécuté] détection monitoring figé', false, 'test impossible: ' + e.message); }
+}
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec' : '✓ ' + ok + ' contrôles au vert') + '\n');
 process.exit(ko ? 1 : 0);

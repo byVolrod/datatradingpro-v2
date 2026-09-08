@@ -68,6 +68,16 @@ DERNIER_MENAGE="$ETAT_DIR/dernier-menage"
 CLEAN_LOG="$ETAT_DIR/nettoyages.log"
 BALLAST="${DTP_BALLAST:-$ETAT_DIR/ballast.tampon}"
 VERROU_DEPLOIEMENT="/run/dtp-autodeploiement.lock"
+# ── HEARTBEAT MUTUEL (volume partagé avec le conteneur) ──────────────────────────────────────────
+# La sentinelle et le moniteur applicatif se surveillent L'UN L'AUTRE. Chacun écrit son battement
+# ici ; chacun lit celui de l'autre. Ainsi la mort de l'un est DÉTECTABLE par l'autre :
+#   · l'app détecte une sentinelle muette (watchdog OS arrêté) ;
+#   · la sentinelle détecte un monitoring mort (desk figé sans être tombé).
+# Le seul angle mort restant — les DEUX morts en même temps — ne se couvre que de l'extérieur.
+PARTAGE_DIR="${DTP_CLEAN_SHARED_DIR:-/opt/datatradingpro/data/app}"
+HB_SENT="$PARTAGE_DIR/disque_hb_sentinelle"   # battement de CETTE sentinelle (lu par l'app)
+HB_APP="$PARTAGE_DIR/disque_hb_app"           # battement de l'app (lu ici)
+SRC_SNAP="$ETAT_DIR/source-snapshot"          # plus gros poste au passage précédent (détection « nouvelle source »)
 
 # ── LES CINQ PALIERS (%), surchargables ────────────────────────────────────────────────────────
 SEUIL_SURVEILLANCE="${DTP_SEUIL_SURVEILLANCE:-70}"
@@ -248,6 +258,8 @@ if ! _mesurer; then echo "[disque] mesure illisible" >&2; exit 1; fi
 NOW=$(date +%s)
 echo "$NOW $PCT" >> "$HISTORIQUE" 2>/dev/null
 awk -v l=$((NOW - 30*86400)) '$1 >= l' "$HISTORIQUE" > "$HISTORIQUE.tmp" 2>/dev/null && mv "$HISTORIQUE.tmp" "$HISTORIQUE" 2>/dev/null
+# Battement de la sentinelle (en ms, pour coïncider avec Date.now() de l'app), sur le volume partagé.
+[ -d "$PARTAGE_DIR" ] && date +%s%3N > "$HB_SENT" 2>/dev/null
 
 H_COURT=$(_projection_courte_h "$PCT")
 J_LONG=$(_projection_jours "$PCT")
@@ -259,6 +271,32 @@ echo "$NIVEAU" > "$ETAT" 2>/dev/null
 # Le desk est-il tombé ? watchdog : desk HS + disque déjà tendu = on agit sans attendre le seuil.
 DESK_HS=""
 if ! _desk_ok; then DESK_HS="oui"; if [ "$NIVEAU" -lt 3 ] && [ "$PCT" -ge "$SEUIL_CRITIQUE" ]; then NIVEAU=3; NOM="CRITIQUE (desk injoignable)"; fi; fi
+
+# ── MONITORING MORT ? La sentinelle lit le battement de l'app. Silencieux >15 min alors que le desk
+# répond = le moniteur applicatif est figé sans que le conteneur soit tombé. La sentinelle prend alors
+# le relais (elle reste, elle, le gardien de dernier ressort) et le signale.
+MONITORING_HS=""
+if [ -f "$HB_APP" ]; then
+  HB=$(cat "$HB_APP" 2>/dev/null); HB=${HB%[0-9][0-9][0-9]}   # ms -> s (on retire les 3 derniers chiffres)
+  case "$HB" in ''|*[!0-9]*) HB=0;; esac
+  [ "$HB" -gt 0 ] && [ $((NOW - HB)) -gt 900 ] && MONITORING_HS="oui"
+fi
+# Un moniteur figé est un incident en soi : on l'élève au niveau ALERTE pour qu'il emprunte
+# l'anti-spam existant (à la montée + 1×/jour), au lieu de rester silencieux OU de spammer.
+if [ -n "$MONITORING_HS" ] && [ "$NIVEAU" -lt 2 ]; then NIVEAU=2; NOM="ALERTE (monitoring fige)"; fi
+
+# ── SOURCE DE CONSOMMATION (à partir du critique) : quel poste pèse le plus, et est-il NOUVEAU ?
+SOURCE_TXT=""
+if [ "$NIVEAU" -ge 3 ]; then
+  TOP=$(du -xh --max-depth=2 / 2>/dev/null | sort -rh | head -1)
+  TOP_DIR=$(echo "$TOP" | awk '{print $2}')
+  if [ -n "$TOP_DIR" ]; then
+    AVANT_DIR=$(cat "$SRC_SNAP" 2>/dev/null)
+    if [ -n "$AVANT_DIR" ] && [ "$AVANT_DIR" != "$TOP_DIR" ]; then SOURCE_TXT="nouvelle source dominante : $TOP (avant : $AVANT_DIR)"
+    else SOURCE_TXT="poste le plus lourd : $TOP"; fi
+    echo "$TOP_DIR" > "$SRC_SNAP" 2>/dev/null
+  fi
+fi
 
 RESUME="$PCT% utilise — ${LIBRE_GO} Go libres sur ${TOTAL_GO} Go${MOTIF:+ — $MOTIF}"
 
@@ -310,6 +348,8 @@ elif [ "$DOIT" = "1" ]; then
   [ -n "$H_COURT" ] && CORPS="$CORPS<p>Vitesse actuelle : 100% projete dans <b>${H_COURT} h</b>.</p>"
   [ -n "$J_LONG" ] && CORPS="$CORPS<p>Tendance 7 jours : saturation dans <b>${J_LONG} j</b>.</p>"
   [ -n "$DESK_HS" ] && CORPS="$CORPS<p style='color:#b91c1c'><b>Le desk ne repond pas (/healthz).</b></p>"
+  [ -n "$MONITORING_HS" ] && CORPS="$CORPS<p style='color:#b91c1c'><b>Moniteur applicatif fige (battement >15 min) — la sentinelle assure seule la surveillance.</b></p>"
+  [ -n "$SOURCE_TXT" ] && CORPS="$CORPS<p>$SOURCE_TXT</p>"
   [ "$NIVEAU" -ge 3 ] && CORPS="$CORPS<p>Diagnostic :</p><pre>$(_diagnostic | _echapper)</pre>"
   if [ -n "${MENAGE:-}" ]; then
     CORPS="$CORPS<p><b>Nettoyage automatique</b>${BALLAST_LIBERE:+ (ballast de ${BALLAST_MO} Mo libere en premier)} :</p><pre>$(echo "$MENAGE" | _echapper)</pre>"

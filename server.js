@@ -7310,6 +7310,76 @@ try { _disqueHist = JSON.parse(fs.readFileSync(_DISQUE_HIST_F, 'utf8')) || []; }
 let _disqueEtat = { pct: null, libreGo: null, totalGo: null, niveau: 0, nom: 'inconnu', jours: null, heures: null, motif: '', frein: false, t: 0 };
 let _disqueNiveauVu = 0;
 
+/* ═══ COUCHE INTELLIGENTE — APPRENDRE, PRÉDIRE, DÉTECTER L'ANORMAL (08/09) ═══════════════════════
+   Elle est PUREMENT ADDITIVE et ne peut RIEN affaiblir : elle ne fait qu'alerter plus tôt et
+   escalader la surveillance. Aucune de ses fonctions ne touche au marché, aux données, ni au code.
+
+   ⚠️ RÈGLE ABSOLUE DE L'APPRENTISSAGE : il ne peut rendre le système que PLUS prudent, jamais moins.
+   Le seul état appris est un « cran de prudence » (_prud) qui ABAISSE les seuils d'alerte précoce
+   (surveillance/alerte) et n'y touche que vers le bas ; il est MONOTONE (jamais décrémenté, borné
+   0..15) et ne déplace JAMAIS les seuils d'ACTION destructive (95 nettoyage, 98 ballast) — apprendre
+   fait REGARDER plus tôt, pas AGIR plus fort. C'est ce qui garantit qu'aucun apprentissage ne peut
+   baisser la sécurité. */
+const _DISQUE_PRUD_F = path.join(_CACHE_DIR, 'disque_prudence.json');
+const _DISQUE_INC_F = path.join(_CACHE_DIR, 'disque_incidents.log');       // problème→cause→action→résultat
+const _DISQUE_HB_APP_F = path.join(_CACHE_DIR, 'disque_hb_app');           // heartbeat de l'app (lu par la sentinelle)
+const _DISQUE_HB_SENT_F = path.join(_CACHE_DIR, 'disque_hb_sentinelle');   // heartbeat de la sentinelle (lu ici)
+let _prud = 0;
+try { const p = JSON.parse(fs.readFileSync(_DISQUE_PRUD_F, 'utf8')); if (Number.isFinite(p && p.prud)) _prud = Math.max(0, Math.min(15, p.prud)); } catch {}
+function _disquePrudenceBump(pourquoi) {
+  const avant = _prud; _prud = Math.min(15, _prud + 1);   // MONOTONE : jamais de décrément, nulle part
+  if (_prud !== avant) { try { fs.writeFileSync(_DISQUE_PRUD_F, JSON.stringify({ prud: _prud, maj: Date.now(), pourquoi })); } catch {} }
+}
+/* Seuils EFFECTIFS : seuls surveillance/alerte descendent avec la prudence (plancher 50/60), pour
+   alerter plus tôt. critique/urgence/dernier restent FIXES — on ne déclenche pas un nettoyage
+   destructif « appris » plus bas. */
+function _disqueSeuilsEff() {
+  return { ..._DISQUE_SEUILS,
+    surveillance: Math.max(50, _DISQUE_SEUILS.surveillance - _prud),
+    alerte: Math.max(60, _DISQUE_SEUILS.alerte - _prud) };
+}
+// Écriture BORNÉE : ces journaux ne doivent JAMAIS pouvoir grossir le disque qu'ils protègent.
+function _disqueAppendBorne(f, ligne, maxLignes) {
+  try { let a = []; try { a = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean); } catch {}
+    a.push(ligne); if (a.length > maxLignes) a = a.slice(-maxLignes); fs.writeFileSync(f, a.join('\n') + '\n'); } catch {}
+}
+// Vitesse ACTUELLE en Go/h (sur ~30 min, via la baisse de Go libres). >0 = ça se remplit.
+function _disqueVitesseGoH() {
+  const now = Date.now(), pts = _disqueHist.filter(p => p && p.t >= now - 30 * 60000 && typeof p.libreGo === 'number');
+  if (pts.length < 2) return null;
+  const a = pts[0], b = pts[pts.length - 1]; const dh = (b.t - a.t) / 3600000; if (dh <= 0) return null;
+  return +(((a.libreGo - b.libreGo) / dh)).toFixed(2);   // Go consommés par heure
+}
+// Vitesse HABITUELLE en Go/jour : médiane des variations quotidiennes sur 14 j (robuste aux pics).
+function _disqueBaselineGoJ() {
+  const now = Date.now(), pts = _disqueHist.filter(p => p && p.t >= now - 14 * 864e5 && typeof p.libreGo === 'number');
+  if (pts.length < 4) return null;
+  const parJour = {};
+  for (const p of pts) { const j = Math.floor(p.t / 864e5); if (!parJour[j]) parJour[j] = { min: p.libreGo, max: p.libreGo }; else { parJour[j].min = Math.min(parJour[j].min, p.libreGo); parJour[j].max = Math.max(parJour[j].max, p.libreGo); } }
+  const deltas = Object.values(parJour).map(d => d.max - d.min).sort((x, y) => x - y);   // Go consommés/jour
+  if (!deltas.length) return null;
+  return +deltas[Math.floor(deltas.length / 2)].toFixed(2);   // médiane
+}
+/* ANOMALIE : la vitesse actuelle dépasse LARGEMENT l'habituelle. Seuil = max(5× l'habituel, 0,5 Go/h)
+   — un pic isolé ne suffit pas, il faut un rythme franchement au-dessus du normal. « 3 Go en 30 min »
+   = 6 Go/h → anomalie évidente ; « 200 Mo/jour » habituel (~0,008 Go/h) ne déclenche jamais. */
+function _disqueAnomalie(vGoH, baseGoJ) {
+  if (vGoH === null || vGoH <= 0) return false;
+  const seuil = Math.max(0.5, (baseGoJ || 0) / 24 * 5);
+  return vGoH > seuil;
+}
+function _disqueTendance(joursLong) {
+  if (joursLong === null) return 'stable';
+  if (joursLong <= 2) return 'forte hausse'; if (joursLong <= 14) return 'hausse'; return 'stable';
+}
+function _disqueRisque(niveau, anomalie) { return anomalie ? 'ANOMALIE' : ['faible', 'à surveiller', 'modéré', 'élevé', 'critique', 'extrême'][niveau] || 'inconnu'; }
+// Âge (min) du dernier passage de la sentinelle OS ; null si jamais vue. >45 min = watchdog muet.
+function _disqueSentinelleAgeMin() {
+  try { const t = parseInt(fs.readFileSync(_DISQUE_HB_SENT_F, 'utf8').trim(), 10); if (Number.isFinite(t)) return Math.round((Date.now() - t) / 60000); } catch {}
+  return null;
+}
+function _disqueIncidents() { try { return fs.readFileSync(_DISQUE_INC_F, 'utf8').trim().split('\n').filter(Boolean).slice(-20).reverse(); } catch { return []; } }
+
 /* ⚠️ LE FREIN — CE QUI EMPÊCHE LE DISQUE DE GROSSIR PENDANT QU'ON ESSAIE DE LE VIDER (point 3/5 du
    cahier des charges). À partir de l'URGENCE (95 %+), les écritures NON ESSENTIELLES sur disque
    sont sautées. « Non essentiel » = ce qui se régénère sans conséquence : le cache PDF (le PDF est
@@ -7355,8 +7425,8 @@ function _disqueJours(pct) { const p = _disquePente(7 * 864e5, 3, 864e5); if (p 
 
 /* DÉCISION DE NIVEAU — le MAXIMUM de trois critères, une escalade ne fait que monter. Identique en
    esprit à _decider() du shell ; le banc vérifie que les seuils des deux coïncident. */
-function _disqueNiveau(pct, libreGo, heures, jours) {
-  const S = _DISQUE_SEUILS;
+function _disqueNiveau(pct, libreGo, heures, jours, seuils) {
+  const S = seuils || _DISQUE_SEUILS;
   let niv = pct >= S.dernier ? 5 : pct >= S.urgence ? 4 : pct >= S.critique ? 3 : pct >= S.alerte ? 2 : pct >= S.surveillance ? 1 : 0;
   let motif = '';
   const esc = libreGo < _DISQUE_GO.urgence ? 4 : libreGo < _DISQUE_GO.critique ? 3 : libreGo < _DISQUE_GO.alerte ? 2 : 0;
@@ -7377,20 +7447,40 @@ async function _disqueCheck() {
   const m = await _disqueLire();
   if (!m) return;   // mesure impossible → on ne touche à rien, le frein reste ouvert
   const now = Date.now();
-  _disqueHist.push({ t: now, pct: m.pct });
+  _disqueHist.push({ t: now, pct: m.pct, libreGo: m.libreGo });   // libreGo pour la vitesse Go/h et la baseline
   _disqueHist = _disqueHist.filter(p => p && p.t >= now - 30 * 864e5);
   try { fs.writeFileSync(_DISQUE_HIST_F, JSON.stringify(_disqueHist)); } catch {}
+  try { fs.writeFileSync(_DISQUE_HB_APP_F, String(now)); } catch {}   // heartbeat : prouve que le monitoring tourne
 
   const heures = _disqueHeures(m.pct), jours = _disqueJours(m.pct);
-  const { niveau, nom, motif } = _disqueNiveau(m.pct, m.libreGo, heures, jours);
-  _disqueEtat = { pct: m.pct, libreGo: m.libreGo, totalGo: m.totalGo, niveau, nom, jours, heures, motif, frein: niveau >= 4, t: now };
+  const vGoH = _disqueVitesseGoH(), baseGoJ = _disqueBaselineGoJ();
+  const anomalie = _disqueAnomalie(vGoH, baseGoJ), tendance = _disqueTendance(jours);
+  // Seuils EFFECTIFS (la prudence apprise n'abaisse que surveillance/alerte, jamais les seuils d'action).
+  let { niveau, nom, motif } = _disqueNiveau(m.pct, m.libreGo, heures, jours, _disqueSeuilsEff());
+  // Une anomalie ne fait que MONTER la surveillance (jamais descendre) : au moins ALERTE, marquée.
+  if (anomalie && niveau < 2) { niveau = 2; nom = 'ALERTE (anomalie)'; }
+  if (anomalie && !motif) motif = 'vitesse anormale : ' + vGoH + ' Go/h (habituel ~' + (baseGoJ ?? '?') + ' Go/j)';
+
+  // APPRENTISSAGE (ratchet, monotone) : si on a atteint le critique alors que l'habitude était calme,
+  // on a été surpris → on devient DÉFINITIVEMENT plus prudent (alerte plus tôt la prochaine fois).
+  if ((niveau >= 3 && (baseGoJ === null || baseGoJ < 1)) || anomalie) _disquePrudenceBump(anomalie ? 'anomalie' : 'surprise-critique');
+
+  const sentAge = _disqueSentinelleAgeMin();
+  _disqueEtat = { pct: m.pct, libreGo: m.libreGo, totalGo: m.totalGo, niveau, nom, jours, heures,
+    vitesseGoH: vGoH, baselineGoJ: baseGoJ, anomalie, tendance, prudence: _prud,
+    risque: _disqueRisque(niveau, anomalie), sentinelleAgeMin: sentAge, motif, frein: niveau >= 4, t: now };
 
   const resume = m.pct + '% utilisé — ' + m.libreGo + ' Go libres sur ' + m.totalGo + ' Go' + (motif ? ' — ' + motif : '');
   /* Journal du panneau admin (PAS d'e-mail ici : la sentinelle en envoie un, avec le résultat du
-     nettoyage — deux e-mails pour le même seuil, c'est le spam qu'on veut éviter). À la MONTÉE
-     seulement, et une info au retour à la normale. */
-  if (niveau >= 2 && niveau > _disqueNiveauVu) _aiAlertNote(niveau >= 3 ? 'critical' : 'warn', 'disque', 'Disque ' + nom + ' : ' + resume + (niveau >= 4 ? ' — frein de génération ACTIF, nettoyage par la sentinelle.' : ''));
-  else if (niveau === 0 && _disqueNiveauVu >= 2) _aiAlertNote('info', 'disque', 'Disque revenu à la normale : ' + resume);
+     nettoyage — deux e-mails pour le même seuil = spam). À la MONTÉE, plus un retour à la normale. */
+  if (niveau >= 2 && niveau > _disqueNiveauVu) {
+    _aiAlertNote(niveau >= 3 ? 'critical' : 'warn', 'disque', 'Disque ' + nom + ' : ' + resume + (niveau >= 4 ? ' — frein de génération ACTIF, nettoyage par la sentinelle.' : ''));
+    _disqueAppendBorne(_DISQUE_INC_F, JSON.stringify({ t: now, niveau, pct: m.pct, libreGo: m.libreGo, vGoH, baseGoJ, anomalie, tendance }), 500);
+  } else if (niveau === 0 && _disqueNiveauVu >= 2) {
+    _aiAlertNote('info', 'disque', 'Disque revenu à la normale : ' + resume);
+  }
+  // Le monitoring surveille son propre gardien : sentinelle OS muette >45 min = watchdog peut-être arrêté.
+  if (sentAge !== null && sentAge > 45 && _disqueNiveauVu < 2 && niveau < 2) _aiAlertNote('warn', 'disque', 'Sentinelle disque (watchdog OS) silencieuse depuis ' + sentAge + ' min — vérifier le minuteur dtp-disque.timer sur le VPS.');
   _disqueNiveauVu = niveau;
 }
 
@@ -7403,7 +7493,7 @@ setInterval(() => { _disqueCheck().catch(() => {}); }, 5 * 60 * 1000);
    confiance pour une information qui ne le concerne pas et sur laquelle il ne peut rien. */
 app.get('/api/admin/disque', requireAdmin, (_req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json({ ..._disqueEtat, seuils: _DISQUE_SEUILS, planchersGo: _DISQUE_GO, previsionJours: _DISQUE_PREVISION_J, nettoyages: _disqueNettoyages() });
+  res.json({ ..._disqueEtat, seuils: _DISQUE_SEUILS, seuilsEffectifs: _disqueSeuilsEff(), planchersGo: _DISQUE_GO, previsionJours: _DISQUE_PREVISION_J, nettoyages: _disqueNettoyages(), incidents: _disqueIncidents() });
 });
 // Filet de secours OK ? → l'utilisateur n'est IMPACTÉ que si le repli 0-token/cache est lui-même KO.
 // Conditions réelles « on ne peut plus rien servir » : feed news cassé OU cache durable (KV) injoignable.
