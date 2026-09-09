@@ -5163,7 +5163,23 @@ const _CAL_DOVE_RX = /\bcut(?:s|ting)?\b|eas(?:e|ing)|lower(?:ing)?\s+rates?|acc
 const _CAL_HOLD_RX = /\bhold\b|pause|patient|data[\s-]dependent|wait[\s-]and[\s-]see|steady|unchanged|maintain/i;
 function _calToneOf(texts) {
   let hawk = 0, dove = 0, hold = 0;
-  texts.forEach(t => { if (_CAL_HAWK_RX.test(t)) hawk++; if (_CAL_DOVE_RX.test(t)) dove++; if (_CAL_HOLD_RX.test(t)) hold++; });
+  /* ⚠️ UN PROPOS RESTRICTIF SORTAIT « NEUTRE » (09/09, mesuré). Les trois listes étaient appliquées
+     au MÊME texte, indépendamment, et la liste restrictive contient des tournures qui NIENT un mot
+     accommodant : « premature to cut », « not done », « further tightening ». « premature to cut »
+     comptait donc UN point restrictif ET UN point accommodant — parce que « cut » y est présent —,
+     les deux s'annulaient, et la phrase la plus clairement restrictive du lexique ressortait grise.
+     On lit donc le restrictif D'ABORD, on RETIRE du texte ce qu'il a consommé, et on relit le reste.
+     L'inverse n'est pas nécessaire, et ce n'est pas une négligence : la liste accommodante ne
+     contient AUCUNE négation d'un terme restrictif (« ready to act », « disinflation », « slowing »
+     se lisent seuls). Une symétrie posée sans motif se paierait sur des phrases mixtes. */
+  texts.forEach(t => {
+    const brut = String(t || '');
+    const restrictif = _CAL_HAWK_RX.test(brut);
+    const reste = restrictif ? brut.replace(new RegExp(_CAL_HAWK_RX.source, 'gi'), ' ') : brut;
+    if (restrictif) hawk++;
+    if (_CAL_DOVE_RX.test(reste)) dove++;
+    if (_CAL_HOLD_RX.test(reste)) hold++;
+  });
   // COULEUR SÉMANTIQUE (13/08, demande user). L ambre et le BLEU venaient d une palette « ton de banque
   // centrale » qui n existe nulle part ailleurs dans le desk : les badges .wr-cb-* et les mails disent
   // déjà hawkish=vert / dovish=rouge. Un même ton sortait donc bleu ici et rouge deux vues plus loin.
@@ -5650,9 +5666,17 @@ async function _calBcCompactHtml(ccy, tsPub) {
         // La leçon du mentor, rendue déterministe par le ton MESURÉ (jamais supposé). Le ton
         // retenu pour la lecture est celui d'AVANT la publication : c'est lui qui a décidé de
         // la réaction (CPI UK chaud + BoE dovish = GBP immobile).
-        const sens2 = /hawk/i.test(ton2.label || '')
+        /* ⚠️ ON LIT LA CLÉ, PAS L'ÉTIQUETTE (09/09, mesuré). Ces deux tests portaient sur
+           `ton2.label` — et l'étiquette a été TRADUITE le 28/08 : « Restrictif », « Accommodant ».
+           `/hawk/` ne trouve rien dans « Restrictif », `/dov/` rien dans « Accommodant » : la
+           phrase tombait donc TOUJOURS dans la branche neutre. Le desk affichait un badge rouge
+           « Accommodant » suivi de « sans posture affirmée » — la couleur disait une chose, le
+           texte à côté disait le contraire. C'est très exactement pour cela que `_calToneOf`
+           conserve une clé interne ('hawk'/'dove'/'hold') que la traduction ne touche jamais ;
+           encore fallait-il s'en servir. Une étiquette est de l'AFFICHAGE, elle ne décide de rien. */
+        const sens2 = ton2.key === 'hawk'
           ? 'ce ton AMPLIFIE les surprises qui vont dans son sens (inflation chaude, emploi solide) et amortit les autres'
-          : /dov/i.test(ton2.label || '')
+          : ton2.key === 'dove'
             ? 'ce ton AMORTIT les surprises de fermeté : un chiffre chaud bouge peu, le marché sait que la banque n\'entend pas réagir'
             : 'sans posture affirmée, la surprise garde tout son poids';
         bcRows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture par la posture</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${ton2.color};border-color:${ton2.color}44;">${ton2.label}</span> ${sens2}.</span></div>`);

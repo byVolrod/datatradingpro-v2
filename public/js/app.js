@@ -8019,70 +8019,10 @@ function _brItemType(item) {
   return 'article';
 }
 
-function _brTags(item) {
-  // categories peut contenir des OBJETS (ex. displayTags de SEB) → on extrait la chaîne, sinon on
-  // obtient « [object Object] ». Coercition robuste (name/tag/label/value/text/title), vides filtrés.
-  const tags = (item.categories || [])
-    .map(c => typeof c === 'string' ? c : (c && (c.name || c.tag || c.label || c.value || c.text || c.title)) || '')
-    .flatMap(s => String(s).split(/\s*[,;]\s*/))   // une « catégorie » peut être une LISTE collée « A, B, C » → 1 tag par élément
-    .map(s => s.trim()).filter(Boolean);
-  const h = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
-  const checks = [
-    [/\bfed\b|fomc|federal reserve/i,   'Fed'],
-    [/\becb\b|eurozone|lagarde/i,        'ECB'],
-    [/\bboe\b|sterling|bank of england/i,'BoE'],
-    [/\bboj\b|boj|yen\b|japan/i,         'BoJ'],
-    [/\bcpi\b|inflation|pce/i,           'Inflation'],
-    [/\bgdp\b|growth/i,                  'GDP'],
-    [/oil|crude|brent|opec/i,            'Oil'],
-    [/gold|xau/i,                        'Gold'],
-    [/dollar|\busd\b|dxy/i,              'USD'],
-    [/euro|\beur\b/i,                    'EUR'],
-    [/\bgbp\b|sterling/i,                'GBP'],
-    [/\bjpy\b|yen/i,                     'JPY'],
-    [/china|pboc/i,                      'China'],
-    // Tag « Bonds »/« Obligations » RETIRÉ (demande user 27/07 « il ne doit pas exister ») — cohérent avec
-    // le fil de news qui l'avait déjà retiré. On ne le génère plus nulle part.
-    [/trade|tariff/i,                    'Trade'],
-    [/iran|russia|ukraine|israel|hormuz|geopolit|conflict|war\b/i, 'Geopolitical'],
-    [/middle east|gulf|saudi|uae|qatar|opec/i, 'Middle East'],
-    [/energy|natural gas|\blng\b|petrol/i, 'Energy'],
-    [/equit|stock|nasdaq|s&p|index|shares/i, 'Equities'],
-    [/\brate(s)?\b|hike|cut|monetary policy|hawkish|dovish/i, 'Rates'],
-    [/\bfx\b|forex|currency|exchange rate/i, 'FX'],
-    [/bitcoin|crypto|ethereum|\bbtc\b/i, 'Crypto'],
-    [/recession|slowdown|contraction/i,  'Recession'],
-    [/jobs|employment|payroll|labou?r|unemployment/i, 'Jobs'],
-    [/housing|home sales|mortgage|real estate/i, 'Housing'],
-    [/central bank|\bfed\b|\becb\b|\bboe\b|\bboj\b|\bpboc\b|\bsnb\b/i, 'Central Banks'],
-    [/commodit|copper|metal|silver/i,    'Commodities'],
-    [/aud|nzd|cad|kiwi|aussie|loonie/i,  'Commodity FX'],
-    [/switzerland|\bsnb\b|\bchf\b|franc suisse|swiss/i, 'CHF'],
-    [/fiscal|budget|deficit|\bdebt\b|treasury issuance/i, 'Fiscal'],
-    [/election|president|parliament|congress|senate|white house|politic/i, 'Politics'],
-    [/credit|spread|corporate bond|high yield|investment grade/i, 'Credit'],
-  ];
-  // SCORING par fréquence : chaque thème est compté (occurrences dans titre + contenu) puis trié →
-  // les tags retenus sont les PLUS PRÉSENTS dans le rapport, pas les premiers de la liste. Cible
-  // 4 à 6 tags par rapport (jamais un tag isolé, jamais une rangée interminable).
-  const scored = [];
-  for (const [rx, label] of checks) {
-    if (tags.includes(label)) continue;
-    const m = h.match(new RegExp(rx.source, 'gi'));
-    if (m && m.length) scored.push([label, m.length]);
-  }
-  scored.sort((a, b) => b[1] - a[1]);
-  for (const [label] of scored) {
-    if (tags.length >= 6) break;
-    if (!tags.includes(label)) tags.push(label);
-  }
-  // Plancher 4 : un rapport au texte pas (encore) extractible garde des tags génériques utiles.
-  for (const f of ['Macro', 'Markets', 'Outlook', 'Research']) {
-    if (tags.length >= 4) break;
-    if (!tags.includes(f)) tags.push(f);
-  }
-  return _dedupeTags(tags).slice(0, 6);
-}
+/* (_brTags a été SUPPRIMÉE le 09/09 avec la barre d'étiquettes du lecteur Institutions, qui était
+   son unique consommatrice — la liste de cartes, elle, n'en a jamais affiché. Vérifié avant de la
+   retirer plutôt que supposé : une fonction de 60 lignes laissée derrière une barre supprimée est
+   du code mort que le prochain lecteur croira vivant, et qu'il maintiendra pour rien.) */
 
 // ── Read tracking pour Bank Research (localStorage) ──────────────────────────
 let _brReadIds = new Set(JSON.parse(localStorage.getItem('br_read') || '[]'));
@@ -8639,31 +8579,16 @@ async function _brShowRenderedPdf(item, renderUrl) {
 // d'affichage (PDF natif / proxy / rendu / HTML). item.description est souvent VIDE (PDF natifs SEB/ING/
 // BlackRock, MUFG…) → on alimente depuis le MEILLEUR contenu dispo : fullContent → HTML déjà fetché →
 // corps de l'article récupéré → description. Le 1er ayant > 80 caractères gagne.
-function _brEnsureInsights(item, brIns, tagsEl, preHtml) {
+function _brEnsureInsights(item, brIns, preHtml) {
   if (!brIns) return;
   const render = src => {
     const t = String(src || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     if (t.length <= 80) return false;
     _loadAIInsights({ id: item.id, headline: item.title, description: t }, brIns);
-    /* UNION, JAMAIS REMPLACEMENT (24/08). `tagsEl.innerHTML = …` RECALCULAIT toute la rangée depuis
-       le texte du rapport : les étiquettes posées à l'ouverture changeaient, se réordonnaient ou
-       disparaissaient sous les yeux du lecteur, jusqu'à très tard (le loader étagé annonce lui-même
-       des attentes de 6, 18 et 40 s sur les sources lentes type MUFG). On n'AJOUTE désormais que ce
-       que le texte complet révèle en plus, exactement comme _arlibEnrichTags le fait déjà pour la
-       bibliothèque analyste : rien ne bouge, la rangée s'enrichit. */
-    if (tagsEl) {
-      const _dejaLa = new Set([...tagsEl.querySelectorAll('.br-rtag')].map(e => e.textContent.trim()));
-      // ⚠️ LE PLAFOND DE 6 EST CELUI DE _brTags (`slice(0, 6)`, « jamais une rangée interminable »).
-      // L'union le CONTOURNAIT : 5 étiquettes à l'ouverture + 4 révélées par le texte intégral = 9
-      // dans la rangée (mesuré). Rien ne casse (la barre défile en overflow-x) mais la règle produit
-      // était enfreinte. On ne prend donc que ce qui tient sous le plafond, en gardant l'ordre de
-      // pertinence de _brTags : les plus parlantes d'abord.
-      const _place = Math.max(0, 6 - _dejaLa.size);
-      const _plus = _brTags({ ...item, description: t.slice(0, 4000) })
-        .filter(x => !_dejaLa.has(String(x).trim()))
-        .slice(0, _place);
-      if (_plus.length) tagsEl.insertAdjacentHTML('beforeend', _plus.map(x => `<span class="br-rtag">${x}</span>`).join(''));
-    }
+    /* (L'enrichissement des étiquettes qui vivait ici est parti le 09/09 avec la barre du lecteur.
+       Il ajoutait au fil de l'eau les thèmes que le texte intégral révélait, sans jamais réordonner
+       les précédentes — un soin apporté le 24/08 précisément parce que la version d'avant les
+       faisait danser sous les yeux du lecteur. Il n'a plus de rangée à enrichir.) */
     return true;
   };
   if (render(item.fullContent) || render(preHtml)) return;   // contenu déjà en main
@@ -8674,7 +8599,7 @@ function _brEnsureInsights(item, brIns, tagsEl, preHtml) {
       + 'Éclairages desk indisponibles pour ce rapport (contenu non extractible pour le moment).'
       + '<button type="button" id="br-ins-retry" style="margin-left:auto;background:transparent;border:1px solid #3a3f4b;border-radius:4px;color:#e3b23a;font-size:12px;padding:4px 12px;cursor:pointer;">Réessayer</button></div>';
     const rb = document.getElementById('br-ins-retry');
-    if (rb) rb.onclick = () => { brIns.innerHTML = dtpLoader('Analyse du rapport…'); _brEnsureInsights(item, brIns, tagsEl, preHtml); };
+    if (rb) rb.onclick = () => { brIns.innerHTML = dtpLoader('Analyse du rapport…'); _brEnsureInsights(item, brIns, preHtml); };
   };
   // PDF natif / page SPA sans contenu → on récupère le corps (ou le texte dédié insightsText du serveur).
   fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url))
@@ -8688,13 +8613,11 @@ function renderBrReader(item) {
   document.getElementById('br-reader-view')?.classList.remove('hidden');
 
   const titleEl = document.getElementById('br-rnav-title');
-  const tagsEl  = document.getElementById('br-rtags-scroll');
   const content = document.getElementById('br-rcontent');
   const badge   = document.getElementById('br-inst-badge');
 
   if (titleEl) titleEl.textContent = _mdStrip(item.title);
   if (badge)   badge.textContent   = _instBadge(item);
-  if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
   if (content) content.classList.remove('br-rcontent--pdf');
 
   // ── Éclairages desk (carrousel au-dessus, TOUJOURS : y compris au-dessus d'un PDF, façon pro) ──
@@ -8715,7 +8638,7 @@ function renderBrReader(item) {
   else if (item && item._source === 'ing-think') _realPdf = _ingPdfUrl(item.url);
   if (_realPdf) {
     _brShowNativePdf(item, _realPdf);
-    if (brIns) { brIns.innerHTML = ''; _brEnsureInsights(item, brIns, tagsEl); }   // insights TOUJOURS présents (PDF natif → fetch du corps)
+    if (brIns) { brIns.innerHTML = ''; _brEnsureInsights(item, brIns); }   // insights TOUJOURS présents (PDF natif → fetch du corps)
     return;
   }
 
@@ -8755,7 +8678,7 @@ function renderBrReader(item) {
       data = data || {};
       // Éclairages desk + tags GARANTIS depuis le CONTENU du rapport (le corps vit dans le PDF/HTML ;
       // item.description est souvent vide) → carrousel rempli + tags pertinents MÊME en mode PDF brut.
-      if (brIns) _brEnsureInsights(item, brIns, tagsEl, data.html);
+      if (brIns) _brEnsureInsights(item, brIns, data.html);
       // PDF natif (proxifié) puis, à défaut, page rendable → rendu PDF serveur (Puppeteer). NOUVEAU : si
       // AUCUN n'aboutit, on NE tombe PLUS direct sur la carte « ouvrir l'original » → on POURSUIT vers le
       // rendu HTML de l'article ci-dessous (ex. Nordea : render Puppeteer KO mais le TEXTE est dispo →
@@ -10194,7 +10117,28 @@ function _renderWeeklyRecap(item) {
        ⚠️ PAS DE TITRE DE RUBRIQUE au-dessus (demande du même jour : « enlève le titre catégorie
        Force des Devises ») : l'image porte déjà son propre bandeau « FORCE DES DEVISES » avec ses
        périodes. Un intertitre juste au-dessus l'aurait écrit deux fois, à 20 px d'écart. */
-    body += `<img class="dtp-report-img" src="/api/email-widget/strength.png?period=week&t=${w.weekEnding ? _wrEsc(w.weekEnding) : Date.now()}" alt="Force des devises de la semaine — DataTradingPro" loading="lazy">`;
+    /* ⚠️ LE DESK DESSINE SA COURBE, IL NE DEMANDE PLUS UNE PHOTO DE SA PROPRE COURBE (09/09, retour
+       utilisateur : image cassée dans le récap hebdo). Cette ligne posait une <img> vers
+       `/api/email-widget/strength.png`. Cette route rend le widget en ouvrant une page dans un
+       Chromium côté serveur ; quand ce rendu échoue, elle ne renvoie PAS d'erreur — elle renvoie un
+       pixel transparent, à dessein, parce qu'un client de messagerie ne doit jamais afficher une
+       icône cassée. Dans un MAIL c'est la bonne réponse. Dans le desk, c'est un trou muet à la
+       place d'un graphique.
+       ⚠️ ET LE PLUS COÛTEUX : le desk avait déjà tout pour le tracer lui-même. `_wrBuildCsAll` est
+       appelée à CHAQUE ouverture du rapport, avec les données figées de la semaine (`w.cs`), et sa
+       première ligne est `document.getElementById('wr-cs-all')` — un identifiant qui n'existait
+       NULLE PART dans le produit, ni ici, ni dans index.html, ni dans le CSS (vérifié sur tout le
+       dépôt avant d'écrire ceci). La fonction sortait donc silencieusement depuis sa ligne 1, à
+       chaque fois, et les deux replis d'erreur juste au-dessus (« en cours de reconstruction »,
+       « indisponible ») ne pouvaient s'afficher nulle part. Du code parfaitement vivant, appelé,
+       sans effet : c'est le motif que ce dépôt connaît le mieux, et il ne se voit qu'en cherchant
+       QUI CRÉE l'élément, jamais en lisant la fonction qui le lit.
+       On rétablit donc son hôte. La courbe est tracée en direct par amCharts, aux couleurs du desk,
+       depuis les mêmes données que le reste du rapport. Le PNG reste servi et n'est PAS supprimé :
+       c'est lui qui part dans les e-mails (mailer.js), là où aucun script ne tourne. */
+    body += '<div class="wr-cs-all" id="wr-cs-all">'
+      + (window.dtpLoader ? window.dtpLoader('Force des devises…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>')
+      + '</div>';
     /* ══ LA MACRO REVIENT, ENTRE LA GÉOPOLITIQUE ET LES DEVISES (04/09, demande user : « il manque
        la partie macro avant la partie devises ») ══════════════════════════════════════════════════
        Elle avait été retirée du rendu le 11/08 au motif qu'elle répétait les blocs devises. Le motif
@@ -10994,7 +10938,17 @@ function _renderFXDailyRecap(item) {
      ⚠️ PLUS DE TITRE DE RUBRIQUE au-dessus (02/09, demande utilisateur : « enlève le titre catégorie
      Force des Devises ») : l'image porte déjà son propre bandeau « FORCE DES DEVISES » avec ses
      périodes. L'intertitre écrivait donc le même mot deux fois, à 20 px d'écart. */
-  body += `<img class="dtp-report-img" src="/api/email-widget/strength.png?period=today&t=${item.timestamp || Date.now()}" alt="Force des devises du jour — DataTradingPro" loading="lazy">`;
+  /* ⚠️ MÊME CORRECTION QUE DANS L'HEBDO, LE MÊME JOUR (09/09) : le desk trace sa courbe, il ne
+     demande plus une photo de sa propre courbe. Le retour utilisateur portait sur le récap HEBDO,
+     mais le quotidien posait exactement la même <img> vers le rendu serveur, avec exactement le
+     même trou muet quand ce rendu échoue (la route renvoie alors un pixel transparent, à dessein,
+     pour ne pas casser un e-mail). Laisser le jumeau cassé en corrigeant l'un des deux aurait
+     simplement décalé le prochain signalement d'une semaine.
+     Une seule différence, et elle compte : la période est `today`. Le Quotidien raconte LA journée,
+     sa courbe doit être celle du jour — c'était déjà la règle de l'image, elle ne change pas. */
+  body += '<div class="wr-cs-all" id="fxdr-cs-all">'
+    + (window.dtpLoader ? window.dtpLoader('Force des devises du jour…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>')
+    + '</div>';
 
   /* ── Géopolitique (v19, structure du mentor) : note de renseignement exhaustive. ──
      « POINTS CLÉS À RETENIR » RETIRÉ DU RENDU (24/08, demande user). La rubrique distillait en
@@ -11340,6 +11294,23 @@ function _renderDTPDaily(item) {
     }
   });
   content.innerHTML = body || '<div class="fxdr-exec">Rapport en cours de génération…</div>';
+  /* La courbe se trace APRÈS l'injection du corps : avant, son hôte n'existe pas encore dans le
+     document et amCharts n'aurait rien où dessiner — c'est la version silencieuse du défaut qu'on
+     vient de corriger. On passe par les données en direct de la SÉANCE (`today`), la même source
+     que le widget Force des Devises du desk. En cas d'échec, un message lisible remplace la boîte :
+     un rapport doit dire qu'il lui manque quelque chose, jamais laisser un rectangle vide. */
+  _fxdrTracerForce();
+}
+
+// Trace la vue d'ensemble Force des Devises du RÉCAP QUOTIDIEN (période `today`).
+function _fxdrTracerForce() {
+  const host = document.getElementById('fxdr-cs-all');
+  if (!host || typeof buildStrengthChart !== 'function') return;
+  fetch('/api/currency-strength?period=today').then(r => r.json()).then(d => {
+    if (!d || !d.currencies) throw new Error('sans données');
+    host.innerHTML = '';
+    buildStrengthChart('fxdr-cs-all', d, { isolated: true });
+  }).catch(() => { host.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; });
 }
 
 // FILET UNIVERSEL (demande user : Éclairages desk dans TOUS les rapports Analyste). Après le rendu de n'importe
@@ -15681,6 +15652,33 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + '<div class="jrd-card jrc-card--verdict">' + verdict + '</div>'
       + '</div></div>';
   }
+
+  /* STATISTIQUES DU JOURNAL, EXPOSÉES POUR LE WIDGET KELLY (09/09).
+     ⚠️ ON EXPOSE, ON NE RECOPIE PAS. Le widget Kelly a besoin des trois mêmes nombres que le bloc
+     CALIBRAGE ci-dessus : taux de réussite, R moyen gagnant, R moyen perdant. Les recalculer de son
+     côté aurait produit une seconde définition de « un trade gagnant » — et ces définitions
+     divergent toujours, parce qu'elles vivent loin l'une de l'autre (ici, un trade à l'équilibre est
+     EXCLU du taux, ce qu'une réimplémentation naïve n'aurait pas su). Deux surfaces du desk ne
+     peuvent pas donner deux taux de réussite différents pour le même journal.
+     Renvoie null quand le journal n'est pas chargé : le widget sait alors qu'il n'a rien à préremplir
+     et laisse ses champs à l'utilisateur, ce qui est un état normal, pas une erreur. */
+  window.dtpKellyStats = function () {
+    try {
+      const L = _jrList || [];
+      if (!L.length) return null;
+      const som = a2 => a2.reduce((x, y) => x + y, 0);
+      const rs = L.map(_jrRof).filter(r => r != null);
+      const wins = rs.filter(r => r > 0), losses = rs.filter(r => r < 0);
+      const outs = L.map(_jrOutcome).filter(o => o != null);
+      const nW = outs.filter(o => o > 0).length, nL = outs.filter(o => o < 0).length;
+      return {
+        n: outs.length,
+        wr: (nW + nL) ? (nW / (nW + nL) * 100) : null,        // taux de réussite, trades à l'équilibre exclus
+        avgW: wins.length ? som(wins) / wins.length : null,   // R moyen d'un gagnant
+        avgL: losses.length ? Math.abs(som(losses) / losses.length) : null,
+      };
+    } catch (e) { return null; }
+  };
 
   function _jrRenderDashboard() {
     const host = document.getElementById('jr-dashboard'); if (!host) return;

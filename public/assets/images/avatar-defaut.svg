@@ -1,16 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Photo de profil non definie">
   <!-- AVATAR PAR DÉFAUT DTP — dessiné pour le desk, aucune image tierce (même règle que
-       macro-ai-spark.svg). Silhouette sourde sur fond sombre : elle se lit comme un emplacement
-       VIDE, pas comme une identité, et c'est le but — un rond qui ressemble à une photo
-       n'inviterait personne à en poser une. -->
+       macro-ai-spark.svg).
+
+       ⚠️ LE PARTI PRIS A CHANGÉ LE 09/09, À LA DEMANDE DE L'UTILISATEUR, et le commentaire qui
+       vivait ici disait exactement l'inverse — il faut donc le lire comme de l'histoire, pas comme
+       une règle. Il justifiait une silhouette SOURDE (bordeaux mat #7d2b34 sur fond #1a1a1f) par
+       l'idée qu'un emplacement vide ne doit pas ressembler à une photo. L'utilisateur a tranché
+       autrement : « une couleur qui permet de faire ressortir légèrement plus, le branding DTP noir
+       doré mais inversé, fond doré et la silhouette en noir ». C'est la marque du desk retournée :
+       partout ailleurs l'or se pose SUR le noir, ici le noir se pose sur l'or.
+
+       La silhouette reste la même forme, à la même place : seul le contraste change. Le dégradé va
+       de l'or vif à l'or sombre de la charte (#e3b23a → #b8860b), les deux valeurs du produit, et
+       il descend — la lumière vient du haut, comme sur toutes les cartes du desk. -->
   <defs>
     <clipPath id="dtp-av-rond"><circle cx="32" cy="32" r="32"/></clipPath>
+    <linearGradient id="dtp-av-or" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e3b23a"/>
+      <stop offset="1" stop-color="#b8860b"/>
+    </linearGradient>
   </defs>
   <g clip-path="url(#dtp-av-rond)">
-    <circle cx="32" cy="32" r="32" fill="#1a1a1f"/>
+    <circle cx="32" cy="32" r="32" fill="url(#dtp-av-or)"/>
     <!-- tête -->
-    <circle cx="32" cy="25" r="10.5" fill="#7d2b34"/>
+    <circle cx="32" cy="25" r="10.5" fill="#0c0c0e"/>
     <!-- épaules : un arc large, coupé par le rond -->
-    <path d="M32 38.5c-11.6 0-21 7.6-21 17v8.5h42V55.5c0-9.4-9.4-17-21-17z" fill="#7d2b34"/>
+    <path d="M32 38.5c-11.6 0-21 7.6-21 17v8.5h42V55.5c0-9.4-9.4-17-21-17z" fill="#0c0c0e"/>
   </g>
 </svg>

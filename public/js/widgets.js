@@ -212,6 +212,9 @@
             var estGrille = _estGrille(it, j);
             var w2 = byId(id2); if (!w2 && !estVide && !estGrille) return '';
             var nCell = estGrille ? _tabCells(it, j).filter(function (x) { return x !== 'vide'; }).length : 0;
+            /* Le gestionnaire d'onglets, lui, garde le NOM COMPLET : c'est une liste de réglages,
+               on y choisit un widget, et la place ne manque pas. Seul le libellé DE L'ONGLET est
+               raccourci — c'est là que la largeur est comptée. */
             var nomW = estGrille ? ('Onglet composite · ' + nCell + ' widget' + (nCell > 1 ? 's' : ''))
               : (estVide ? 'Onglet vide : aucun widget' : w2.name);
 /* ⚠️ L'ONGLET PORTE LE NOM DU WIDGET, PAS SON SIGLE (03/09, capture : un onglet « MONDE » au-dessus
@@ -220,8 +223,16 @@
    qui diffère de leur nom, et plusieurs le PARTAGENT (cinq widgets étiquetés « VOLATILITÉ », trois
    « FX », deux « TAUX »). Deux onglets voisins pouvaient donc porter le même libellé, ce qui retire
    à l'onglet sa seule fonction : dire ce qu'il ouvre. Le sigle garde sa place là où il a un sens —
-   la vignette de disposition (_thumbLbl) et la fiche d'aide. */
-            var defLbl = estGrille ? 'GRILLE' : (estVide ? 'Vide' : w2.name);
+   la vignette de disposition (_thumbLbl) et la fiche d'aide.
+   ⚠️ ET LE NOM COMPLET S'EST RÉVÉLÉ TROP LONG (09/09, demande utilisateur : « raccourcis le nom de
+   tous les widgets, comme ça dans le panneau à onglets le nom n'est pas trop long »). Les deux
+   demandes ne se contredisent pas, elles se complètent : ce qu'il fallait n'était ni le sigle
+   partagé ni le nom de vingt-trois caractères, mais un TROISIÈME libellé, court ET propre à chaque
+   widget. C'est `court`, déclaré au catalogue à côté de `name`. Trente-sept widgets en portent un ;
+   les autres gardent leur nom, qui est déjà court. Un banc (`libelle-verif.js`) vérifie que deux
+   widgets n'en partagent jamais un — c'est exactement le défaut du sigle qu'on ne veut pas rejouer.
+   Le NOM COMPLET reste partout où la place existe : en-tête de carte, bibliothèque, fiche d'aide. */
+            var defLbl = estGrille ? 'GRILLE' : (estVide ? 'Vide' : (w2.court || w2.name));
             var _cur = _tabIconSvg(ic[j]);
             /* SELECTEUR D ICONE (21/08). <details> natif : le resume est l icone courante, le contenu
                la grille de choix. Aucun etat JS a gerer, aucune fuite, ferme au clic exterieur par le
@@ -2331,10 +2342,21 @@
        On descend donc une liste d'étapes, de la plus précise à la plus sûre, et chaque erreur
        ANNONCÉE par le lecteur fait passer à la suivante :
          1. la diffusion EN COURS ;
-         2. le cadre « direct de la chaîne » — sauté quand le serveur a LU la page et vu que la
-            chaîne n'émet pas (`enAntenne: false`), parce qu'il ne pourrait alors que échouer ;
+         2. le cadre « direct de la chaîne » — TOUJOURS tenté (voir ci-dessous) ;
          3. la DERNIÈRE ÉMISSION, tirée du flux de la chaîne ;
          4. la carte-lien d'avant.
+       ⚠️ L'ÉTAPE 2 N'EST PLUS JAMAIS SAUTÉE (09/09, capture utilisateur : la pastille « Hors
+       antenne » posée sur une carte Bloomberg pendant que la chaîne émettait bel et bien).
+       Elle l'était quand le serveur avait conclu `enAntenne: false`. Or ce verdict vient de la
+       lecture d'une page YouTube, et YouTube sert régulièrement un bandeau de consentement aux
+       adresses de centre de données : le serveur lit alors une page qui ne contient AUCUN
+       identifiant, et « je n'ai rien trouvé » se transformait en « la chaîne n'émet pas ». Bloomberg
+       Television diffuse en CONTINU : ce verdict-là était donc faux par construction, et il nous
+       faisait afficher une rediffusion de trois minutes sous un titre « Live ».
+       Le calcul est asymétrique, et c'est ce qui tranche : tenter l'étape 2 pour rien coûte UNE
+       tentative de cadre qui échoue en une seconde et enchaîne toute seule sur la suivante ; la
+       sauter à tort coûte une rediffusion présentée comme un direct. On tente toujours, et c'est
+       YouTube — la seule autorité sur la question — qui répond en cadrant ou en refusant.
        ⚠️ L'ÉTAPE 3 SE NOMME. Montrer un enregistrement sous un titre « Live » sans le dire serait
        un mensonge, et c'est le genre de mensonge que ce desk ne fait pas : une pastille discrète
        écrit « Hors antenne » sur le cadre. Elle est posée SUR l'image, pas dans une barre sous
@@ -2358,7 +2380,7 @@
       var PARAMS = '&rel=0&modestbranding=1&autoplay=1&mute=1&playsinline=1';
       if (j && j.ok) {
         if (j.video) etapes.push({ src: 'https://www.youtube.com/embed/' + j.video + '?rel=0' + PARAMS });
-        if (j.chaine && j.enAntenne !== false) {
+        if (j.chaine) {
           etapes.push({ src: 'https://www.youtube.com/embed/live_stream?channel=' + j.chaine + PARAMS });
         }
         if (j.derniere && j.derniere.id) {
@@ -2566,7 +2588,7 @@
       },
     },
     {
-      id: 'force-devises', name: 'Force des Devises', tag: 'FORCE', cat: 'Devises', h: 300,
+      id: 'force-devises', name: 'Force des Devises', court: 'Force devises', tag: 'FORCE', cat: 'Devises', h: 300,
       desc: 'Qui mène, qui décroche : un panneau, la période de ton choix.',
       aide: "<p>Chaque courbe est une devise, mesurée contre l'ensemble des autres sur la période choisie. Ce qui compte n'est pas le niveau absolu d'une courbe mais leur <strong>ordre relatif</strong> : la devise la plus haute est celle que le marché a le plus recherchée, la plus basse celle qu'il a le plus vendue.</p><p>Le zéro sépare simplement ce qui s'apprécie de ce qui se déprécie sur la fenêtre. Un écartement croissant entre deux courbes signale une tendance qui se construit sur la paire correspondante ; un resserrement, une tendance qui s'épuise.</p>",
       src: "La force des huit majeures est calculée en continu côté serveur à partir de leurs croisements ; la carte se redessine toutes les 60 secondes tant qu'elle est visible, une cadence adaptée à une courbe qui se lit sur des heures.",
@@ -2708,7 +2730,7 @@
       },
     },
     {
-      id: 'barometre', name: 'Baromètre des Devises', tag: 'BAROMÈTRE', cat: 'Devises', h: 300,
+      id: 'barometre', name: 'Baromètre des Devises', court: 'Baromètre', tag: 'BAROMÈTRE', cat: 'Devises', h: 300,
       desc: 'La force des 8 majeures en égaliseur bidirectionnel (le vrai baromètre du desk).',
       aide: "<p>Un égaliseur bidirectionnel : chaque devise s'écarte de l'axe central vers le haut si elle se renforce, vers le bas si elle faiblit. La trame éteinte reste visible, de sorte qu'une devise sans mouvement se distingue d'une devise sans donnée.</p><p>La lecture est comparative et instantanée : ce sont les <strong>extrémités opposées</strong> qui désignent les paires où le mouvement est le plus net, la plus forte contre la plus faible.</p>",
       src: "La même force que l'onglet BAROMÈTRE du desk, relue toutes les 15 secondes tant que la carte est visible ; l'échelle est relative, la devise la plus étirée servant d'étalon aux autres.",
@@ -2728,7 +2750,7 @@
     // (« Classement des Devises » RETIRÉ du catalogue le 23/07, demande user — les configs qui le
     //  contiennent encore sont ignorées proprement par renderGrid : byId() → null → carte sautée.)
     {
-      id: 'risque-historique', name: 'Historique du risque',
+      id: 'risque-historique', name: 'Historique du risque', court: 'Hist. risque',
       maj: 5 * 60 * 1000, cat: 'Risque', h: 260,   // serie agregee, et surtout auto-reparation si le premier chargement echoue
       desc: "L'appétit pour le risque des dernières semaines.",
       aide: "<p>La même mesure d'appétit pour le risque que la jauge de sentiment, mais déroulée dans le temps : chaque point est la valeur d'une journée, au-dessus de zéro le risque est recherché, en dessous il est fui. La fenêtre se règle de 30 jours à un an.</p><p>L'historique donne le contexte que l'instantané ne peut pas donner : un risque-on de trois jours après un mois de risque-off n'a pas le même poids qu'un régime installé. C'est la <strong>durée</strong> d'un régime, plus que son niveau du jour, qui conditionne les corrélations.</p>",
@@ -2750,7 +2772,7 @@
       },
     },
     {
-      id: 'calendrier-jour', name: 'Calendrier économique',
+      id: 'calendrier-jour', name: 'Calendrier économique', court: 'Calendrier',
       maj: 60 * 1000, cat: 'Macro', h: 300,   // les valeurs reelles se remplissent au fil des publications : c'est la ou l'immobilite se voit le plus
       desc: 'Les prochaines publications, heure de Paris.',
       aide: "<p>Les publications du jour avec leur importance, la valeur attendue et, une fois publiée, la valeur réelle. La colonne à surveiller n'est pas le chiffre mais son <strong>écart au consensus</strong> : c'est la surprise qui déplace un marché, pas le niveau.</p><p>Les points d'impact indiquent la capacité historique de la publication à faire bouger les prix. Un événement à trois points sans surprise fait souvent moins qu'un événement à deux points très au-dessus des attentes.</p>",
@@ -2801,6 +2823,7 @@
         // `_ancre` : la vue s'est-elle déjà positionnée sur l'événement en cours pour la période
         // affichée ? Relâché à chaque changement de période, jamais pendant une recherche.
         var _dec = 0, _back = 0, _busy = false, _ancre = false;
+        var _echec = false;   // le dernier chargement du calendrier a-t-il échoué ? (voir le message de vide)
         // Recul maximal par unité — l'API d'archive plafonne à 3 mois, on ne propose pas au-delà.
         var _LIM = { jour: -90, semaine: -12, mois: -3 };
         var _UNITES = [['jour', 'Jour'], ['semaine', 'Semaine'], ['mois', 'Mois']];
@@ -2877,8 +2900,33 @@
               && (!q || String(e.title || '').toLowerCase().indexOf(q) !== -1 || String(e.currency || '').toLowerCase().indexOf(q) !== -1);
           });
           if (!evs.length) {
+            /* ⚠️ « AUCUN ÉVÉNEMENT » EST UNE AFFIRMATION, PAS UN MESSAGE D'ATTENTE (09/09, signalement
+               utilisateur : capture d'un calendrier vide, « je rencontre ce problème »).
+               Cette branche disait la même phrase dans QUATRE situations qui n'ont rien à voir :
+                 · l'appel au calendrier a ÉCHOUÉ — on ne sait rien, et on prétendait savoir ;
+                 · rien n'a jamais été chargé — même chose ;
+                 · la période demandée est HORS de ce que le flux couvre (on avance de deux semaines
+                   dans le futur, le flux s'arrête avant) — ce n'est pas un vide, c'est une limite ;
+                 · un filtre d'importance ou une recherche masque tout — le lecteur a lui-même caché
+                   les lignes, et le widget lui répondait qu'il n'y en avait pas.
+               Dans les trois premiers cas, la phrase était FAUSSE. Et c'est la pire façon d'être
+               faux : elle est plausible, donc personne ne cherche plus loin. On dit maintenant ce
+               qui s'est réellement passé, et on offre le seul geste utile quand c'est réparable. */
+            var _bornesData = _tous.length
+              ? [_tous[0].timestamp || 0, _tous[_tous.length - 1].timestamp || 0] : null;
+            var _horsPortee = !!_bornesData && (bo[0] > _bornesData[1] || bo[1] < _bornesData[0]);
+            var _filtre = _imp !== 'ALL' || !!q;
+            var _msg, _reessai = false;
+            if (_busy) _msg = 'Chargement…';
+            else if (_echec) { _msg = 'Le calendrier n\'a pas pu être chargé.'; _reessai = true; }
+            else if (!_tous.length) { _msg = 'Aucune donnée de calendrier reçue.'; _reessai = true; }
+            else if (_horsPortee) _msg = 'Cette période n\'est pas encore couverte par le flux.';
+            else if (_filtre) _msg = 'Aucun événement ne correspond à votre filtre sur cette période.';
+            else _msg = 'Aucun événement sur cette période.';
             host.innerHTML = '<div class="wdg-cal-panel">' + barre() + '<div class="wdg-cal-wrap"><div class="wdg-empty">'
-              + (_busy ? 'Chargement…' : 'Aucun événement sur cette semaine.') + '</div></div></div>';
+              + esc(_msg)
+              + (_reessai ? ' <button type="button" class="wdg-cal-retry">Réessayer</button>' : '')
+              + '</div></div></div>';
             return cabler();
           }
           var nextIdx = evs.findIndex(function (e) { return (e.timestamp || 0) >= now; });
@@ -2996,6 +3044,8 @@
               if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) {} }
             });
           }
+          var _rt = host.querySelector('.wdg-cal-retry');
+          if (_rt) _rt.addEventListener('click', function () { if (_busy) return; _busy = true; dessine(); charge(_back); });
           var pv = host.querySelector('.wdg-cal-prev'), nx = host.querySelector('.wdg-cal-next');
           if (pv) pv.addEventListener('click', function () { versPeriode(_dec - 1); });
           if (nx) nx.addEventListener('click', function () { versPeriode(_dec + 1); });
@@ -3030,18 +3080,21 @@
           fetch(n > 0 ? ('/api/calendar-events?back=' + n) : '/api/calendar-events')
             .then(function (r) { return r.json(); }).then(function (j) {
               if (!host.isConnected) return;
-              _back = n; _busy = false;
+              _back = n; _busy = false; _echec = false;
               _tous = ((j && j.items) || []).filter(Boolean)
                 .sort(function (a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
               dessine();
-            }).catch(function () { _busy = false; dessine(); });
+            /* L'ÉCHEC SE RETIENT. Sans cette mémoire, la vue ne peut pas distinguer « rien à
+               afficher » de « rien reçu » — et c'est cette confusion qui faisait annoncer une
+               période vide alors que l'appel n'était jamais arrivé. */
+            }).catch(function () { _busy = false; _echec = true; dessine(); });
         };
         charge(0);                                           // semaine courante (le flux live la couvre)
         return null;
       },
     },
     {
-      id: 'radar-biais', name: 'Radar de Biais', cat: 'Macro', h: 320,
+      id: 'radar-biais', name: 'Radar de Biais', court: 'Biais', cat: 'Macro', h: 320,
       desc: 'Le biais net de chaque devise, du plus haussier au plus baissier.',
       aide: "<p>Le biais de chaque devise est une <strong>confluence</strong>, pas un indicateur : politique monétaire, inflation, croissance et emploi sont pondérés puis combinés. Une devise n'est haussière que si plusieurs piliers vont dans le même sens.</p><p>Le tableau est donc à lire par colonnes autant que par lignes : deux devises au même biais peuvent le devoir à des raisons opposées, et c'est cette différence qui fait la qualité d'une paire.</p>",
       src: "Le moteur Smart Bias du desk, avec exactement les mêmes données que l'onglet BIAIS : la mise à jour est poussée en direct par le serveur, avec un filet de relecture toutes les 60 secondes.",
@@ -3094,7 +3147,7 @@
          devise le PORTAGE favorise aujourd'hui », en comparant chaque taux à la moyenne des SEPT
          AUTRES (exclusion-de-soi). Même source /api/rates : les deux cartes ne peuvent pas se
          contredire. C'est la grandeur que le Radar de Biais consomme déjà dans son pilier monétaire. */
-      id: 'taux-diff', name: 'Différentiel de taux', tag: 'TAUX', cat: 'Macro', h: 300,
+      id: 'taux-diff', name: 'Différentiel de taux', court: 'Diff. de taux', tag: 'TAUX', cat: 'Macro', h: 300,
       desc: 'Quelle devise le portage favorise : chaque taux directeur comparé à la moyenne des sept autres.',
       aide: "<p>Le taux de chaque banque centrale est comparé à la <strong>moyenne des sept autres</strong>, elle-même calculée en excluant la devise concernée : sans cette exclusion, une devise se comparerait en partie à elle-même et l'écart serait mécaniquement atténué.</p><p>Au-delà de ±0,75 point, l'effet de portage est jugé significatif et compté dans le Radar de Biais. En dessous, l'écart existe mais ne discrimine pas assez pour peser sur une décision.</p>",
       src: "Les mêmes taux directeurs que l'onglet TAUX du desk, relus toutes les 5 minutes ; la donnée source évolue à l'échelle de la décision de banque centrale, pas du tick.",
@@ -3157,7 +3210,7 @@
       },
     },
     {
-      id: 'taux-cb', name: 'Taux directeurs',
+      id: 'taux-cb', name: 'Taux directeurs', court: 'Directeurs',
       maj: 5 * 60 * 1000, cat: 'Macro', h: 320,   // la source des probabilites bouge a l'heure, pas a la seconde
       desc: 'Où en sont les banques centrales : taux actuel + prochaine décision anticipée.',
       aide: "<p>Le taux directeur en vigueur pour chaque banque, avec ce que le marché price pour la prochaine réunion. La probabilité affichée ne dit pas ce qui va arriver : elle dit ce qui est <strong>déjà dans les prix</strong>.</p><p>C'est cette distinction qui rend la donnée exploitable. Une hausse annoncée et pricée à 90% ne fera pas bouger la devise ; c'est l'écart entre la décision et ce qui était attendu qui la déplace.</p>",
@@ -3223,7 +3276,7 @@
          10 ans - 3 mois (l'inversion se lit dans le temps, pas sur un point). Le verdict est
          DÉTERMINISTE sur cet écart : seuils ±0,25 pt, pente 90 j au seuil 0,10 pt. Jamais un
          conseil directionnel : la carte dit le régime de la courbe, pas où aller. */
-      id: 'courbe-taux-us', name: 'Courbe des taux US', tag: 'TAUX US', cat: 'Macro', h: 300,
+      id: 'courbe-taux-us', name: 'Courbe des taux US', court: 'Taux US', tag: 'TAUX US', cat: 'Macro', h: 300,
       desc: 'La courbe des rendements du Trésor US (3 mois à 30 ans) et l\'écart 10 ans - 3 mois sur 90 jours.',
       aide: "<p>La courbe relie les rendements du Trésor américain du 3 mois au 30 ans. Sa <strong>forme</strong> résume ce que le marché obligataire pense du cycle : pentue quand le long terme rapporte plus que le court (régime normal), plate quand l'écart se referme, inversée quand le court rapporte davantage que le long.</p><p>L'écart <strong>10 ans - 3 mois</strong> est la mesure la plus suivie : son passage durable sous zéro a historiquement précédé les récessions américaines, avec plusieurs trimestres d'avance et sans jamais donner de date. C'est un baromètre de régime, pas un signal d'entrée.</p>",
       src: "Rendements du Trésor US lus sur les indices de rendement cotés en séance américaine, cache serveur de 10 minutes ; la donnée bouge aux heures de cotation US, pas la nuit ni le week-end.",
@@ -3366,7 +3419,7 @@
          banques triées par réunion la plus proche, compte à rebours vivant, scénario dominant.
          ⚠️ Pas de champ `maj` : le chrono 1 s vit DANS le mount : un remontage périodique
          recréerait le chrono et ferait cligner la liste ; le re-fetch 5 min est interne. */
-      id: 'reunion-bc', name: 'Prochaine réunion BC', tag: 'RÉUNIONS', cat: 'Macro', h: 300,
+      id: 'reunion-bc', name: 'Prochaine réunion BC', court: 'Réunion BC', tag: 'RÉUNIONS', cat: 'Macro', h: 300,
       desc: 'Les huit banques centrales classées par réunion la plus proche : compte à rebours et scénario pricé.',
       aide: "<p>Chaque banque centrale est classée par la date de sa <strong>prochaine réunion</strong>, avec un compte à rebours jusqu'au jour J et le scénario que le marché price le plus (maintien, hausse ou baisse, avec sa probabilité). La ligne du haut, marquée en or, est la prochaine décision toutes banques confondues.</p><p>La probabilité dit ce qui est <strong>déjà dans les prix</strong> : une décision conforme au scénario dominant fait peu bouger la devise, c'est la surprise qui la déplace. Un pricing partagé (aucune issue au-dessus de 60%) signale une réunion à vrai risque de mouvement.</p>",
       src: "Les mêmes taux et probabilités de marché que l'onglet TAUX du desk, relus toutes les 5 minutes ; la source donne le jour de chaque réunion, pas l'heure de la décision : le compte à rebours vise le jour J.",
@@ -3638,7 +3691,7 @@
          gardes d'unité que « Amplitude par séance » : la route retombe sur le journalier quand
          elle ne reconnaît pas le tf demandé, et sans contrôle la carte publierait des « heures »
          calculées sur des journées entières. */
-      id: 'vol-horaire', name: 'Volatilité par heure', tag: 'VOLATILITÉ', cat: 'Marchés', h: 300,
+      id: 'vol-horaire', name: 'Volatilité par heure', court: 'Vol. horaire', tag: 'VOLATILITÉ', cat: 'Marchés', h: 300,
       desc: 'À quelles heures la paire bouge vraiment : amplitude moyenne des 24 heures, heure de Paris.',
       aide: "<p>Pour la paire choisie, l'amplitude moyenne (haut moins bas, en pips) de chaque heure de la journée sur environ trois mois de bougies horaires, affichée à l'heure de Paris ; la barre or est l'heure en cours. Le verdict nomme le pic et le creux avec leur créneau (ouverture Europe, ouverture US, nuit calme…).</p><p>La volatilité ne se répartit pas au hasard : elle se concentre aux <strong>ouvertures de places</strong> et sur le recouvrement Londres-New York. Savoir si l'heure actuelle est un pic ou un creux type change la lecture d'un mouvement : le même chemin parcouru à 4h du matin et à 15h30 ne raconte pas la même chose.</p>",
       src: "Bougies horaires réelles (~3 mois), relues toutes les 5 minutes ; moyennes par heure UTC replacées au décalage Paris du moment, mesuré par le fuseau lui-même : autour d'un changement d'heure, les créneaux historiques glissent d'une heure au plus.",
@@ -3747,7 +3800,7 @@
          pas un jugement favorable, les compteurs restent donc SANS couleur. La « plus forte
          surprise » est classée à l'écart RELATIF (|delta| / |consensus|), seule grandeur
          comparable entre des indicateurs en %, en K et en M. */
-      id: 'ecart-consensus', name: 'Écart au consensus', tag: 'SURPRISES', cat: 'Macro', h: 320,
+      id: 'ecart-consensus', name: 'Écart au consensus', court: 'Consensus', tag: 'SURPRISES', cat: 'Macro', h: 320,
       desc: 'Les 10 dernières publications fortes : réel contre consensus, et de quel côté elles surprennent.',
       aide: "<p>Les dix dernières publications à fort impact qui portent un réel et un consensus, de la plus récente à la plus ancienne : le badge dit si le chiffre est sorti au-dessus, en dessous ou conforme, et de combien. La couleur suit le sens favorable à la devise : pour un chômage, « au-dessus » s'affiche en rouge.</p><p>Ce qui déplace un marché n'est pas le niveau d'un chiffre mais sa <strong>surprise</strong>, et la ligne du bas dit de quel côté les données surprennent ces derniers jours : une série de surprises du même côté nourrit les anticipations de taux bien plus qu'une publication isolée.</p>",
       src: "Le calendrier économique du desk, publications passées à fort impact, relu toutes les 5 minutes ; réel et consensus ne sont comparés qu'à unités identiques, jamais des K contre des M.",
@@ -3845,7 +3898,7 @@
          différentiel de taux : axe au centre, vert à droite, rouge à gauche. Le desk n'a qu'une
          façon de dessiner une variation ; en inventer une seconde pour cette carte obligerait le
          lecteur à réapprendre à lire. */
-      id: 'indices-matieres', name: 'Indices & Matières', tag: 'HORS FX', cat: 'Marchés', h: 300,
+      id: 'indices-matieres', name: 'Indices & Matières', court: 'Hors FX', tag: 'HORS FX', cat: 'Marchés', h: 300,
       desc: 'Les indices et les matières premières du desk : dernière séance et semaine, côte à côte.',
       aide: "<p>Sept marchés hors change : quatre indices actions (DAX 40, S&amp;P 500, FTSE 100, CAC 40) et trois matières premières (Or, Argent, Pétrole WTI). Pour chacun, la variation de sa <strong>dernière séance cotée</strong> et celle de la <strong>semaine depuis lundi 00h UTC</strong>. Barre verte vers la droite : le marché monte ; rouge vers la gauche : il baisse.</p><p>Ces places n'ouvrent pas aux mêmes heures. Quand New York cote, Francfort et Paris sont fermés depuis des heures, et le week-end aucune ne cote : chaque ligne se compare donc à SA propre clôture précédente, jamais à une heure d'horloge commune. Une place fermée garde la variation de sa dernière séance, ce qui reste l'information juste.</p><p>La lecture croisée est ce qui manque au change seul : un dollar qui monte pendant que l'or monte AUSSI ne raconte pas la même histoire qu'un dollar qui monte pendant que l'or baisse. Le premier sent la fuite vers la qualité, le second le simple différentiel de taux.</p>",
       src: "Bougies quotidiennes réelles, servies par la même route que les paires de devises et relues toutes les 5 minutes. La variation de séance compare la dernière clôture à la précédente ; la variation hebdomadaire court du lundi 00h UTC, avec le même calcul que Performance hebdo.",
@@ -3928,7 +3981,7 @@
          verdict COT). Lundi sans bougie close : la carte dit « semaine à peine ouverte » plutôt
          que de maquiller la séance du jour en chiffre hebdo. Week-end : classement figé,
          étiqueté « semaine close ». */
-      id: 'perf-semaine', name: 'Performance hebdo', tag: 'HEBDO', cat: 'Devises', h: 300,
+      id: 'perf-semaine', name: 'Performance hebdo', court: 'Perf. hebdo', tag: 'HEBDO', cat: 'Devises', h: 300,
       desc: 'Qui gagne la semaine : les 8 devises classées par leur variation depuis lundi.',
       aide: "<p>Les huit devises majeures classées par leur variation depuis le lundi 00h UTC, calculée des sept paires contre dollar ; le dollar n'a pas de paire propre, sa ligne « calc. » est la moyenne inversée des sept. Barre verte vers la droite : la devise gagne sa semaine ; rouge vers la gauche : elle la perd.</p><p>La lecture hebdomadaire lisse le bruit des séances : une devise en tête sur un vrai écart raconte un <strong>flux</strong> (taux, macro, risque), pas un sursaut d'une heure. L'écart tête-queue de la ligne du bas dit si la semaine discrimine vraiment ou si tout se tient dans un mouchoir.</p>",
       src: "Bougies quotidiennes réelles des 7 paires contre dollar, relues toutes les 5 minutes ; la variation court du lundi 00h UTC au dernier cours connu, et l'agrégat USD n'est calculé que lorsque les 7 paires répondent.",
@@ -4016,7 +4069,7 @@
          mais naissait à 300px : chaque nouvel emplacement ouvrait avec un tiers du contenu sous le pli.
          Le corps défile (mesuré au banc : scrollHeight 458 pour 171 visibles), rien n’était perdu,
          mais un widget qui défile dès sa pose est un widget mal dimensionné. */
-      id: 'risque-jauge', name: 'Sentiment de Risque', tag: 'RISQUE', cat: 'Risque', h: 460,
+      id: 'risque-jauge', name: 'Sentiment de Risque', court: 'Risque', tag: 'RISQUE', cat: 'Risque', h: 460,
       desc: "L'appétit / l'aversion du marché en direct (risk-on / risk-off).",
       // IDENTIQUE AU DESK (23/07) : réplique instance-scopée de buildRiskGauge (charts.js) — mêmes classes
       // (.risk-ticker / .risk-gauge-stage / .risk-readout), même arc am5radar (dégradé 7 stops), même
@@ -4130,7 +4183,7 @@
       },
     },
     {
-      id: 'cot-inst', name: 'Positionnement COT',
+      id: 'cot-inst', name: 'Positionnement COT', court: 'COT instit.',
       maj: 30 * 60 * 1000, tag: 'COT', cat: 'Risque', h: 340,   // le COT est hebdomadaire : ce rythme sert a se reparer, pas a rafraichir
       desc: 'Le positionnement net des institutionnels (CFTC), par devise.',
       aide: "<p>Le positionnement déclaré des grands intervenants sur les contrats à terme, publié chaque semaine avec plusieurs jours de décalage. C'est une photographie du <strong>passé récent</strong>, jamais un signal d'entrée.</p><p>Sa valeur est dans les extrêmes et dans les inflexions : un positionnement très étiré d'un côté signale une asymétrie, un retournement de tendance dans les positions signale souvent un changement de régime avant les prix.</p>",
@@ -4309,7 +4362,7 @@
     },
 
     {
-      id: 'ticklist', name: 'Liste de suivi', tag: 'FX', cat: 'Marchés', h: 176,
+      id: 'ticklist', name: 'Liste de suivi', court: 'Suivi', tag: 'FX', cat: 'Marchés', h: 176,
       desc: 'Les paires que vous suivez, leur cours et leur variation du jour.',
       aide: "<p>Vos paires, leur dernier cours et leur variation depuis la clôture précédente ; la mini-courbe résume la tendance sur environ six semaines de clôtures quotidiennes, pas de l'intraday. La ligne du bas dit qui mène parmi vos paires et qualifie l'activité de l'ensemble.</p><p>Ni biais ni sentiment ici, volontairement : cours et variation sont les deux seules colonnes <strong>univoques</strong> de la source. La carte sert de poste de garde : elle dit laquelle de vos paires mérite d'être ouverte en grand, pas ce qu'il faut en penser.</p>",
       src: "Cotations servies par le desk et relues toutes les 150 secondes, au rythme où le serveur les recalcule ; seules les lignes qui ont réellement bougé sont mises en évidence.",
@@ -4478,7 +4531,7 @@
       },
     },
     {
-      id: 'amplitude-seance', name: 'Amplitude par séance', tag: 'VOLATILITÉ', cat: 'Marchés', h: 224,
+      id: 'amplitude-seance', name: 'Amplitude par séance', court: 'Ampl. séance', tag: 'VOLATILITÉ', cat: 'Marchés', h: 224,
       desc: 'Combien la paire parcourt pendant Tokyo, Londres et New York, en moyenne.',
       aide: "<p>Pour la paire choisie, le chemin moyen parcouru pendant chaque grande séance (Tokyo, Londres, New York), en pips ou en pourcentage du cours ; la surcouche du jour se superpose à la moyenne, sur la même échelle. Les séances se chevauchent : la somme des trois ne fait pas la journée.</p><p>La lecture de décision est le <strong>ratio du jour</strong> : une séance qui a déjà consommé son amplitude type offre moins de carburant à une cassure tardive, une séance très en dessous de sa norme laisse de la marge. La ligne du bas dit qui est en séance et où elle en est.</p>",
       src: "Bougies horaires réelles, relues toutes les 5 minutes ; les heures d'ouverture sont locales à chaque place, changements d'heure compris, et la séance en cours n'entre jamais dans la moyenne.",
@@ -4699,7 +4752,7 @@
       },
     },
     {
-      id: 'distribution-variations', name: 'Variations quotidiennes', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,
+      id: 'distribution-variations', name: 'Variations quotidiennes', court: 'Variations', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,
       desc: 'La forme réelle des séances : combien de journées à +0,3%, combien à -1%.',
       aide: "<p>L'histogramme des variations quotidiennes, de clôture à clôture : chaque barre compte les séances tombées dans sa classe, rouge sous zéro, vert au-dessus. Le repère or situe la séance en cours dans cette forme, et la ligne du bas la traduit en percentile.</p><p>C'est un <strong>étalon de normalité</strong> : savoir que l'essentiel des séances fait moins de ±0,5% change la lecture d'un mouvement de 0,8%. Un objectif posé dans la queue de distribution exige une séance rare ; un stop posé au cœur de la distribution sera touché par le bruit ordinaire.</p>",
       src: "Bougies quotidiennes réelles, relues toutes les 5 minutes ; la séance en cours est exclue du calcul (elle n'a pas de clôture) et les trous de série sont écartés puis comptés sur la carte.",
@@ -4843,7 +4896,7 @@
     },
 
     {
-      id: 'stats-volatilite', name: 'Mesures de volatilité', tag: 'VOLATILITÉ', cat: 'Marchés', h: 210,
+      id: 'stats-volatilite', name: 'Mesures de volatilité', court: 'Volatilité', tag: 'VOLATILITÉ', cat: 'Marchés', h: 210,
       desc: 'L\'écart-type des variations, en séance et en semaine, avec l\'amplitude vraie moyenne.',
       aide: "<p>Deux colonnes, séance et semaine : l'écart-type des variations et l'<strong>amplitude vraie</strong> moyenne, c'est-à-dire le plus grand écart entre le haut, le bas et la clôture précédente, qui inclut les trous d'ouverture. La ligne de régime compare les 20 dernières séances à l'ensemble de l'échantillon.</p><p>Ces chiffres calibrent stop et objectif : un stop plus serré que l'amplitude vraie d'une séance ordinaire sera touché par le bruit. Le régime dit si les moyennes affichées décrivent le marché actuel, ou si elles le sous-estiment.</p>",
       src: "Bougies quotidiennes et hebdomadaires réelles, relues toutes les 5 minutes ; chaque colonne a son repli (si une série manque, l'autre reste affichée) et la période en cours est exclue des moyennes.",
@@ -4992,7 +5045,7 @@
       },
     },
     {
-      id: 'heatmap-seance', name: 'Carte de chaleur FX', tag: 'FX', cat: 'Marchés', h: 268,
+      id: 'heatmap-seance', name: 'Carte de chaleur FX', court: 'Chaleur FX', tag: 'FX', cat: 'Marchés', h: 268,
       desc: 'Les 28 croisements majeurs colorés par leur variation du jour, du plus vert au plus rouge.',
       aide: "<p>Les 28 croisements des huit majeures, chacun coloré par sa variation de séance : plus la teinte est saturée, plus le mouvement est marqué ; une case éteinte signale une donnée absente, jamais une variation nulle. La ligne du bas nomme la meneuse, la lanterne et le compte hausses/baisses.</p><p>La grille se lit par <strong>devise</strong> autant que par case : une devise forte teinte ses sept croisements dans le même sens. C'est le moyen le plus rapide de voir si un mouvement est propre à une paire ou porté par une devise entière, ce qui change la qualité du signal.</p>",
       src: "Variations de séance servies par le desk et relues toutes les 150 secondes ; seules les cases qui ont réellement bougé sont mises en évidence.",
@@ -5173,7 +5226,7 @@
     },
 
     {
-      id: 'amplitude-jour', name: 'Amplitude quotidienne', tag: 'VOLATILITÉ', cat: 'Marchés', h: 300,
+      id: 'amplitude-jour', name: 'Amplitude quotidienne', court: 'Ampl. du jour', tag: 'VOLATILITÉ', cat: 'Marchés', h: 300,
       desc: 'De combien la paire bouge en une séance, en moyenne, sur les dernières semaines.',
       aide: "<p>L'amplitude moyenne d'une séance (haut moins bas) sur la fenêtre choisie, avec la médiane et la position du jour : la ligne du bas donne le parcours d'aujourd'hui en pourcentage de la moyenne et en percentile, la jauge le montre face au repère « moyenne ». Sur le graphe, la barre or est la séance en cours.</p><p>C'est l'étalon du <strong>combien</strong> : viser 80 pips sur une paire qui en parcourt 55 par séance ordinaire suppose une séance au-dessus de sa norme. Une séance déjà nourrie a consommé son amplitude type ; les cassures tardives y ont moins de carburant.</p>",
       src: "Bougies quotidiennes réelles, relues toutes les 5 minutes ; la séance en cours est exclue de la moyenne, les séances plates écartées et comptées, et le pip est une convention de place, pas une donnée reçue.",
@@ -5288,7 +5341,7 @@
     },
 
     {
-      id: 'hauts-bas', name: 'Points hauts et bas', tag: 'NIVEAUX', cat: 'Marchés', h: 148,
+      id: 'hauts-bas', name: 'Points hauts et bas', court: 'Hauts / bas', tag: 'NIVEAUX', cat: 'Marchés', h: 148,
       desc: 'Les extrêmes de la séance et de la semaine, et où se situe le cours entre les deux.',
       aide: "<p>Les extrêmes de la séance et de la semaine, l'étendue entre les deux, et un curseur qui situe le dernier cours entre le bas et le haut de chaque période. Près d'un extrême (seuil réglable), la borne concernée et le curseur s'allument.</p><p>Ces bornes sont les niveaux les plus regardés du marché : un cours collé à son extrême est soit en train de le franchir, soit en train d'y être rejeté ; c'est le seul moment où cette carte doit sauter aux yeux. La position dans la fourchette dit aussi qui a eu la main depuis l'ouverture.</p>",
       src: "Bougies quotidiennes et hebdomadaires réelles, relues toutes les 5 minutes ; « en cours » se calcule sur la date réelle de la bougie, et une semaine à peine ouverte affiche la précédente en l'annonçant.",
@@ -5361,7 +5414,7 @@
       },
     },
     {
-      id: 'evenement-rebours', name: 'Compte à rebours', tag: 'CALENDRIER', cat: 'Macro', h: 186,
+      id: 'evenement-rebours', name: 'Compte à rebours', court: 'Rebours', tag: 'CALENDRIER', cat: 'Macro', h: 186,
       desc: 'Le prochain chiffre macro attendu, isolé, avec le temps qui reste, puis le réel contre le consensus.',
       aide: "<p>La prochaine publication macro, isolée : compte à rebours à la seconde, importance, prévision et précédent, puis, à l'heure dite, le chiffre réel confronté à la prévision ; la carte reste 20 minutes sur l'événement publié pour montrer ce verdict. Un « (révisé) » signale que le précédent a été corrigé au passage.</p><p>C'est la <strong>surprise</strong> qui déplace un marché, pas le niveau : la carte existe pour la minute où le réel tombe. Plusieurs publications à la même heure sont signalées (« +N autres ») : leurs effets peuvent se contrarier, ce qui rend la première réaction moins fiable.</p>",
       src: "Le calendrier économique du desk, relu toutes les 60 secondes (le décompte, lui, vit à la seconde) ; l'heure vient de l'horodatage universel de l'événement, jamais d'un fuseau figé.",
@@ -5632,7 +5685,7 @@
     },
 
     {
-      id: 'serie-indicateur', name: 'Série d\'un indicateur',
+      id: 'serie-indicateur', name: 'Série d\'un indicateur', court: 'Série macro',
       tag: 'MACRO', cat: 'Macro', h: 300,
       desc: 'Les dernières publications d\'un indicateur, en barres, avec la surprise contre la prévision.',
       aide: "<p>Les dernières publications d'un même indicateur, en barres : vert quand la valeur monte sur la précédente, rouge quand elle baisse, le liseré or marquant la plus récente. La ligne du bas résume la dynamique, et le pied annonce la prochaine publication avec sa prévision.</p><p>Une publication isolée se lit mal : deux ou trois points dans le même sens font une <strong>dynamique</strong>, et c'est elle que les banques centrales disent suivre. Attention au sens : une hausse n'est pas une bonne nouvelle en soi (chômage, inflation), le vert ne dit que la direction.</p>",
@@ -5839,7 +5892,7 @@
       },
     },
     {
-      id: 'bandeau-ticker', name: 'Bandeau de cotations', tag: 'COTATIONS', cat: 'Marchés', h: 64,
+      id: 'bandeau-ticker', name: 'Bandeau de cotations', court: 'Cotations', tag: 'COTATIONS', cat: 'Marchés', h: 64,
       desc: 'Les dix repères du desk en bande fine défilante.',
       aide: "<p>Dix repères transverses (FX, indices, or, pétrole, taux 10 ans, bitcoin) en bande défilante : vert en hausse, rouge en baisse, et la pastille fixe nomme la plus forte variation du moment. Le 10 ans américain s'exprime en points d'écart, pas en pourcentage.</p><p>Ce bandeau sert de <strong>vérification croisée</strong> : un mouvement FX cohérent avec les indices, l'or et les taux est un mouvement de régime ; un mouvement isolé est une histoire locale. C'est ce recoupement, plus que chaque chiffre, qui fait l'intérêt de la bande.</p>",
       src: "Dix actifs à liste fixe servis par le desk et relus toutes les 60 secondes, au pas du cache serveur ; cours et variations sont réécrits sans jamais faire sauter le défilement.",
@@ -6229,7 +6282,7 @@
     },
 
     {
-      id: 'saison-courbe', name: 'Rendement mensuel',
+      id: 'saison-courbe', name: 'Rendement mensuel', court: 'Rdt mensuel',
       maj: 30 * 60 * 1000, tag: 'SAISONNALITÉ', cat: 'Macro', h: 300,   // donnee historique : le rythme sert a se reparer
       desc: 'Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en cumul.',
       aide: "<p>Le rendement moyen de chaque mois civil sur cinq ans, en barres ou en courbe cumulée sur l'année ; le mois en cours est marqué en or et compté comme partiel. La régularité, en option, dit combien d'années observées ont fini chaque mois en hausse.</p><p>La saisonnalité est un <strong>vent de fond</strong>, pas un signal : cinq observations font une tendance fragile, et un mois « moyen à +0,8% » obtenu par une seule année exceptionnelle ne vaut pas quatre années sur cinq. Elle sert à pondérer une idée, jamais à la créer.</p>",
@@ -6347,7 +6400,7 @@
     },
 
     {
-      id: 'frequence-amplitude', name: 'Atteinte d\'un seuil', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,   // renommage 23/08 (le nom doit dire ce qu'on voit) — l'ancre du lot initial avait raté l'apostrophe échappée, attrapé par l'agent mails
+      id: 'frequence-amplitude', name: 'Atteinte d\'un seuil', court: 'Seuil atteint', tag: 'VOLATILITÉ', cat: 'Marchés', h: 320,   // renommage 23/08 (le nom doit dire ce qu'on voit) — l'ancre du lot initial avait raté l'apostrophe échappée, attrapé par l'agent mails
       desc: 'La part des séances où la paire a parcouru au moins X pips.',
       aide: "<p>Pour un seuil en pips, la part des séances passées qui l'ont atteint : la courbe descend palier par palier, le trait fin marque votre seuil, le trait or le parcours d'aujourd'hui. La ligne du bas donne, parmi les séances arrivées là où on en est, la part qui a fini au-delà du seuil.</p><p>C'est une <strong>fréquence observée</strong>, jamais une probabilité de toucher un objectif : la bougie quotidienne ne dit pas dans quel ordre le haut et le bas ont été touchés. Un objectif que la paire n'atteint qu'une séance sur cinq demande d'être justifié par autre chose que l'habitude.</p>",
       src: "Bougies quotidiennes réelles, relues toutes les 5 minutes ; la journée en cours est exclue de l'échantillon, l'amplitude est brute (aucun coût de transaction) et le pip est une convention de place.",
@@ -6520,7 +6573,7 @@
     },
 
     {
-      id: 'dmx-paire', name: 'Particuliers par paire', tag: 'DMX', cat: 'Risque', h: 300,
+      id: 'dmx-paire', name: 'Particuliers par paire', court: 'Part. / paire', tag: 'DMX', cat: 'Risque', h: 300,
       desc: 'Le partage long/short de la foule sur UNE paire, en anneau.',
       aide: "<p>Le partage acheteurs/vendeurs des particuliers sur une paire, en anneau : un partage se lit en pourcentages, l'anneau ne montre donc rien d'autre. La ligne du haut lit le déséquilibre et son intensité pour l'unité de temps choisie ; les volumes, positions et prix moyens de la même source vivent dans le widget Statistiques DMX.</p><p>Le sentiment des particuliers se lit à <strong>contre-courant</strong> : une foule très majoritairement acheteuse signale surtout où se massent ses stops, pas où va le prix. C'est aux extrêmes (70/30 et au-delà) que cette lecture a historiquement le plus de valeur.</p>",
       src: "Positionnement agrégé des particuliers, relu toutes les 60 secondes ; l'horodatage affiché est celui de la donnée servie.",
@@ -6665,7 +6718,7 @@
       },
     },
     {
-      id: 'dmx-stats', name: 'Statistiques DMX', tag: 'DMX', cat: 'Risque', h: 380,
+      id: 'dmx-stats', name: 'Statistiques DMX', court: 'Stats DMX', tag: 'DMX', cat: 'Risque', h: 380,
       desc: 'La table statistique de la foule : partage, lots, positions, prix moyens et écart au prix.',
       aide: "<p>La table statistique du positionnement des particuliers, paire par paire : le partage vendeurs/acheteurs, les volumes en lots, le nombre de positions, le prix moyen d'entrée de chaque camp et son écart au prix actuel, en pips. Un écart vert dit que le camp gagne, un rouge qu'il perd. Le pourcentage du camp majoritaire ressort à l'or : c'est la foule.</p><p>La lecture est <strong>contrarienne</strong> : une foule majoritaire ET perdante finit par déboucler, et ses rachats poussent le prix contre elle. Le tri « Foule la plus piégée » fait remonter ces paires d'un geste.</p>",
       src: "Positionnement agrégé des particuliers (partage, lots, positions, prix moyens d'entrée), relu toutes les 60 secondes ; le prix actuel des paires FX vient des cotations du desk, retimbrées toutes les 2 à 3 minutes côté serveur. Les métaux n'ont pas de cotation attachée : leurs écarts restent vides plutôt qu'inventés.",
@@ -6774,7 +6827,7 @@
       },
     },
     {
-      id: 'cot-devise', name: 'COT par devise', tag: 'COT', cat: 'Risque', h: 320,
+      id: 'cot-devise', name: 'COT par devise', court: 'COT devise', tag: 'COT', cat: 'Risque', h: 320,
       desc: 'Le positionnement CFTC d\'UNE devise : long/short en volumes réels, et la position nette.',
       aide: "<p>Le positionnement CFTC d'une devise pour une catégorie de fonds : long et short en contrats réels, la position nette, et la date du rapport (arrêté le mardi, publié le vendredi). La ligne du haut lit le donut ; la mention « agrégat calculé » signale l'USD, sur lequel la CFTC ne publie aucun contrat direct.</p><p>Les fonds à levier sont la catégorie spéculative que suivent les desks FX : leur position nette dit de quel côté penche l'argent institutionnel. La donnée est <strong>hebdomadaire et décalée</strong> de plusieurs jours : un contexte de fond, jamais un signal d'entrée.</p>",
       src: "Le rapport hebdomadaire officiel de la CFTC, daté de son mardi d'arrêté ; la fraîcheur affichée est l'âge du rapport, jamais l'heure de service, et la carte se resynchronise toutes les 30 minutes.",
@@ -6949,7 +7002,7 @@
       },
     },
     {
-      id: 'dmx-retail', name: 'Sentiment particuliers', tag: 'DMX', cat: 'Risque', h: 340,
+      id: 'dmx-retail', name: 'Sentiment particuliers', court: 'Particuliers', tag: 'DMX', cat: 'Risque', h: 340,
       desc: 'Le positionnement long/short de la foule (contrarian), par paire.',
       aide: "<p>Le positionnement long/short des particuliers sur toutes les paires servies, en barres, avec le choix de l'unité de temps et du tri. Chaque barre partage 100% entre acheteurs et vendeurs : il n'y a ni volume ni direction du prix là-dedans, seulement la foule.</p><p>La lecture est <strong>contrarienne et comparative</strong> : les paires les plus déséquilibrées sont celles où la foule est la plus exposée à un débouclage forcé. Trier par pourcentage long ou short fait remonter ces extrêmes d'un geste.</p>",
       src: "Positionnement agrégé des particuliers, lu en pourcentages (les volumes et prix moyens de la même source vivent dans Statistiques DMX), relu toutes les 60 secondes.",
@@ -7057,7 +7110,7 @@
       },
     },
     {
-      id: 'sessions', name: 'Sessions de marché', tag: 'MONDE', cat: 'Macro', h: 340,
+      id: 'sessions', name: 'Sessions de marché', court: 'Sessions', tag: 'MONDE', cat: 'Macro', h: 340,
       desc: 'La carte du monde des 4 grandes sessions FX, en direct.',
       aide: "<p>Les séances asiatique, européenne et américaine, avec leurs chevauchements. Le volume et la volatilité ne sont pas répartis uniformément dans la journée : ils se concentrent aux ouvertures et sur le recouvrement Londres-New York.</p><p>Le même signal n'a donc pas la même portée selon l'heure. Une cassure en séance asiatique tient moins souvent qu'une cassure à l'ouverture européenne, faute de participants pour la porter.</p>",
       src: "Carte calculée en local : horaires officiels des places et terminateur jour/nuit, remis à jour toutes les 30 secondes ; aucune donnée de marché n'y transite.",
@@ -7419,7 +7472,7 @@
       },
     },
     {
-      id: 'direct-bloomberg', name: 'Bloomberg Live', tag: 'DIRECT', cat: 'Marchés', h: 210,
+      id: 'direct-bloomberg', name: 'Bloomberg Live', court: 'Bloomberg', tag: 'DIRECT', cat: 'Marchés', h: 210,
       desc: 'L’antenne Bloomberg en continu, dans la carte : ouverture des marchés, entretiens, réactions macro.',
       aide: "<p>La chaîne américaine en continu : ouverture des marchés, entretiens de dirigeants, réactions aux publications macro. La diffusion officielle de la rédaction est encadrée <strong>dans la carte</strong> — son lecteur, sa marque, sa publicité.</p><p><strong>Si le cadre reste vide :</strong> la chaîne n'est pas en antenne, ou son lecteur a été bloqué par une extension de navigateur. Le bouton vers le site de l'éditeur reste disponible dans tous les cas.</p>",
       src: "Diffusion officielle de la rédaction, encadrée telle quelle. Le desk ne réencode ni ne stocke aucune image : il résout l'adresse du direct en cours et laisse le lecteur de l'éditeur faire le reste.",
@@ -7427,7 +7480,7 @@
       mount: function (host) { return _directMonter(host, 'bloomberg', '#e3b23a'); },
     },
     {
-      id: 'direct-yahoo', name: 'Yahoo Finance Live', tag: 'DIRECT', cat: 'Marchés', h: 210,
+      id: 'direct-yahoo', name: 'Yahoo Finance Live', court: 'Yahoo Live', tag: 'DIRECT', cat: 'Marchés', h: 210,
       desc: 'Le direct Yahoo Finance dans la carte : actualité de marché, valeurs américaines, entretiens.',
       aide: "<p>Le direct de Yahoo Finance : actualité de marché, valeurs américaines, entretiens. La diffusion officielle de la rédaction est encadrée <strong>dans la carte</strong> — son lecteur, sa marque, sa publicité.</p><p><strong>Si le cadre reste vide :</strong> la chaîne n'est pas en antenne, ou son lecteur a été bloqué par une extension de navigateur. Le bouton vers le site de l'éditeur reste disponible dans tous les cas.</p>",
       src: "Diffusion officielle de la rédaction, encadrée telle quelle. Le desk ne réencode ni ne stocke aucune image : il résout l'adresse du direct en cours et laisse le lecteur de l'éditeur faire le reste.",
@@ -7435,7 +7488,7 @@
       mount: function (host) { return _directMonter(host, 'yahoo', '#60a5fa'); },
     },
     {
-      id: 'horloge', name: 'Horloge mondiale', cat: 'Macro', h: 210,
+      id: 'horloge', name: 'Horloge mondiale', court: 'Horloge', cat: 'Macro', h: 210,
       desc: 'Les grandes places à l’heure, statut d’ouverture + météo : choisis les tiennes.',
       aide: "<p>L'heure des grandes places financières, pour situer une publication ou une prise de parole dans la journée de marché sans conversion mentale.</p><p>Utile surtout pour les décalages saisonniers : les changements d'heure ne tombent pas aux mêmes dates des deux côtés de l'Atlantique, et une réunion peut se décaler d'une heure pendant quelques semaines chaque année.</p>",
       src: "Heure calculée en local pour chaque place (fuseaux officiels, changements d'heure compris), remise à jour chaque seconde ; la météo affichée est relue périodiquement en tâche de fond.",
@@ -7663,7 +7716,100 @@
       },
     },
     {
-      id: 'journal-mini', name: 'Journal de trading', cat: 'Outils', h: 300,
+      id: 'kelly', name: 'Critère de Kelly', court: 'Kelly', tag: 'OUTILS', cat: 'Outils', h: 340,
+      desc: 'La fraction du capital que vos statistiques supportent, par trade.',
+      aide: "<p>Le critère de Kelly répond à une question précise : quelle <strong>fraction du capital</strong> risquer à chaque trade pour faire croître le compte le plus vite possible, sans jamais le ruiner. Il ne dit rien sur l'entrée, la paire ni le moment — uniquement sur la taille.</p><p>La formule est <strong>f* = W − (1 − W) / G</strong>, où W est le taux de réussite et G le rapport entre le gain moyen et la perte moyenne. Elle suppose ces deux nombres CONNUS ; les vôtres sont estimés sur un échantillon, donc bruités. C'est pourquoi le desk met en avant la MOITIÉ de Kelly, la pratique courante : elle conserve l'essentiel de la croissance en divisant par quatre l'ampleur des reculs.</p><p>Quand le résultat est négatif, aucune taille ne sauve la méthode : c'est elle qu'il faut reprendre, pas le capital.</p>",
+      src: "Vos propres trades, quand le Journal est chargé : taux de réussite et R moyens viennent de la MÊME mesure que le bloc Calibrage du journal, jamais d'un second calcul. Les trois champs restent modifiables à la main pour éprouver une hypothèse.",
+      watch: "L'écart entre le Kelly complet et ce que vous prenez réellement, et surtout le signe : dès que l'espérance passe sous zéro, la taille cesse d'être le sujet.",
+      /* ⚠️ LES TROIS CHIFFRES VIENNENT DU JOURNAL, ILS NE SONT PAS RECALCULÉS ICI. `dtpKellyStats()`
+         est exposée par app.js, à l'endroit exact où le bloc CALIBRAGE fait le même calcul. Une
+         seconde implémentation aurait, tôt ou tard, donné un taux de réussite différent du sien pour
+         le même journal — notamment sur les trades à l'équilibre, exclus du taux ici et faciles à
+         oublier ailleurs. Deux surfaces du desk ne peuvent pas se contredire sur les mêmes trades.
+         Journal non chargé → les valeurs par défaut des réglages, et on le DIT à l'écran. */
+      opts: [
+        { k: 'tr', lbl: 'Taux de réussite %', type: 'nombre', def: 50, min: 1, max: 99, pas: 1 },
+        { k: 'gain', lbl: 'Gain moyen (R)', type: 'nombre', def: 2, min: 0.1, max: 20, pas: 0.1 },
+        { k: 'perte', lbl: 'Perte moyenne (R)', type: 'nombre', def: 1, min: 0.1, max: 20, pas: 0.1 },
+      ],
+      mount: function (host, it) {
+        var W = this;
+        var nb = function (v, d) { var x = parseFloat(v); return (isFinite(x) && x > 0) ? x : d; };
+        // Préremplissage depuis le VRAI journal quand il est là ; sinon les réglages de la carte.
+        var st = null;
+        try { st = (typeof window.dtpKellyStats === 'function') ? window.dtpKellyStats() : null; } catch (e) { st = null; }
+        var duJournal = !!(st && st.wr != null && st.avgW && st.avgL);
+        var v0 = {
+          tr: duJournal ? Math.round(st.wr * 10) / 10 : nb(opt(it, W, 'tr'), 50),
+          gain: duJournal ? Math.round(st.avgW * 100) / 100 : nb(opt(it, W, 'gain'), 2),
+          perte: duJournal ? Math.round(st.avgL * 100) / 100 : nb(opt(it, W, 'perte'), 1),
+        };
+        var champ = function (cle, lbl, val, suf) {
+          return '<label class="wdg-kly-row"><span class="wdg-kly-lbl">' + lbl + '</span>'
+            + '<span class="wdg-kly-in"><input type="number" inputmode="decimal" data-k="' + cle + '" value="' + val + '" step="any" min="0">'
+            + (suf ? '<em>' + suf + '</em>' : '') + '</span></label>';
+        };
+        host.innerHTML = '<div class="wdg-kly">'
+          + '<div class="wdg-kly-src">' + (duJournal
+              ? ('D\'après vos ' + st.n + ' trade' + (st.n > 1 ? 's' : '') + ' clos du Journal.')
+              : 'Journal non chargé : valeurs à saisir.') + '</div>'
+          + champ('tr', 'Taux de réussite', v0.tr, '%')
+          + champ('gain', 'Gain moyen', v0.gain, 'R')
+          + champ('perte', 'Perte moyenne', v0.perte, 'R')
+          + '<div class="wdg-kly-out">'
+          +   '<div class="wdg-kly-o"><span>Kelly complet</span><b data-o="plein">-</b></div>'
+          +   '<div class="wdg-kly-o wdg-kly-o--main"><span>Demi-Kelly</span><b data-o="demi">-</b></div>'
+          +   '<div class="wdg-kly-o"><span>Quart de Kelly</span><b data-o="quart">-</b></div>'
+          + '</div>'
+          + '<div class="wdg-kly-esp">Espérance par trade <b data-o="esp">-</b></div>'
+          + '<div class="wdg-kly-note" data-o="note"></div>'
+          + '</div>';
+        var pct = function (x) { return (Math.round(x * 100) / 100).toString().replace('.', ',') + ' %'; };
+        var calcul = function () {
+          var ins = host.querySelectorAll('.wdg-kly input');
+          var vals = {};
+          ins.forEach(function (i) { vals[i.getAttribute('data-k')] = parseFloat(i.value); });
+          var w = (isFinite(vals.tr) ? vals.tr : 0) / 100;
+          var g = vals.gain, p = vals.perte;
+          var mettre = function (cle, txt, cls) {
+            var el = host.querySelector('[data-o="' + cle + '"]'); if (!el) return;
+            el.textContent = txt;
+            el.className = cls || '';
+          };
+          if (!(w > 0 && w < 1) || !(g > 0) || !(p > 0)) {
+            ['plein', 'demi', 'quart', 'esp'].forEach(function (k) { mettre(k, '-'); });
+            mettre('note', 'Renseignez un taux entre 1 et 99 %, un gain et une perte supérieurs à zéro.');
+            return;
+          }
+          var ratio = g / p;
+          var f = w - (1 - w) / ratio;                    // f* = W − (1 − W) / G
+          var esp = w * g - (1 - w) * p;                  // espérance par trade, en R
+          mettre('esp', (esp >= 0 ? '+' : '−') + Math.abs(Math.round(esp * 100) / 100).toString().replace('.', ',') + ' R',
+            esp > 0 ? 'wdg-kly-pos' : esp < 0 ? 'wdg-kly-neg' : '');
+          if (f <= 0) {
+            /* ⚠️ AVANTAGE NÉGATIF : ON NE PROPOSE AUCUNE TAILLE. Afficher « 0,5 % » ici serait le
+               mensonge le plus coûteux que cette carte puisse commettre — il laisserait croire
+               qu'une taille prudente rend une méthode perdante viable. Elle ne fait que ralentir
+               la perte. Même règle que le bloc Calibrage du Journal, mot pour mot. */
+            ['plein', 'demi', 'quart'].forEach(function (k) { mettre(k, '0 %', 'wdg-kly-neg'); });
+            mettre('note', 'Aucun avantage : à ce taux de réussite, le gain moyen ne couvre pas la perte moyenne. '
+              + 'Aucune taille de position ne rend cette série gagnante — c\'est la méthode qu\'il faut reprendre, pas le capital.');
+            return;
+          }
+          mettre('plein', pct(f * 100));
+          mettre('demi', pct(f * 50), 'wdg-kly-pos');
+          mettre('quart', pct(f * 25));
+          mettre('note', 'La formule suppose des probabilités connues ; les vôtres sont estimées sur un échantillon. '
+            + 'Le desk retient le DEMI-Kelly : il garde l\'essentiel de la croissance en divisant par quatre l\'ampleur des reculs.'
+            + (f * 50 > 2 ? ' Ici le demi-Kelly dépasse la limite de 2 % du desk : c\'est elle qui doit s\'appliquer.' : ''));
+        };
+        host.querySelectorAll('.wdg-kly input').forEach(function (i) { i.addEventListener('input', calcul); });
+        calcul();
+        return null;
+      },
+    },
+    {
+      id: 'journal-mini', name: 'Journal de trading', court: 'Journal', cat: 'Outils', h: 300,
       desc: 'Ton journal de trading complet, dans Mon Desk.',
       aide: "<p>Vos trades consignés, avec le taux de réussite et la courbe de performance qui se construisent d'eux-mêmes. Les statistiques ne valent que ce que vaut la saisie : un journal partiel donne des chiffres flatteurs.</p><p>La lecture utile n'est pas le résultat mais la <strong>régularité</strong> : dispersion des gains et des pertes, respect du risque annoncé, écart entre le plan et l'exécution.</p>",
       src: "Vos propres trades, enregistrés sur votre compte : cette carte est le vrai Journal du desk, déplacé dans la grille, avec les mêmes colonnes, les mêmes statistiques et le même enregistrement.",
@@ -8145,7 +8291,7 @@
     ];
   })()).concat([
     {
-      id: 'onglets', name: 'Panneau à onglets', cat: 'Outils', h: 360,
+      id: 'onglets', name: 'Panneau à onglets', court: 'Onglets', cat: 'Outils', h: 360,
       desc: 'Plusieurs widgets dans une seule carte, avec sa propre barre d\'onglets : comme la barre › MONDE › FORCE du desk.',
       aide: "<p>Une carte conteneur : chaque onglet héberge un widget du catalogue, ou une petite grille de plusieurs, avec la barre d'onglets du desk. Le « + » ajoute un onglet ; le renommage et le retrait vivent dans les réglages de la carte, rien ne se détruit d'un clic de trop.</p><p>Son intérêt est la <strong>densité</strong> : regrouper les cartes d'une même famille (volatilité, positionnement, macro) dans une seule emprise d'écran et basculer de l'une à l'autre sans réagencer la grille. L'onglet actif n'est pas mémorisé : chaque session repart du premier.</p>",
       src: "Aucune donnée en propre : chaque onglet embarque un widget du catalogue, qui garde sa propre source et sa propre cadence de rafraîchissement.",
@@ -8375,8 +8521,14 @@
           bar.innerHTML = tabs.map(function (id, i) {
             var estG = _estGrille(it, i);
             var w = !estG && id !== 'vide' && id !== 'grille' && byId(id);
-            // Un onglet composite n'a pas UN widget : son libellé par défaut dit ce qu'il est.
-            var lbl = labels[i] || (w ? w.name : (estG ? 'GRILLE' : 'Vide'));
+            /* Un onglet composite n'a pas UN widget : son libellé par défaut dit ce qu'il est.
+               ⚠️ LIBELLÉ COURT (09/09, demande utilisateur) : c'est ICI que la largeur est comptée,
+               dans la rangée d'onglets elle-même. `w.court` est un troisième libellé, propre à
+               chaque widget et déclaré au catalogue — ni le sigle partagé (qui faisait deux onglets
+               au même nom, défaut du 03/09), ni le nom de vingt-trois caractères. Un libellé posé à
+               la main par le lecteur (`labels[i]`) reste prioritaire sur tout : c'est le sien.
+               L'INFOBULLE, elle, garde le nom COMPLET : la rangée dit vite, le survol dit tout. */
+            var lbl = labels[i] || (w ? (w.court || w.name) : (estG ? 'GRILLE' : 'Vide'));
             var ttl = w ? (w.name + ' : double-clic pour renommer')
               : (estG ? ('Onglet composite · ' + _tabCells(it, i).filter(function (x) { return x !== 'vide'; }).length + ' widget(s) : double-clic pour renommer')
                       : 'Onglet vide : choisis sa disposition dans le corps');

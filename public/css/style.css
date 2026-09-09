@@ -4827,11 +4827,13 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .br-insights-btn:hover { color: var(--text); }
 .br-inst-badge { font-size: 10px; font-weight: var(--fw-bold); background: var(--orange-dim); color: #fff; padding: 2px 8px; border-radius: 3px; }
 
-.br-rtags-bar { display: flex; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--border2); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }   /* scroll possible mais SANS barre native (bande grise) */
-.br-rtags-bar::-webkit-scrollbar { display: none; width: 0; height: 0; }
-.br-rtags-bar { scrollbar-width: none; }   /* volontairement masquée : la règle globale la ferait réapparaître */
-.br-rtags-scroll { display: flex; gap: 6px; flex-wrap: nowrap; }
-.br-rtag { display: inline-block; padding: 3px 9px; border-radius: 3px; font-size: 11px; background: var(--bg4); border: 1px solid var(--border2); color: var(--text3); white-space: nowrap; }
+/* (.br-rtags-bar / .br-rtags-scroll SUPPRIMÉES le 09/09, demande utilisateur : « la barre bandeau
+   qui se situe en dessous de retour à la liste, à enlever, je trouve qu'elle sert à rien ». Elles
+   habillaient la rangée d'étiquettes du lecteur Institutions, qui répétait des mots-clés déduits du
+   titre pour 33 px pris sur la hauteur du document. Sur un rapport de banque, cette hauteur EST la
+   fonctionnalité. La rangée du lecteur ANALYSTE (.arlib-rtags-bar) est conservée : elle porte AUSSI
+   la date du rapport, qui ne s'affiche nulle part ailleurs dans cette vue. */
+/* (.br-rtag supprimée le 09/09 avec la barre qui la portait.) */
 
 .br-rcontent { flex: 1; overflow-y: auto; padding: 20px 24px; }
 /* ── Rapport Institution affiché en PDF embarqué (vrai .pdf généré côté client, façon DTP) ── */
@@ -5869,6 +5871,10 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .gew-ev--high .gew-ev-ttl { color:#fff; font-weight:var(--fw-semibold); }
 /* Graphique de force isolé */
 .wr-chart { height:380px; margin:8px 0 4px; background:var(--bg); border:1px solid var(--border); border-radius:4px; overflow:hidden; }
+/* Vue d'ensemble des huit devises, tracée EN DIRECT dans le récap hebdo (09/09) — elle remplace la
+   photo PNG du widget e-mail, qui laissait un trou muet quand le rendu serveur échouait. Plus haute
+   que les mini-courbes par devise : elle porte huit courbes et leurs pastilles, pas une seule. */
+.wr-cs-all { height:420px; margin:14px 0 6px; background:var(--bg); border:1px solid var(--border); border-radius:4px; overflow:hidden; }
 .wr-chart-loading { display:flex; align-items:center; justify-content:center; height:100%; color:#6b7280; font-size:12px; }
 /* Bandeau "génération du Weekly Recap en cours" */
 .arlib-genbanner { display:flex; align-items:center; gap:9px; margin:0 0 12px; padding:11px 14px; border-radius:4px;
@@ -5878,6 +5884,7 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 @media (max-width:768px){
   .wr-insight-card { flex-basis:220px; }
   .wr-chart { height:300px; }
+  .wr-cs-all { height:340px; }
   /* Reader Weekly/Analyst : marges réduites pour gagner de la largeur de lecture */
   #arlib-ai-insights { padding:0 14px; }
   .wr-body { padding:0 2px; }
@@ -12789,6 +12796,34 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
 .wdg-calc-o--main b { color: var(--orange); }
 .wdg-calc-note { font-size: 10px; color: var(--w-t11); line-height: 1.45; }
 .wdg-calc-open { background: none; border: 0; padding: 0; font-size: 10px; color: var(--orange); cursor: pointer; }
+
+/* ── WIDGET CRITÈRE DE KELLY (09/09) ─────────────────────────────────────────────────────────
+   Même grammaire que la Calculatrice de position — ce sont deux outils de DIMENSIONNEMENT, ils
+   doivent se lire pareil : champs à droite, sorties en cartes, note en pied. La seule différence
+   assumée est la carte mise en avant : ici c'est le DEMI-Kelly, pas le Kelly complet. Le complet
+   est affiché parce qu'il est la référence théorique, mais ce n'est pas la valeur à prendre, et
+   l'habillage doit dire lequel des trois compte. */
+.wdg-kly { display: flex; flex-direction: column; gap: 6px; padding: 11px 13px; height: 100%; overflow-y: auto; }
+.wdg-kly-src { font-size: 10px; color: var(--w-t8); letter-spacing: .02em; margin-bottom: 2px; }
+.wdg-kly-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.wdg-kly-lbl { font-size: 11.5px; color: var(--w-t5); }
+.wdg-kly-in { display: inline-flex; align-items: center; gap: 5px; }
+.wdg-kly-in input { width: 86px; padding: 4px 8px; font-size: 12px; color: var(--w-t1); text-align: right; background: var(--bg); border: 1px solid var(--hud-line, var(--border)); border-radius: 4px; outline: none; font-variant-numeric: tabular-nums; }
+.wdg-kly-in input:focus { border-color: rgba(227,178,58,.55); }
+.wdg-kly-in em { font-style: normal; font-size: 10.5px; color: var(--w-t8); min-width: 22px; }
+.wdg-kly-out { display: flex; gap: 8px; margin-top: 5px; }
+.wdg-kly-o { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; background: var(--w-s3); border: 1px solid var(--hud-line, var(--border)); border-radius: 5px; }
+.wdg-kly-o span { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--w-t8); }
+.wdg-kly-o b { font-size: 15px; color: var(--w-t1); font-variant-numeric: tabular-nums; }
+.wdg-kly-o--main { border-color: rgba(227,178,58,.35); background: rgba(227,178,58,.07); }
+.wdg-kly-o--main b { color: var(--gold, #e3b23a); }
+.wdg-kly-esp { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 3px; font-size: 11px; color: var(--w-t5); }
+.wdg-kly-esp b { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--w-t1); }
+/* Vert / rouge = les tokens sémantiques de la charte : une espérance positive et une espérance
+   négative ne sont pas deux nuances d'une même chose, c'est la seule ligne qui décide de tout. */
+.wdg-kly-pos { color: #00e676 !important; }
+.wdg-kly-neg { color: #ff3d00 !important; }
+.wdg-kly-note { font-size: 10px; color: var(--w-t11); line-height: 1.45; margin-top: 2px; }
 .wdg-calc-open:hover { text-decoration: underline; }
 
 /* ── Widget Journal = le VRAI journal relocalisé dans le host (24/07) : remplit la carte, en-tête compacté
@@ -15759,6 +15794,12 @@ body.home-mode .view-panel { visibility: hidden; }
 
 /* États vides / chargement : ce sont des messages à lire, pas de la décoration. */
 .wdg-empty, .wdg-load { font-size: 12.5px; color: var(--text2, #c9cdd4); line-height: 1.5; }
+/* Bouton « Réessayer » d'un état vide (09/09) : il n'apparaît QUE lorsque l'échec est réparable
+   d'un clic — appel au calendrier tombé, aucune donnée reçue. Une période réellement vide n'en
+   porte pas : proposer de réessayer là où il n'y a rien à charger serait une fausse promesse. */
+.wdg-cal-retry { margin-left: 8px; padding: 3px 10px; font: inherit; font-size: 11.5px; font-weight: 600;
+  color: #0c0c0e; background: var(--gold, #e3b23a); border: 0; border-radius: 4px; cursor: pointer; }
+.wdg-cal-retry:hover { filter: brightness(1.08); }
 
 /* Gestionnaire de layouts : compteur et badges d'un cran plus nets. */
 .wdg-mgr-foot .wdg-mgr-count { font-size: 10.5px; }
@@ -22588,8 +22629,13 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
    formulaire non rempli. Elle ne remplit PAS son rond comme une photo (object-fit: contain,
    fond neutre) : la différence avec une vraie photo doit rester visible d'un coup d'œil. */
 .pd-av-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
-.pd-avatar-vide { background: #1a1a1f; }
-.pd-avatar-vide .pd-av-img { opacity: .92; }
+/* ⚠️ FOND ET OPACITÉ RETIRÉS LE 09/09 (demande utilisateur : fond doré, silhouette noire). Le
+   #1a1a1f et le .92 servaient l'ancien parti pris — une silhouette SOURDE qui se lit comme un
+   emplacement vide. L'avatar par défaut porte désormais son propre fond doré, et le laisser sous
+   un carré sombre à 92 % le ternirait exactement de ce qu'on vient de lui donner : la marque du
+   desk inversée n'a d'effet que si rien ne la voile. La classe survit parce qu'elle NOMME l'état
+   (« pas de photo »), et que trois emplacements la posent ; elle ne peint simplement plus rien. */
+.pd-avatar-vide { background: transparent; }
 
 /* ── WIDGETS « DIRECT » (Bloomberg Live, Yahoo Finance Live) — une PORTE, pas une fenêtre ─────
    Ces deux widgets n'encadrent pas la vidéo : l'éditeur l'interdit techniquement, et la
@@ -22636,3 +22682,13 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
    ligne du widget bloomberg live ». La barre sous la vidéo répétait le titre déjà porté par
    l'en-tête de la carte et un lien que le lecteur YouTube porte lui-même, pour 32 px d'image en
    moins. Le lien vers l'éditeur reste ENTIER dans le repli, où il est la seule chose utile.) */
+
+/* ══ SENTINELLE D'ARRIVÉE — DOIT RESTER LA DERNIÈRE RÈGLE DU FICHIER (09/09) ═════════════════════
+   Elle ne peint rien. Elle PROUVE que la feuille est arrivée jusqu'au bout : un transfert coupé en
+   route ne donne pas une erreur franche, il donne un fichier tronqué que le navigateur applique
+   partiellement, sans rien signaler. Deux membres ont ainsi vu le desk en HTML brut à la connexion.
+   Un petit script dans `index.html` lit cette variable après le chargement ; si elle manque, il
+   redemande la feuille. Placée EN FIN DE FICHIER à dessein : en tête, elle serait présente même sur
+   une feuille tronquée et la sentinelle mentirait — c'est tout ce qu'elle a à prouver.
+   ⚠️ NE RIEN AJOUTER APRÈS. Le banc `scripts/coquille-verif.js` refuse toute règle qui la suivrait. */
+:root { --dtp-coquille: 1; }

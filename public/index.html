@@ -39,7 +39,103 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260904bbg1140" />
+  <link rel="stylesheet" href="/css/style.css?v=20260909bbg1145" />
+
+  <!-- ══ SENTINELLE DE LA FEUILLE DE STYLES — LE DESK NE PEUT PLUS S'AFFICHER NU (09/09) ═════════
+       DEUX MEMBRES ONT VU LE DESK EN HTML BRUT À LA CONNEXION. La feuille pèse 1,4 Mo : entre le
+       moment où la page est peinte et celui où la feuille finit d'arriver, il y a, sur un lien
+       mobile, plusieurs secondes pendant lesquelles la connexion peut lâcher. Et un transfert coupé
+       ne lève PAS d'erreur exploitable : `onerror` d'un <link> ne se déclenche que sur un échec
+       franc, pas sur un corps tronqué que le navigateur applique quand même, partiellement. Rien
+       dans la page ne s'en apercevait, donc rien ne le réparait : le membre restait devant un
+       terminal en texte brut jusqu'à ce qu'il pense à recharger.
+
+       Le contrôle ne porte donc pas sur l'ÉVÉNEMENT mais sur le RÉSULTAT : la dernière règle de la
+       feuille pose `--dtp-coquille: 1`. Si la variable calculée vaut 1, la feuille est arrivée
+       ENTIÈRE — c'est la seule preuve qui ne puisse pas être fausse. Sinon on redemande la feuille.
+
+       ⚠️ ON PURGE LE SERVICE WORKER AVANT DE REDEMANDER. Il répond avant le réseau : si son cache
+       porte une copie abîmée, réinjecter le même <link> rejouerait exactement la même copie, et
+       même un Ctrl+F5 n'y changerait rien. La purge d'abord, la demande ensuite.
+       ⚠️ L'URL DE SECOURS PORTE `secours=` : le service worker laisse passer sans mémoriser (voir
+       sw.js). Sans ce marqueur, on remplacerait une entrée abîmée par une autre entrée du même
+       genre, à une URL de plus.
+       ⚠️ TROIS TENTATIVES, PAS PLUS, et le compteur vit dans la session de l'onglet : une boucle de
+       rechargement sur un desk cassé est pire que le desk cassé — le membre ne peut même plus lire
+       le message d'erreur. Passé ce nombre, on le dit en clair, en styles écrits à la main. ══════ -->
+  <script>
+    (function () {
+      var LIEN = 'link[rel="stylesheet"][href*="/css/style.css"]';
+      var CLE = 'dtp_coquille_essais';
+      var MAX = 3;
+      function arrivee() {
+        try {
+          var v = getComputedStyle(document.documentElement).getPropertyValue('--dtp-coquille');
+          return String(v || '').trim() === '1';
+        } catch (e) { return true; }   // pas de getComputedStyle → on ne casse rien, on s'abstient
+      }
+      function essais(n) {
+        try { if (n !== undefined) sessionStorage.setItem(CLE, String(n)); return n; } catch (e) { return n || 0; }
+      }
+      function lus() { try { return parseInt(sessionStorage.getItem(CLE) || '0', 10) || 0; } catch (e) { return 0; } }
+      function purger(url) {
+        try {
+          if (!window.caches || !caches.keys) return Promise.resolve();
+          return caches.keys().then(function (noms) {
+            return Promise.all(noms.map(function (n) {
+              return caches.open(n).then(function (c) { return c.delete(url); }).catch(function () {});
+            }));
+          }).catch(function () {});
+        } catch (e) { return Promise.resolve(); }
+      }
+      function abandonner() {
+        try {
+          var d = document.createElement('div');
+          d.setAttribute('style', 'position:fixed;inset:0;z-index:2147483647;background:#0c0c0e;color:#e8eaed;'
+            + 'font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;'
+            + 'justify-content:center;gap:14px;text-align:center;padding:24px;');
+          d.innerHTML = '<div style="font-size:15px;font-weight:700;color:#e3b23a;">Chargement incomplet</div>'
+            + '<div style="font-size:13px;color:#b4b8bf;max-width:420px;line-height:1.55;">'
+            + 'La mise en forme du desk n\'est pas arrivée jusqu\'au bout. C\'est le réseau, pas votre compte : '
+            + 'vos données sont intactes.</div>';
+          var b = document.createElement('button');
+          b.textContent = 'Recharger le desk';
+          b.setAttribute('style', 'padding:8px 18px;font:inherit;font-size:12px;font-weight:700;letter-spacing:.04em;'
+            + 'color:#0c0c0e;background:#e3b23a;border:0;border-radius:5px;cursor:pointer;');
+          b.onclick = function () { try { sessionStorage.removeItem(CLE); } catch (e) {} location.reload(); };
+          d.appendChild(b);
+          (document.body || document.documentElement).appendChild(d);
+        } catch (e) {}
+      }
+      function reparer() {
+        var vieux = document.querySelector(LIEN);
+        if (!vieux) return;
+        var n = lus() + 1;
+        essais(n);
+        if (n > MAX) { abandonner(); return; }
+        var base = String(vieux.getAttribute('href') || '').split('&secours=')[0];
+        purger(vieux.href).then(function () {
+          var neuf = document.createElement('link');
+          neuf.rel = 'stylesheet';
+          neuf.href = base + (base.indexOf('?') >= 0 ? '&' : '?') + 'secours=' + n + '-' + Date.now();
+          neuf.onload = function () { setTimeout(controler, 60); };
+          neuf.onerror = function () { setTimeout(controler, 900); };
+          if (vieux.parentNode) vieux.parentNode.replaceChild(neuf, vieux);
+          else document.head.appendChild(neuf);
+        });
+      }
+      function controler() {
+        if (arrivee()) { try { sessionStorage.removeItem(CLE); } catch (e) {} return; }
+        reparer();
+      }
+      // Trois réveils : le plus tôt possible, à la fin du document, puis un filet tardif pour la
+      // feuille qui met du temps à arriver sans jamais arriver.
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', controler);
+      else controler();
+      window.addEventListener('load', controler);
+      setTimeout(controler, 6000);
+    })();
+  </script>
 
   <!-- ══ FILET ANTI-BLOCAGE DU SPLASH, ARMÉ DÈS LE HEAD ═══════════════════════════════════════════
        Le filet vivait en FIN de <body> (ligne ~1900). Or le voile d'initialisation, lui, est déclaré
@@ -92,7 +188,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260904bbg1140"></script>
+  <script defer src="/js/noinspect.js?v=20260909bbg1145"></script>
 </head>
 <body>
 
@@ -600,9 +696,12 @@
             <span class="br-inst-badge" id="br-inst-badge">ING</span>
           </div>
         </div>
-        <div class="br-rtags-bar" id="br-rtags-bar">
-          <div class="br-rtags-scroll" id="br-rtags-scroll"></div>
-        </div>
+        <!-- (La barre d'étiquettes qui vivait ici a été RETIRÉE le 09/09, demande utilisateur :
+             « la barre bandeau qui se situe en dessous de retour à la liste, à enlever, je trouve
+             qu'elle sert à rien ». Elle reprenait des mots-clés que la carte du rapport porte déjà
+             dans la liste, et prenait une bande de 33 px au-dessus du document — sur un rapport de
+             banque, la hauteur d'écran EST la fonctionnalité. Le calcul des étiquettes (_brTags)
+             reste en place et sert toujours la liste : seule leur répétition dans le lecteur tombe. -->
         <div class="br-rcontent" id="br-rcontent">
           <div class="br-loading">Chargement…</div>
         </div>
@@ -994,16 +1093,16 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260904bbg1140"></script>
-<script defer src="/js/app.js?v=20260904bbg1140"></script>
-<script defer src="/js/charts.js?v=20260904bbg1140"></script>
-<script defer src="/js/sessionmap.js?v=20260904bbg1140"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260909bbg1145"></script>
+<script defer src="/js/app.js?v=20260909bbg1145"></script>
+<script defer src="/js/charts.js?v=20260909bbg1145"></script>
+<script defer src="/js/sessionmap.js?v=20260909bbg1145"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260904bbg1140"></script>
-<script defer src="/js/home.js?v=20260904bbg1140"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/i18n-dicts.js?v=20260904bbg1140"></script>
-<script defer src="/js/i18n.js?v=20260904bbg1140"></script>
+<script defer src="/js/widgets.js?v=20260909bbg1145"></script>
+<script defer src="/js/home.js?v=20260909bbg1145"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/i18n-dicts.js?v=20260909bbg1145"></script>
+<script defer src="/js/i18n.js?v=20260909bbg1145"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1513,8 +1612,13 @@
   // ─── Avatar display helpers ───────────────────────────────────────────────
   /* ⚠️ PAS DE PHOTO = UN EMPLACEMENT VIDE, PLUS UNE INITIALE (03/09, demande utilisateur : « ça va
      les pousser à mettre à jour leur photo »). Une lettre colorée est jolie et se suffit à
-     elle-même : elle ressemble à un choix, donc personne n'a de raison d'y toucher. La silhouette
-     sourde, elle, se lit comme un formulaire non rempli — c'est exactement l'effet recherché.
+     elle-même : elle ressemble à un choix, donc personne n'a de raison d'y toucher. La silhouette,
+     elle, se lit comme un formulaire non rempli — c'est exactement l'effet recherché.
+     ⚠️ SON HABILLAGE, EN REVANCHE, A CHANGÉ LE 09/09 et le mot « sourde » a été retiré de la ligne
+     ci-dessus parce qu'il ne décrivait plus rien : l'utilisateur a demandé « le branding DTP noir
+     doré mais inversé, fond doré et la silhouette en noir ». Ce que l'emplacement vide doit dire
+     n'a pas bougé ; ce qu'il MONTRE, si. Un commentaire qui décrirait encore un bordeaux mat
+     ferait croire à une régression le jour où quelqu'un ouvrira le fichier.
      ⚠️ L'IMAGE EST À NOUS, dessinée pour le desk (assets/images/avatar-defaut.svg), au même titre
      que l'avatar du Copilote Macro : aucune image téléchargée chez un tiers, règle du 21/08.
      ⚠️ ET ON NE TOUCHE À RIEN D'AUTRE : une photo posée par le client s'affiche exactement comme

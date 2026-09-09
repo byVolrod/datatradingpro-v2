@@ -37,7 +37,7 @@
        téléphone du client, indéfiniment.
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'dtp-sw-20260904bbg1140';
+const VERSION = 'dtp-sw-20260909bbg1145';
 const CACHE_COQUILLE = VERSION + '-coquille';
 
 /* La coquille minimale : de quoi afficher QUELQUE CHOSE de DTP sans réseau. Volontairement courte —
@@ -87,7 +87,30 @@ function estActifVersionne(url) {
   if (url.origin !== self.location.origin) return false;
   if (url.pathname.indexOf('/api/') === 0) return false;              // jamais de données
   if (!/\.(css|js|png|svg|woff2?|ico)$/i.test(url.pathname)) return false;
+  /* UNE DEMANDE DE SECOURS NE PASSE JAMAIS PAR LE CACHE (09/09). La sentinelle d'`index.html`
+     redemande la feuille de styles quand elle constate qu'elle n'est pas arrivée entière. Si ce
+     service worker la traitait comme un actif versionné, il pourrait la servir depuis le cache —
+     donc rejouer la copie abîmée qu'on est justement en train de fuir — ou mémoriser à son tour
+     une copie douteuse à une URL de plus. Le secours va au réseau, et nulle part ailleurs. */
+  if (/(^|&)secours=/.test(url.search.replace(/^\?/, ''))) return false;
   return /(^|&)v=[^&]+/.test(url.search.replace(/^\?/, ''));         // le jeton, ou rien
+}
+
+/* La MÊME ressource, à un jeton de version près. On compare le chemin, jamais l'URL entière :
+   `/css/style.css?v=…` d'hier et celle d'aujourd'hui ne diffèrent que par le jeton. Utilisé
+   uniquement en dernier ressort, quand le réseau a refusé (voir le repli du gestionnaire fetch). */
+function voisinEnCache(url) {
+  return caches.keys()
+    .then((noms) => Promise.all(noms.map((n) => caches.open(n)
+      .then((c) => c.keys().then((demandes) => {
+        for (const d of demandes) {
+          try { if (new URL(d.url).pathname === url.pathname) return c.match(d); } catch (err) {}
+        }
+        return null;
+      }))
+      .catch(() => null))))
+    .then((trouves) => trouves.find((r) => !!r) || null)
+    .catch(() => null);
 }
 
 self.addEventListener('fetch', (e) => {
@@ -105,12 +128,33 @@ self.addEventListener('fetch', (e) => {
         // On ne mémorise QUE des réponses complètes et valides : une 404 ou une réponse partielle
         // mise en cache se rejouerait à chaque ouverture, et le desk resterait cassé hors ligne
         // sans qu'aucun rechargement ne le répare.
-        if (rep && rep.ok && rep.status === 200) {
+        /* ⚠️ ET SURTOUT PAS UNE RÉPONSE QUI VIENT D'AILLEURS (09/09). `fetch` suit les redirections
+           en silence : une feuille de styles demandée pendant que la session vient de tomber
+           reviendrait avec le code 200 et le corps de la PAGE DE CONNEXION, et ce HTML serait
+           mémorisé SOUS L'URL DE LA FEUILLE. Le desk s'afficherait alors nu à chaque ouverture,
+           pour toujours, sans qu'aucun rechargement n'y puisse rien — un service worker répond
+           avant le réseau. On exige donc une réponse de même origine et NON redirigée. */
+        if (rep && rep.ok && rep.status === 200 && !rep.redirected && rep.type === 'basic') {
           const copie = rep.clone();
           caches.open(CACHE_COQUILLE).then((c) => c.put(req, copie)).catch(() => {});
         }
         return rep;
-      }))
+      /* ⚠️ ET LE RÉSEAU QUI LÂCHE NE DOIT PAS TUER L'ACTIF (09/09). Sans ce repli, une coupure d'une
+         seconde faisait échouer `respondWith` : le navigateur voyait une erreur réseau sur la
+         feuille de styles et affichait le desk SANS STYLES. Deux membres l'ont signalé.
+         ⚠️ ET LE REPLI NE PEUT PAS ÊTRE « on relit le cache à la même URL » : c'est exactement la
+         lecture qui vient d'échouer trois lignes plus haut, donc un second échec garanti. Ce serait
+         du code mort à l'apparence d'un filet — le pire genre. Le repli utile est à l'URL VOISINE :
+         le jeton de version change à chaque déploiement, si bien qu'au premier chargement suivant
+         une mise en production le cache porte la feuille de la version PRÉCÉDENTE, sous une autre
+         URL. Réseau coupé à cet instant précis, c'est elle ou rien. Une feuille d'hier vaut
+         infiniment mieux qu'un desk en texte brut, et cela ne se produit QUE hors réseau.
+         S'il n'y a vraiment rien, l'erreur remonte telle quelle et la sentinelle d'`index.html`
+         prend le relais. */
+      }).catch(() => voisinEnCache(url).then((secours) => {
+        if (secours) return secours;
+        throw new Error('actif indisponible');
+      })))
     );
     return;
   }

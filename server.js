@@ -713,6 +713,105 @@ app.get('/.well-known/assetlinks.json', (_req, res) => {
   }]);
 });
 
+/* ══ COMPRESSION DES ACTIFS DE LA COQUILLE (CSS/JS) — POSÉE LE 09/09 APRÈS INCIDENT CLIENT ═══════
+   Deux membres ont vu le desk s'afficher SANS AUCUN STYLE à la connexion. La feuille de styles fait
+   1,4 Mo et partait EN CLAIR : `express.static` ne compresse rien, et aucun `compression` n'était
+   monté. Sur un lien mobile, c'est plusieurs secondes de transfert pour un seul fichier — et un
+   transfert coupé en route ne donne pas une erreur franche, il donne une feuille TRONQUÉE ou vide,
+   donc un desk nu. La page, elle, est déjà arrivée : le membre voit son terminal en HTML brut.
+   Mesuré sur la feuille réelle : 1 430 281 octets en clair, 403 180 en gzip, 323 195 en brotli. La
+   fenêtre pendant laquelle la connexion peut lâcher est divisée par quatre. Ce n'est pas la seule
+   parade (voir la sentinelle dans index.html et le durcissement du service worker) — c'est celle
+   qui s'attaque à la CAUSE plutôt qu'aux effets.
+
+   ⚠️ PORTÉE VOLONTAIREMENT ÉTROITE : `/css/*.css` et `/js/*.js`, rien d'autre. On NE monte PAS un
+   `compression()` global — le desk sert du SSE (`/api/ai/chat`), et un middleware de compression
+   générique met en tampon un flux d'événements : la réponse de l'IA n'arriverait plus au fil de
+   l'eau mais d'un bloc à la fin. C'est la panne classique de ce genre d'ajout, et elle est
+   silencieuse côté serveur. Les données ne passent donc jamais par ici.
+
+   ⚠️ COMPRESSION ASYNCHRONE, JAMAIS `...Sync`. Brotli sur 1,4 Mo bloque la boucle d'événements
+   124 ms en qualité 9 — et 2,3 secondes en qualité 11, ce qui GÈLE le serveur entier pour tous les
+   autres clients pendant qu'un seul télécharge sa feuille. La qualité 9 rend 4,4× contre 4,8× pour
+   la 11 : le dernier dixième ne vaut pas dix-huit fois le temps de calcul. Résultat mémorisé, donc
+   payé une seule fois par fichier et par démarrage.
+
+   ⚠️ ON GARDE LES REQUÊTES CONDITIONNELLES. Sans `ETag` ni `304`, ce raccourci serait une
+   RÉGRESSION face à `express.static` : chaque visite re-téléchargerait tout. L'empreinte est
+   dérivée de la taille, de la date du fichier ET du codage, donc elle change au déploiement (le
+   conteneur est reconstruit) et pas autrement. `Vary: Accept-Encoding` est obligatoire : sans lui,
+   un cache intermédiaire peut servir un corps compressé à un client qui n'a rien demandé de tel.
+
+   ⚠️ MÉMOIRE PLAFONNÉE (512 Mo sur le VPS) : au plus _GZ_MAX octets compressés conservés, et aucun
+   fichier de plus de 8 Mo. Au-delà, on laisse passer vers `express.static`. */
+const _zlib = require('zlib');
+const _GZ_CACHE = new Map();          // chemin|codage → { etag, buf }
+const _GZ_ENCOURS = new Map();        // compressions en vol : deux visiteurs simultanés = un calcul
+const _GZ_MAX = 8 * 1024 * 1024;      // total compressé conservé en mémoire
+const _GZ_FICHIER_MAX = 8 * 1024 * 1024;
+let _gzOctets = 0;
+const _GZ_RX = /^\/(?:css|js)\/[A-Za-z0-9._-]+\.(?:css|js)$/;
+const _GZ_PUBLIC = path.join(__dirname, 'public');
+
+function _gzComprimer(codage, brut) {
+  return new Promise((resoudre, rejeter) => {
+    const fini = (e, buf) => (e ? rejeter(e) : resoudre(buf));
+    if (codage === 'br') {
+      _zlib.brotliCompress(brut, { params: { [_zlib.constants.BROTLI_PARAM_QUALITY]: 9,
+        [_zlib.constants.BROTLI_PARAM_SIZE_HINT]: brut.length } }, fini);
+    } else {
+      _zlib.gzip(brut, { level: 6 }, fini);
+    }
+  });
+}
+
+app.get(_GZ_RX, (req, res, next) => {
+  try {
+    const accepte = String(req.headers['accept-encoding'] || '');
+    const codage = /\bbr\b/i.test(accepte) ? 'br' : (/\bgzip\b/i.test(accepte) ? 'gzip' : null);
+    if (!codage) return next();
+    const fp = path.join(_GZ_PUBLIC, req.path);
+    // Ceinture : `req.path` est déjà contraint par _GZ_RX (pas de « .. », pas de « / » interne),
+    // mais on vérifie que le chemin résolu reste sous public/ — une garde de chemin ne se déduit pas.
+    if (fp.indexOf(_GZ_PUBLIC + path.sep) !== 0) return next();
+    let st;
+    try { st = fs.statSync(fp); } catch (e) { return next(); }
+    if (!st.isFile() || st.size > _GZ_FICHIER_MAX) return next();
+
+    const etag = 'W/"' + st.size.toString(36) + '-' + Math.floor(st.mtimeMs).toString(36) + '-' + codage + '"';
+    res.set('Vary', 'Accept-Encoding');
+    res.set('Cache-Control', 'public, max-age=2592000');
+    res.set('ETag', etag);
+    res.type(req.path.endsWith('.css') ? 'text/css' : 'application/javascript');
+    if (String(req.headers['if-none-match'] || '').indexOf(etag) >= 0) return res.status(304).end();
+
+    const cle = fp + '|' + codage;
+    const servir = (buf) => {
+      res.set('Content-Encoding', codage);
+      res.set('Content-Length', String(buf.length));
+      if (req.method === 'HEAD') return res.end();
+      return res.end(buf);
+    };
+    const e = _GZ_CACHE.get(cle);
+    if (e && e.etag === etag) return servir(e.buf);
+
+    let vol = _GZ_ENCOURS.get(cle);
+    if (!vol) {
+      vol = _gzComprimer(codage, fs.readFileSync(fp)).then((buf) => {
+        const vieux = _GZ_CACHE.get(cle);
+        if (vieux) { _gzOctets -= vieux.buf.length; _GZ_CACHE.delete(cle); }
+        // Plafond atteint → on vide entièrement plutôt que d'évincer au hasard : le jeu d'actifs du
+        // desk est petit et se reconstruit en quelques centaines de millisecondes.
+        if (_gzOctets + buf.length > _GZ_MAX) { _GZ_CACHE.clear(); _gzOctets = 0; }
+        _GZ_CACHE.set(cle, { etag, buf }); _gzOctets += buf.length;
+        return buf;
+      }).finally(() => { _GZ_ENCOURS.delete(cle); });
+      _GZ_ENCOURS.set(cle, vol);
+    }
+    return vol.then(servir).catch(() => next());   // le moindre doute → `express.static` reprend la main
+  } catch (e) { return next(); }
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   extensions: ['html'],
   // CSS/JS/images : cache navigateur 30 j (gros gain de perf — plus de re-téléchargement de chaque
@@ -1319,6 +1418,13 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260909-widget-kelly', ts: Date.UTC(2026, 8, 9, 22, 0), title: 'Nouveau widget : le critère de Kelly, calculé sur VOS trades', desc: 'Un nouvel outil rejoint la bibliothèque, dans la catégorie Outils. IL RÉPOND À UNE SEULE QUESTION, la plus difficile : quelle fraction du capital risquer par trade. Pas quelle paire, pas quand entrer — quelle taille. Le critère de Kelly donne la fraction qui fait croître un compte le plus vite possible sans jamais le ruiner, à partir de deux nombres : votre taux de réussite et le rapport entre votre gain moyen et votre perte moyenne. IL LES PREND DANS VOTRE JOURNAL. Si votre journal de trading est chargé, les trois champs arrivent déjà remplis, avec le nombre de trades sur lesquels ils portent. Ce sont EXACTEMENT les chiffres du bloc Calibrage du journal, lus au même endroit et non recalculés : deux écrans du desk ne peuvent pas vous donner deux taux de réussite différents pour les mêmes trades. Les trois champs restent modifiables pour éprouver une hypothèse. LE DEMI-KELLY EST MIS EN AVANT, PAS LE KELLY COMPLET. La formule suppose des probabilités connues ; les vôtres sont estimées sur un échantillon, donc bruitées. La moitié conserve l’essentiel de la croissance en divisant par quatre l’ampleur des reculs, et c’est la pratique courante. Le quart est là pour les échantillons courts. ET QUAND IL N’Y A PAS D’AVANTAGE, LA CARTE LE DIT au lieu de proposer un petit pourcentage prudent : à taux de réussite et rapport gain/perte donnés, si l’espérance est négative, aucune taille ne rend la série gagnante. Elle ralentit la perte, elle ne crée pas d’avantage. C’est la méthode qu’il faut reprendre, pas le capital.' },
+  { id: 'dtpu-20260909-goldman-blanche', ts: Date.UTC(2026, 8, 9, 21, 0), title: 'Un rapport ne s’ouvre plus jamais sur une page blanche', desc: 'Vous nous avez signalé un rapport Goldman Sachs qui s’ouvrait sur une page entièrement blanche. La cause est instructive, et la correction va plus loin que ce seul rapport. LE DESK FABRIQUE LE PDF DE CERTAINS RAPPORTS. Quand une banque publie une page web plutôt qu’un document, le desk ouvre cette page dans un navigateur interne et en imprime un PDF, pour que vous lisiez le rapport dans le terminal au lieu de sortir sur le site de la banque. Or les pages Goldman sont fermées derrière une inscription : le navigateur ne reçoit qu’une coquille vide. C’était connu, et c’était même écrit noir sur blanc dans le code, en toutes lettres : cet éditeur avait été sorti de la liste des sites imprimés. Il n’en était jamais sorti. La note disait le contraire de ce que faisait le programme, et personne n’a plus vérifié la liste. Il en est sorti pour de bon. Ses vrais documents PDF, eux, continuent de s’ouvrir normalement : c’est bien la page web fermée qui posait problème, pas l’éditeur. UNE GARDE QUI VAUT POUR LES QUINZE ÉDITEURS. Le desk mesure désormais le texte réellement présent avant d’imprimer. S’il n’y a rien, il refuse de fabriquer le document plutôt que de vous livrer du blanc, et il vous le dit. N’importe quel éditeur peut fermer ses pages du jour au lendemain sans prévenir : la protection ne vise plus un nom, elle vise la situation. Les pages blanches déjà mémorisées ont été effacées. ET LA RÈGLE SUR LES SOURCES EST VÉRIFIÉE À CHAQUE MISE À JOUR : un rapport lu dans le desk ne montre ni lien ni adresse vers le site d’origine, tout en conservant le texte des liens rédigés, qui fait partie du rapport.' },
+  { id: 'dtpu-20260909-onglets-calendrier', ts: Date.UTC(2026, 8, 9, 20, 0), title: 'Des onglets enfin lisibles, et un calendrier qui dit la vérité quand il est vide', desc: 'Deux demandes de votre part, deux corrections. LES NOMS DE WIDGETS ÉTAIENT TROP LONGS DANS LA RANGÉE D’ONGLETS. Certains font vingt-trois caractères, comme Variations quotidiennes ou Série d’un indicateur : la rangée devenait illisible dès trois onglets. Chaque widget porte désormais un libellé court qui lui est propre, quatorze caractères au maximum, et c’est lui qui s’affiche sur l’onglet. UNE PRÉCISION QUI ÉVITE UN RETOUR EN ARRIÈRE : ce n’est pas le sigle de la vignette. Ce sigle est PARTAGÉ entre widgets, cinq portent Volatilité et trois portent FX ; l’utiliser donnait deux onglets voisins au même nom, ce que vous nous aviez signalé il y a six jours. Le libellé court est unique, un contrôle automatique refuse désormais qu’il cesse de l’être. Le nom complet reste sur l’en-tête de la carte, dans la bibliothèque, et au survol de l’onglet. Renommer un onglet vous-même l’emporte toujours. LE CALENDRIER ANNONÇAIT UNE SEMAINE VIDE SANS SAVOIR SI ELLE L’ÉTAIT. La phrase Aucun événement sur cette semaine s’affichait dans quatre situations différentes, dont trois où elle était fausse : quand l’appel au calendrier avait échoué, quand aucune donnée n’était arrivée, et quand la période demandée dépasse ce que le flux couvre. La quatrième était votre propre filtre d’importance ou votre recherche, qui masquait les lignes pendant que le widget vous répondait qu’il n’y en avait pas. Chacune a maintenant sa phrase, et un bouton Réessayer apparait uniquement là où un clic peut réellement réparer.' },
+  { id: 'dtpu-20260909-support-lisible', ts: Date.UTC(2026, 8, 9, 19, 0), title: 'Messagerie du support : un vrai nom, le message visible, et la liste classée par connexion', desc: 'Trois corrections dans la boîte de réception du support, à partir de vos remarques sur une capture. UN CLIENT S’APPELAIT « false ». Ce n’était pas un compte fantôme mais un vrai abonné : la lecture de son profil convertissait n’importe quelle valeur en texte AVANT de vérifier que c’en était un. Quand la plateforme de paiement renvoie un champ vide sous forme booléenne, cela donnait le mot « false », qui a l’air d’un nom et n’en est pas un. Le même chemin acceptait « true » et « [object Object] ». Un nom d’affichage doit désormais être du texte, sinon on passe au suivant : pseudo, puis adresse. UN FIL S’AFFICHAIT SANS SON MESSAGE. La liste lit les quatre cents messages les plus récents pour l’aperçu, et à part les non lus pour la pastille. Un abonné dont le seul message remonte à plusieurs semaines, typiquement un message d’accueil jamais ouvert, n’entrait que par la seconde liste, donc sans aperçu : une ligne muette avec une pastille. C’était pourtant le fil qui attendait le plus une réponse. Ces fils là vont maintenant chercher leur dernier message, un par un et seulement eux. LA LISTE SE CLASSE PAR CONNEXION, de la plus récente à la plus ancienne, comme demandé : les personnes en ligne d’abord, puis celles vues le plus récemment. C’est un critère différent du dernier message reçu, et c’est voulu : la question qu’on se pose en ouvrant la messagerie est de savoir qui peut répondre maintenant.' },
+  { id: 'dtpu-20260909-force-tracee', ts: Date.UTC(2026, 8, 9, 18, 0), title: 'La force des devises se trace en direct dans vos récaps, au lieu d’une image', desc: 'Vous nous avez signalé, capture à l’appui, une image cassée dans le récap hebdomadaire, à l’endroit de la force des devises. Ce n’était pas l’image qui était en cause, c’était le principe. LE RAPPORT DEMANDAIT UNE PHOTO DE SON PROPRE GRAPHIQUE. Une route du serveur ouvre une page dans un navigateur interne, la photographie, et renvoie l’image ; c’est ce qu’il faut pour un e-mail, où aucun graphique ne peut être calculé. Quand cette photographie échoue, la route renvoie volontairement un pixel transparent plutôt qu’une erreur, pour ne jamais casser un e-mail. Dans le desk, cela donnait un blanc, sans rien dire. ET LE DESK SAVAIT DÉJÀ LA TRACER. La fonction chargée de dessiner cette vue d’ensemble était appelée à chaque ouverture du rapport, depuis les données figées de la semaine ; elle cherchait un emplacement qui n’existait plus nulle part et sortait aussitôt, en silence. Elle a retrouvé son emplacement. La courbe est désormais tracée en direct, aux couleurs du desk, avec les huit devises et leurs pastilles, et elle réagit comme les autres graphiques. LE RÉCAP QUOTIDIEN A REÇU LE MÊME TRAITEMENT le même jour, avec la courbe de la SÉANCE : il portait exactement la même image et aurait montré le même blanc. Les e-mails, eux, continuent de recevoir l’image : c’est la seule chose qu’un logiciel de messagerie sait afficher.' },
+  { id: 'dtpu-20260909-connexion-et-lecture', ts: Date.UTC(2026, 8, 9, 16, 0), title: 'La page de connexion se remplit d’un coup, et quatre détails de lecture corrigés', desc: 'Cinq retours de votre part, traités ensemble. LA MOSAÏQUE DE LA PAGE DE CONNEXION SE REMPLISSAIT AU COMPTE-GOUTTES. Deux causes se cumulaient. La première : chaque vignette attendait d’être jugée « bientôt visible » avant d’être téléchargée. Ces vignettes pèsent 5 Ko, soit 636 Ko pour les quatre-vingts réunies : il n’y avait rien à économiser, et le calcul se trompait de toute façon, parce que les rangées défilent par une transformation que ce mécanisme ne voit pas. La seconde était plus visible encore : quand les photos d’actualité du jour arrivaient, la mosaïque était ENTIÈREMENT reconstruite, donc vidée au moment précis où elle venait de se remplir, puis rechargée depuis des serveurs de presse lointains. Désormais chaque photo est préparée en coulisses et ne remplace sa vignette qu’une fois prête : une case ne redevient jamais noire. LA PHOTO DE PROFIL PAR DÉFAUT prend les couleurs de la maison, à l’envers : fond doré, silhouette noire. Elle se remarque, ce qui est le but, et elle reste un emplacement vide qui appelle votre vraie photo. LE BANDEAU D’ÉTIQUETTES SOUS « RETOUR À LA LISTE » DISPARAIT dans le lecteur de rapports d’institutions. Il répétait des mots-clés déjà portés par la carte du rapport et prenait trente pixels sur la hauteur du document : sur un rapport de banque, cette hauteur est la fonctionnalité. LE BADGE DE TON D’UNE BANQUE CENTRALE disait juste, la phrase à côté disait autre chose. Un ton mesuré comme accommodant s’affichait en rouge, correctement, suivi de « sans posture affirmée » : la lecture ne suivait plus depuis que ces libellés avaient été traduits en français. Les deux se rejoignent. ET UNE POSTURE CLAIREMENT RESTRICTIVE POUVAIT RESSORTIR NEUTRE : une phrase comme « il serait prématuré de baisser les taux » était comptée dans les deux sens à la fois, à cause du mot « baisser », et les deux lectures s’annulaient. Elle est désormais lue pour ce qu’elle dit.' },
+  { id: 'dtpu-20260909-desk-sans-styles', ts: Date.UTC(2026, 8, 9, 10, 0), title: 'Le desk ne peut plus s’afficher sans sa mise en forme', desc: 'Deux d’entre vous nous ont signalé, capture à l’appui, un desk qui s’ouvrait en texte brut à la connexion : les données étaient là, la mise en forme n’était pas arrivée. Le diagnostic a trouvé trois causes qui se cumulaient, et les trois sont fermées. LA FEUILLE DE STYLES PARTAIT EN CLAIR. Elle pèse 1,4 Mo et voyageait sans compression : sur une connexion mobile, cela fait plusieurs secondes de transfert pendant lesquelles la liaison peut lâcher. Elle est désormais compressée, et passée sous 330 Ko : la fenêtre de risque est divisée par plus de quatre, et le desk s’ouvre plus vite pour tout le monde, y compris quand tout va bien. UN TRANSFERT COUPÉ NE DIT RIEN. C’est le point le plus traître : quand la mise en forme arrive à moitié, le navigateur ne signale aucune erreur, il applique ce qu’il a reçu et se tait. Rien dans la page ne s’en apercevait, donc rien ne le réparait, et vous restiez devant un desk nu jusqu’à penser à recharger. La page vérifie maintenant elle-même que la mise en forme est arrivée JUSQU’AU BOUT, et la redemande toute seule si ce n’est pas le cas. Si même cela échouait, elle vous le dit en clair au lieu de faire semblant. LE MODE HORS LIGNE MANQUAIT D’UN FILET. Le composant qui garde le desk utilisable sans réseau n’avait aucun recours quand la connexion tombait au mauvais moment. Il sert désormais la mise en forme de la version précédente plutôt que rien du tout, et il refuse de mémoriser une réponse qui ne serait pas celle demandée.' },
   { id: 'dtpu-20260905-force-cadre', ts: Date.UTC(2026, 8, 5, 17, 0), title: 'Force des Devises montre toujours toutes les courbes, et la fiche macro parle plus clair', desc: 'Deux corrections sur la lecture des devises et de la macro, toutes deux signalées captures à l’appui. UN CADRE QUI NE COUPE PLUS AUCUNE COURBE. Sur Force des Devises, la courbe du yen sortait par le haut du cadre et n’y revenait jamais ; sa pastille avait disparu de la colonne de droite. Ce n’était pas un défaut de calcul mais un arbitrage devenu mauvais : le graphique resserrait son cadre sur le groupe des devises pour qu’on les distingue les unes des autres, quitte à sacrifier celle qui s’en échappe. C’était la bonne réponse à une demande plus ancienne ; ce n’est plus celle qui convient. Le resserrement ne s’applique donc plus que s’il ne coupe RIEN. Dès qu’une courbe en sortirait, le cadre s’ouvre et montre tout. UNE PRÉCISION QUI FAIT TOUTE LA DIFFÉRENCE : la vérification porte sur TOUS les points de chaque courbe, pas sur son point d’arrivée. Un pic peut monter très haut puis revenir sagement dans le groupe ; en ne regardant que la fin, on n’aurait rien vu, et c’est exactement le cas qui posait problème. DEUX LIBELLÉS RÉÉCRITS DANS LA FICHE MACRO. Les cartes Croissance économique et Emploi affichaient deux lignes nommées Niveau et Dynamique. Le reproche est juste, et il est plus précis qu’il n’y parait : la ligne disait « Niveau : Haussière ». Un niveau qui vaut haussière ne veut rien dire, un niveau se lit haut ou bas. Le mot décrivait le calcul, pas ce que la ligne répond. Ces deux lignes disent en réalité où on en est et dans quel sens ça va : elles s’appellent désormais Situation actuelle et Évolution récente. Le mot Niveau RESTE sur la carte Inflation, et ce n’est pas un oubli : la valeur y est bien un niveau, élevée, modérée ou faible. Le terme n’était ambigu que là où il portait une valeur de tendance.' },
   { id: 'dtpu-20260905-journal-largeur', ts: Date.UTC(2026, 8, 5, 15, 0), title: 'Le journal de trading occupe toute la largeur de votre écran', desc: 'Retour utilisateur, capture à l’appui : « pourquoi tu n’as pas exploité toute la largeur ». Il avait raison, et c’était une erreur de ma part, pas un compromis. La refonte de ce matin bornait la page du journal à une largeur de lecture confortable. Mesuré sur son écran de 1920 pixels : le contenu s’arrêtait à 1055, soit près de la MOITIÉ de l’écran laissée en noir, sous un desk dont tout le reste va d’un bord à l’autre. Le raisonnement d’origine, qu’une ligne de tuiles étirée sur 1900 pixels se lit mal, était juste ; mais il se règle là où il se pose, dans les grilles, en ajoutant des COLONNES quand la place existe, et pas en rendant la moitié de l’écran au vide. Le plafond est retiré : les trois onglets occupent toute la largeur disponible. Les grilles, elles, comptent désormais leurs colonnes sur la place réelle. Les chiffres clés passent à quatre colonnes au-delà d’une certaine largeur, parce que les sections en portent quatre ou huit : quatre colonnes remplissent donc TOUJOURS leurs rangées. Les douze pavés de mois se coupent en six et six, ou quatre et quatre et quatre, jamais en neuf et trois, qui ne ressemble ni à une année ni à un calendrier. UNE PRÉCISION QUI ÉVITE UN DÉFAUT CLASSIQUE : ces seuils sont mesurés sur la BOÎTE qui contient le journal, pas sur la fenêtre. Le journal se monte aussi dans une carte de votre desk, où la fenêtre peut faire 1900 pixels pendant que la carte en fait 400. Une règle calée sur la fenêtre y forcerait six colonnes dans un mouchoir de poche.' },
   { id: 'dtpu-20260905-directs-antenne2', ts: Date.UTC(2026, 8, 5, 13, 0), title: 'Les cartes de direct gagnent leur bandeau en hauteur d’image, et restent utiles hors antenne', desc: 'Deux corrections sur les cartes Bloomberg Live et Yahoo Finance Live, toutes deux signalées captures à l’appui. LA BARRE SOUS LA VIDÉO DISPARAIT. Elle portait le nom de la chaîne et un lien « Ouvrir chez l’éditeur ». Le nom était déjà écrit dans l’en-tête de la carte, juste au-dessus, et le lecteur porte lui-même son lien vers la chaîne : la barre répétait donc deux fois la même chose en prenant 32 pixels de hauteur d’image. Le lien reste ENTIER dans le cas où aucune vidéo ne peut être affichée, puisque le bouton est alors la seule chose que la carte a à offrir. HORS ANTENNE N’EST PAS EN PANNE. La carte Yahoo restait vide alors que celle de Bloomberg fonctionnait. La différence n’était pas dans le desk, les deux cartes partagent le même mécanisme : elle est dans les chaînes. Bloomberg Television diffuse en continu, Yahoo Finance seulement aux heures de marché. En dehors, il n’y a tout simplement rien à afficher, et la carte se repliait sur son bouton la moitié de la journée. Le serveur fait désormais la différence entre trois états : à l’antenne, lu et pas à l’antenne, et rien de lisible. Quand la chaîne n’émet pas, la carte affiche sa DERNIÈRE ÉMISSION plutôt que rien. ET ELLE LE DIT. Une pastille discrète, posée sur l’image, écrit « Hors antenne ». Montrer un enregistrement sous un titre « Live » sans le préciser serait un mensonge, et cette pastille n’apparait jamais sur une vraie diffusion en cours.' },
@@ -4555,7 +4661,31 @@ app.get('/api/admin/chat', requireSupport, async (_req, res) => {
       const restants = manquants.length - repêchés.filter(Boolean).length;
       if (restants) console.warn('[chat] ' + restants + ' fil(s) sans compte résolu (compte supprimé ?)');
     }
-    res.json({ threads: threads.map(t => { const p = _presenceWithFallback(t.user_id, t.lastAt); return { ...t, name: byId.get(String(t.user_id))?.name || '', email: byId.get(String(t.user_id))?.email || '', online: p.online, lastSeen: p.lastSeen }; }) });   // repli lastSeen = dernier message
+    const fils = threads.map(t => { const p = _presenceWithFallback(t.user_id, t.lastAt); return { ...t, name: byId.get(String(t.user_id))?.name || '', email: byId.get(String(t.user_id))?.email || '', online: p.online, lastSeen: p.lastSeen }; });   // repli lastSeen = dernier message
+    /* ORDRE DE LA BOÎTE DE RÉCEPTION : PAR CONNEXION, DU PLUS RÉCENT AU PLUS ANCIEN (09/09, demande
+       utilisateur : « classe de la connexion récente au plus ancien dans la liste »).
+       ⚠️ CE N'EST PAS LE MÊME CRITÈRE QUE CELUI D'`auth.chatThreads`, et les deux restent en place à
+       dessein. Là-bas, l'ordre est celui du DERNIER MESSAGE : c'est le bon pour qui consomme les
+       fils comme des conversations, et c'est lui qui a réparé, le 03/09, les fils anciens relégués
+       en fin de liste. Ici, la question posée par un support qui ouvre sa boîte est différente :
+       QUI est là, ou vient de partir. Les deux réponses ne coïncident pas — un client connecté à
+       l'instant sans avoir écrit depuis lundi passerait après un fil de la veille.
+       Les personnes EN LIGNE d'abord (elles peuvent répondre tout de suite), puis par dernière
+       connexion connue, et les fils sans aucune trace ferment la marche.
+       ⚠️ ON TRIE SUR `lastSeen` SEUL, ET C'EST VOLONTAIRE. La première écriture retombait sur
+       `lastAt` quand `lastSeen` manquait ; le banc a montré qu'elle remontait alors un fil SANS
+       aucune connexion connue devant un client vu la veille — l'inverse exact de ce que le
+       commentaire promettait. La raison est que ce repli existait DÉJÀ, un cran plus haut :
+       `_presenceWithFallback(id, t.lastAt)` renvoie la présence réelle « ou, à défaut, la date du
+       dernier message ». Le refaire ici le faisait jouer DEUX fois, sur deux échelles mélangées.
+       Un repli appliqué deux fois n'est pas deux fois plus sûr : il devient un second critère,
+       silencieux, qui contredit le premier. */
+    const _q = (f) => {
+      const v = f.lastSeen ? Date.parse(f.lastSeen) : NaN;
+      return Number.isNaN(v) ? -Infinity : v;
+    };
+    fils.sort((a2, b2) => (b2.online ? 1 : 0) - (a2.online ? 1 : 0) || _q(b2) - _q(a2));
+    res.json({ threads: fils });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // TOUS les utilisateurs (staff uniquement) avec statut "en ligne" → permet au support de
@@ -6649,7 +6779,17 @@ async function _scrapeILviaPuppeteer(url) {
 // body=0) → le rendu PDF échouait → bandeau « ouvrir l'original ». Le CONTENU est extractible via le lecteur
 // texte (jina : ~9 ko de texte propre). Donc les ARTICLES Goldman passent désormais par le lecteur texte ;
 // leurs .pdf (ex. gspublishing / /pdfs/) restent servis en PDF natif via PDF_PROXY_HOSTS.
-const PDF_RENDER_HOSTS = /(^|\.)(think\.ing\.com|mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|newsletter\.kbc\.be|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|gspublishing\.com|goldmansachs\.com)$/i;
+/* ⚠️ ET IL Y ÉTAIT ENCORE (corrigé le 09/09, signalement utilisateur : « le PDF rapport affiche page
+   blanche de Goldman Sachs »). Le commentaire ci-dessus affirmait en toutes lettres que l'hôte avait
+   été retiré ; il figurait pourtant en dernière position de la liste. Un commentaire périmé ment
+   avec l'autorité du code — c'est la règle du dépôt, et voici son exemple le plus coûteux.
+   ⚠️ ET UNE CORRECTION ULTÉRIEURE A TRANSFORMÉ UNE PANNE BRUYANTE EN PANNE MUETTE. Le repli
+   « média écran » posé plus bas pour les feuilles d'impression capricieuses fait RÉUSSIR
+   `page.pdf()` là où il échouait. Sur une page gatée au corps vide, le rendu ne tombe donc plus en
+   erreur : il produit un PDF parfaitement valide, mis en cache, contenant UNE PAGE BLANCHE. Le
+   bandeau « ouvrir l'original » que le commentaire décrit n'apparaissait plus. Deux correctifs
+   justes, pris séparément, dont la rencontre produit le pire des deux mondes. */
+const PDF_RENDER_HOSTS = /(^|\.)(think\.ing\.com|mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|newsletter\.kbc\.be|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|gspublishing\.com)$/i;
 function _brRenderUrlFor(u, printUrl) {
   try {
     const h = new URL(u).hostname;
@@ -6663,7 +6803,7 @@ function _brRenderUrlFor(u, printUrl) {
 const _crypto = require('crypto');
 const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
 try { fs.mkdirSync(_RENDER_DIR, { recursive: true }); } catch {}
-const _RENDER_VER = 'r9';   // bump → invalide TOUS les PDF rendus en cache (r9 : aucun lien ni adresse dans un rapport rendu ; r8 : fix « rendu minuscule » — images/tables larges bornées à la largeur de page ; r7 : MUFG rend l'ARTICLE complet, plus la PrintPage teaser)
+const _RENDER_VER = 'r10';   // bump → invalide TOUS les PDF rendus en cache (r10 : les PDF blancs déjà en cache sont purgés — un rendu au corps vide n'est plus jamais servi ; r9 : aucun lien ni adresse dans un rapport rendu ; r8 : fix « rendu minuscule » — images/tables larges bornées à la largeur de page ; r7 : MUFG rend l'ARTICLE complet, plus la PrintPage teaser)
 function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(_RENDER_VER + '|' + String(url)).digest('hex') + '.pdf'); }
 // PDF natifs téléchargés (MUFG /media, ING downloads…) STOCKÉS sur disque → re-servis directement dans DTP,
 // sans re-télécharger à chaque ouverture (robuste si la source rate-limite). TTL : retirés après 30 j (boot).
@@ -6890,13 +7030,31 @@ async function _renderPdfInner(url) {
     try { await page.addStyleTag({ content: 'html,body{max-width:100%!important;overflow-x:hidden!important} img,table,svg,canvas,figure,picture,iframe,video{max-width:100%!important;height:auto!important} table{table-layout:fixed!important;word-break:break-word!important}' }); } catch {}
     await page.evaluate(() => { try { window.scrollTo(0, document.body.scrollHeight); } catch {} }).catch(() => {});
     await new Promise(r => setTimeout(r, 250));
+    /* ⚠️ ON MESURE LE TEXTE AVANT D'IMPRIMER, ET C'EST LA GARDE QUI MANQUAIT (09/09). Une page
+       derrière un mur d'inscription rend un corps vide ; `page.pdf()` en fait alors un PDF valide
+       d'une page blanche, qui est mis en cache et re-servi indéfiniment. Rien n'échoue, rien ne
+       s'écrit dans le journal, et le lecteur reçoit du blanc en croyant que le rapport est vide.
+       Cette garde ne vise pas Goldman en particulier : elle vaut pour les quinze hôtes de la liste,
+       dont n'importe lequel peut poser un mur du jour au lendemain sans prévenir personne.
+       Le seuil de 400 caractères est bas À DESSEIN : il ne s'agit pas de juger la qualité d'un
+       rapport mais de distinguer « il y a un document » de « il n'y a rien ». Une note d'une seule
+       page en fait facilement deux mille. */
+    const _texte = await page.evaluate(() => {
+      try { return (document.body && document.body.innerText || '').replace(/\s+/g, ' ').trim().length; }
+      catch (e) { return 0; }
+    }).catch(() => 0);
+    if (_texte < 400) {
+      throw new Error('rendu vide (' + _texte + ' caractères de texte) : page gatée ou non chargée');
+    }
     const _pdfOpts = { format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } };
     let out;
     try {
       out = await page.pdf(_pdfOpts);
     } catch (e) {
-      // Certaines pages (ex. Goldman Sachs) ont un CSS @media print qui fait ÉCHOUER printToPDF
-      // (« Printing failed ») → on bascule en média ÉCRAN et on réessaie (rendu valide vérifié).
+      // Certaines pages ont un CSS @media print qui fait ÉCHOUER printToPDF (« Printing failed »)
+      // → on bascule en média ÉCRAN et on réessaie (rendu valide vérifié).
+      // ⚠️ CE REPLI NE PEUT PLUS MASQUER UNE PAGE VIDE : la mesure de texte ci-dessus a déjà eu
+      // lieu, et elle a rendu la main. C'est l'ordre qui compte, pas seulement la présence des deux.
       try { await page.emulateMediaType('screen'); } catch {}
       out = await page.pdf(_pdfOpts);
     }

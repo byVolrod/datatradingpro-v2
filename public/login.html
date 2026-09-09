@@ -280,7 +280,7 @@
       .lp-dl-v { font-size: 12px; }
     }
   </style>
-  <script src="/js/noinspect.js?v=20260904bbg1140"></script>
+  <script src="/js/noinspect.js?v=20260909bbg1145"></script>
 </head>
 <body>
 
@@ -408,7 +408,7 @@
     function fallback() { return B + BUNDLED[Math.floor(Math.random() * BUNDLED.length)]; }
     function build() {
       if (!rowsEl) return;
-      var _imgN = 0;   // perf : compteur de tuiles → seule la 1re est prioritaire, le reste en lazy
+      var _imgN = 0;   // rang de la tuile DANS SA RANGÉE : la 1re copie est franche, la 2e paresseuse
       var rect = document.querySelector('.lp-left').getBoundingClientRect();
       var w = rect.width || window.innerWidth * 0.57, ht = rect.height || window.innerHeight;
       var nRows = Math.max(4, Math.min(9, Math.round(ht / (ROW_H + GAP)) + 1));
@@ -417,6 +417,8 @@
       var idx = 0;
       for (var r = 0; r < nRows; r++) {
         var row = document.createElement('div'); row.className = 'im-row';
+        _imgN = 0;   // ⚠️ remis à zéro PAR RANGÉE : sinon « _imgN >= perSet » ne serait vrai que
+                     //    pour la 1re rangée et les huit autres partiraient entièrement paresseuses.
         var track = document.createElement('div'); track.className = 'im-row-track';
         var set = [];
         for (var i = 0; i < perSet; i++) { set.push(SRC[(idx++) % SRC.length]); }
@@ -427,9 +429,24 @@
         set.concat(set).forEach(function (src) {
           var t = document.createElement('div'); t.className = 'im-tile';
           var im = document.createElement('img'); im.alt = ''; im.decoding = 'async'; im.draggable = false; im.referrerPolicy = 'no-referrer';
-          // Perf : seule la 1re tuile est prioritaire (peinture immédiate du héros) ; tout le reste est
-          // paresseux → le navigateur n'ouvre pas 100+ requêtes d'un coup au chargement de la page.
-          if (_imgN === 0) { im.loading = 'eager'; im.fetchPriority = 'high'; } else { im.loading = 'lazy'; im.fetchPriority = 'low'; }
+          /* ⚠️ LE CHARGEMENT PARESSEUX ÉTAIT LA CAUSE DE LA MOSAÏQUE QUI SE REMPLIT AU
+             COMPTE-GOUTTES (09/09, capture utilisateur : la moitié des tuiles noires plusieurs
+             secondes). Deux raisons, et la première suffit :
+               · CES VIGNETTES PÈSENT 5 Ko. Les 80 images locales font 636 Ko à elles toutes, en
+                 même origine. Le chargement paresseux existe pour éviter de télécharger ce qu'on ne
+                 regardera peut-être jamais ; ici on regarde TOUT, tout de suite, et pour le prix
+                 d'une seule photo de presse. Il ne faisait donc économiser rien du tout.
+               · ET IL SE DÉCLENCHE MAL ICI. Les tuiles vivent dans une piste animée par
+                 `transform: translateX(...)`. Le navigateur décide du déclenchement sur la position
+                 de MISE EN PAGE, que la transformation ne change pas : une tuile visible à l'écran
+                 peut être considérée comme lointaine, et une tuile hors champ comme proche. D'où
+                 des images qui arrivent dans le désordre, longtemps après leur passage.
+             La PREMIÈRE copie de chaque rangée (celle qu'on voit) est donc chargée franchement. La
+             SECONDE, qui n'existe que pour boucler le défilement sans couture, reste paresseuse :
+             elle a une rangée entière de temps devant elle, et c'est là, et seulement là, que
+             l'économie a un sens. */
+          if (_imgN === 0) { im.fetchPriority = 'high'; }   // une tuile prioritaire par rangée : la peinture démarre partout à la fois
+          else if (_imgN >= perSet) { im.loading = 'lazy'; im.fetchPriority = 'low'; }
           _imgN++;
           // Repli 2 ÉTAGES (bug app desktop 23/07 : lancée avant le réseau, image + repli échouaient →
           // icône cassée DÉFINITIVE) : 1er échec → image locale ; 2e échec (hors-ligne) → tuile fondue
@@ -455,12 +472,60 @@
       } catch (e) {}
     }, 15000);
 
-    /* Photos d'actu LIVE : remplace les images locales par les og:images des news du jour (Fed, géopolitique…), auto-actualisées côté serveur */
+    /* ══ PHOTOS D'ACTU LIVE — ON REMPLACE TUILE PAR TUILE, ON NE RECONSTRUIT PLUS ═══════════════
+       Les og:images des dépêches du jour (Fed, géopolitique…) remplacent les vignettes locales.
+
+       ⚠️ CE BLOC APPELAIT `build()`, ET C'ÉTAIT LA SECONDE CAUSE DE LA MOSAÏQUE QUI SE REMPLIT AU
+       COMPTE-GOUTTES (09/09). Reconstruire, c'est JETER une mosaïque déjà peinte pour repartir de
+       cent balises vides — et cette fois avec des adresses DISTANTES, réparties sur autant de
+       serveurs de presse différents, chacun avec sa poignée de main TLS. L'écran se vidait donc au
+       moment précis où il venait de se remplir, et se re-remplissait au rythme du plus lent des
+       hébergeurs. C'est très exactement ce que montre la capture.
+
+       On ne jette plus rien. Chaque photo d'actu est chargée EN COULISSES et ne remplace sa tuile
+       qu'une fois réellement décodée : une tuile ne redevient jamais vide, elle passe d'une image à
+       une autre. Une photo qui n'arrive pas laisse simplement la vignette locale en place, ce qui
+       est le bon repli plutôt qu'un trou.
+
+       Les échanges sont ÉTALÉS par petits groupes : ouvrir soixante-dix connexions distantes d'un
+       coup les fait toutes ralentir ensemble, et surtout elles entrent en concurrence avec le
+       formulaire de connexion, qui est la seule chose dont le visiteur a besoin. */
+    function remplacerParLesActus(live) {
+      /* On travaille PISTE PAR PISTE, jamais sur une liste à plat. Chaque piste porte DEUX copies
+         de la même rangée (`set.concat(set)`), c'est ce qui permet au défilement de boucler sans
+         couture : la tuile i et la tuile i + moitié sont donc jumelles et doivent TOUJOURS porter
+         la même image. Une liste à plat mélangerait les rangées et ferait apparaître un raccord
+         visible au moment exact où la boucle repasse. */
+      var jobs = [];
+      var k = 0;
+      [].slice.call(rowsEl.querySelectorAll('.im-row-track')).forEach(function (piste) {
+        var imgs = [].slice.call(piste.querySelectorAll('img'));
+        var moitie = Math.floor(imgs.length / 2);
+        for (var i = 0; i < moitie; i++) jobs.push({ im: imgs[i], jum: imgs[i + moitie] || null, url: live[(k++) % live.length] });
+      });
+      if (!jobs.length) return;
+      var n = 0;
+      function suivant() {
+        var lot = 0;
+        while (n < jobs.length && lot < 6) {
+          (function (j) {
+            var pre = new Image();
+            pre.referrerPolicy = 'no-referrer'; pre.decoding = 'async';
+            pre.onload = function () { j.im.src = j.url; if (j.jum) j.jum.src = j.url; };
+            pre.onerror = function () {};   // la vignette locale reste en place : jamais de trou
+            pre.src = j.url;
+          })(jobs[n]);
+          n++; lot++;
+        }
+        if (n < jobs.length) setTimeout(suivant, 220);
+      }
+      suivant();
+    }
     try {
       fetch(API, { mode: 'cors' }).then(function (r) { return r && r.ok ? r.json() : null; }).then(function (arr) {
         if (!Array.isArray(arr)) return;
         var live = arr.filter(function (u) { return typeof u === 'string' && /^https?:\/\//.test(u); });
-        if (live.length >= 12) { SRC = shuffle(live.concat(BUNDLED.slice(0, 24))); build(); }
+        if (live.length >= 12) { SRC = shuffle(live.concat(BUNDLED.slice(0, 24))); remplacerParLesActus(shuffle(live.slice())); }
       }).catch(function () {});
     } catch (e) {}
 

@@ -43,7 +43,17 @@ function _memName(m) {
                  m && m.member && typeof m.member === 'object' && m.member.name,
                  m && m.username, m && m.user && typeof m.user === 'object' && m.user.username];
   for (const c of cands) {
-    const v = String(c == null ? '' : c).trim().replace(/^@/, '');
+    /* ⚠️ UN NOM D'AFFICHAGE DOIT ÊTRE UNE CHAÎNE, ET ON L'EXIGE (09/09). Ce filtre convertissait
+       n'importe quoi en texte avant de juger : un compte Whop dont le champ `name` revenait à
+       `false` produisait donc la chaîne « false », non vide et sans chiffre, donc ACCEPTÉE comme
+       nom. Un client réel s'appelait « false » dans la boîte de réception du support — c'est le
+       signalement du jour. Le même chemin acceptait « true », et « [object Object] » pour un objet.
+       ⚠️ ET L'EXPRESSION QUI ALIMENTE LA LISTE FABRIQUE ELLE-MÊME DES BOOLÉENS : `m && m.name` vaut
+       `false` dès que `m` est absent, et `typeof m.user === 'object' && m.user.name` vaut `false`
+       dès que la condition ne tient pas. Ces candidats-là n'ont jamais été des noms : ils sont le
+       résidu d'un test. Les écarter n'est donc pas une précaution, c'est la règle qui manquait. */
+    if (typeof c !== 'string') continue;
+    const v = c.trim().replace(/^@/, '');
     if (v && !/^[\d\s.\-_/\\]+$/.test(v)) return v.slice(0, 80);
   }
   return '';

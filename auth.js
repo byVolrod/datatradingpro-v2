@@ -1410,6 +1410,37 @@ async function chatThreads() {
     if (!byUser.has(m.user_id)) byUser.set(m.user_id, { user_id: m.user_id, last: '', lastAt: null, unread: 0 });
     byUser.get(m.user_id).unread++;
   }
+  /* ⚠️ UN FIL SANS APERÇU EST UN FIL QU'ON N'OUVRE PAS (09/09, signalement utilisateur : « pourquoi
+     y'a pas le message de cet utilisateur ? »). La passe ci-dessus crée un fil avec `last: ''` et
+     `lastAt: null` — c'est le cas d'un client dont le dernier message est SORTI de la fenêtre des
+     400 récents, typiquement un compte qui n'a reçu que son message d'accueil il y a des semaines
+     et ne l'a jamais lu. Dans la boîte de réception, il apparaissait donc comme une ligne muette :
+     un nom, un badge de non-lus, et rien d'autre. Le message existait pourtant, et il était même le
+     seul du fil. C'est précisément le fil qu'un support doit voir en entier, puisque c'est le seul
+     qui attend une réponse.
+     On va donc chercher LEUR dernier message, un par fil, et seulement pour ceux-là. Borné à 25 :
+     c'est un rattrapage d'exception, pas un second inventaire — la fenêtre de 400 couvre déjà tout
+     le trafic courant, et ces requêtes ne partent que si des fils muets existent vraiment. */
+  const muets = [...byUser.values()].filter(t => !t.lastAt).slice(0, 25);
+  if (muets.length && _chatDb) {
+    const repeches = await Promise.all(muets.map(t =>
+      supabase.from(CHAT_TABLE).select('text, created_at').eq('user_id', t.user_id)
+        .order('created_at', { ascending: false }).limit(1)
+        .then(r => ({ t, row: (r && r.data && r.data[0]) || null }))
+        .catch(() => ({ t, row: null }))));
+    for (const { t, row } of repeches) {
+      if (!row) continue;
+      t.last = _chatPreview(row.text);
+      t.lastAt = row.created_at;
+    }
+  } else if (muets.length && !_chatDb) {
+    // Repli fichier : tout est déjà en mémoire, on relit sans coût.
+    for (const t of muets) {
+      const m = _chatFile.filter(x => x.user_id === t.user_id)
+        .sort((a2, b2) => new Date(b2.created_at) - new Date(a2.created_at))[0];
+      if (m) { t.last = _chatPreview(m.text); t.lastAt = m.created_at; }
+    }
+  }
   /* ⚠️ L'ORDRE N'ÉTAIT QU'UN EFFET DE BORD, ET IL MENTAIT SUR LES FILS ANCIENS (03/09/2026).
      Aucun tri n'existait : la liste sortait dans l'ordre d'INSERTION de `byUser`. Cet ordre suit la
      requête des 400 messages récents (décroissante), donc il PARAISSAIT juste — mais un fil dont le

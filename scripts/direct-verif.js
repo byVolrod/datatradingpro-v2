@@ -296,15 +296,25 @@ const CAS = [
     attendu: (s) => /\/embed\/abcDEF12345/.test(s || ''), cadre: true, lien: false, marque: null },
   { nom: 'chaîne seule → cadre « direct de la chaîne »', rep: { ok: true, video: null, chaine: 'UCaaaaaaaaaaaaaaaaaaaaaa', site: 'https://www.bloomberg.com/live/us' },
     attendu: (s) => /\/embed\/live_stream\?channel=UCaaaaaaaaaaaaaaaaaaaaaa/.test(s || ''), cadre: true, lien: false, marque: null },
-  /* ⚠️ LE CAS DE YAHOO, ET C'EST LUI QUI MOTIVE TOUTE L'ÉTAPE (05/09). Le serveur a LU la page et
-     vu que la chaîne n'émet pas : `enAntenne: false`. Cadrer « live_stream » ne pourrait alors que
-     échouer — Bloomberg diffuse en continu, Yahoo Finance seulement aux heures de marché. On saute
-     donc directement à la dernière émission, et on la NOMME. */
-  { nom: 'hors antenne → la dernière émission, et le cadre le DIT',
+  /* ⚠️ CE CAS A ÉTÉ RETOURNÉ LE 09/09, ET IL FAUT LIRE POURQUOI AVANT DE LE « RÉPARER ».
+     Écrit le 05/09, il exigeait le CONTRAIRE : quand le serveur conclut `enAntenne: false`, sauter
+     le direct de la chaîne et passer droit à la dernière émission. Le raisonnement se tenait —
+     cadrer un direct qui n'existe pas ne peut qu'échouer.
+     Il reposait pourtant sur une prémisse fausse : que `enAntenne: false` signifie « la chaîne
+     n'émet pas ». Il signifie seulement « je n'ai pas trouvé d'identifiant de direct dans la page
+     que j'ai lue » — et YouTube sert régulièrement un bandeau de consentement aux adresses de
+     centre de données, donc une page sans le moindre identifiant. L'utilisateur a envoyé la
+     capture : pastille « Hors antenne » et rediffusion de trois minutes sur une carte Bloomberg,
+     pendant que Bloomberg Television émettait, comme elle le fait en continu.
+     Le coût des deux erreurs n'est pas comparable. Tenter le direct pour rien : une tentative de
+     cadre qui échoue en une seconde et enchaîne toute seule. Le sauter à tort : une rediffusion
+     présentée comme un direct. On tente donc TOUJOURS, et c'est YouTube qui tranche.
+     Ce cas vérifie maintenant l'ordre : direct de la chaîne D'ABORD, dernière émission ENSUITE. */
+  { nom: 'hors antenne annoncé → on tente QUAND MÊME le direct de la chaîne',
     rep: { ok: true, video: null, chaine: 'UCaaaaaaaaaaaaaaaaaaaaaa', enAntenne: false,
            derniere: { id: 'derNIERE123', titre: 'Emission du jour' }, site: 'https://finance.yahoo.com/live/' },
-    attendu: (s) => /\/embed\/derNIERE123/.test(s || '') && !/live_stream/.test(s || ''),
-    cadre: true, lien: false, marque: /hors antenne/i },
+    attendu: (s) => /\/embed\/live_stream\?channel=UCaaaaaaaaaaaaaaaaaaaaaa/.test(s || ''),
+    cadre: true, lien: false, marque: null },
   { nom: 'résolution en échec → la carte-lien d\'avant, jamais un cadre vide', rep: { ok: false, site: 'https://www.bloomberg.com/live/us' },
     attendu: null, cadre: false, lien: true, marque: null },
 ];
