@@ -67,6 +67,40 @@ console.log('\n[2] Court ET distinct — les deux à la fois');
   t('TÉMOIN — aucun libellé court n\'est vide', !entrees.some(e => e.court !== null && !e.court.trim()));
 }
 
+console.log('\n[3] Chaque widget du catalogue a une vignette');
+{
+  /* ⚠️ CE CONTRÔLE EXISTE PARCE QUE JE VENAIS DE L'OUBLIER. En ajoutant le widget Kelly, j'ai
+     déclaré son entrée de catalogue, son libellé court, son aide, sa source — et pas sa vignette.
+     Rien ne l'aurait signalé : la bibliothèque retombe silencieusement sur l'icône générique, et
+     quand il n'y en a pas non plus, sur une case VIDE. L'utilisateur, lui, l'avait remarqué sur
+     Scenario Desk et nous l'a écrit. Un défaut qu'un client repère avant nous est un défaut qui
+     méritait un contrôle : le voici, pour tous les widgets à venir.
+     ⚠️ ON NE LIT QUE LE CATALOGUE. Une entrée `id: '…', name: '…'` existe aussi pour les LAYOUTS
+     (« mon-desk », « Vue générale ») : les compter ferait rougir le banc sur un objet qui n'a
+     aucune raison d'avoir une vignette. On exige donc la présence de `desc:` à sa suite, qui est
+     propre aux cartes de la bibliothèque. */
+  const bornes = [W.indexOf('var CATALOG = ['), W.indexOf('\n  var WPREV = {')];
+  const cat = bornes[0] >= 0 ? W.slice(bornes[0]) : W;
+  const cartes = [...cat.matchAll(/id: '([a-z0-9-]+)', name: '(?:[^'\\]|\\.)*',[\s\S]{0,400}?desc:/g)].map(m => m[1]);
+  const iP = W.indexOf('var WPREV = {'), jP = W.indexOf('\n  };', iP);
+  const vign = new Set([...W.slice(iP, jP).matchAll(/^\s{4}'?([a-z0-9-]+)'?:/gm)].map(m => m[1]));
+  const iI = W.indexOf('var WICO = {'), jI = W.indexOf('\n  };', iI);
+  const icones = new Set([...W.slice(iI, jI).matchAll(/^\s{4}'?([a-z0-9-]+)'?:/gm)].map(m => m[1]));
+  t('le catalogue est lu pour ce contrôle', cartes.length >= 30, cartes.length + ' carte(s)');
+  /* ⚠️ ON EXIGE UNE VRAIE VIGNETTE, PAS « UNE VIGNETTE OU UNE ICÔNE ». La première écriture de ce
+     contrôle acceptait le repli sur l'icône générique — et il est resté vert quand j'ai retiré
+     exprès la vignette de Scenario Desk, c'est-à-dire sur EXACTEMENT la situation que l'utilisateur
+     venait de signaler. Un contrôle qui tolère le défaut qu'il est censé fermer ne sert à rien.
+     C'est aussi ce que disait déjà la note du 04/09 sur les deux cartes de direct : « le défaut
+     n'était pas l'absence de vignette mais pire — elles retombaient sur l'icône, et cette icône est
+     LA MÊME pour les deux ». Une icône ne montre pas ce que la carte affiche ; une vignette, si. */
+  const nus = cartes.filter(id => !vign.has(id));
+  t('chaque carte a une VIGNETTE propre, jamais un repli sur l\'icône', nus.length === 0, nus.join(', '));
+  /* Et l'icône reste utile ailleurs (onglets, aide) : on vérifie qu'elle n'a pas disparu pour autant. */
+  t('les icônes existent toujours à côté', icones.size >= 40, icones.size + ' icône(s)');
+  t('TÉMOIN — des vignettes sont bien déclarées', vign.size >= 40, vign.size + ' vignette(s)');
+}
+
 console.log('\n[3] La rangée d\'onglets s\'en sert, et l\'infobulle garde le nom complet');
 t('la rangée affiche le libellé court', /var lbl = labels\[i\] \|\| \(w \? \(w\.court \|\| w\.name\)/.test(W),
   'la rangée retomberait sur le nom complet : la demande ne serait pas honorée');
