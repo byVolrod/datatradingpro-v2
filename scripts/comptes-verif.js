@@ -24,6 +24,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const RACINE = path.join(__dirname, '..');
 let ok = 0, ko = 0;
 const t = (nom, cond, detail) => {
@@ -175,5 +176,100 @@ t('le retrait d\'un compte est refusé s\'il porte des trades',
 t('le compte actif se signale (les statistiques affichées sont partielles)',
   /jr-cpt-sel--on/.test(APP) && /\.jr-cpt-sel--on \{[^}]*gold/.test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
 
-console.log('\n[Comptes] ' + ok + ' contrôle(s) vert(s), ' + ko + ' rouge(s).\n');
-process.exit(ko ? 1 : 0);
+/* ══ 6. LE SÉLECTEUR, DANS UN VRAI NAVIGATEUR ═════════════════════════════════════════════
+   POURQUOI CETTE PHASE EXISTE. Les contrôles [5] lisent le source ; ils auraient laissé passer
+   le défaut le plus coûteux de cette livraison. « + Nouveau compte » était d'abord une OPTION
+   de menu à valeur sentinelle NUL : le source était impeccable, la comparaison était écrite, et
+   la fonctionnalité aurait été MORTE — l'analyseur HTML remplace U+0000 par U+FFFD dans un
+   attribut, sans erreur, sans trace. Seul un clic réel le dit. On joue donc les VRAIES fonctions
+   de rendu dans Chromium, avec la VRAIE feuille de style, et on clique. */
+(async () => {
+  let puppeteer;
+  try { puppeteer = require('puppeteer-core'); }
+  catch { console.log('\n[6] puppeteer-core absent → phase navigateur abstenue.'); fin(); return; }
+  const bin = process.env.PUPPETEER_EXECUTABLE_PATH || '/opt/pw-browsers/chromium';
+  if (!fs.existsSync(bin)) { console.log('\n[6] Chromium introuvable → phase navigateur abstenue.'); fin(); return; }
+
+  const HTML = fs.readFileSync(path.join(RACINE, 'public/index.html'), 'utf8');
+  const struct = HTML.slice(HTML.indexOf('<div id="jr-log-view">'), HTML.indexOf('</div>\n      <div id="jr-dashboard"') + 6);
+  const entre = (d, f) => APP.slice(APP.indexOf(d), APP.indexOf(f, APP.indexOf(d)));
+  const srcRendu = entre('  function _jrRenderComptes() {', '  function _jrRenderStats() {');   // rendu + création
+
+  const srv = http.createServer((q, r) => {
+    if (q.url.startsWith('/css/')) { r.writeHead(200, { 'Content-Type': 'text/css' }); return r.end(fs.readFileSync(path.join(RACINE, 'public', q.url.split('?')[0]))); }
+    r.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    r.end('<!doctype html><html lang="fr"><head><meta charset="utf-8"><link rel="stylesheet" href="/css/style.css"></head><body>'
+      + '<div class="view-panel" id="view-journal"><div class="panel panel-journal">' + struct + '</div></div>'
+      + '<script>\n'
+      + 'var _jrList = ' + JSON.stringify(TRADES) + ';\n'
+      + 'var _jrComptes = ["Prop firm"], _jrCompte = "", _jrCaps = {}, _jrStartCap = null;\n'
+      + 'var _sauvegardes = 0;\n'
+      + 'function _esc(x){ return String(x).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c])); }\n'
+      + 'function _jrDisp(k,v){ return v; }\n'
+      + 'function _jrSave(){ _sauvegardes++; }\n'
+      + 'function _jrScope(){ return _jrCompte ? _jrList.filter(e => String(e.account||"") === _jrCompte) : _jrList; }\n'
+      + 'function _jrComptesConnus(){ var v = new Set(_jrComptes.filter(Boolean)); _jrList.forEach(function(e){ var a=String(e.account||"").trim(); if(a) v.add(a); }); return [...v].sort(); }\n'
+      + 'function _jrCompteSet(n){ _jrCompte = String(n||""); _jrStartCap = _jrCaps[_jrCompte] != null ? _jrCaps[_jrCompte] : null; _jrRenderComptes(); }\n'
+      + srcRendu + '\n'
+      + '_jrRenderComptes();\n'
+      + '<\/script></body></html>');
+  });
+  await new Promise(r => srv.listen(8827, r));
+  let nav;
+  try { nav = await puppeteer.launch({ executablePath: bin, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] }); }
+  catch (e) { console.log('\n[6] Chromium refuse de démarrer → phase navigateur abstenue.'); srv.close(); fin(); return; }
+  try {
+    const page = await nav.newPage();
+    const fatales = [];
+    page.on('pageerror', e => fatales.push(e.message));
+    await page.setViewport({ width: 1400, height: 400 });
+    await page.goto('http://localhost:8827/', { waitUntil: 'networkidle0', timeout: 30000 });
+
+    console.log('\n[6] Le sélecteur de compte, cliqué pour de vrai');
+    t('aucune erreur d\'exécution au montage', !fatales.length, fatales[0]);
+    const opts = await page.evaluate(() => [...document.querySelectorAll('#jr-cpt-sel option')].map(o => o.value));
+    t('le menu propose « tous » + les comptes portés par des trades + les comptes déclarés',
+      opts[0] === '' && opts.includes('Démo') && opts.includes('Financé') && opts.includes('Prop firm'), JSON.stringify(opts));
+    t('… et AUCUNE option-sentinelle n\'y traîne (le piège du 10/09)',
+      opts.every(v => !/\uFFFD|\u0000/.test(v)), JSON.stringify(opts));
+
+    /* LE CONTRÔLE QUI AURAIT ATTRAPÉ LE DÉFAUT : on clique, et on regarde si quelque chose arrive. */
+    await page.click('#jr-cpt-plus');
+    const saisie = await page.evaluate(() => !!document.getElementById('jr-cpt-neuf'));
+    t('cliquer « + » ouvre VRAIMENT la saisie (pas de commande inerte)', saisie);
+
+    await page.type('#jr-cpt-neuf', '  Compte prop 2  ');
+    await page.keyboard.press('Enter');
+    const apres = await page.evaluate(() => ({
+      actif: window._jrCompte,
+      declares: window._jrComptes ? window._jrComptes.slice() : null,
+      sel: document.getElementById('jr-cpt-sel') ? document.getElementById('jr-cpt-sel').value : null,
+      or: document.getElementById('jr-cpt-sel') ? document.getElementById('jr-cpt-sel').classList.contains('jr-cpt-sel--on') : false,
+      sauv: window._sauvegardes,
+    }));
+    t('Entrée crée le compte et le rend actif', apres.actif === 'Compte prop 2', JSON.stringify(apres.actif));
+    t('… le nom est rogné de ses espaces (sinon deux comptes pour un seul)',
+      (apres.declares || []).includes('Compte prop 2'), JSON.stringify(apres.declares));
+    t('… le sélecteur affiche ce compte', apres.sel === 'Compte prop 2', String(apres.sel));
+    t('… et se signale à l\'or : les chiffres montrés sont partiels', apres.or === true);
+    t('… et la création est ENREGISTRÉE (un compte perdu au rechargement ne sert à rien)', apres.sauv >= 1, 'sauvegardes = ' + apres.sauv);
+
+    /* Un compte sans trade doit pouvoir être retiré ; un compte qui en porte, jamais. */
+    const xVide = await page.evaluate(() => !!document.getElementById('jr-cpt-x'));
+    t('un compte SANS trade porte le bouton de retrait', xVide);
+    await page.evaluate(() => { document.getElementById('jr-cpt-sel').value = 'Démo'; document.getElementById('jr-cpt-sel').dispatchEvent(new Event('change')); });
+    const etatDemo = await page.evaluate(() => ({ actif: window._jrCompte, x: !!document.getElementById('jr-cpt-x'), n: window._jrScope().length }));
+    t('basculer sur un compte qui porte des trades le sélectionne', etatDemo.actif === 'Démo' && etatDemo.n === 2, JSON.stringify(etatDemo));
+    t('… et ce compte-là n\'a AUCUN bouton de retrait (aucun trade ne part par ce chemin)', etatDemo.x === false);
+    t('aucune erreur d\'exécution sur tout le parcours', !fatales.length, fatales[0]);
+  } finally {
+    if (nav) await nav.close();
+    srv.close();
+  }
+  fin();
+})();
+
+function fin() {
+  console.log('\n[Comptes] ' + ok + ' contrôle(s) vert(s), ' + ko + ' rouge(s).\n');
+  process.exit(ko ? 1 : 0);
+}
