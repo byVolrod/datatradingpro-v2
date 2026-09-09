@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260910-journal-comptes', ts: Date.UTC(2026, 8, 10, 20, 0), title: 'Plusieurs comptes dans votre journal, chacun avec ses propres statistiques', desc: 'Demande d’un client, et elle manquait à tous ceux qui tiennent plus d’un compte. VOUS POUVEZ MAINTENANT SÉPARER VOS COMPTES. Un sélecteur apparaît en tête du Journal : « Tous les comptes » par défaut, et le bouton + crée un compte (démo, financé, prop firm, un courtier en particulier — le nom est le vôtre). CE QUE LE COMPTE CHOISI COMMANDE, ET C’EST LE POINT IMPORTANT : tout l’écran. La liste des trades, la rangée de statistiques en haut, le Tableau de bord entier, l’onglet Annuel, et jusqu’au widget Critère de Kelly, qui prend alors votre avantage sur CE compte. Un compte démo et un compte financé n’ont ni le même taux de réussite ni la même taille de position : les mélanger dans une seule moyenne ne dit rien d’utile sur ni l’un ni l’autre. Un nouveau trade se range tout seul dans le compte affiché, et l’export CSV livre ce que vous regardez, pas le journal entier. LE CAPITAL DE DÉPART APPARTIENT DÉSORMAIS AU COMPTE. Un compte démo à 500 et un compte financé à 100 000 ne peuvent pas partager une seule valeur, sinon la courbe de capital est fausse sur l’un des deux. Si vous aviez déjà renseigné un capital, il est conservé et devient celui de la vue « Tous les comptes » : rien à ressaisir. RIEN NE CHANGE SI VOUS N’EN AVEZ QU’UN. Sans compte créé, le Journal se présente exactement comme avant. Et un compte ne peut être retiré de la liste que s’il ne porte aucun trade : supprimer des trades ne passe pas par ce chemin.' },
   { id: 'dtpu-20260910-journal-barre', ts: Date.UTC(2026, 8, 10, 18, 0), title: 'La barre du Journal tient sur une ligne, et un gain s’y lit enfin en vert', desc: 'Votre retour sur la bande du haut du Journal. DEUX RANGÉES POUR QUATRE NOMBRES ET QUATRE BOUTONS. Les statistiques occupaient une bande pleine largeur, les actions une seconde juste en dessous, et les filtres une troisième : près de cent pixels avant le premier trade, sur un écran où chaque ligne compte. Les chiffres et les actions partagent maintenant la même bande, chiffres à gauche, actions à droite. Sur un écran étroit, la barre d’actions repasse dessous d’elle-même, exactement comme avant. UN GAIN S’AFFICHAIT EN BLANC, ET C’EST LE VRAI DÉFAUT. Le total R et le total en dollars portaient bien le vert des gains et le rouge des pertes dans le code — la couleur était posée, puis retirée par une règle de style plus générale qui repeignait toutes les valeurs de la rangée. Vos deux totaux positifs sortaient donc en blanc, comme des nombres neutres, dans un desk où le vert et le rouge veulent dire quelque chose partout ailleurs. Relire le code ne pouvait pas le montrer, puisque la couleur y est bien écrite : il fallait mesurer ce qui est réellement peint à l’écran, et c’est ce que fait désormais un contrôle automatique, sur un gain ET sur une perte. DES BOUTONS PLUS COURTS, ET TRADUITS. Importer et Exporter portaient leur mode d’emploi sur le bouton ; il est passé dans l’infobulle, au survol. Au passage, ces libellés n’étaient pas traduits hors français : les flèches étaient écrites sous une forme technique que le dictionnaire ne reconnaissait pas. Quatre boutons du Journal parlent maintenant les quatre langues.' },
   { id: 'dtpu-20260910-rapport-page', ts: Date.UTC(2026, 8, 10, 14, 0), title: 'Un rapport d’institution se lit maintenant comme une page, et le positionnement dit ce qui lui manque', desc: 'Deux corrections, chacune sur un retour de votre part. UN RAPPORT S’AFFICHE COMME UN DOCUMENT. Quand une banque publie un vrai fichier PDF, le desk l’ouvre dans une visionneuse : page blanche, texte noir, marges franches. Quand elle publie une page web dont nous extrayons le texte, le même onglet rendait une carte sombre, pleine largeur, flottant au milieu d’une marge blanche. Deux rapports voisins dans la même liste n’avaient rien en commun, et l’un des deux avait l’air cassé. Le second s’aligne sur le premier : une vraie page, largeur de lecture bornée et centrée, encre sombre sur papier clair, sur le fond du desk. UNE NOTE POUR L’HISTOIRE DU PRODUIT : le blanc avait déjà été demandé, et la note laissée dans le code disait la bonne chose, que le blanc appartient au document. Il était simplement appliqué au cadre qui défile plutôt qu’au document lui-même. Les deux ont été échangés. LE POSITIONNEMENT DES PARTICULIERS DIT DÉSORMAIS CE QUI LUI MANQUE. Le widget répétait une attente sans fin, quelle que soit la cause. Il affiche maintenant la vraie raison quand le serveur la connait : identifiants absents, source qui refuse la connexion, outil de récupération indisponible, ou simplement rien de publié. La première de ces causes se corrige en une ligne de configuration ; les répéter sous le mot attente revenait à ne rien dire. Au passage, une tentative de connexion partait avec des identifiants vides quand il n’y en avait pas : trente secondes perdues à chaque redémarrage, avant même le premier essai utile.' },
   { id: 'dtpu-20260910-bannis-suspendus', ts: Date.UTC(2026, 8, 10, 11, 0), title: 'Un membre banni sur la plateforme de paiement passe en suspendu sur le desk', desc: 'Fonction d’administration. Bannir quelqu’un côté plateforme de paiement ne fermait pas son accès au desk : il fallait le faire une seconde fois, à la main, et la liste des suspendus dérivait. Elle se synchronise désormais toute seule, toutes les demi-heures. UNE PRÉCAUTION QUI EXPLIQUE TOUT LE RESTE : c’est la seule automatisation du produit qui COUPE un accès. Toutes les autres ne font que prolonger, parce qu’on ne coupe pas un payeur sur un doute. Or un bannissement et une simple fin d’abonnement ressortent souvent avec le MÊME statut côté plateforme. Déduire l’un de l’autre suspendrait tout abonné arrivé au bout de sa période, y compris pendant les quelques secondes d’un renouvellement. La synchronisation n’agit donc que sur un signal EXPLICITE de bannissement : une résiliation, une expiration, un paiement en retard ou une adhésion simplement invalide ne déclenchent rien. Les comptes administrateurs sont hors de portée, chaque suspension est journalisée avec la raison qui l’a déclenchée, et rien n’est jamais réactivé par ce chemin : un membre débanni retrouve son accès par la réconciliation habituelle, celle qui prolonge. UN ÉCRAN DE VÉRIFICATION accompagne la fonction, parce que le nom du champ qui signale un bannissement se constate sur la vraie réponse de la plateforme et ne se devine pas.' },
@@ -2662,6 +2663,36 @@ function _jrCleanCols(arr) {
   }
   return out.length ? out : undefined;
 }
+/* ── COMPTES DÉCLARÉS ET CAPITAUX PAR COMPTE (10/09, demande du client okahivai). Un compte peut
+   exister AVANT son premier trade — sinon « créer un compte » ne créerait rien tant qu'on n'y a
+   pas écrit, et le nom se perdrait au rechargement. Le capital de départ, lui, appartient au
+   compte : un compte démo à 500 $ et un compte financé à 100 000 $ ne peuvent pas partager une
+   seule valeur, sinon la courbe de capital ment sur l'un des deux.
+   ⚠️ `startCap` (valeur unique, antérieure) N'EST PAS RETIRÉ : c'est ce que portent tous les
+   journaux déjà enregistrés. Il reste lu et écrit, et vaut pour la vue « tous les comptes ». ── */
+const _JR_COMPTES_MAX = 12;
+function _jrCleanComptes(arr) {
+  if (!Array.isArray(arr)) return undefined;
+  const vus = new Set(), out = [];
+  for (const c of arr.slice(0, _JR_COMPTES_MAX * 2)) {
+    const n = String(c == null ? '' : c).trim().slice(0, 32);
+    if (!n || vus.has(n)) continue;
+    vus.add(n); out.push(n);
+    if (out.length >= _JR_COMPTES_MAX) break;
+  }
+  return out.length ? out : undefined;
+}
+function _jrCleanCaps(o) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return undefined;
+  const out = {}; let n = 0;
+  for (const k in o) {
+    if (n++ >= _JR_COMPTES_MAX + 1) break;          // +1 : la clé vide, qui est la vue « tous »
+    const nom = String(k).slice(0, 32);
+    const v = parseFloat(o[k]);
+    if (isFinite(v) && v > 0 && v < 1e9) out[nom] = v;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
 // Sections narratives du volet détail (façon page Notion) : clés fixes, texte long (analyse écrite).
 const _JR_SECT_KEYS = ['fondaBias', 'technical', 'entry', 'management', 'close', 'erreur'];
 function _jrCleanSections(o) {
@@ -2698,7 +2729,12 @@ app.get('/api/journal', async (req, res) => {
     const v = await auth.aiCacheGet('journal:' + req.session.userId, _JR_KV_TTL);
     // custom = false → gabarit DTP (options par défaut) ; true → journal PERSO importé (options de l'utilisateur uniquement)
     // cols = définitions de colonnes du compte (null → le client applique le gabarit standard)
-    res.json({ entries: _jrCleanEntries(v && v.entries), custom: !!(v && v.custom), cols: (v && v.cols) || null, startCap: (v && isFinite(v.startCap) && v.startCap > 0) ? v.startCap : null });
+    res.json({
+      entries: _jrCleanEntries(v && v.entries), custom: !!(v && v.custom), cols: (v && v.cols) || null,
+      startCap: (v && isFinite(v.startCap) && v.startCap > 0) ? v.startCap : null,
+      comptes: (v && _jrCleanComptes(v.comptes)) || null,
+      startCaps: (v && _jrCleanCaps(v.startCaps)) || null,
+    });
   } catch { res.json({ entries: [], custom: false, cols: null }); }
 });
 app.post('/api/journal', async (req, res) => {
@@ -2709,6 +2745,8 @@ app.post('/api/journal', async (req, res) => {
     const custom = !!(req.body && req.body.custom);   // mémorise si le compte a personnalisé son journal (import) → ne jamais re-proposer le gabarit DTP
     const cols = _jrCleanCols(req.body && req.body.cols);   // colonnes du compte (ordre/masquage/renommage/custom)
     const stored = { entries, custom }; if (cols) stored.cols = cols;
+    const comptes = _jrCleanComptes(req.body && req.body.comptes); if (comptes) stored.comptes = comptes;
+    const caps = _jrCleanCaps(req.body && req.body.startCaps); if (caps) stored.startCaps = caps;
     const startCap = parseFloat(req.body && req.body.startCap);   // capital de départ (courbe $ Capital auto)
     if (isFinite(startCap) && startCap > 0 && startCap < 1e9) stored.startCap = startCap;
     await auth.aiCacheSet('journal:' + req.session.userId, stored);

@@ -13862,7 +13862,42 @@ document.addEventListener('DOMContentLoaded', ()=>{
   let _jrDelPending = null;  // id en attente de confirmation de suppression
   const _jrSel = new Set();  // ids des lignes cochées (sélection multiple façon Notion → suppression groupée)
   let _jrSaveT = null;       // debounce de sauvegarde serveur
-  let _jrStartCap = null;    // capital de départ du compte (pour la courbe $ Capital auto : start + cumul $PNL)
+  let _jrStartCap = null;    // capital de départ du COMPTE COURANT (courbe $ Capital auto : start + cumul $PNL)
+  /* ══ PLUSIEURS COMPTES DANS UN SEUL JOURNAL (10/09, demande du client okahivai : « pouvoir
+     ajouter plusieurs comptes, chaque compte ayant son propre journal ») ═══════════════════════
+     Le modèle stockait DÉJÀ un compte par trade (champ `account`, assaini côté serveur) — il ne
+     servait que de colonne à trier. Ce qui manquait n'était pas le champ : c'était une PORTÉE.
+     ⚠️ ET LA PORTÉE NE POUVAIT PAS ÊTRE UN FILTRE DE PLUS. Les filtres de la barre n'agissent que
+     sur la grille et la rangée de statistiques ; le Tableau de bord et l'onglet Annuel lisent
+     `_jrList` DIRECTEMENT. Un compte posé dans `_jrFilter` aurait donc donné une grille filtrée
+     surmontée d'un tableau de bord qui compte encore les trades des autres comptes — la moitié
+     d'une fonctionnalité, et la moitié qui ment. La portée est donc posée À LA SOURCE : tout ce
+     qui décrit « mes trades » passe par `_jrScope()`, et `_jrView()` (filtres + tri) s'y branche
+     ensuite. Un seul journal, un seul enregistrement, une seule liste de colonnes.
+     '' = tous les comptes : c'est un état légitime, pas un défaut de sélection — et c'est
+     exactement ce qu'un journal mono-compte affiche aujourd'hui, donc rien ne change pour lui. */
+  let _jrCompte = '';        // compte actif ('' = tous les comptes)
+  let _jrComptes = [];       // comptes DÉCLARÉS (un compte peut exister avant son premier trade)
+  let _jrCaps = {};          // capital de départ PAR compte ('' = la vue « tous »)
+  function _jrScope() {
+    const L = _jrList || [];
+    return _jrCompte ? L.filter(e => String(e.account || '') === _jrCompte) : L;
+  }
+  /* La liste proposée = les comptes DÉCLARÉS + ceux réellement portés par des trades (import
+     compris : un journal importé arrive avec ses propres noms de comptes, jamais déclarés ici). */
+  function _jrComptesConnus() {
+    const vus = new Set(_jrComptes.filter(Boolean));
+    for (const e of (_jrList || [])) { const a = String(e.account || '').trim(); if (a) vus.add(a); }
+    return [...vus].sort((a, b) => a.localeCompare(b, 'fr'));
+  }
+  function _jrCompteSet(nom) {
+    _jrCompte = String(nom || '');
+    _jrStartCap = (_jrCaps[_jrCompte] != null && isFinite(_jrCaps[_jrCompte])) ? Number(_jrCaps[_jrCompte]) : null;
+    try { if (window.DTPPref) DTPPref.set('jrcompte', _jrCompte); } catch (e) {}
+    _jrRender();
+    try { _jrRenderDashboard(); } catch (e) {}
+    try { _jrRenderYear(); } catch (e) {}
+  }
   const JR_PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'USD/CAD', 'AUD/USD', 'NZD/USD', 'EUR/GBP', 'EUR/JPY', 'GBP/JPY', 'XAU/USD', 'BTC/USD', 'US500', 'WTI'];
   const _esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   // Taille de pip : JPY = 0.01 ; métaux/indices/crypto/énergie = 1 ; FX standard = 0.0001
@@ -13892,7 +13927,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Sauvegarde FIABLE : débounce 600 ms + flag dirty ; échec → retry auto (12 s) ; fermeture d'onglet /
   // passage en arrière-plan → flush immédiat via sendBeacon (zéro perte d'édition, donnée précieuse).
   let _jrDirty = false, _jrRetryT = null;
-  function _jrPayload() { const p = { entries: _jrList || [], custom: _jrCustom, cols: _jrColsToStore() }; if (_jrStartCap != null && isFinite(_jrStartCap)) p.startCap = _jrStartCap; return p; }
+  function _jrPayload() {
+    const p = { entries: _jrList || [], custom: _jrCustom, cols: _jrColsToStore() };
+    /* `startCap` (nombre unique) est conservé À CÔTÉ de `startCaps` (la table par compte) : c'est
+       la valeur qu'un enregistrement existant porte déjà, et la seule que lisait le desk avant le
+       10/09. La retirer ferait perdre son capital de départ à tout journal enregistré avant
+       aujourd'hui, à la première sauvegarde qui suit la mise à jour. */
+    const capTous = _jrCaps[''];
+    if (capTous != null && isFinite(capTous)) p.startCap = capTous;
+    else if (_jrStartCap != null && isFinite(_jrStartCap) && !_jrCompte) p.startCap = _jrStartCap;
+    if (Object.keys(_jrCaps).length) p.startCaps = _jrCaps;
+    if (_jrComptes.length) p.comptes = _jrComptes;
+    return p;
+  }
   function _jrSave() {
     clearTimeout(_jrSaveT); clearTimeout(_jrRetryT);
     _jrDirty = true;
@@ -13934,8 +13981,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return _jrColsVisible().map(c => { const v = _jrGet(e, c); return Array.isArray(v) ? v.join(' ') : (v == null ? '' : v); }).join(' ').toLowerCase();
   }
   function _jrSortVal(e, k) { const raw = k === 'ts' ? e.ts : _jrGet(e, { k, builtin: true }); if (raw == null || raw === '') return null; const n = Number(raw); return isFinite(n) ? n : null; }   // null/vide → non triable (toujours en bas), pas 0 (Number(null)===0)
-  function _jrView() {   // _jrList filtré + trié selon _jrFilter / _jrSort
-    let L = _jrList || [];
+  function _jrView() {   // portée du compte, PUIS filtré + trié selon _jrFilter / _jrSort
+    let L = _jrScope();
     const f = _jrFilter;
     if (f.q) { const q = f.q.toLowerCase(); L = L.filter(e => _jrRowText(e).includes(q)); }
     if (f.result)  L = L.filter(e => String(e.result || '').toLowerCase() === f.result.toLowerCase());
@@ -13954,7 +14001,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrFilterActive() { const f = _jrFilter; return !!(f.q || f.result || f.dir || f.session) || _jrSort !== 'ts:desc'; }
   function _jrUpdateFilterCount() {
     const el = document.getElementById('jr-flt-count'); if (!el) return;
-    const n = _jrView().length, tot = (_jrList || []).length;
+    const n = _jrView().length, tot = _jrScope().length;
     el.textContent = _jrFilterActive() && n !== tot ? (n + ' / ' + tot) : (tot + (tot > 1 ? ' trades' : ' trade'));
     el.classList.toggle('jr-flt-count--on', _jrFilterActive() && n !== tot);
   }
@@ -13982,6 +14029,68 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const so = host.querySelector('.jr-flt-sort'); if (so) so.onchange = () => { _jrSort = so.value; try { if (window.DTPPref) DTPPref.set('jrsort', _jrSort); } catch (e) {} const c = document.getElementById('jr-flt-clear'); if (c) c.hidden = !_jrFilterActive(); _jrApplyFilter(); };
     const cl = document.getElementById('jr-flt-clear'); if (cl) cl.onclick = () => { _jrFilter = { q: '', result: '', dir: '', session: '' }; _jrSort = 'ts:desc'; _jrRenderFilters(); _jrApplyFilter(); };
     _jrUpdateFilterCount();
+  }
+
+  /* ══ LE SÉLECTEUR DE COMPTE ═══════════════════════════════════════════════════════════════
+     Il commande TOUT l'écran (grille, statistiques, tableau de bord, annuel, widget Kelly), pas
+     seulement la grille — voir la note de `_jrScope`. Il vit dans son PROPRE hôte : `#jr-stats`
+     est reconstruit à chaque frappe dans la recherche, et un `<select>` reconstruit sous le
+     doigt se referme. Pas de boîte native pour créer un compte (règle du desk : aucune
+     confirm/prompt) — le champ de saisie prend la place du sélecteur, sur place. */
+  function _jrRenderComptes() {
+    const host = document.getElementById('jr-comptes'); if (!host) return;
+    if (!(_jrList || []).length && !_jrComptes.length) { host.innerHTML = ''; return; }   // journal vierge : rien à cadrer
+    const noms = _jrComptesConnus();
+    const nTrades = _jrCompte ? _jrScope().length : 0;
+    const vide = !!_jrCompte && nTrades === 0;
+    host.innerHTML =
+      '<select class="jr-cpt-sel' + (_jrCompte ? ' jr-cpt-sel--on' : '') + '" id="jr-cpt-sel" title="Le compte commande tout l’écran : trades, statistiques, tableau de bord et annuel.">'
+      + '<option value=""' + (_jrCompte ? '' : ' selected') + '>Tous les comptes</option>'
+      + noms.map(n => '<option value="' + _esc(n) + '"' + (n === _jrCompte ? ' selected' : '') + '>' + _esc(_jrDisp('account', n)) + '</option>').join('')
+      + '</select>'
+      /* ⚠️ « NOUVEAU COMPTE » EST UN BOUTON, PAS UNE OPTION DU MENU, et ce n'est pas un choix
+         d'ergonomie. Une option-sentinelle demande une valeur qui ne puisse être le nom d'aucun
+         compte ; le caractère NUL semblait parfait — mais l'analyseur HTML remplace U+0000 par
+         U+FFFD dans une valeur d'attribut. La comparaison n'aurait donc JAMAIS été vraie et le
+         menu aurait été silencieusement inerte, sans la moindre erreur en console. Un bouton n'a
+         pas d'espace de noms à partager avec les données. */
+      + '<button type="button" class="jr-cpt-neuf-b" id="jr-cpt-plus" title="Créer un compte">+</button>'
+      + (vide ? '<button type="button" class="jr-cpt-x" id="jr-cpt-x" title="Retirer ce compte de la liste (il ne porte aucun trade)">×</button>' : '');
+    const sel = document.getElementById('jr-cpt-sel');
+    if (sel) sel.onchange = () => _jrCompteSet(sel.value);
+    const plus = document.getElementById('jr-cpt-plus');
+    if (plus) plus.onclick = _jrCompteNouveau;
+    const x = document.getElementById('jr-cpt-x');
+    if (x) x.onclick = () => {
+      /* Sûreté : on ne retire de la liste qu'un compte SANS AUCUN trade. Un compte qui en porte
+         n'a pas de bouton — supprimer des trades ne peut pas se faire par ce chemin. */
+      if (_jrScope().length) return;
+      _jrComptes = _jrComptes.filter(n => n !== _jrCompte);
+      delete _jrCaps[_jrCompte];
+      _jrCompteSet('');
+      _jrSave();
+    };
+  }
+  function _jrCompteNouveau() {
+    const host = document.getElementById('jr-comptes'); if (!host) return;
+    host.innerHTML = '<input type="text" class="jr-cpt-neuf" id="jr-cpt-neuf" maxlength="32" placeholder="Nom du compte" autocomplete="off">'
+      + '<button type="button" class="jr-cpt-ok" id="jr-cpt-ok">Créer</button>';
+    const inp = document.getElementById('jr-cpt-neuf'), ok = document.getElementById('jr-cpt-ok');
+    const creer = () => {
+      const v = String(inp.value || '').trim().slice(0, 32);
+      if (!v) { _jrRenderComptes(); return; }
+      if (!_jrComptesConnus().includes(v)) _jrComptes.push(v);
+      _jrCompteSet(v);
+      _jrSave();
+    };
+    if (ok) ok.onclick = creer;
+    if (inp) {
+      inp.onkeydown = (ev) => {
+        if (ev.key === 'Enter') { ev.preventDefault(); creer(); }
+        else if (ev.key === 'Escape') { ev.preventDefault(); _jrRenderComptes(); }
+      };
+      inp.focus();
+    }
   }
 
   function _jrRenderStats() {
@@ -14155,7 +14264,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Export CSV (round-trip avec l'import : mêmes libellés d'en-têtes → ré-importable tel quel).
   // Anti lock-in + sauvegarde personnelle : délimiteur ';' (Excel FR), BOM UTF-8, dates lisibles.
   function _jrExportCsv() {
-    const L = _jrList || [];
+    /* On exporte la PORTÉE, pas le journal entier : exporter les trades d'un autre compte que
+       celui affiché serait une surprise, et le nom du fichier le dit. */
+    const L = _jrScope();
     if (!L.length) { _jrStatus('Rien à exporter : le journal est vide.'); return; }
     const cols = _jrColsVisible().filter(c => c.k !== 'day');   // Jour = dérivé de la date, inutile en CSV
     const esc = v => { const s = String(v == null ? '' : v); return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -14177,7 +14288,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   function _jrAddRow() {
     if (!_jrList) _jrList = [];
-    const e = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ts: Date.now(), pair: '', dir: 'BUY', lots: null, entry: null, exit: null, pl: null, note: '', result: '', session: '', grade: '', account: '', fonda: null, rr: null, risk: null, r: null, pnlPct: null, equity: null, conf: [], entryT: [], err: [], setup: [], tf: [], sl: [], props: {} };
+    const e = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ts: Date.now(), pair: '', dir: 'BUY', lots: null, entry: null, exit: null, pl: null, note: '', result: '', session: '', grade: '', account: _jrCompte, fonda: null, rr: null, risk: null, r: null, pnlPct: null, equity: null, conf: [], entryT: [], err: [], setup: [], tf: [], sl: [], props: {} };
     _jrList.unshift(e); _jrRender();
     setTimeout(() => { const td = document.querySelector('#jr-grid tbody tr[data-id="' + e.id + '"] td[data-k="pair"]'); if (td) _jrEditCell(td); }, 30);
   }
@@ -14612,7 +14723,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     rd.onerror = () => cb(null); rd.readAsDataURL(file);
   }
 
-  function _jrRender() { _jrRenderStats(); _jrRenderToolbar(); _jrRenderFilters(); _jrRenderGrid(); if (_jrTab === 'dash') _jrRenderDashboard(); }
+  function _jrRender() { _jrRenderComptes(); _jrRenderStats(); _jrRenderToolbar(); _jrRenderFilters(); _jrRenderGrid(); if (_jrTab === 'dash') _jrRenderDashboard(); }
 
   // Délégation grille : clic cellule → édition inline ; bouton suppression de ligne (confirm INLINE).
   document.addEventListener('click', ev => {
@@ -15180,7 +15291,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   window._jrEqSwitch = function (m) {
     if (!_JR_EQMODE_LBL[m]) return; _jrEqMode = m;
     document.querySelectorAll('.jrd-eqtoggle button').forEach(b => b.classList.toggle('active', b.dataset.m === m));
-    if (_jrEqSeriesRef) _jrEqSeriesRef.data.setAll(_jrEqData(_jrList || [], m));   // libellés (unité comprise) déjà inclus dans chaque point
+    if (_jrEqSeriesRef) _jrEqSeriesRef.data.setAll(_jrEqData(_jrScope(), m));   // libellés (unité comprise) déjà inclus dans chaque point
   };
   function _jrBuildResultDonut(resMap) {
     const id = 'jr-result-donut', el = document.getElementById(id); if (!el) return;
@@ -15469,9 +15580,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     _jrAnUnite = u;
     document.querySelectorAll('.jry-unite button').forEach(b => b.classList.toggle('active', b.dataset.u === u));
     const an = _jrAnneeActive();
-    try { _jrBuildAnTradesChart(_jrList || [], an); } catch (e) {}
+    try { _jrBuildAnTradesChart(_jrScope(), an); } catch (e) {}
     const tot = document.getElementById('jry-trades-total');
-    if (tot) tot.innerHTML = _jrTotalAnnee(_jrList || [], an, u);
+    if (tot) tot.innerHTML = _jrTotalAnnee(_jrScope(), an, u);
   };
   window._jrAnChange = function (a) { _jrAnnee = +a; _jrRenderYear(); };
 
@@ -15703,7 +15814,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
      et laisse ses champs à l'utilisateur, ce qui est un état normal, pas une erreur. */
   window.dtpKellyStats = function () {
     try {
-      const L = _jrList || [];
+      /* La portée, pas le journal entier : le widget doit dire la même chose que l'écran qui
+         est ouvert à côté. Un compte démo et un compte financé n'ont pas le même avantage. */
+      const L = _jrScope();
       if (!L.length) return null;
       const som = a2 => a2.reduce((x, y) => x + y, 0);
       const rs = L.map(_jrRof).filter(r => r != null);
@@ -15721,7 +15834,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   function _jrRenderDashboard() {
     const host = document.getElementById('jr-dashboard'); if (!host) return;
-    const L = _jrList || [];
+    const L = _jrScope();
     if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucune statistique pour le moment : ajoutez votre premier trade ou importez votre journal (Notion .zip / CSV) depuis « Trades ».</div>'; return; }
     const sum = a => a.reduce((x, y) => x + y, 0);
     const rs = L.map(_jrRof).filter(r => r != null), wins = rs.filter(r => r > 0), losses = rs.filter(r => r < 0);
@@ -15815,14 +15928,35 @@ document.addEventListener('DOMContentLoaded', ()=>{
       + '</div></div>';
     setTimeout(() => { try { _jrBuildResultDonut(resMap); _jrBuildEquityChart(L); } catch (e) {} }, 12);   // amCharts après insertion DOM
     const capIn = document.getElementById('jr-startcap');
-    if (capIn) capIn.onchange = () => { const v = parseFloat(capIn.value); _jrStartCap = (isFinite(v) && v > 0) ? v : null; _jrSave(); try { _jrBuildEquityChart(L); } catch (e) {} };
+    if (capIn) capIn.onchange = () => {
+      const v = parseFloat(capIn.value);
+      _jrStartCap = (isFinite(v) && v > 0) ? v : null;
+      /* Le capital appartient au COMPTE : un compte démo à 500 $ et un compte financé à 100 000 $
+         ne peuvent pas partager une seule valeur, sinon la courbe de capital ment sur l'un des
+         deux. La vue « tous les comptes » garde la sienne, sous la clé vide. */
+      if (_jrStartCap == null) delete _jrCaps[_jrCompte]; else _jrCaps[_jrCompte] = _jrStartCap;
+      _jrSave(); try { _jrBuildEquityChart(L); } catch (e) {}
+    };
   }
 
   window.loadJournalView = function () {
     if (_jrList) { _jrRender(); return; }   // déjà chargé → re-render instantané (les données vivent en mémoire + serveur)
     _jrStatus('Chargement…');
     fetch('/api/journal').then(r => r.json())
-      .then(j => { _jrList = Array.isArray(j.entries) ? j.entries : []; _jrCustom = !!j.custom; _jrCols = _jrColsFromStore(j.cols); _jrStartCap = (j.startCap != null && isFinite(j.startCap) && j.startCap > 0) ? Number(j.startCap) : null; _jrStatus(''); _jrRender(); })
+      .then(j => {
+        _jrList = Array.isArray(j.entries) ? j.entries : [];
+        _jrCustom = !!j.custom; _jrCols = _jrColsFromStore(j.cols);
+        _jrComptes = Array.isArray(j.comptes) ? j.comptes.filter(x => typeof x === 'string' && x) : [];
+        _jrCaps = (j.startCaps && typeof j.startCaps === 'object') ? { ...j.startCaps } : {};
+        /* REPRISE DE L'ANCIEN CHAMP : un journal enregistré avant le 10/09 ne connaît que
+           `startCap`, une valeur unique et donc globale. Elle devient le capital de la vue
+           « tous les comptes ». Sans cette ligne, le capital de départ disparaîtrait de tous
+           les journaux existants. */
+        if (j.startCap != null && isFinite(j.startCap) && j.startCap > 0 && _jrCaps[''] == null) _jrCaps[''] = Number(j.startCap);
+        try { const pref = window.DTPPref ? DTPPref.get('jrcompte', '') : ''; if (pref && _jrComptesConnus().includes(pref)) _jrCompte = pref; } catch (e) {}
+        _jrStartCap = (_jrCaps[_jrCompte] != null && isFinite(_jrCaps[_jrCompte])) ? Number(_jrCaps[_jrCompte]) : null;
+        _jrStatus(''); _jrRender();
+      })
       .catch(() => { _jrList = []; _jrStatus('Hors-ligne'); _jrRender(); });
   };
 })();
