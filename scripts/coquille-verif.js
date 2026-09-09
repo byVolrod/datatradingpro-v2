@@ -31,7 +31,6 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const vm = require('vm');
-const zlib = require('zlib');
 
 const RACINE = path.join(__dirname, '..');
 let ok = 0, ko = 0;
@@ -57,102 +56,44 @@ t('la feuille porte la sentinelle', CSS.indexOf(MARQUE) >= 0);
   t('elle n\'apparaît qu\'une fois', CSS.indexOf(MARQUE) === i);
 }
 
-/* ══ PHASE 2 — LE MIDDLEWARE DE COMPRESSION, EXÉCUTÉ ════════════════════════════════════════════
-   On extrait le VRAI bloc de `server.js` (pas une copie : une copie diverge, et c'est la copie
-   qu'on testerait) et on l'exécute avec un `app` espion. On lui envoie ensuite de vraies requêtes.  */
-console.log('\n[2] Le middleware de compression, exécuté');
+/* ══ PHASE 2 — LA COMPRESSION EST MONTÉE, ET AU BON ENDROIT ════════════════════════════════════
+   ⚠️ CETTE PHASE A ÉTÉ RÉÉCRITE LE 09/09, ET LA RAISON COMPTE PLUS QUE SON CONTENU. Elle éprouvait
+   d'abord un bloc de compression ÉCRIT À LA MAIN dans server.js. À la fusion, il est apparu qu'une
+   autre session avait monté entre-temps le vrai middleware `compression()`, en tête de fichier.
+   Le bloc maison a donc été retiré : garder les deux aurait fait répondre `app.get()` AVANT le
+   middleware statique, donc court-circuiter l'autre implémentation sur exactement les fichiers qui
+   comptent — et deux implémentations d'une même chose divergent toujours.
+   Ce banc ne teste donc plus « ma » compression : il teste que le desk EN A UNE, montée là où elle
+   sert, et qu'elle ne touche pas au flux de l'assistant. C'est ce qui doit rester vrai quelle que
+   soit la main qui l'a écrite. */
+console.log('\n[2] La compression est montée, avant le statique, et épargne le flux SSE');
 const SERVEUR = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
-const DEBUT = '/* ══ COMPRESSION DES ACTIFS DE LA COQUILLE';
-const FIN = "app.use(express.static(path.join(__dirname, 'public'), {";
-let poigneeGz = null, motifGz = null;
 {
-  const a = SERVEUR.indexOf(DEBUT), b = SERVEUR.indexOf(FIN);
-  t('le bloc est présent dans server.js, AVANT express.static', a >= 0 && b > a, 'a=' + a + ' b=' + b);
-  if (a >= 0 && b > a) {
-    const src = SERVEUR.slice(a, b);
-    const app = { get: (rx, fn) => { motifGz = rx; poigneeGz = fn; } };
-    const bac = { require, path, fs, __dirname: RACINE, app, console };
-    vm.createContext(bac);
-    try { vm.runInContext(src, bac, { filename: 'server.js#gzip' }); }
-    catch (e) { t('le bloc s\'exécute', false, e.message); }
-    // ⚠️ PAS `instanceof RegExp` : le bloc est exécuté dans un autre contexte, donc son RegExp
-    //    n'est pas le nôtre et la comparaison serait FAUSSE alors que tout marche.
-    t('le bloc enregistre une route',
-      typeof poigneeGz === 'function' && Object.prototype.toString.call(motifGz) === '[object RegExp]');
-  }
-}
-
-// Réponse espionne : assez fidèle pour que la vraie poignée ne voie pas la différence.
-function fausseReponse() {
-  const r = {
-    entetes: {}, code: 200, corps: null, fini: false,
-    set(k, v) { r.entetes[String(k).toLowerCase()] = String(v); return r; },
-    type(v) { r.entetes['content-type'] = v; return r; },
-    status(c) { r.code = c; return r; },
-    end(b) { r.fini = true; r.corps = b || null; return r; },
-  };
-  return r;
-}
-function demander(chemin, entetes) {
-  const req = { path: chemin, method: 'GET', headers: Object.assign({ 'accept-encoding': 'gzip, deflate, br' }, entetes || {}) };
-  const res = fausseReponse();
-  let suivant = false;
-  poigneeGz(req, res, () => { suivant = true; });
-  return { req, res, suivant };
-}
-function demanderAsync(chemin, entetes) {
-  const req = { path: chemin, method: 'GET', headers: Object.assign({ 'accept-encoding': 'gzip, deflate, br' }, entetes || {}) };
-  const res = fausseReponse();
-  let suivant = false;
-  const p = poigneeGz(req, res, () => { suivant = true; });
-  return Promise.resolve(p).then(() => ({ req, res, get suivant() { return suivant; } }));
-}
-
-async function phaseCompression() {
-  if (!poigneeGz) return;
-  t('le motif accepte /css/style.css', motifGz.test('/css/style.css'));
-  t('le motif refuse une donnée', !motifGz.test('/api/news'));
-  t('le motif refuse un chemin qui remonte', !motifGz.test('/css/../server.js'));
-  /* TÉMOIN INVERSE : les données ne doivent JAMAIS passer par ici. Un `compression()` global
-     mettrait en tampon le flux SSE de l'IA — la réponse arriverait d'un bloc à la fin au lieu
-     d'au fil de l'eau, et rien côté serveur ne le signalerait. */
-  t('le flux SSE de l\'IA n\'est pas concerné', !motifGz.test('/api/ai/chat'));
-
-  const brut = fs.readFileSync(path.join(RACINE, 'public/css/style.css'));
-
-  // ── Un navigateur moderne : brotli.
-  const a = await demanderAsync('/css/style.css');
-  t('la feuille repart compressée en brotli', a.res.entetes['content-encoding'] === 'br', JSON.stringify(a.res.entetes));
-  t('elle annonce son type', /text\/css/.test(a.res.entetes['content-type'] || ''));
-  t('elle porte Vary: Accept-Encoding', /accept-encoding/i.test(a.res.entetes['vary'] || ''));
-  t('elle porte une empreinte', !!a.res.entetes['etag']);
-  t('le corps brotli se déplie à l\'identique',
-    Buffer.isBuffer(a.res.corps) && zlib.brotliDecompressSync(a.res.corps).equals(brut));
-
-  // ── Un client plus ancien : gzip. Une empreinte DISTINCTE, sinon un cache intermédiaire pourrait
-  //    servir l'un pour l'autre — deux corps différents ne peuvent pas porter la même empreinte.
-  const g = await demanderAsync('/css/style.css', { 'accept-encoding': 'gzip, deflate' });
-  t('un client sans brotli reçoit du gzip', g.res.entetes['content-encoding'] === 'gzip');
-  t('le corps gzip se déplie à l\'identique',
-    Buffer.isBuffer(g.res.corps) && zlib.gunzipSync(g.res.corps).equals(brut));
-  t('les deux codages portent des empreintes DIFFÉRENTES', g.res.entetes['etag'] !== a.res.entetes['etag'],
-    'même empreinte pour deux corps différents');
-
-  /* LA MESURE QUI JUSTIFIE TOUT LE CHANTIER : le temps d'exposition à une coupure est
-     proportionnel au nombre d'octets. On exige un facteur 3 au PIRE des cas (le client le moins
-     bien équipé, en gzip) — mesuré 3,5 en gzip et 4,4 en brotli sur la feuille réelle. Sous ce
-     seuil, la compression cesserait d'être une assurance et ne serait plus qu'un détail de perf. */
-  const pire = brut.length / g.res.corps.length;
-  t('même au pire, la feuille pèse 3 fois moins', pire >= 3, 'facteur ' + pire.toFixed(2));
-
-  const b = await demanderAsync('/css/style.css', { 'if-none-match': a.res.entetes['etag'] });
-  t('une seconde visite reçoit 304', b.res.code === 304 && !b.res.corps);
-
-  const c = await demanderAsync('/css/style.css', { 'accept-encoding': 'identity' });
-  t('un client sans compression repart vers express.static', c.suivant === true && !c.res.entetes['content-encoding']);
-
-  const d = await demanderAsync('/css/jamais-vu-ici.css');
-  t('un fichier absent repart vers express.static', d.suivant === true);
+  const iReq = SERVEUR.indexOf("require('compression')");
+  const iUse = SERVEUR.indexOf('app.use(compression(');
+  const iStatic = SERVEUR.indexOf("app.use(express.static(path.join(__dirname, 'public'), {");
+  t('le desk charge un middleware de compression', iReq > 0);
+  t('il est monté', iUse > 0);
+  /* L'ORDRE EST TOUTE LA CORRECTION : une compression enregistrée APRÈS `express.static` ne voit
+     jamais passer une réponse statique. Le fichier compilerait, le middleware existerait, et les
+     trois fichiers lourds du desk repartiraient en clair — la panne reviendrait sans qu'une seule
+     ligne ait l'air d'avoir changé. */
+  t('il est monté AVANT express.static', iUse > 0 && iStatic > 0 && iUse < iStatic,
+    'compression à ' + iUse + ', statique à ' + iStatic);
+  /* Le flux de l'assistant ne doit JAMAIS être mis en tampon : il arriverait d'un bloc à la fin au
+     lieu d'au fil de l'eau, et rien côté serveur ne le signalerait. */
+  const bloc = iUse > 0 ? SERVEUR.slice(iUse, iUse + 500) : '';
+  /* ⚠️ ON CHERCHE « event-stream », PAS « text/event-stream ». Dans la SOURCE, la barre oblique
+     d'une expression rationnelle est ÉCHAPPÉE : le fichier contient `text\\/event-stream`, avec
+     une contre-oblique au milieu. Un motif écrit naïvement ne trouve donc rien, et le banc
+     rougit sur du code parfaitement correct — ce qui vient d'arriver. */
+  t('le flux SSE est explicitement exclu', /event-stream/.test(bloc), JSON.stringify(bloc.slice(0, 200)));
+  /* TÉMOIN INVERSE : le filtre ne doit pas TOUT exclure — sinon plus rien n'est compressé et le
+     contrôle ci-dessus resterait vert sur un middleware devenu décoratif. */
+  t('TÉMOIN — et le filtre par défaut s\'applique au reste', /compression\.filter\(req, res\)/.test(bloc));
+  /* Et l'ancien bloc maison ne doit pas revenir : deux compressions, c'est le défaut qu'on ferme. */
+  t('aucune seconde compression maison ne subsiste', !/_GZ_RX/.test(SERVEUR),
+    'un bloc de compression écrit à la main court-circuiterait le middleware');
 }
 
 /* ══ PHASE 3 — LE SERVICE WORKER, CHARGÉ ET SOLLICITÉ ═══════════════════════════════════════════
@@ -381,7 +322,6 @@ async function phaseNavigateur() {
 }
 
 (async () => {
-  try { await phaseCompression(); } catch (e) { console.log('  ✗ phase compression : ' + e.message); ko++; }
   try { await phaseNavigateur(); } catch (e) { console.log('  ✗ phase navigateur : ' + e.message); ko++; }
   await new Promise(r => setTimeout(r, 120));   // laisse les vérifications asynchrones de la phase 3 conclure
   console.log('\n[Coquille] ' + ok + ' contrôle(s) vert(s), ' + ko + ' rouge(s).\n');

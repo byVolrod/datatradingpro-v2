@@ -2602,7 +2602,27 @@ function buildRiskGauge() {
           })
         );
 
-        // Arc LISSE & PRO : un SEUL remplissage avec un dégradé linéaire continu (horizontal :
+        /* ══ COURSE DE L'AIGUILLE — EXPANSION DU CENTRE (09/09) ═══════════════════════════════════════
+   Retour utilisateur : « on est toujours au milieu, genre l'aiguille ». C'est vrai, et ce n'était
+   pas une illusion : l'axe va de −100 à +100 alors que le score de risque, en régime ordinaire,
+   vit entre −30 et +30. Les trois quarts de l'arc ne servaient donc jamais, et deux séances aux
+   humeurs très différentes plaçaient l'aiguille à quelques degrés l'une de l'autre.
+   On applique une expansion en PUISSANCE : angle ∝ signe(x) · |x/100|^0,55. Elle est STRICTEMENT
+   MONOTONE — l'ordre de deux valeurs n'est jamais inversé, ce qui est la seule chose qu'une jauge
+   doit garantir — et elle FIXE les extrêmes : −100 reste à gauche, 0 reste au centre, +100 reste à
+   droite. Un score de 10 occupe désormais un quart de la demi-course au lieu d'un dixième.
+   ⚠️ C'EST UNE ÉCHELLE D'AFFICHAGE, PAS UN CHIFFRE RETOUCHÉ. Le pourcentage écrit sous la jauge et
+   le badge de régime restent la valeur EXACTE du serveur : on ne change pas ce qui est dit, on
+   change la place dont on dispose pour le montrer. Même esprit qu'une échelle logarithmique.
+   ⚠️ ET LA COULEUR DU TRIANGLE SUIT LA VALEUR VRAIE (`_riskArcColor(gaugeVal)`), pas sa position
+   sur l'arc : c'est elle qui porte le sens, le dégradé derrière n'est qu'un fond d'ambiance. */
+const _RISK_EXPANSION = 0.55;
+function _riskAngleVal(pct) {
+  const x = Math.max(-100, Math.min(100, Number(pct) || 0));
+  return Math.sign(x) * Math.pow(Math.abs(x) / 100, _RISK_EXPANSION) * 100;
+}
+
+// Arc LISSE & PRO : un SEUL remplissage avec un dégradé linéaire continu (horizontal :
         // rouge à gauche → ambre au centre → émeraude à droite). Aucune bande, aucun liseré.
         const _arc = axis.createAxisRange(axis.makeDataItem({ value: -100, endValue: 100 }));
         _arc.get('axisFill').setAll({
@@ -2654,7 +2674,7 @@ function buildRiskGauge() {
 
         // Animate needle to initial value
         _riskHandDI.animate({
-          key: 'value', to: gaugeVal,
+          key: 'value', to: _riskAngleVal(gaugeVal),
           duration: 1000, easing: am5.ease.out(am5.ease.cubic),
         });
 
@@ -2662,7 +2682,7 @@ function buildRiskGauge() {
         // Refresh: animate needle + recolore l'aiguille selon l'état + update labels
         if (_riskHandDI) {
           _riskHandDI.animate({
-            key: 'value', to: gaugeVal,
+            key: 'value', to: _riskAngleVal(gaugeVal),
             duration: 800, easing: am5.ease.out(am5.ease.cubic),
           });
         }
@@ -3250,13 +3270,37 @@ function buildDMXChart(forceRefresh = false, opts) {
   // On n'affiche "Chargement…" que si l'onglet est vide (sinon on garde l'ancien rendu → pas de flash)
   if (!wrap.querySelector('.dmx2-row')) wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement des données DMX…') : 'Chargement…');
 
-  fetch(url)
+  /* ⚠️ GARDE-TEMPS CÔTÉ DESK (09/09, capture utilisateur : « pourquoi ça charge à l'infini ? »).
+     Un `fetch` sans délai attend AUSSI LONGTEMPS que le serveur tient la connexion — et la route
+     de positionnement pilotait un navigateur au premier chargement d'un conteneur neuf, donc après
+     chaque déploiement, avec des délais internes de 30 puis 45 secondes. Le serveur borne désormais
+     son attente ; ce garde-ci reste nécessaire quand même : il couvre ce que le serveur ne peut pas
+     couvrir — un réseau qui ne répond plus, un relais qui garde la connexion ouverte, un ordinateur
+     qui sort de veille. Une animation de chargement qui tourne sans fin n'est pas une attente,
+     c'est une panne muette. */
+  var _abandon = (typeof AbortController === 'function') ? new AbortController() : null;
+  var _minuteur = setTimeout(function () { try { _abandon && _abandon.abort(); } catch (e) {} }, 15000);
+
+  fetch(url, _abandon ? { signal: _abandon.signal } : undefined)
     .then(r => r.json())
     .then(data => {
+      clearTimeout(_minuteur);
       if (data.error) throw new Error(data.error);
+      /* LE SERVEUR SAIT DIRE « JE CHERCHE ENCORE » (`pending`), et c'est une réponse, pas un échec :
+         la récupération continue de son côté. On le dit en clair et on redemande tout seul — un
+         message figé qui n'essaierait plus jamais serait la même impasse sous un autre habillage. */
+      if (data.pending) {
+        wrap.innerHTML = '<div class="dmx-loading">Positionnement en cours de récupération…'
+          + '<br><span style="opacity:.7;font-size:10px">Première synchronisation avec la source, quelques instants.</span></div>';
+        setTimeout(function () { buildDMXChart(false, opts); }, 10000);
+        return;
+      }
       let symbols = (data.symbols || []).filter(row => _dmxAllowed(row.symbol));
       if (!symbols.length) {
-        wrap.innerHTML = '<div class="dmx-loading">Aucune donnée : connexion Myfxbook en attente…</div>';
+        /* Répondu, mais VIDE : ce n'est ni une attente ni une erreur. On le distingue des deux, et
+           on redemande plus lentement — la source peut être en maintenance. */
+        wrap.innerHTML = '<div class="dmx-loading">Aucun positionnement publié par la source pour le moment.</div>';
+        setTimeout(function () { buildDMXChart(false, opts); }, 60000);
         return;
       }
 
@@ -3321,6 +3365,7 @@ function buildDMXChart(forceRefresh = false, opts) {
     .catch(() => {
       // En mode widget (opts) : pas de bouton inline (il rappellerait le DESK) — le retry auto suffit,
       // et buildDMXChart s'arrête tout seul si le conteneur du widget a été démonté (getElementById null).
+      clearTimeout(_minuteur);
       wrap.innerHTML = `<div class="dmx-loading">
         Erreur de connexion : nouvelle tentative…${opts ? '' : `<br>
         <button onclick="buildDMXChart(true)" style="margin-top:10px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:3px 10px;font-size:10px;cursor:pointer;border-radius:2px;font-family:var(--font-mono);">Réessayer</button>`}

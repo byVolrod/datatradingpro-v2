@@ -65,23 +65,84 @@ else
 fi
 
 # ── 3. LES UNITÉS ──────────────────────────────────────────────────────────────────────────────
-for u in dtp-sauvegarde dtp-keepalive; do
+# ⚠️ dtp-disque REJOINT LA LISTE LE 07/09/2026, APRÈS UNE PANNE QUE PERSONNE N'A VUE VENIR.
+# Le disque a atteint 100 %. nginx, ne pouvant plus écrire ses fichiers temporaires, s'est mis à
+# TRONQUER toute réponse dépassant ~750 Ko sans émettre la moindre erreur HTTP : le desk arrivait
+# en HTML nu. Docker ne pouvait plus construire, donc le correctif ne pouvait pas se déployer. Et
+# la sauvegarde quotidienne échouait en silence depuis plusieurs jours — c'est-à-dire que le filet
+# posé par CET installateur était déjà tombé, sans que rien ne le signale.
+# La sentinelle surveille désormais ce que ces deux tâches supposaient acquis : de la place.
+for u in dtp-sauvegarde dtp-keepalive dtp-disque dtp-redemarrage dtp-redemarrage-controle; do
   cp "scripts/$u.service" "/etc/systemd/system/$u.service"
   cp "scripts/$u.timer"   "/etc/systemd/system/$u.timer"
 done
+chmod +x scripts/vps/dtp-disque.sh scripts/vps/dtp-redemarrage.sh 2>/dev/null || true
 systemctl daemon-reload
-systemctl enable --now dtp-sauvegarde.timer dtp-keepalive.timer
+systemctl enable --now dtp-sauvegarde.timer dtp-keepalive.timer dtp-disque.timer \
+  dtp-redemarrage.timer dtp-redemarrage-controle.timer
+
+# ── 4. LE FICHIER TAMPON (BALLAST) ───────────────────────────────────────────────────────────────
+# ⚠️ IL DOIT EXISTER AVANT LA CRISE, PAS PENDANT. Près de 100 %, il n'y a plus la place de créer
+# quoi que ce soit — c'est justement l'état où le nettoyage échoue faute d'espace. On pose donc dès
+# maintenant un fichier inerte de 1 Go, sur le MÊME système de fichiers que `/`. À 98 %, la sentinelle
+# le supprime en premier pour récupérer 1 Go instantané, puis le recrée une fois la crise passée.
+BALLAST_DIR="/var/lib/dtp-disque"
+BALLAST="$BALLAST_DIR/ballast.tampon"
+BALLAST_MO="${DTP_BALLAST_MO:-1024}"
+mkdir -p "$BALLAST_DIR"
+if [ -f "$BALLAST" ]; then
+  echo "✓ Ballast déjà en place ($(du -h "$BALLAST" 2>/dev/null | cut -f1))."
+else
+  # `fallocate` réserve l'espace sans écrire 1 Go de zéros (instantané) ; `dd` en repli si le système
+  # de fichiers ne le supporte pas. On REFUSE de poser le ballast si le disque est déjà trop plein :
+  # créer 1 Go sur un disque à 96 % le pousserait à 100 %, soit exactement la panne qu'on prévient.
+  LIBRE_MO=$(df -Pm / | tail -1 | awk '{print $(NF-2)}')
+  if [ "${LIBRE_MO:-0}" -gt $((BALLAST_MO + 1024)) ]; then
+    fallocate -l "${BALLAST_MO}M" "$BALLAST" 2>/dev/null || dd if=/dev/zero of="$BALLAST" bs=1M count="$BALLAST_MO" 2>/dev/null
+    echo "✓ Ballast posé : ${BALLAST_MO} Mo inertes ($BALLAST)."
+  else
+    echo "⚠ Ballast NON posé : trop peu d'espace libre (${LIBRE_MO} Mo). Libérez d'abord, puis relancez."
+  fi
+fi
+
+# ── 5. PLAFOND PERMANENT DES JOURNAUX SYSTEMD ────────────────────────────────────────────────────
+# La sentinelle vide journald quand ça chauffe ; ce plafond-ci l'empêche de gonfler ENTRE deux
+# passages. `SystemMaxUse=200M` borne journald une fois pour toutes — sans lui, un service bavard
+# remplirait /var/log/journal sans qu'aucun seuil disque n'ait encore parlé.
+JCONF="/etc/systemd/journald.conf.d"
+mkdir -p "$JCONF"
+if ! grep -qs 'SystemMaxUse=200M' "$JCONF/dtp.conf" 2>/dev/null; then
+  printf '[Journal]\nSystemMaxUse=200M\nRuntimeMaxUse=100M\n' > "$JCONF/dtp.conf"
+  systemctl restart systemd-journald 2>/dev/null || true
+  echo "✓ Journaux systemd plafonnés à 200 Mo (permanent)."
+else
+  echo "✓ Plafond des journaux systemd déjà posé."
+fi
 
 echo
 echo "✓ Sauvegarde quotidienne  : 04h10, archive chiffrée, 3 versions conservées."
 echo "✓ Keep-alive Supabase     : toutes les 6 h, sur les 4 bases, avec reprise auto des projets en pause."
+echo "✓ Sentinelle disque       : toutes les 15 min — 5 paliers (70/80/90/95/98), triple critère"
+echo "                            (%, Go libres, vitesse). Nettoie seule à 95 %, SUPPRIME LE BALLAST"
+echo "                            à 98 % pour de l'espace vital, et sert de watchdog (desk HS + disque)."
+echo "✓ Redémarrage mensuel     : 1er dimanche 05h30 (marché fermé, après la sauvegarde)."
+echo "                            Il S'ABSTIENT si un déploiement ou une sauvegarde tourne, si la"
+echo "                            machine a moins de 7 jours, ou si le desk est DÉJÀ en panne."
+echo "                            Un second message confirme le retour du desk — ou son absence."
 echo
-echo "  Premier passage du keep-alive tout de suite (la sauvegarde, elle, attendra son créneau) :"
+echo "  Premier passage du keep-alive et de la sentinelle tout de suite (la sauvegarde attendra son créneau) :"
 systemctl start dtp-keepalive.service || true
+systemctl start dtp-disque.service || true
+echo
+echo "  État du disque, à la demande et sans rien modifier :"
+echo "      bash scripts/vps/dtp-disque.sh --etat"
+echo "  Vérifier que les e-mails d'alerte partent bien :"
+echo "      bash scripts/vps/dtp-disque.sh --test"
 echo
 echo "  Suivi     : systemctl list-timers 'dtp-*'"
 echo "  Journaux  : journalctl -u dtp-keepalive.service -n 40 --no-pager"
 echo "              journalctl -u dtp-sauvegarde.service -n 40 --no-pager"
+echo "              journalctl -u dtp-disque.service -n 40 --no-pager"
 echo
 echo "  ⚠ RAPPEL : les archives restent SUR CETTE MACHINE. Les rapatriter ailleurs est une étape"
 echo "    à part — une sauvegarde qui vit sur le disque qu'elle protège ne protège de rien."

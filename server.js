@@ -10,6 +10,7 @@ const axios     = require('axios');
 const session   = require('cookie-session');   // session stockée côté navigateur → survit aux redémarrages
 const helmet    = require('helmet');
 const cors      = require('cors');
+const compression = require('compression');   // gzip des reponses -- voir le bloc COMPRESSION HTTP plus bas
 const Anthropic = require('@anthropic-ai/sdk');
 const { scrapeFinancialJuice, initFinancialJuice, setOnPushCallback, backfillHistoricalNews } = require('./scrapers/financialjuice');
 const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory');
@@ -89,6 +90,31 @@ app.use(cors({
     cb(new Error('CORS: origin not allowed'));
   },
   credentials: true,
+}));
+
+// ─── COMPRESSION HTTP ─────────────────────────────────────────────────────────
+// ⚠️ CE MIDDLEWARE EST UN CORRECTIF DE PANNE, PAS SEULEMENT UNE OPTIMISATION.
+// Le reverse-proxy de production TRONQUE toute réponse dépassant ~730 Ko : il ferme la connexion
+// vers 719 700 octets sans jamais émettre d'erreur HTTP — le code reste 200, seul le corps est
+// amputé. Les trois seuls fichiers du projet à dépasser ce seuil étaient précisément ceux dont le
+// desk dépend : style.css (1,4 Mo), app.js (1,1 Mo) et widgets.js (896 Ko). Or un navigateur qui
+// reçoit moins d'octets que le Content-Length annoncé JETTE la ressource ENTIÈRE : ni style, ni
+// script, donc une page en HTML nu, figée sur ses libellés « Chargement… ».
+// La page de connexion, elle, porte ses styles en <style> inline : elle restait intacte. D'où un
+// symptôme qui n'apparaissait qu'APRÈS l'authentification — et une panne qu'on a donc longtemps
+// cherchée du côté du login, où elle n'a jamais été.
+// Compressés, ces fichiers tombent à 404 / 370 / 274 Ko : largement sous le seuil.
+// ⚠️ DOIT RESTER AVANT `express.static`. Une compression enregistrée APRÈS ne voit jamais passer
+// les réponses statiques : la panne reviendrait sans qu'aucune ligne n'ait l'air d'avoir changé.
+// ⚠️ LE FLUX SSE EST EXCLU EXPLICITEMENT (/api/ai/chat/stream). Bufferisé, il n'arriverait plus
+// token par token : l'assistant resterait muet, puis cracherait tout d'un coup. Cette route pose
+// déjà `no-transform`, que `compression` respecte — mais une garantie de streaming qui ne tient
+// qu'à un en-tête posé dans une AUTRE route finit toujours par se perdre à la première refonte.
+app.use(compression({
+  filter: (req, res) => {
+    if (/^text\/event-stream/i.test(String(res.getHeader('Content-Type') || ''))) return false;
+    return compression.filter(req, res);
+  },
 }));
 
 const PORT = process.env.PORT || 3000;
@@ -713,104 +739,19 @@ app.get('/.well-known/assetlinks.json', (_req, res) => {
   }]);
 });
 
-/* ══ COMPRESSION DES ACTIFS DE LA COQUILLE (CSS/JS) — POSÉE LE 09/09 APRÈS INCIDENT CLIENT ═══════
-   Deux membres ont vu le desk s'afficher SANS AUCUN STYLE à la connexion. La feuille de styles fait
-   1,4 Mo et partait EN CLAIR : `express.static` ne compresse rien, et aucun `compression` n'était
-   monté. Sur un lien mobile, c'est plusieurs secondes de transfert pour un seul fichier — et un
-   transfert coupé en route ne donne pas une erreur franche, il donne une feuille TRONQUÉE ou vide,
-   donc un desk nu. La page, elle, est déjà arrivée : le membre voit son terminal en HTML brut.
-   Mesuré sur la feuille réelle : 1 430 281 octets en clair, 403 180 en gzip, 323 195 en brotli. La
-   fenêtre pendant laquelle la connexion peut lâcher est divisée par quatre. Ce n'est pas la seule
-   parade (voir la sentinelle dans index.html et le durcissement du service worker) — c'est celle
-   qui s'attaque à la CAUSE plutôt qu'aux effets.
-
-   ⚠️ PORTÉE VOLONTAIREMENT ÉTROITE : `/css/*.css` et `/js/*.js`, rien d'autre. On NE monte PAS un
-   `compression()` global — le desk sert du SSE (`/api/ai/chat`), et un middleware de compression
-   générique met en tampon un flux d'événements : la réponse de l'IA n'arriverait plus au fil de
-   l'eau mais d'un bloc à la fin. C'est la panne classique de ce genre d'ajout, et elle est
-   silencieuse côté serveur. Les données ne passent donc jamais par ici.
-
-   ⚠️ COMPRESSION ASYNCHRONE, JAMAIS `...Sync`. Brotli sur 1,4 Mo bloque la boucle d'événements
-   124 ms en qualité 9 — et 2,3 secondes en qualité 11, ce qui GÈLE le serveur entier pour tous les
-   autres clients pendant qu'un seul télécharge sa feuille. La qualité 9 rend 4,4× contre 4,8× pour
-   la 11 : le dernier dixième ne vaut pas dix-huit fois le temps de calcul. Résultat mémorisé, donc
-   payé une seule fois par fichier et par démarrage.
-
-   ⚠️ ON GARDE LES REQUÊTES CONDITIONNELLES. Sans `ETag` ni `304`, ce raccourci serait une
-   RÉGRESSION face à `express.static` : chaque visite re-téléchargerait tout. L'empreinte est
-   dérivée de la taille, de la date du fichier ET du codage, donc elle change au déploiement (le
-   conteneur est reconstruit) et pas autrement. `Vary: Accept-Encoding` est obligatoire : sans lui,
-   un cache intermédiaire peut servir un corps compressé à un client qui n'a rien demandé de tel.
-
-   ⚠️ MÉMOIRE PLAFONNÉE (512 Mo sur le VPS) : au plus _GZ_MAX octets compressés conservés, et aucun
-   fichier de plus de 8 Mo. Au-delà, on laisse passer vers `express.static`. */
-const _zlib = require('zlib');
-const _GZ_CACHE = new Map();          // chemin|codage → { etag, buf }
-const _GZ_ENCOURS = new Map();        // compressions en vol : deux visiteurs simultanés = un calcul
-const _GZ_MAX = 8 * 1024 * 1024;      // total compressé conservé en mémoire
-const _GZ_FICHIER_MAX = 8 * 1024 * 1024;
-let _gzOctets = 0;
-const _GZ_RX = /^\/(?:css|js)\/[A-Za-z0-9._-]+\.(?:css|js)$/;
-const _GZ_PUBLIC = path.join(__dirname, 'public');
-
-function _gzComprimer(codage, brut) {
-  return new Promise((resoudre, rejeter) => {
-    const fini = (e, buf) => (e ? rejeter(e) : resoudre(buf));
-    if (codage === 'br') {
-      _zlib.brotliCompress(brut, { params: { [_zlib.constants.BROTLI_PARAM_QUALITY]: 9,
-        [_zlib.constants.BROTLI_PARAM_SIZE_HINT]: brut.length } }, fini);
-    } else {
-      _zlib.gzip(brut, { level: 6 }, fini);
-    }
-  });
-}
-
-app.get(_GZ_RX, (req, res, next) => {
-  try {
-    const accepte = String(req.headers['accept-encoding'] || '');
-    const codage = /\bbr\b/i.test(accepte) ? 'br' : (/\bgzip\b/i.test(accepte) ? 'gzip' : null);
-    if (!codage) return next();
-    const fp = path.join(_GZ_PUBLIC, req.path);
-    // Ceinture : `req.path` est déjà contraint par _GZ_RX (pas de « .. », pas de « / » interne),
-    // mais on vérifie que le chemin résolu reste sous public/ — une garde de chemin ne se déduit pas.
-    if (fp.indexOf(_GZ_PUBLIC + path.sep) !== 0) return next();
-    let st;
-    try { st = fs.statSync(fp); } catch (e) { return next(); }
-    if (!st.isFile() || st.size > _GZ_FICHIER_MAX) return next();
-
-    const etag = 'W/"' + st.size.toString(36) + '-' + Math.floor(st.mtimeMs).toString(36) + '-' + codage + '"';
-    res.set('Vary', 'Accept-Encoding');
-    res.set('Cache-Control', 'public, max-age=2592000');
-    res.set('ETag', etag);
-    res.type(req.path.endsWith('.css') ? 'text/css' : 'application/javascript');
-    if (String(req.headers['if-none-match'] || '').indexOf(etag) >= 0) return res.status(304).end();
-
-    const cle = fp + '|' + codage;
-    const servir = (buf) => {
-      res.set('Content-Encoding', codage);
-      res.set('Content-Length', String(buf.length));
-      if (req.method === 'HEAD') return res.end();
-      return res.end(buf);
-    };
-    const e = _GZ_CACHE.get(cle);
-    if (e && e.etag === etag) return servir(e.buf);
-
-    let vol = _GZ_ENCOURS.get(cle);
-    if (!vol) {
-      vol = _gzComprimer(codage, fs.readFileSync(fp)).then((buf) => {
-        const vieux = _GZ_CACHE.get(cle);
-        if (vieux) { _gzOctets -= vieux.buf.length; _GZ_CACHE.delete(cle); }
-        // Plafond atteint → on vide entièrement plutôt que d'évincer au hasard : le jeu d'actifs du
-        // desk est petit et se reconstruit en quelques centaines de millisecondes.
-        if (_gzOctets + buf.length > _GZ_MAX) { _GZ_CACHE.clear(); _gzOctets = 0; }
-        _GZ_CACHE.set(cle, { etag, buf }); _gzOctets += buf.length;
-        return buf;
-      }).finally(() => { _GZ_ENCOURS.delete(cle); });
-      _GZ_ENCOURS.set(cle, vol);
-    }
-    return vol.then(servir).catch(() => next());   // le moindre doute → `express.static` reprend la main
-  } catch (e) { return next(); }
-});
+/* ⚠️ LA COMPRESSION DES ACTIFS N'EST PAS ICI, ET C'EST VOLONTAIRE (fusion du 09/09).
+   Un bloc maison a vécu à cet endroit pendant quelques heures : il compressait `/css/*.css` et
+   `/js/*.js` à la main, en brotli, avec son propre cache et ses propres requêtes conditionnelles.
+   Il a été RETIRÉ à la fusion, parce qu'une autre session avait entre-temps monté le vrai
+   `compression()` en tête de fichier — au bon endroit, AVANT `express.static`, avec un filtre qui
+   exclut explicitement le flux SSE de l'assistant.
+   Garder les deux aurait été le pire des choix : `app.get()` sur un motif d'actifs s'exécute AVANT
+   le middleware statique, donc mon bloc aurait court-circuité le leur sur exactement les fichiers
+   qui comptent, et deux implémentations d'une même chose finissent toujours par diverger sans que
+   personne ne sache laquelle répond. Une seule compression, celle qui est une dépendance éprouvée.
+   Ce qui reste de ce chantier vit ailleurs et ne fait doublon avec rien : la sentinelle de fin de
+   feuille (`--dtp-coquille`, style.css + index.html) qui redemande une feuille arrivée tronquée, et
+   le durcissement du service worker. Banc : `scripts/coquille-verif.js`. */
 
 app.use(express.static(path.join(__dirname, 'public'), {
   extensions: ['html'],
@@ -1418,13 +1359,16 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260910-dmx-chargement', ts: Date.UTC(2026, 8, 10, 8, 0), title: 'Le positionnement des particuliers ne tourne plus dans le vide', desc: 'Vous nous avez envoyé la capture d’un widget DMX figé sur son animation de chargement. LA CAUSE ÉTAIT ÉCRITE DANS LE CODE, ET PRISE POUR UNE QUALITÉ. Une note disait que cette donnée arrive instantanément depuis la mémoire, et qu’elle ne fait attendre qu’au tout premier chargement. C’est exact, mais ce premier chargement est celui d’un serveur qui vient de redémarrer, donc celui qui suit CHAQUE mise à jour de la plateforme. Et pour ce premier chargement, le serveur ouvre un navigateur et va se connecter à la source, une opération qui peut dépasser la minute. Pendant ce temps, le desk attendait, sans limite et sans rien dire. DEUX GARDE-FOUS, ET ILS SE COMPLÈTENT. Le serveur borne désormais son attente : au-delà de huit secondes il répond « je cherche encore » au lieu de faire patienter, et la récupération continue de son côté pour remplir la mémoire. Et le desk borne la sienne, parce que le serveur ne peut rien contre un réseau qui ne répond plus ou un ordinateur qui sort de veille. TROIS SITUATIONS, TROIS PHRASES. Je cherche encore, et je redemande tout seul dans dix secondes. La source n’a rien publié, et je réessaie plus lentement. Erreur de connexion, avec un bouton. Elles partageaient un seul message auparavant, et aucune ne réessayait : le widget restait sur sa phrase pour toujours.' },
+  { id: 'dtpu-20260909-jauge-journal-directs', ts: Date.UTC(2026, 8, 9, 23, 0), title: 'La jauge de risque se sert enfin de tout son arc, et trois autres réglages de lecture', desc: 'Quatre retours, quatre corrections. LA JAUGE DE SENTIMENT DE RISQUE SEMBLAIT TOUJOURS AU MILIEU. Ce n’était pas une illusion : son arc va de moins cent à plus cent, alors que le score de risque vit, en régime ordinaire, entre moins trente et plus trente. Les trois quarts de l’arc ne servaient jamais, et deux séances aux humeurs franchement différentes plaçaient l’aiguille à quelques degrés l’une de l’autre. La course est désormais étendue au centre : un score de quinze occupe un tiers de la demi-course au lieu d’un septième. UNE PRÉCISION QUI COMPTE : c’est la PLACE qui change, pas le chiffre. Le pourcentage écrit sous la jauge et le régime affiché restent exactement ceux du serveur, l’ordre de deux valeurs n’est jamais inversé, et le centre comme les extrêmes ne bougent pas d’un pixel. Même principe qu’une échelle logarithmique sur un graphique. LA RANGÉE DE STATISTIQUES DU JOURNAL SE LIT ENFIN. Les intitulés étaient à neuf pixels dans un gris trop sombre, les valeurs à la même taille que le texte autour, et rien ne reliait un intitulé à son nombre. Intitulés plus clairs, valeurs nettement plus grandes, un filet fin entre chaque bloc, et le taux de réussite à l’or de la maison. LA COURBE DE FORCE DES DEVISES DANS LES RÉCAPS prend maintenant toute la largeur du texte : elle s’arrêtait avant, parce qu’elle était encore une image calibrée pour un e-mail. Elle est devenue un graphique, donc elle n’a plus de largeur naturelle à respecter. LES CARTES DE DIRECT tentent toujours la diffusion de la chaîne avant de se rabattre sur une rediffusion. Elles la sautaient quand le serveur avait conclu que la chaîne n’émettait pas — un verdict tiré d’une page que la plateforme vidéo refuse parfois de servir, ce qui donnait une rediffusion sous un titre Live pendant que la chaîne émettait.' },
   { id: 'dtpu-20260909-widget-kelly', ts: Date.UTC(2026, 8, 9, 22, 0), title: 'Nouveau widget : le critère de Kelly, calculé sur VOS trades', desc: 'Un nouvel outil rejoint la bibliothèque, dans la catégorie Outils. IL RÉPOND À UNE SEULE QUESTION, la plus difficile : quelle fraction du capital risquer par trade. Pas quelle paire, pas quand entrer — quelle taille. Le critère de Kelly donne la fraction qui fait croître un compte le plus vite possible sans jamais le ruiner, à partir de deux nombres : votre taux de réussite et le rapport entre votre gain moyen et votre perte moyenne. IL LES PREND DANS VOTRE JOURNAL. Si votre journal de trading est chargé, les trois champs arrivent déjà remplis, avec le nombre de trades sur lesquels ils portent. Ce sont EXACTEMENT les chiffres du bloc Calibrage du journal, lus au même endroit et non recalculés : deux écrans du desk ne peuvent pas vous donner deux taux de réussite différents pour les mêmes trades. Les trois champs restent modifiables pour éprouver une hypothèse. LE DEMI-KELLY EST MIS EN AVANT, PAS LE KELLY COMPLET. La formule suppose des probabilités connues ; les vôtres sont estimées sur un échantillon, donc bruitées. La moitié conserve l’essentiel de la croissance en divisant par quatre l’ampleur des reculs, et c’est la pratique courante. Le quart est là pour les échantillons courts. ET QUAND IL N’Y A PAS D’AVANTAGE, LA CARTE LE DIT au lieu de proposer un petit pourcentage prudent : à taux de réussite et rapport gain/perte donnés, si l’espérance est négative, aucune taille ne rend la série gagnante. Elle ralentit la perte, elle ne crée pas d’avantage. C’est la méthode qu’il faut reprendre, pas le capital.' },
   { id: 'dtpu-20260909-goldman-blanche', ts: Date.UTC(2026, 8, 9, 21, 0), title: 'Un rapport ne s’ouvre plus jamais sur une page blanche', desc: 'Vous nous avez signalé un rapport Goldman Sachs qui s’ouvrait sur une page entièrement blanche. La cause est instructive, et la correction va plus loin que ce seul rapport. LE DESK FABRIQUE LE PDF DE CERTAINS RAPPORTS. Quand une banque publie une page web plutôt qu’un document, le desk ouvre cette page dans un navigateur interne et en imprime un PDF, pour que vous lisiez le rapport dans le terminal au lieu de sortir sur le site de la banque. Or les pages Goldman sont fermées derrière une inscription : le navigateur ne reçoit qu’une coquille vide. C’était connu, et c’était même écrit noir sur blanc dans le code, en toutes lettres : cet éditeur avait été sorti de la liste des sites imprimés. Il n’en était jamais sorti. La note disait le contraire de ce que faisait le programme, et personne n’a plus vérifié la liste. Il en est sorti pour de bon. Ses vrais documents PDF, eux, continuent de s’ouvrir normalement : c’est bien la page web fermée qui posait problème, pas l’éditeur. UNE GARDE QUI VAUT POUR LES QUINZE ÉDITEURS. Le desk mesure désormais le texte réellement présent avant d’imprimer. S’il n’y a rien, il refuse de fabriquer le document plutôt que de vous livrer du blanc, et il vous le dit. N’importe quel éditeur peut fermer ses pages du jour au lendemain sans prévenir : la protection ne vise plus un nom, elle vise la situation. Les pages blanches déjà mémorisées ont été effacées. ET LA RÈGLE SUR LES SOURCES EST VÉRIFIÉE À CHAQUE MISE À JOUR : un rapport lu dans le desk ne montre ni lien ni adresse vers le site d’origine, tout en conservant le texte des liens rédigés, qui fait partie du rapport.' },
   { id: 'dtpu-20260909-onglets-calendrier', ts: Date.UTC(2026, 8, 9, 20, 0), title: 'Des onglets enfin lisibles, et un calendrier qui dit la vérité quand il est vide', desc: 'Deux demandes de votre part, deux corrections. LES NOMS DE WIDGETS ÉTAIENT TROP LONGS DANS LA RANGÉE D’ONGLETS. Certains font vingt-trois caractères, comme Variations quotidiennes ou Série d’un indicateur : la rangée devenait illisible dès trois onglets. Chaque widget porte désormais un libellé court qui lui est propre, quatorze caractères au maximum, et c’est lui qui s’affiche sur l’onglet. UNE PRÉCISION QUI ÉVITE UN RETOUR EN ARRIÈRE : ce n’est pas le sigle de la vignette. Ce sigle est PARTAGÉ entre widgets, cinq portent Volatilité et trois portent FX ; l’utiliser donnait deux onglets voisins au même nom, ce que vous nous aviez signalé il y a six jours. Le libellé court est unique, un contrôle automatique refuse désormais qu’il cesse de l’être. Le nom complet reste sur l’en-tête de la carte, dans la bibliothèque, et au survol de l’onglet. Renommer un onglet vous-même l’emporte toujours. LE CALENDRIER ANNONÇAIT UNE SEMAINE VIDE SANS SAVOIR SI ELLE L’ÉTAIT. La phrase Aucun événement sur cette semaine s’affichait dans quatre situations différentes, dont trois où elle était fausse : quand l’appel au calendrier avait échoué, quand aucune donnée n’était arrivée, et quand la période demandée dépasse ce que le flux couvre. La quatrième était votre propre filtre d’importance ou votre recherche, qui masquait les lignes pendant que le widget vous répondait qu’il n’y en avait pas. Chacune a maintenant sa phrase, et un bouton Réessayer apparait uniquement là où un clic peut réellement réparer.' },
   { id: 'dtpu-20260909-support-lisible', ts: Date.UTC(2026, 8, 9, 19, 0), title: 'Messagerie du support : un vrai nom, le message visible, et la liste classée par connexion', desc: 'Trois corrections dans la boîte de réception du support, à partir de vos remarques sur une capture. UN CLIENT S’APPELAIT « false ». Ce n’était pas un compte fantôme mais un vrai abonné : la lecture de son profil convertissait n’importe quelle valeur en texte AVANT de vérifier que c’en était un. Quand la plateforme de paiement renvoie un champ vide sous forme booléenne, cela donnait le mot « false », qui a l’air d’un nom et n’en est pas un. Le même chemin acceptait « true » et « [object Object] ». Un nom d’affichage doit désormais être du texte, sinon on passe au suivant : pseudo, puis adresse. UN FIL S’AFFICHAIT SANS SON MESSAGE. La liste lit les quatre cents messages les plus récents pour l’aperçu, et à part les non lus pour la pastille. Un abonné dont le seul message remonte à plusieurs semaines, typiquement un message d’accueil jamais ouvert, n’entrait que par la seconde liste, donc sans aperçu : une ligne muette avec une pastille. C’était pourtant le fil qui attendait le plus une réponse. Ces fils là vont maintenant chercher leur dernier message, un par un et seulement eux. LA LISTE SE CLASSE PAR CONNEXION, de la plus récente à la plus ancienne, comme demandé : les personnes en ligne d’abord, puis celles vues le plus récemment. C’est un critère différent du dernier message reçu, et c’est voulu : la question qu’on se pose en ouvrant la messagerie est de savoir qui peut répondre maintenant.' },
   { id: 'dtpu-20260909-force-tracee', ts: Date.UTC(2026, 8, 9, 18, 0), title: 'La force des devises se trace en direct dans vos récaps, au lieu d’une image', desc: 'Vous nous avez signalé, capture à l’appui, une image cassée dans le récap hebdomadaire, à l’endroit de la force des devises. Ce n’était pas l’image qui était en cause, c’était le principe. LE RAPPORT DEMANDAIT UNE PHOTO DE SON PROPRE GRAPHIQUE. Une route du serveur ouvre une page dans un navigateur interne, la photographie, et renvoie l’image ; c’est ce qu’il faut pour un e-mail, où aucun graphique ne peut être calculé. Quand cette photographie échoue, la route renvoie volontairement un pixel transparent plutôt qu’une erreur, pour ne jamais casser un e-mail. Dans le desk, cela donnait un blanc, sans rien dire. ET LE DESK SAVAIT DÉJÀ LA TRACER. La fonction chargée de dessiner cette vue d’ensemble était appelée à chaque ouverture du rapport, depuis les données figées de la semaine ; elle cherchait un emplacement qui n’existait plus nulle part et sortait aussitôt, en silence. Elle a retrouvé son emplacement. La courbe est désormais tracée en direct, aux couleurs du desk, avec les huit devises et leurs pastilles, et elle réagit comme les autres graphiques. LE RÉCAP QUOTIDIEN A REÇU LE MÊME TRAITEMENT le même jour, avec la courbe de la SÉANCE : il portait exactement la même image et aurait montré le même blanc. Les e-mails, eux, continuent de recevoir l’image : c’est la seule chose qu’un logiciel de messagerie sait afficher.' },
   { id: 'dtpu-20260909-connexion-et-lecture', ts: Date.UTC(2026, 8, 9, 16, 0), title: 'La page de connexion se remplit d’un coup, et quatre détails de lecture corrigés', desc: 'Cinq retours de votre part, traités ensemble. LA MOSAÏQUE DE LA PAGE DE CONNEXION SE REMPLISSAIT AU COMPTE-GOUTTES. Deux causes se cumulaient. La première : chaque vignette attendait d’être jugée « bientôt visible » avant d’être téléchargée. Ces vignettes pèsent 5 Ko, soit 636 Ko pour les quatre-vingts réunies : il n’y avait rien à économiser, et le calcul se trompait de toute façon, parce que les rangées défilent par une transformation que ce mécanisme ne voit pas. La seconde était plus visible encore : quand les photos d’actualité du jour arrivaient, la mosaïque était ENTIÈREMENT reconstruite, donc vidée au moment précis où elle venait de se remplir, puis rechargée depuis des serveurs de presse lointains. Désormais chaque photo est préparée en coulisses et ne remplace sa vignette qu’une fois prête : une case ne redevient jamais noire. LA PHOTO DE PROFIL PAR DÉFAUT prend les couleurs de la maison, à l’envers : fond doré, silhouette noire. Elle se remarque, ce qui est le but, et elle reste un emplacement vide qui appelle votre vraie photo. LE BANDEAU D’ÉTIQUETTES SOUS « RETOUR À LA LISTE » DISPARAIT dans le lecteur de rapports d’institutions. Il répétait des mots-clés déjà portés par la carte du rapport et prenait trente pixels sur la hauteur du document : sur un rapport de banque, cette hauteur est la fonctionnalité. LE BADGE DE TON D’UNE BANQUE CENTRALE disait juste, la phrase à côté disait autre chose. Un ton mesuré comme accommodant s’affichait en rouge, correctement, suivi de « sans posture affirmée » : la lecture ne suivait plus depuis que ces libellés avaient été traduits en français. Les deux se rejoignent. ET UNE POSTURE CLAIREMENT RESTRICTIVE POUVAIT RESSORTIR NEUTRE : une phrase comme « il serait prématuré de baisser les taux » était comptée dans les deux sens à la fois, à cause du mot « baisser », et les deux lectures s’annulaient. Elle est désormais lue pour ce qu’elle dit.' },
-  { id: 'dtpu-20260909-desk-sans-styles', ts: Date.UTC(2026, 8, 9, 10, 0), title: 'Le desk ne peut plus s’afficher sans sa mise en forme', desc: 'Deux d’entre vous nous ont signalé, capture à l’appui, un desk qui s’ouvrait en texte brut à la connexion : les données étaient là, la mise en forme n’était pas arrivée. Le diagnostic a trouvé trois causes qui se cumulaient, et les trois sont fermées. LA FEUILLE DE STYLES PARTAIT EN CLAIR. Elle pèse 1,4 Mo et voyageait sans compression : sur une connexion mobile, cela fait plusieurs secondes de transfert pendant lesquelles la liaison peut lâcher. Elle est désormais compressée, et passée sous 330 Ko : la fenêtre de risque est divisée par plus de quatre, et le desk s’ouvre plus vite pour tout le monde, y compris quand tout va bien. UN TRANSFERT COUPÉ NE DIT RIEN. C’est le point le plus traître : quand la mise en forme arrive à moitié, le navigateur ne signale aucune erreur, il applique ce qu’il a reçu et se tait. Rien dans la page ne s’en apercevait, donc rien ne le réparait, et vous restiez devant un desk nu jusqu’à penser à recharger. La page vérifie maintenant elle-même que la mise en forme est arrivée JUSQU’AU BOUT, et la redemande toute seule si ce n’est pas le cas. Si même cela échouait, elle vous le dit en clair au lieu de faire semblant. LE MODE HORS LIGNE MANQUAIT D’UN FILET. Le composant qui garde le desk utilisable sans réseau n’avait aucun recours quand la connexion tombait au mauvais moment. Il sert désormais la mise en forme de la version précédente plutôt que rien du tout, et il refuse de mémoriser une réponse qui ne serait pas celle demandée.' },
+  { id: 'dtpu-20260909-desk-sans-styles', ts: Date.UTC(2026, 8, 9, 10, 0), title: 'Le desk répare tout seul une mise en forme arrivée à moitié', desc: 'Suite de l’incident du 7 septembre, où le disque plein du serveur livrait les gros fichiers du desk en morceaux et laissait la page en texte brut. La cause a été traitée ce jour là, et les fichiers voyagent compressés depuis. Voici la seconde moitié du sujet, celle qui ne dépend plus de la cause. UN TRANSFERT COUPÉ NE DIT RIEN. C’est le point le plus traître de cet incident : quand la mise en forme n’arrive qu’à moitié, le navigateur ne signale aucune erreur exploitable. Rien dans la page ne s’en apercevait, donc rien ne le réparait, et vous restiez devant un desk nu jusqu’à penser à recharger. La page vérifie désormais elle même que la mise en forme est arrivée JUSQU’AU BOUT, grâce à un repère placé sur sa toute dernière ligne, et la redemande d’elle même si ce n’est pas le cas. Elle vide au passage la copie que votre navigateur avait pu mémoriser, sans quoi elle rejouerait la même copie abîmée. Si même cela échouait, elle vous le dit en clair, avec un bouton pour recharger, au lieu de faire semblant. LE MODE HORS LIGNE MANQUAIT D’UN FILET. Le composant qui garde le desk utilisable sans réseau n’avait aucun recours quand la connexion tombait au mauvais moment : il sert maintenant la mise en forme de la version précédente plutôt que rien du tout. Et il refuse de mémoriser une réponse qui ne serait pas celle demandée, comme une page de connexion reçue à la place d’une feuille de styles — mémorisée, elle aurait affiché un desk nu à chaque ouverture, définitivement.' },
+  { id: 'dtpu-20260907-desk-complet', ts: Date.UTC(2026, 8, 7, 10, 0), title: 'Le desk revient complet, après une matinée où il pouvait s’ouvrir sans mise en forme ni contenu', desc: 'Certains d’entre vous ont vu le desk s’ouvrir en texte brut, sans mise en forme, ou rester bloqué sur « Chargement des actualités… » sans que rien n’arrive. La page de connexion, elle, s’affichait normalement : c’est ce qui rendait le défaut si déroutant, il ne se montrait qu’une fois connecté. LA CAUSE N’ÉTAIT PAS DANS LE DESK. Le disque du serveur était plein. Dans cet état, il ne peut plus livrer un fichier volumineux en entier : il en envoie la première moitié puis s’interrompt, sans signaler d’erreur. Or votre navigateur, quand il reçoit un fichier incomplet, le jette entièrement plutôt que d’en utiliser un morceau. Les trois fichiers qui portent l’apparence et le fonctionnement du desk dépassaient tous cette limite. D’où un desk livré sans son habillage et sans ses scripts, donc figé sur ses messages d’attente. De la place a été libérée, et le desk se recharge normalement. TROIS CHOSES ONT CHANGÉ POUR QUE CELA NE REVIENNE PAS. Les fichiers du desk voyagent désormais compressés : trois fois plus légers, ils passent largement sous la limite, et le desk s’ouvre plus vite qu’avant pour tout le monde. Le serveur fait le ménage de lui-même après chaque mise à jour, ce qu’il ne faisait pas. Et une surveillance mesure la place restante en continu : elle prévient bien avant la saturation, en tenant compte de la VITESSE de remplissage et pas seulement du niveau atteint. SI VOTRE DESK RESTE FIGÉ SUR « Chargement des actualités… », c’est que votre navigateur avait mémorisé l’un de ces fichiers incomplets. Il le remplace tout seul à votre prochaine ouverture. Un rafraîchissement par Ctrl+F5 accélère les choses.' },
   { id: 'dtpu-20260905-force-cadre', ts: Date.UTC(2026, 8, 5, 17, 0), title: 'Force des Devises montre toujours toutes les courbes, et la fiche macro parle plus clair', desc: 'Deux corrections sur la lecture des devises et de la macro, toutes deux signalées captures à l’appui. UN CADRE QUI NE COUPE PLUS AUCUNE COURBE. Sur Force des Devises, la courbe du yen sortait par le haut du cadre et n’y revenait jamais ; sa pastille avait disparu de la colonne de droite. Ce n’était pas un défaut de calcul mais un arbitrage devenu mauvais : le graphique resserrait son cadre sur le groupe des devises pour qu’on les distingue les unes des autres, quitte à sacrifier celle qui s’en échappe. C’était la bonne réponse à une demande plus ancienne ; ce n’est plus celle qui convient. Le resserrement ne s’applique donc plus que s’il ne coupe RIEN. Dès qu’une courbe en sortirait, le cadre s’ouvre et montre tout. UNE PRÉCISION QUI FAIT TOUTE LA DIFFÉRENCE : la vérification porte sur TOUS les points de chaque courbe, pas sur son point d’arrivée. Un pic peut monter très haut puis revenir sagement dans le groupe ; en ne regardant que la fin, on n’aurait rien vu, et c’est exactement le cas qui posait problème. DEUX LIBELLÉS RÉÉCRITS DANS LA FICHE MACRO. Les cartes Croissance économique et Emploi affichaient deux lignes nommées Niveau et Dynamique. Le reproche est juste, et il est plus précis qu’il n’y parait : la ligne disait « Niveau : Haussière ». Un niveau qui vaut haussière ne veut rien dire, un niveau se lit haut ou bas. Le mot décrivait le calcul, pas ce que la ligne répond. Ces deux lignes disent en réalité où on en est et dans quel sens ça va : elles s’appellent désormais Situation actuelle et Évolution récente. Le mot Niveau RESTE sur la carte Inflation, et ce n’est pas un oubli : la valeur y est bien un niveau, élevée, modérée ou faible. Le terme n’était ambigu que là où il portait une valeur de tendance.' },
   { id: 'dtpu-20260905-journal-largeur', ts: Date.UTC(2026, 8, 5, 15, 0), title: 'Le journal de trading occupe toute la largeur de votre écran', desc: 'Retour utilisateur, capture à l’appui : « pourquoi tu n’as pas exploité toute la largeur ». Il avait raison, et c’était une erreur de ma part, pas un compromis. La refonte de ce matin bornait la page du journal à une largeur de lecture confortable. Mesuré sur son écran de 1920 pixels : le contenu s’arrêtait à 1055, soit près de la MOITIÉ de l’écran laissée en noir, sous un desk dont tout le reste va d’un bord à l’autre. Le raisonnement d’origine, qu’une ligne de tuiles étirée sur 1900 pixels se lit mal, était juste ; mais il se règle là où il se pose, dans les grilles, en ajoutant des COLONNES quand la place existe, et pas en rendant la moitié de l’écran au vide. Le plafond est retiré : les trois onglets occupent toute la largeur disponible. Les grilles, elles, comptent désormais leurs colonnes sur la place réelle. Les chiffres clés passent à quatre colonnes au-delà d’une certaine largeur, parce que les sections en portent quatre ou huit : quatre colonnes remplissent donc TOUJOURS leurs rangées. Les douze pavés de mois se coupent en six et six, ou quatre et quatre et quatre, jamais en neuf et trois, qui ne ressemble ni à une année ni à un calendrier. UNE PRÉCISION QUI ÉVITE UN DÉFAUT CLASSIQUE : ces seuils sont mesurés sur la BOÎTE qui contient le journal, pas sur la fenêtre. Le journal se monte aussi dans une carte de votre desk, où la fenêtre peut faire 1900 pixels pendant que la carte en fait 400. Une règle calée sur la fenêtre y forcerait six colonnes dans un mouchoir de poche.' },
   { id: 'dtpu-20260905-directs-antenne2', ts: Date.UTC(2026, 8, 5, 13, 0), title: 'Les cartes de direct gagnent leur bandeau en hauteur d’image, et restent utiles hors antenne', desc: 'Deux corrections sur les cartes Bloomberg Live et Yahoo Finance Live, toutes deux signalées captures à l’appui. LA BARRE SOUS LA VIDÉO DISPARAIT. Elle portait le nom de la chaîne et un lien « Ouvrir chez l’éditeur ». Le nom était déjà écrit dans l’en-tête de la carte, juste au-dessus, et le lecteur porte lui-même son lien vers la chaîne : la barre répétait donc deux fois la même chose en prenant 32 pixels de hauteur d’image. Le lien reste ENTIER dans le cas où aucune vidéo ne peut être affichée, puisque le bouton est alors la seule chose que la carte a à offrir. HORS ANTENNE N’EST PAS EN PANNE. La carte Yahoo restait vide alors que celle de Bloomberg fonctionnait. La différence n’était pas dans le desk, les deux cartes partagent le même mécanisme : elle est dans les chaînes. Bloomberg Television diffuse en continu, Yahoo Finance seulement aux heures de marché. En dehors, il n’y a tout simplement rien à afficher, et la carte se repliait sur son bouton la moitié de la journée. Le serveur fait désormais la différence entre trois états : à l’antenne, lu et pas à l’antenne, et rien de lisible. Quand la chaîne n’émet pas, la carte affiche sa DERNIÈRE ÉMISSION plutôt que rien. ET ELLE LE DIT. Une pastille discrète, posée sur l’image, écrit « Hors antenne ». Montrer un enregistrement sous un titre « Live » sans le préciser serait un mensonge, et cette pastille n’apparait jamais sur une vraie diffusion en cours.' },
@@ -7391,6 +7335,241 @@ function _aiAlertNote(level, code, msg) {
   _aiAlertLog.unshift({ t: Date.now(), level, code, msg });
   if (_aiAlertLog.length > 120) _aiAlertLog.length = 120;
 }
+
+/* ═══ SURVEILLANCE DU DISQUE, DEPUIS L'APPLICATION (07/09) ═══════════════════════════════════════
+   POURQUOI ELLE VIT ICI ET PAS SEULEMENT DANS systemd. La sentinelle `scripts/vps/dtp-disque.sh`
+   fait le même travail sur l'hôte, et elle est indispensable : elle survit à un conteneur mort.
+   Mais elle a un angle mort qui compte — elle n'existe que si quelqu'un a lancé l'installateur.
+   C'est EXACTEMENT le défaut qui a laissé le keep-alive absent pendant deux mois et demi, et la
+   sauvegarde n'exister que sous forme d'une ligne à recopier à la main. On ne repose donc pas la
+   protection sur une étape manuelle : celle-ci part avec le desk, toujours.
+   Les deux ne font pas doublon, elles ne meurent pas au même moment.
+
+   ⚠️ LE CONTENEUR VOIT LE MÊME DISQUE QUE L'HÔTE, c'est ce qui rend la mesure possible d'ici.
+   Vérifié le 07/09 pendant l'incident : `df` dans le conteneur rendait `overlay 23G 22G 0 100%`,
+   les mêmes octets que `/` sur l'hôte. La couche overlay n'a pas de réserve propre.
+
+   CE QUE ÇA A COÛTÉ DE NE PAS L'AVOIR. Disque plein → nginx ne pouvait plus écrire ses fichiers
+   temporaires et TRONQUAIT toute réponse de plus de ~750 Ko, sans la moindre erreur HTTP : le desk
+   arrivait en HTML nu. Docker ne pouvait plus construire, donc le correctif ne pouvait pas partir.
+   La sauvegarde échouait en silence. Trois pannes, une cause, et zéro signal. ═══════════════════ */
+/* ═══ SURVEILLANCE DU DISQUE CÔTÉ APPLICATION — ÉTAT, FREIN, OBSERVABILITÉ (07/09, étendu 08/09) ═══
+   Rôle DISTINCT de la sentinelle systemd (scripts/vps/dtp-disque.sh), et complémentaire :
+     · la SENTINELLE est le nettoyeur et l'émetteur d'e-mail : elle survit à la mort du desk, elle
+       seule agit sur le disque, elle seule écrit (elle a le résultat du nettoyage à rapporter) ;
+     · l'APPLICATION, ici, réagit plus vite (toutes les 5 min contre 15), pilote le FREIN de
+       génération, alimente la notification du desk et le journal du panneau admin — mais N'ENVOIE
+       PAS d'e-mail, pour ne pas doubler celui de la sentinelle. Un seul émetteur = zéro spam.
+   Les deux partagent EXACTEMENT les mêmes seuils : un banc l'exige, sinon le panneau et l'e-mail
+   se contrediraient un jour de panne.
+
+   ⚠️ HISTORIQUE SUR LE VOLUME (_CACHE_DIR) : en mémoire, il repartirait vide à chaque déploiement,
+   et la projection n'aurait jamais assez de recul pour prévenir tôt. */
+const _n = (v, d) => { const x = parseFloat(process.env[v]); return Number.isFinite(x) ? x : d; };
+const _DISQUE_SEUILS = {                       // les cinq paliers (%), surchargeables par l'env
+  surveillance: _n('DTP_SEUIL_SURVEILLANCE', 70), alerte: _n('DTP_SEUIL_ALERTE', 80),
+  critique: _n('DTP_SEUIL_CRITIQUE', 90), urgence: _n('DTP_SEUIL_URGENCE', 95),
+  dernier: _n('DTP_SEUIL_DERNIER', 98),
+};
+const _DISQUE_GO = {                            // planchers en Go absolus (le second critère)
+  alerte: _n('DTP_GO_ALERTE', 2.0), critique: _n('DTP_GO_CRITIQUE', 1.0), urgence: _n('DTP_GO_URGENCE', 0.5),
+};
+const _DISQUE_NOMS = ['normal', 'surveillance', 'ALERTE', 'CRITIQUE', 'URGENCE', 'DERNIER RECOURS'];
+const _DISQUE_PREVISION_J = _n('DTP_PREVISION_JOURS', 7);
+const _DISQUE_HIST_F = path.join(_CACHE_DIR, 'disque_historique.json');
+const _DISQUE_CLEAN_F = path.join(_CACHE_DIR, 'disque_nettoyages.log');   // écrit par la sentinelle (volume partagé)
+const _DISQUE_DEST = String(process.env.DISK_ALERT_EMAILS
+  || ['muhammedatay@outlook.fr', process.env.ADMIN_EMAIL].filter(Boolean).join(', ')).trim();
+let _disqueHist = [];
+try { _disqueHist = JSON.parse(fs.readFileSync(_DISQUE_HIST_F, 'utf8')) || []; } catch { _disqueHist = []; }
+let _disqueEtat = { pct: null, libreGo: null, totalGo: null, niveau: 0, nom: 'inconnu', jours: null, heures: null, motif: '', frein: false, t: 0 };
+let _disqueNiveauVu = 0;
+
+/* ═══ COUCHE INTELLIGENTE — APPRENDRE, PRÉDIRE, DÉTECTER L'ANORMAL (08/09) ═══════════════════════
+   Elle est PUREMENT ADDITIVE et ne peut RIEN affaiblir : elle ne fait qu'alerter plus tôt et
+   escalader la surveillance. Aucune de ses fonctions ne touche au marché, aux données, ni au code.
+
+   ⚠️ RÈGLE ABSOLUE DE L'APPRENTISSAGE : il ne peut rendre le système que PLUS prudent, jamais moins.
+   Le seul état appris est un « cran de prudence » (_prud) qui ABAISSE les seuils d'alerte précoce
+   (surveillance/alerte) et n'y touche que vers le bas ; il est MONOTONE (jamais décrémenté, borné
+   0..15) et ne déplace JAMAIS les seuils d'ACTION destructive (95 nettoyage, 98 ballast) — apprendre
+   fait REGARDER plus tôt, pas AGIR plus fort. C'est ce qui garantit qu'aucun apprentissage ne peut
+   baisser la sécurité. */
+const _DISQUE_PRUD_F = path.join(_CACHE_DIR, 'disque_prudence.json');
+const _DISQUE_INC_F = path.join(_CACHE_DIR, 'disque_incidents.log');       // problème→cause→action→résultat
+const _DISQUE_HB_APP_F = path.join(_CACHE_DIR, 'disque_hb_app');           // heartbeat de l'app (lu par la sentinelle)
+const _DISQUE_HB_SENT_F = path.join(_CACHE_DIR, 'disque_hb_sentinelle');   // heartbeat de la sentinelle (lu ici)
+let _prud = 0;
+try { const p = JSON.parse(fs.readFileSync(_DISQUE_PRUD_F, 'utf8')); if (Number.isFinite(p && p.prud)) _prud = Math.max(0, Math.min(15, p.prud)); } catch {}
+function _disquePrudenceBump(pourquoi) {
+  const avant = _prud; _prud = Math.min(15, _prud + 1);   // MONOTONE : jamais de décrément, nulle part
+  if (_prud !== avant) { try { fs.writeFileSync(_DISQUE_PRUD_F, JSON.stringify({ prud: _prud, maj: Date.now(), pourquoi })); } catch {} }
+}
+/* Seuils EFFECTIFS : seuls surveillance/alerte descendent avec la prudence (plancher 50/60), pour
+   alerter plus tôt. critique/urgence/dernier restent FIXES — on ne déclenche pas un nettoyage
+   destructif « appris » plus bas. */
+function _disqueSeuilsEff() {
+  return { ..._DISQUE_SEUILS,
+    surveillance: Math.max(50, _DISQUE_SEUILS.surveillance - _prud),
+    alerte: Math.max(60, _DISQUE_SEUILS.alerte - _prud) };
+}
+// Écriture BORNÉE : ces journaux ne doivent JAMAIS pouvoir grossir le disque qu'ils protègent.
+function _disqueAppendBorne(f, ligne, maxLignes) {
+  try { let a = []; try { a = fs.readFileSync(f, 'utf8').split('\n').filter(Boolean); } catch {}
+    a.push(ligne); if (a.length > maxLignes) a = a.slice(-maxLignes); fs.writeFileSync(f, a.join('\n') + '\n'); } catch {}
+}
+// Vitesse ACTUELLE en Go/h (sur ~30 min, via la baisse de Go libres). >0 = ça se remplit.
+function _disqueVitesseGoH() {
+  const now = Date.now(), pts = _disqueHist.filter(p => p && p.t >= now - 30 * 60000 && typeof p.libreGo === 'number');
+  if (pts.length < 2) return null;
+  const a = pts[0], b = pts[pts.length - 1]; const dh = (b.t - a.t) / 3600000; if (dh <= 0) return null;
+  return +(((a.libreGo - b.libreGo) / dh)).toFixed(2);   // Go consommés par heure
+}
+// Vitesse HABITUELLE en Go/jour : médiane des variations quotidiennes sur 14 j (robuste aux pics).
+function _disqueBaselineGoJ() {
+  const now = Date.now(), pts = _disqueHist.filter(p => p && p.t >= now - 14 * 864e5 && typeof p.libreGo === 'number');
+  if (pts.length < 4) return null;
+  const parJour = {};
+  for (const p of pts) { const j = Math.floor(p.t / 864e5); if (!parJour[j]) parJour[j] = { min: p.libreGo, max: p.libreGo }; else { parJour[j].min = Math.min(parJour[j].min, p.libreGo); parJour[j].max = Math.max(parJour[j].max, p.libreGo); } }
+  const deltas = Object.values(parJour).map(d => d.max - d.min).sort((x, y) => x - y);   // Go consommés/jour
+  if (!deltas.length) return null;
+  return +deltas[Math.floor(deltas.length / 2)].toFixed(2);   // médiane
+}
+/* ANOMALIE : la vitesse actuelle dépasse LARGEMENT l'habituelle. Seuil = max(5× l'habituel, 0,5 Go/h)
+   — un pic isolé ne suffit pas, il faut un rythme franchement au-dessus du normal. « 3 Go en 30 min »
+   = 6 Go/h → anomalie évidente ; « 200 Mo/jour » habituel (~0,008 Go/h) ne déclenche jamais. */
+function _disqueAnomalie(vGoH, baseGoJ) {
+  if (vGoH === null || vGoH <= 0) return false;
+  const seuil = Math.max(0.5, (baseGoJ || 0) / 24 * 5);
+  return vGoH > seuil;
+}
+function _disqueTendance(joursLong) {
+  if (joursLong === null) return 'stable';
+  if (joursLong <= 2) return 'forte hausse'; if (joursLong <= 14) return 'hausse'; return 'stable';
+}
+function _disqueRisque(niveau, anomalie) { return anomalie ? 'ANOMALIE' : ['faible', 'à surveiller', 'modéré', 'élevé', 'critique', 'extrême'][niveau] || 'inconnu'; }
+// Âge (min) du dernier passage de la sentinelle OS ; null si jamais vue. >45 min = watchdog muet.
+function _disqueSentinelleAgeMin() {
+  try { const t = parseInt(fs.readFileSync(_DISQUE_HB_SENT_F, 'utf8').trim(), 10); if (Number.isFinite(t)) return Math.round((Date.now() - t) / 60000); } catch {}
+  return null;
+}
+function _disqueIncidents() { try { return fs.readFileSync(_DISQUE_INC_F, 'utf8').trim().split('\n').filter(Boolean).slice(-20).reverse(); } catch { return []; } }
+
+/* ⚠️ LE FREIN — CE QUI EMPÊCHE LE DISQUE DE GROSSIR PENDANT QU'ON ESSAIE DE LE VIDER (point 3/5 du
+   cahier des charges). À partir de l'URGENCE (95 %+), les écritures NON ESSENTIELLES sur disque
+   sont sautées. « Non essentiel » = ce qui se régénère sans conséquence : le cache PDF (le PDF est
+   quand même SERVI au client, on ne fait que ne pas le persister), les backfills d'historique.
+   ⚠️ LA LECTURE TEMPS RÉEL DU MARCHÉ N'EST JAMAIS TOUCHÉE : prix, calendrier, fil, biais passent
+   toujours — couper ça pour économiser du disque trahirait la fonction même du desk.
+   Il ÉCHOUE OUVERT : niveau inconnu (mesure impossible) → on laisse écrire. La priorité reste la
+   stabilité du desk ; le vrai rempart contre la saturation est la sentinelle, pas ce frein. */
+function _disqueFreinActif() { return _disqueEtat.niveau >= 4; }
+
+function _disqueLire() {
+  return new Promise((ok) => {
+    try {
+      execFile('df', ['-P', '/'], { timeout: 5000 }, (e, out) => {
+        if (e || !out) return ok(null);
+        const l = String(out).trim().split('\n').pop().trim().split(/\s+/);
+        /* ⚠️ COLONNES DEPUIS LA FIN — un nom de périphérique avec un espace décalerait un découpage
+           fait depuis le début (mesuré : « 134271896% »). Même règle que la sentinelle : les deux
+           mesures DOIVENT rester d'accord. */
+        const pct = parseInt(String(l[l.length - 2] || '').replace('%', ''), 10);
+        const libreKo = parseInt(l[l.length - 3], 10), totalKo = parseInt(l[l.length - 5], 10);
+        if (!Number.isFinite(pct) || pct < 0 || pct > 100) return ok(null);
+        ok({ pct, libreGo: +(libreKo / 1048576).toFixed(1), totalGo: +(totalKo / 1048576).toFixed(1) });
+      });
+    } catch { ok(null); }
+  });
+}
+
+// Régression sur une fenêtre → heures/jours avant 100 %. null sous le minimum de points ou si ça ne
+// monte pas : refuser de prédire vaut mieux qu'une fausse échéance, qui use la confiance dans l'alerte.
+function _disquePente(fenetreMs, minPts, unite) {
+  const now = Date.now(), lim = now - fenetreMs;
+  const pts = _disqueHist.filter(p => p && p.t >= lim);
+  if (pts.length < minPts) return null;
+  let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (const p of pts) { const x = (p.t - now) / unite; n++; sx += x; sy += p.pct; sxx += x * x; sxy += x * p.pct; }
+  const d = n * sxx - sx * sx; if (!d) return null;
+  const pente = (n * sxy - sx * sy) / d;
+  return pente;
+}
+function _disqueHeures(pct) { const p = _disquePente(30 * 60000, 2, 3600000); if (p === null || p <= 0.1) return null; return +((100 - pct) / p).toFixed(1); }
+function _disqueJours(pct) { const p = _disquePente(7 * 864e5, 3, 864e5); if (p === null || p <= 0.05) return null; return +((100 - pct) / p).toFixed(1); }
+
+/* DÉCISION DE NIVEAU — le MAXIMUM de trois critères, une escalade ne fait que monter. Identique en
+   esprit à _decider() du shell ; le banc vérifie que les seuils des deux coïncident. */
+function _disqueNiveau(pct, libreGo, heures, jours, seuils) {
+  const S = seuils || _DISQUE_SEUILS;
+  let niv = pct >= S.dernier ? 5 : pct >= S.urgence ? 4 : pct >= S.critique ? 3 : pct >= S.alerte ? 2 : pct >= S.surveillance ? 1 : 0;
+  let motif = '';
+  const esc = libreGo < _DISQUE_GO.urgence ? 4 : libreGo < _DISQUE_GO.critique ? 3 : libreGo < _DISQUE_GO.alerte ? 2 : 0;
+  if (esc > niv) { niv = esc; motif = 'seulement ' + libreGo + ' Go libres'; }
+  if (heures !== null) { const e2 = heures <= 0.5 ? 4 : heures <= 2 ? 3 : 0; if (e2 > niv) { niv = e2; motif = 'remplissage rapide : 100% projeté dans ' + heures + ' h'; } }
+  let nom = _DISQUE_NOMS[niv];
+  if (jours !== null && jours <= _DISQUE_PREVISION_J) { if (niv < 2) { niv = 2; nom = 'ALERTE (tendance)'; } if (!motif) motif = 'saturation projetée dans ' + jours + ' j au rythme actuel'; }
+  return { niveau: niv, nom, motif };
+}
+
+// Les derniers nettoyages écrits par la sentinelle (volume partagé) → observabilité du panneau admin.
+function _disqueNettoyages() {
+  try { return fs.readFileSync(_DISQUE_CLEAN_F, 'utf8').trim().split('\n').filter(Boolean).slice(-10).reverse(); }
+  catch { return []; }
+}
+
+async function _disqueCheck() {
+  const m = await _disqueLire();
+  if (!m) return;   // mesure impossible → on ne touche à rien, le frein reste ouvert
+  const now = Date.now();
+  _disqueHist.push({ t: now, pct: m.pct, libreGo: m.libreGo });   // libreGo pour la vitesse Go/h et la baseline
+  _disqueHist = _disqueHist.filter(p => p && p.t >= now - 30 * 864e5);
+  try { fs.writeFileSync(_DISQUE_HIST_F, JSON.stringify(_disqueHist)); } catch {}
+  try { fs.writeFileSync(_DISQUE_HB_APP_F, String(now)); } catch {}   // heartbeat : prouve que le monitoring tourne
+
+  const heures = _disqueHeures(m.pct), jours = _disqueJours(m.pct);
+  const vGoH = _disqueVitesseGoH(), baseGoJ = _disqueBaselineGoJ();
+  const anomalie = _disqueAnomalie(vGoH, baseGoJ), tendance = _disqueTendance(jours);
+  // Seuils EFFECTIFS (la prudence apprise n'abaisse que surveillance/alerte, jamais les seuils d'action).
+  let { niveau, nom, motif } = _disqueNiveau(m.pct, m.libreGo, heures, jours, _disqueSeuilsEff());
+  // Une anomalie ne fait que MONTER la surveillance (jamais descendre) : au moins ALERTE, marquée.
+  if (anomalie && niveau < 2) { niveau = 2; nom = 'ALERTE (anomalie)'; }
+  if (anomalie && !motif) motif = 'vitesse anormale : ' + vGoH + ' Go/h (habituel ~' + (baseGoJ ?? '?') + ' Go/j)';
+
+  // APPRENTISSAGE (ratchet, monotone) : si on a atteint le critique alors que l'habitude était calme,
+  // on a été surpris → on devient DÉFINITIVEMENT plus prudent (alerte plus tôt la prochaine fois).
+  if ((niveau >= 3 && (baseGoJ === null || baseGoJ < 1)) || anomalie) _disquePrudenceBump(anomalie ? 'anomalie' : 'surprise-critique');
+
+  const sentAge = _disqueSentinelleAgeMin();
+  _disqueEtat = { pct: m.pct, libreGo: m.libreGo, totalGo: m.totalGo, niveau, nom, jours, heures,
+    vitesseGoH: vGoH, baselineGoJ: baseGoJ, anomalie, tendance, prudence: _prud,
+    risque: _disqueRisque(niveau, anomalie), sentinelleAgeMin: sentAge, motif, frein: niveau >= 4, t: now };
+
+  const resume = m.pct + '% utilisé — ' + m.libreGo + ' Go libres sur ' + m.totalGo + ' Go' + (motif ? ' — ' + motif : '');
+  /* Journal du panneau admin (PAS d'e-mail ici : la sentinelle en envoie un, avec le résultat du
+     nettoyage — deux e-mails pour le même seuil = spam). À la MONTÉE, plus un retour à la normale. */
+  if (niveau >= 2 && niveau > _disqueNiveauVu) {
+    _aiAlertNote(niveau >= 3 ? 'critical' : 'warn', 'disque', 'Disque ' + nom + ' : ' + resume + (niveau >= 4 ? ' — frein de génération ACTIF, nettoyage par la sentinelle.' : ''));
+    _disqueAppendBorne(_DISQUE_INC_F, JSON.stringify({ t: now, niveau, pct: m.pct, libreGo: m.libreGo, vGoH, baseGoJ, anomalie, tendance }), 500);
+  } else if (niveau === 0 && _disqueNiveauVu >= 2) {
+    _aiAlertNote('info', 'disque', 'Disque revenu à la normale : ' + resume);
+  }
+  // Le monitoring surveille son propre gardien : sentinelle OS muette >45 min = watchdog peut-être arrêté.
+  if (sentAge !== null && sentAge > 45 && _disqueNiveauVu < 2 && niveau < 2) _aiAlertNote('warn', 'disque', 'Sentinelle disque (watchdog OS) silencieuse depuis ' + sentAge + ' min — vérifier le minuteur dtp-disque.timer sur le VPS.');
+  _disqueNiveauVu = niveau;
+}
+
+// Toutes les 5 min, et un premier passage 30 s après le démarrage (le temps que le conteneur se pose).
+setTimeout(() => { _disqueCheck().catch(() => {}); }, 30000);
+setInterval(() => { _disqueCheck().catch(() => {}); }, 5 * 60 * 1000);
+
+/* Lu par le panneau admin ET par le desk (notification urgente, admin uniquement — voir app.js).
+   ⚠️ `requireAdmin` N'EST PAS DÉCORATIF ICI : un abonné qui lirait « Disque VPS à 92 % » y perdrait
+   confiance pour une information qui ne le concerne pas et sur laquelle il ne peut rien. */
+app.get('/api/admin/disque', requireAdmin, (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ ..._disqueEtat, seuils: _DISQUE_SEUILS, seuilsEffectifs: _disqueSeuilsEff(), planchersGo: _DISQUE_GO, previsionJours: _DISQUE_PREVISION_J, nettoyages: _disqueNettoyages(), incidents: _disqueIncidents() });
+});
 // Filet de secours OK ? → l'utilisateur n'est IMPACTÉ que si le repli 0-token/cache est lui-même KO.
 // Conditions réelles « on ne peut plus rien servir » : feed news cassé OU cache durable (KV) injoignable.
 // (La matrice Bias a un seed permanent, l'analyse/insights ont un repli extractif → jamais « vides ».)
@@ -9724,7 +9903,7 @@ async function _thinInsightsText(url, pdfUrl, printUrl) {
       try { if (fs.existsSync(_cf)) _buf = fs.readFileSync(_cf); } catch {}
       if (!_buf) {
         try { _buf = await _renderPdf(_target); } catch {}
-        if (_buf && _buf.length >= 1200 && _buf.slice(0, 5).toString('latin1') === '%PDF-') { try { fs.writeFileSync(_cf, _buf); } catch {} }
+        if (_buf && _buf.length >= 1200 && _buf.slice(0, 5).toString('latin1') === '%PDF-') { if (!_disqueFreinActif()) { try { fs.writeFileSync(_cf, _buf); } catch {} } }   // frein disque ≥95 % : le PDF reste SERVI (_buf), on saute seulement sa persistance en cache
         else _buf = null;
       }
       if (_buf) {
@@ -10090,7 +10269,7 @@ app.get('/api/pdf-proxy', async (req, res) => {
   const looksPdf = /pdf/i.test(ct) || (buf && buf.slice(0, 5).toString('latin1') === '%PDF-');
   if (!looksPdf) return res.status(415).end(isHead ? undefined : 'not a pdf');
   // 2) GET complet → on STOCKE le PDF sur disque (pas la sonde HEAD partielle) pour les prochaines ouvertures.
-  if (!isHead && buf && buf.length > 1200 && buf.slice(0, 5).toString('latin1') === '%PDF-') { try { fs.writeFileSync(_cf, buf); } catch {} }
+  if (!isHead && buf && buf.length > 1200 && buf.slice(0, 5).toString('latin1') === '%PDF-' && !_disqueFreinActif()) { try { fs.writeFileSync(_cf, buf); } catch {} }   // frein disque ≥95 % : le PDF est servi juste après, on saute seulement sa mise en cache
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'inline');
   res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -10150,7 +10329,32 @@ app.get('/api/community-outlook', async (req, res) => {
   // suite les données courantes, le nouveau jeu arrivera au prochain rafraîchissement client).
   if (force) refreshOutlookBg();
   try {
-    const data = await fetchCommunityOutlook(period);   // instantané (cache) ; ne bloque qu'au tout 1er chargement
+    /* ⚠️ CETTE ROUTE NE TIENT PLUS LA CONNEXION OUVERTE (09/09, capture utilisateur : « pourquoi ça
+       charge à l'infini ? » sur le widget DMX). Le commentaire d'origine disait vrai et c'était le
+       problème : « ne bloque qu'au tout premier chargement ». Ce premier chargement, c'est
+       exactement celui d'un conteneur qui vient de redémarrer — donc après CHAQUE déploiement — et
+       il pilote un navigateur pour se connecter à Myfxbook, avec des délais internes de 30 puis
+       45 secondes. Le desk, lui, n'avait aucun garde-temps : il affichait son animation de
+       chargement et attendait, sans fin visible, une réponse qui pouvait mettre plus d'une minute
+       ou ne jamais venir.
+       On borne donc l'attente. Passé ce délai, on répond TOUT DE SUITE, avec `pending: true` :
+       « je n'ai pas encore les données, je suis en train de les chercher ». Le client sait alors
+       quoi dire et quand redemander, au lieu de tourner. La récupération, elle, CONTINUE en
+       arrière-plan et remplit le cache — c'est justement pour cela qu'on ne l'annule pas.
+       8 secondes : au-delà, plus personne n'attend un widget, et le cache tiède répond en quelques
+       millisecondes dans tous les autres cas. */
+    const _ATTENTE_MAX = 8000;
+    let _tropLong = false;
+    const data = await Promise.race([
+      fetchCommunityOutlook(period),
+      new Promise((r) => setTimeout(() => { _tropLong = true; r(null); }, _ATTENTE_MAX)),
+    ]);
+    if (_tropLong || !data) {
+      refreshOutlookBg();   // la récupération continue sans nous
+      res.set('Cache-Control', 'no-store');
+      return res.json({ symbols: [], period, pending: true,
+        note: 'Données de positionnement en cours de récupération.' });
+    }
     /* 30/08 — PRIX COURANT accolé par paire, pour la table « Statistiques DMX » : l'écart
        entre le prix moyen d'entrée de la foule et le prix actuel ne se calcule qu'avec une cotation.
        Source = le cache FX List (Yahoo, retimbré ~150 s par _fxlQuotesTick), 28 paires FX ; les

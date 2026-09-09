@@ -5,3 +5,8 @@
 *.sh   text eol=lf
 Dockerfile text eol=lf
 *.yml  text eol=lf
+# Meme raison pour les unites systemd : un ExecStart termine par un \r fait chercher un binaire
+# dont le nom finit par un retour chariot, et systemd repond « No such file or directory » en
+# designant un chemin qui existe pourtant. On ne compte pas non plus sur la config git locale.
+*.service text eol=lf
+*.timer   text eol=lf

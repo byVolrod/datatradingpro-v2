@@ -1,0 +1,24 @@
+# Passage mensuel du redémarrage encadré. Le raisonnement complet — pourquoi redémarrer, pourquoi
+# ce créneau, et pourquoi le contrôle du retour est la moitié utile — est en tête de
+# scripts/vps/dtp-redemarrage.sh.
+#
+# ExecStart pointe LA COPIE DU DÉPÔT, comme les trois autres tâches : le script se met à jour tout
+# seul à chaque déploiement. Une copie dans /usr/local/bin finit toujours par diverger.
+#
+# ⚠️ After= NOMME LES DEUX TÂCHES QUE CE SERVICE DOIT LAISSER FINIR. C'est une ceinture, pas la
+# garde : systemd n'ordonne que ce qui démarre dans la même transaction, et un minuteur mensuel ne
+# partage aucune transaction avec la sauvegarde de 04h10. La vraie protection est DANS le script
+# (`systemctl is-active dtp-sauvegarde` + verrou du tireur d'auto-déploiement). On garde les deux :
+# l'une couvre le cas où les deux partiraient ensemble, l'autre le cas courant.
+[Unit]
+Description=DTP redemarrage mensuel encadre (garde-fous + controle du retour)
+After=network-online.target docker.service dtp-sauvegarde.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/datatradingpro
+ExecStart=/opt/datatradingpro/scripts/vps/dtp-redemarrage.sh --planifie
+# Le script rend la main tout de suite : `shutdown -r +2` programme la coupure et n'attend pas.
+TimeoutStartSec=300
+Nice=10

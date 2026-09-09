@@ -5729,7 +5729,15 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 /* Image de widget servie dans un rapport (01/09, demande user) : même widget que le mail, largeur
    du bloc, coins doux. Partagée par le VIX du Récap Hebdo et la Force des Devises du Récap
    Quotidien — un seul nom pour la même intention plutôt qu'une classe par rapport. */
-.dtp-report-img { display:block; width:100%; max-width:600px; height:auto; border:1px solid var(--border); border-radius:var(--radius); margin:8px 0 16px; }
+/* (.dtp-report-img SUPPRIMÉE le 09/09.) Elle habillait les images de widget embarquées dans les
+   récaps, avec un `max-width: 600px` — la largeur naturelle du rendu, pensé pour un e-mail. C'est
+   ce plafond que l'utilisateur a vu, capture à l'appui : « l'image doit prendre toute la largeur du
+   texte du dessus, il reste un peu d'espace vide à droite ». Il avait raison, et la bonne réponse
+   n'était pas d'étirer un fichier de 600 pixels sur 950, ce qui l'aurait rendu flou : les deux
+   seules images concernées — la force des devises de l'hebdo et celle du quotidien — sont devenues
+   des GRAPHIQUES tracés en direct le même jour, qui occupent toute la colonne et restent nets à
+   n'importe quelle largeur. La règle n'avait donc plus un seul consommateur dans le dépôt (vérifié
+   avant de la retirer). Les e-mails, eux, gardent l'image : ils ont leur propre habillage. */
 .wr-hint { color:#7a8493; font-size:12px; font-style:italic; margin:4px 0 0; }
 /* Weekly Recap — Section BANQUES CENTRALES (synthèse par banque + Interprétation de marché) */
 .wr-cb-grid { display:flex; flex-direction:column; gap:10px; margin:8px 0 4px; }
@@ -5874,7 +5882,7 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 /* Vue d'ensemble des huit devises, tracée EN DIRECT dans le récap hebdo (09/09) — elle remplace la
    photo PNG du widget e-mail, qui laissait un trou muet quand le rendu serveur échouait. Plus haute
    que les mini-courbes par devise : elle porte huit courbes et leurs pastilles, pas une seule. */
-.wr-cs-all { height:420px; margin:14px 0 6px; background:var(--bg); border:1px solid var(--border); border-radius:4px; overflow:hidden; }
+.wr-cs-all { width:100%; height:420px; margin:14px 0 6px; background:var(--bg); border:1px solid var(--border); border-radius:4px; overflow:hidden; }
 .wr-chart-loading { display:flex; align-items:center; justify-content:center; height:100%; color:#6b7280; font-size:12px; }
 /* Bandeau "génération du Weekly Recap en cours" */
 .arlib-genbanner { display:flex; align-items:center; gap:9px; margin:0 0 12px; padding:11px 14px; border-radius:4px;
@@ -10972,9 +10980,26 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .topbar-icon--journal { margin-right: 10px; flex-shrink: 0; }
 .topbar-icon--active, .topbar-icon--active:hover { color: var(--orange); background: rgba(227,178,58,0.10); }
 .panel-journal { display: flex; flex-direction: column; height: 100%; min-height: 0; flex: 1 1 auto; width: 100%; min-width: 0; }
-.jr-stats { display: flex; flex-wrap: wrap; gap: 16px 22px; padding: 9px 14px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
-.jr-stat i { font-style: normal; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); display: block; }
-.jr-stat b { font-family: var(--font-mono); font-size: 14px; font-weight: var(--fw-bold); color: var(--text); }
+/* ── RANGÉE DE STATISTIQUES DU JOURNAL ────────────────────────────────────────────────────────
+   ⚠️ LISIBILITÉ RELEVÉE LE 09/09 (retour utilisateur, capture à l'appui : « la visibilité est basse
+   ici »). Trois mesures expliquaient l'impression, et aucune n'était un choix conscient :
+     · l'intitulé était à 9 px en `--text3` (#6f6f79 sur #0c0c0e) — sous le seuil où un texte en
+       capitales espacées se LIT ; on le devine plutôt qu'on ne le lit. Il passe à 10 px en
+       `--text2` (#9a9aa4), ce qui reste discret sans être illisible ;
+     · la valeur était à 14 px, la même taille que le corps du desk autour : rien ne disait que ces
+       quatre nombres sont le résumé de tout le journal. Elle passe à 17 px ;
+     · les quatre blocs étaient séparés par un simple écart, donc le regard reliait mal chaque
+       intitulé à SON nombre. Un filet vertical fin les sépare désormais, et l'écart se resserre —
+       c'est le filet qui fait le groupe, pas le vide.
+   Le taux de réussite reçoit l'or de la marque : c'est le seul des quatre qu'on cherche des yeux en
+   ouvrant le journal, et il n'a pas de couleur sémantique propre (un taux n'est ni gagnant ni
+   perdant en soi). Total R et Total $ gardent la leur, vert ou rouge. */
+.jr-stats { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; padding: 11px 14px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+.jr-stat { padding: 0 20px; border-left: 1px solid var(--hud-line, var(--border)); }
+.jr-stat:first-child { padding-left: 0; border-left: 0; }
+.jr-stat i { font-style: normal; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text2); display: block; margin-bottom: 3px; }
+.jr-stat b { font-family: var(--font-mono); font-size: 17px; font-weight: var(--fw-bold); color: var(--text); line-height: 1.1; }
+.jr-stat--taux b { color: var(--gold, #e3b23a); }
 .jr-form { display: flex; flex-wrap: wrap; gap: 6px; padding: 9px 14px; border-bottom: 1px solid var(--border); flex: 0 0 auto; align-items: center; }
 .jr-form input, .jr-form select { height: 27px; padding: 0 8px; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: var(--fs-title); font-family: var(--font-ui); }
 .jr-form input:focus, .jr-form select:focus { outline: none; border-color: var(--orange); }
@@ -11007,7 +11032,9 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 @media (max-width: 768px) {
   .jr-form input, .jr-form select { height: 32px; }
   .jr-btn { height: 32px; }
-  .jr-stats { gap: 12px 16px; }
+  .jr-stats { gap: 8px 0; }
+  .jr-stat { padding: 0 13px; }
+  .jr-stat b { font-size: 15px; }
   .topbar-icon--journal { margin-right: 6px; }
   .topbar-icon--desk { margin-right: 6px; }
 }
