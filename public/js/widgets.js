@@ -7764,7 +7764,7 @@
           + '<div class="wdg-kly-esp">Espérance par trade <b data-o="esp">-</b></div>'
           + '<div class="wdg-kly-note" data-o="note"></div>'
           + '</div>';
-        var pct = function (x) { return (Math.round(x * 100) / 100).toString().replace('.', ',') + ' %'; };
+        var pct = function (x) { return (Math.round(x * 100) / 100).toString().replace('.', ',') + '%'; };
         var calcul = function () {
           var ins = host.querySelectorAll('.wdg-kly input');
           var vals = {};
@@ -7778,7 +7778,7 @@
           };
           if (!(w > 0 && w < 1) || !(g > 0) || !(p > 0)) {
             ['plein', 'demi', 'quart', 'esp'].forEach(function (k) { mettre(k, '-'); });
-            mettre('note', 'Renseignez un taux entre 1 et 99 %, un gain et une perte supérieurs à zéro.');
+            mettre('note', 'Renseignez un taux entre 1 et 99%, un gain et une perte supérieurs à zéro.');
             return;
           }
           var ratio = g / p;
@@ -7791,7 +7791,7 @@
                mensonge le plus coûteux que cette carte puisse commettre — il laisserait croire
                qu'une taille prudente rend une méthode perdante viable. Elle ne fait que ralentir
                la perte. Même règle que le bloc Calibrage du Journal, mot pour mot. */
-            ['plein', 'demi', 'quart'].forEach(function (k) { mettre(k, '0 %', 'wdg-kly-neg'); });
+            ['plein', 'demi', 'quart'].forEach(function (k) { mettre(k, '0%', 'wdg-kly-neg'); });
             mettre('note', 'Aucun avantage : à ce taux de réussite, le gain moyen ne couvre pas la perte moyenne. '
               + 'Aucune taille de position ne rend cette série gagnante — c\'est la méthode qu\'il faut reprendre, pas le capital.');
             return;
@@ -7801,7 +7801,7 @@
           mettre('quart', pct(f * 25));
           mettre('note', 'La formule suppose des probabilités connues ; les vôtres sont estimées sur un échantillon. '
             + 'Le desk retient le DEMI-Kelly : il garde l\'essentiel de la croissance en divisant par quatre l\'ampleur des reculs.'
-            + (f * 50 > 2 ? ' Ici le demi-Kelly dépasse la limite de 2 % du desk : c\'est elle qui doit s\'appliquer.' : ''));
+            + (f * 50 > 2 ? ' Ici le demi-Kelly dépasse la limite de 2% du desk : c\'est elle qui doit s\'appliquer.' : ''));
         };
         host.querySelectorAll('.wdg-kly input').forEach(function (i) { i.addEventListener('input', calcul); });
         calcul();
@@ -10002,7 +10002,7 @@
     /* CRITÈRE DE KELLY (09/09, avec le widget lui-même). Trois barres décroissantes — Kelly complet,
        demi, quart — la deuxième à l'or, parce que c'est celle que le desk met en avant. La vignette
        porte donc la RECOMMANDATION, pas seulement le sujet. */
-    kelly: '<svg ' + _PV + '><g font-family="monospace" font-size="5.5" fill="#6f6f79">'
+    'kelly': '<svg ' + _PV + '><g font-family="monospace" font-size="5.5" fill="#6f6f79">'
       + '<text x="6" y="11">KELLY</text><text x="40" y="11">1/2</text><text x="70" y="11">1/4</text></g>'
       + '<rect x="6" y="15" width="26" height="34" rx="2" fill="#1c1c20"/><rect x="6" y="21" width="26" height="28" rx="2" fill="#3a3a42"/>'
       + '<rect x="40" y="15" width="26" height="34" rx="2" fill="#1c1c20"/><rect x="40" y="28" width="26" height="21" rx="2" fill="#e3b23a"/>'

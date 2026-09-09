@@ -1159,8 +1159,15 @@ function phaseLogique() {
     /* ── LECTEUR INSTITUTIONS : le blanc n'appartient qu'au DOCUMENT (30/08, capture user :
        « quand on clique sur le pdf ça affiche comme ça » : zone entière blanche pendant
        « Chargement du PDF… », ascenseur peint en clair). On éprouve la VRAIE règle dans le VRAI
-       navigateur : sans .br-document le fond est sombre (chargements, PDF, attentes), avec un
-       .br-document il redevient le papier blanc. ── */
+       navigateur : sans .br-document le fond est sombre (chargements, PDF, attentes).
+       ⚠️ LA RÈGLE A ÉTÉ PORTÉE PLUS LOIN LE 09/09 (« c'est mal affiché, affiche bien comme leur
+       PDF »), ET CE BANC PORTAIT ENCORE LA TRACE DE L'ANCIENNE. Le conteneur ne devient plus
+       blanc du tout : il reste sombre — c'est la marge de la visionneuse — et le blanc appartient
+       à la PAGE (.br-document : fond papier, largeur de lecture bornée à 860px, centrée, ombre
+       douce). La règle `#br-rcontent:has(.br-document) { background: #fff }`, qui repeignait
+       TOUTE la zone, a donc été retirée ; l'exiger encore, c'était exiger le défaut. On mesure
+       maintenant ce que la nouvelle décision promet, et le témoin mord des deux côtés : rendre
+       le conteneur blanc rougit, retirer le fond de la page rougit aussi. ── */
     {
       const fondRc = await page.evaluate(() => {
         const rc = document.getElementById('br-rcontent');
@@ -1168,21 +1175,42 @@ function phaseLogique() {
         const avantHtml = rc.innerHTML;
         rc.innerHTML = '';
         const sans = getComputedStyle(rc).backgroundColor;
-        rc.innerHTML = '<div class="br-document"></div>';
+        rc.innerHTML = '<div class="br-document">texte</div>';
         const avec = getComputedStyle(rc).backgroundColor;
+        const doc = rc.querySelector('.br-document');
+        const sd = getComputedStyle(doc);
+        const rD = doc.getBoundingClientRect(), rH = rc.getBoundingClientRect();
+        const page = {
+          fond: sd.backgroundColor,
+          maxw: parseFloat(sd.maxWidth),
+          ombre: sd.boxShadow,
+          larg: rD.width, hote: rH.width,
+          gg: rD.left - rH.left, gd: rH.right - rD.right
+        };
         rc.innerHTML = avantHtml;
-        return { sans, avec };
+        return { sans, avec, page };
       });
-      console.log('\n── Lecteur Institutions : fond sombre en attente, papier blanc au document ──');
+      console.log('\n── Lecteur Institutions : une PAGE blanche dans une marge sombre ──');
       if (fondRc.absent) console.log('  · #br-rcontent absent → contrôle abstenu.');
       else {
         verif('sans document, la zone de lecture est SOMBRE (fini le flash blanc du chargement PDF)',
           fondRc.sans !== 'rgb(255, 255, 255)', fondRc.sans);
-        verif('… et avec un document, le papier blanc revient (:has réel, pas une copie)',
-          fondRc.avec === 'rgb(255, 255, 255)', fondRc.avec);
+        verif('… et AVEC un document elle reste sombre : c\'est la MARGE de la page, pas la page',
+          fondRc.avec !== 'rgb(255, 255, 255)' && fondRc.avec === fondRc.sans, fondRc.avec);
+        verif('le blanc appartient à la PAGE elle-même (mesuré sur .br-document)',
+          fondRc.page.fond === 'rgb(255, 255, 255)', fondRc.page.fond);
+        verif('… sa largeur de lecture est bornée, jamais la pleine largeur',
+          fondRc.page.maxw > 400 && fondRc.page.maxw <= 900, fondRc.page.maxw + 'px');
+        verif('… et une ombre la détache du fond (elle se lit comme une feuille)',
+          !!fondRc.page.ombre && fondRc.page.ombre !== 'none', fondRc.page.ombre);
+        if (fondRc.page.hote > fondRc.page.maxw + 8) {
+          verif('… centrée dans sa marge : les deux gouttières sont égales',
+            Math.abs(fondRc.page.gg - fondRc.page.gd) <= 2,
+            Math.round(fondRc.page.gg) + 'px / ' + Math.round(fondRc.page.gd) + 'px');
+        } else {
+          console.log('  · panneau (' + Math.round(fondRc.page.hote) + 'px) plus étroit que la page → centrage non mesurable ici, contrôle abstenu.');
+        }
       }
-      verif('la règle du papier est écrite (:has(.br-document) → blanc, base sombre)',
-        /#br-rcontent:has\(\.br-document\) \{ background: #fff; \}/.test(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8')));
 
       /* ── FX Weekly / Asia FX Weekly EN IMPORTANT (31/08, demande user « comme sur l'image à
          chaque sortie ») : renderBrList pose `arl-row--imp` sur un motif titre à « asia »
@@ -1757,7 +1785,13 @@ function phaseLogique() {
       for (const nomTable of ['var WPREV = {', 'var WICO = {']) {
         const dT = WJS.indexOf(nomTable);
         if (dT < 0) continue;
-        for (const x of WJS.slice(dT, WJS.indexOf('\n  };', dT)).matchAll(/'([a-z0-9-]+)':/g)) cles.add(x[1]);
+        /* ⚠️ LA CLÉ PEUT ÊTRE CITÉE OU NON — JavaScript accepte les deux, et le 09/09 ce
+           contrôle est passé au ROUGE sur `kelly:` (sans guillemets) alors que la vignette était
+           bien là et s'affichait. Un banc qui ne lit qu'une des deux écritures du langage qu'il
+           inspecte accuse à tort. Le motif est donc ANCRÉ en début de ligne (l'écriture de la
+           table : une entrée par ligne) et le guillemet est optionnel : plus étroit qu'avant
+           (l'ancien motif mordait aussi à l'intérieur des chaînes SVG) et fidèle au langage. */
+        for (const x of WJS.slice(dT, WJS.indexOf('\n  };', dT)).matchAll(/^\s+'?([a-z0-9-]+)'?\s*:/gm)) cles.add(x[1]);
       }
       const sansVig = idsW.filter(i => !cles.has(i));
       verif('chaque carte du catalogue de widgets a sa vignette (plus jamais d\'aperçu vide)',

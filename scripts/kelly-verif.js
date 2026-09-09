@@ -41,8 +41,15 @@ t('… et le Journal les expose bien', /window\.dtpKellyStats = function/.test(
 /* EXTRACTION : on prend le corps de `calcul` tel qu'il est écrit dans le widget, et on lui donne un
    faux document. Les valeurs lues sont celles qui seraient RÉELLEMENT affichées. */
 console.log('\n[2] La formule, éprouvée sur des cas calculables à la main');
+/* ⚠️ L'EXTRACTION PART DE `var pct`, PAS DE `var calcul` — ET CE DÉTAIL EST TOUTE L'HISTOIRE DU
+   09/09. Ce banc injectait sa PROPRE copie de `pct` en paramètre. Le jour où le produit a recollé
+   le pourcent à son chiffre (règle du dépôt : « 40% », jamais « 40 % » — pourcent-verif la tient),
+   trois contrôles de mise en forme sont restés VERTS sur l'ancienne écriture : ils mesuraient la
+   copie du banc, pas ce que le client lit. L'en-tête promettait pourtant « les valeurs RENDUES ».
+   Une copie ne dérive jamais au même moment que l'original : elle ment le jour où l'original
+   change. La tranche englobe donc la VRAIE fonction de mise en forme, et plus rien n'est injecté. */
 const corps = (() => {
-  const a = W.indexOf('        var calcul = function () {');
+  const a = W.indexOf('        var pct = function (x) {');
   const b = W.indexOf('        host.querySelectorAll(\'.wdg-kly input\')', a);
   return (a < 0 || b < a) ? null : W.slice(a, b);
 })();
@@ -61,29 +68,28 @@ function rendre(tr, gain, perte) {
       return { set textContent(v) { sorties[m[1]] = v; }, set className(v) { sorties[m[1] + ':cls'] = v; } };
     },
   };
-  const pct = (x) => (Math.round(x * 100) / 100).toString().replace('.', ',') + ' %';
-  new Function('host', 'pct', corps + '\n calcul();')(faux, pct);
+  new Function('host', corps + '\n calcul();')(faux);
   return sorties;
 }
 if (corps) {
   /* CAS 1 — l'exemple canonique : 60 % de réussite, gain moyen 2R, perte moyenne 1R.
      G = 2 ; f* = 0,6 − 0,4/2 = 0,4 → 40 %. Demi = 20 %, quart = 10 %. */
   const a = rendre(60, 2, 1);
-  t('60 % · 2R / 1R → Kelly complet 40 %', a.plein === '40 %', JSON.stringify(a.plein));
-  t('… demi-Kelly 20 %', a.demi === '20 %', JSON.stringify(a.demi));
-  t('… quart de Kelly 10 %', a.quart === '10 %', JSON.stringify(a.quart));
+  t('60% · 2R / 1R → Kelly complet 40%', a.plein === '40%', JSON.stringify(a.plein));
+  t('… demi-Kelly 20%', a.demi === '20%', JSON.stringify(a.demi));
+  t('… quart de Kelly 10%', a.quart === '10%', JSON.stringify(a.quart));
   t('… espérance +0,8 R', /\+0,8 R/.test(a.esp || ''), JSON.stringify(a.esp));
 
   /* CAS 2 — le gain et la perte ne sont PAS interchangeables. Avec 60 % mais 1R de gain pour 2R de
      perte, G = 0,5 et f* = 0,6 − 0,4/0,5 = −0,2 : négatif. Si le widget rendait ici la même chose
      qu'au cas 1, c'est que G est inversé — l'erreur la plus facile à commettre, et invisible. */
   const b = rendre(60, 1, 2);
-  t('le rapport gain/perte n\'est pas inversé', b.plein !== '40 %', JSON.stringify(b.plein));
+  t('le rapport gain/perte n\'est pas inversé', b.plein !== '40%', JSON.stringify(b.plein));
 
   /* CAS 3 — LE CAS QUI COMPTE : pas d'avantage. 40 % de réussite, 1R contre 1R.
      f* = 0,4 − 0,6 = −0,2. Le widget doit rendre ZÉRO et le DIRE. */
   const c = rendre(40, 1, 1);
-  t('sans avantage, aucune taille n\'est proposée', c.plein === '0 %' && c.demi === '0 %' && c.quart === '0 %',
+  t('sans avantage, aucune taille n\'est proposée', c.plein === '0%' && c.demi === '0%' && c.quart === '0%',
     JSON.stringify([c.plein, c.demi, c.quart]));
   t('… et il le dit en toutes lettres', /Aucun avantage/.test(c.note || ''), JSON.stringify(c.note));
   t('… l\'espérance sort en négatif', /−0,2 R/.test(c.esp || ''), JSON.stringify(c.esp));
@@ -92,7 +98,7 @@ if (corps) {
   /* CAS 4 — le plafond du desk. 80 % · 3R / 1R → f* = 0,8 − 0,2/3 ≈ 73,3 %, demi ≈ 36,7 % : très
      au-dessus des 2 % du desk. La carte doit le signaler plutôt que de laisser lire 36,7 %. */
   const d = rendre(80, 3, 1);
-  t('un demi-Kelly au-dessus de 2 % rappelle la limite du desk', /limite de 2 %/.test(d.note || ''),
+  t('un demi-Kelly au-dessus de 2% rappelle la limite du desk', /limite de 2%/.test(d.note || ''),
     JSON.stringify(d.note));
   /* TÉMOIN INVERSE : la limite ne doit PAS être rappelée quand elle ne s'applique pas — sinon
      l'avertissement devient un décor qu'on n'ira plus lire le jour où il compte. */
@@ -103,7 +109,7 @@ if (corps) {
      n'a pas calculé la réponse attendue ne teste pas le code, il teste l'intuition de son auteur.
      Ici : f* = 0,51 − 0,49/1,02 = 2,96 %, demi-Kelly 1,48 %, sous les 2 % — vérifié à la main. */
   const e = rendre(51, 1.02, 1);
-  t('TÉMOIN — et elle se tait quand elle ne s\'applique pas', !/limite de 2 %/.test(e.note || ''),
+  t('TÉMOIN — et elle se tait quand elle ne s\'applique pas', !/limite de 2%/.test(e.note || ''),
     JSON.stringify(e.note));
 
   /* CAS 5 — saisies impossibles. Un taux de 0 ou de 100 % n'est pas une statistique, c'est une

@@ -54,9 +54,16 @@ const DONNEES = [{ timestamp: J(0) }, { timestamp: J(10) }];
 
 console.log('\n[2] Chaque situation a sa propre phrase');
 if (src) {
+  /* ⚠️ LES MOTIFS ACCEPTENT LES DEUX APOSTROPHES. Le produit écrit « n’a » (typographique) parce
+     qu'une chaîne JavaScript en apostrophes droites devrait l'échapper (`n\\'a`) — et une chaîne
+     échappée n'est PAS trouvable littéralement par `i18n-verif`, qui compte alors une traduction
+     morte. Un banc qui exigerait l'une des deux formes casserait donc à chaque fois qu'on répare
+     l'autre : c'est ce qui vient d'arriver, et cela a fait rougir la suite sur un texte correct.
+     Ce dépôt connaît déjà ce piège — les gardes de `dtp-updates-verif` couvrent les deux écritures
+     pour la même raison. */
   const cas = [
     ['chargement en cours', { tous: [], busy: true, echec: false, imp: 'ALL', q: '', bo: SEMAINE_COUVERTE }, /Chargement/, false],
-    ['l\'appel a ÉCHOUÉ', { tous: [], busy: false, echec: true, imp: 'ALL', q: '', bo: SEMAINE_COUVERTE }, /n'a pas pu être chargé/, true],
+    ['l\'appel a ÉCHOUÉ', { tous: [], busy: false, echec: true, imp: 'ALL', q: '', bo: SEMAINE_COUVERTE }, /n[’']a pas pu être chargé/, true],
     ['aucune donnée reçue', { tous: [], busy: false, echec: false, imp: 'ALL', q: '', bo: SEMAINE_COUVERTE }, /Aucune donnée de calendrier/, true],
     ['période hors du flux', { tous: DONNEES, busy: false, echec: false, imp: 'ALL', q: '', bo: SEMAINE_LOINTAINE }, /pas encore couverte/, false],
     ['un filtre masque tout', { tous: DONNEES, busy: false, echec: false, imp: 'High', q: '', bo: SEMAINE_COUVERTE }, /votre filtre/, false],
