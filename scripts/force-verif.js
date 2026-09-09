@@ -27,6 +27,20 @@
  * Le paquet doit exposer `am5`, `am5xy` et `am5themes_Animated` sur `window` (esbuild --format=iife
  * sur un point d'entrée qui les y pose). À défaut, le contrôle tente le CDN ; s'il est injoignable
  * ou si Chromium manque, IL S'ABSTIENT (code 0) plutôt que de bloquer une livraison.
+ *
+ * ⚠️ ET L'ABSTENTION A UN COÛT QU'IL FAUT NOMMER (10/09) : dans un conteneur dont le proxy refuse
+ * le CDN, ce sont 273 contrôles qui se taisent — toute la partie qui MESURE ce que l'œil voit.
+ * Personne ne le remarque, puisque le banc rend 0. Or le paquet se fabrique en trois commandes,
+ * SANS toucher aux dépendances du dépôt (tout vit hors de l'arborescence) : le registre npm reste
+ * joignable là où le CDN ne l'est pas.
+ *     npm install --prefix /tmp/am5 @amcharts/amcharts5 esbuild
+ *     printf "%s\n" "import * as am5 from '@amcharts/amcharts5';" \
+ *       "import * as am5xy from '@amcharts/amcharts5/xy';" \
+ *       "import am5themes_Animated from '@amcharts/amcharts5/themes/Animated';" \
+ *       "window.am5 = am5; window.am5xy = am5xy; window.am5themes_Animated = am5themes_Animated;" > /tmp/am5/e.js
+ *     /tmp/am5/node_modules/.bin/esbuild /tmp/am5/e.js --bundle --format=iife --outfile=/tmp/am5bundle.js
+ * Éprouvé le 10/09 dans le conteneur d'intégration : 273 contrôles au vert, là où le banc
+ * s'abstenait depuis toujours.
  */
 const http = require('http');
 const fs = require('fs');
