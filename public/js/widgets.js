@@ -2918,9 +2918,9 @@
             var _filtre = _imp !== 'ALL' || !!q;
             var _msg, _reessai = false;
             if (_busy) _msg = 'Chargement…';
-            else if (_echec) { _msg = 'Le calendrier n\'a pas pu être chargé.'; _reessai = true; }
+            else if (_echec) { _msg = 'Le calendrier n’a pas pu être chargé.'; _reessai = true; }
             else if (!_tous.length) { _msg = 'Aucune donnée de calendrier reçue.'; _reessai = true; }
-            else if (_horsPortee) _msg = 'Cette période n\'est pas encore couverte par le flux.';
+            else if (_horsPortee) _msg = 'Cette période n’est pas encore couverte par le flux.';
             else if (_filtre) _msg = 'Aucun événement ne correspond à votre filtre sur cette période.';
             else _msg = 'Aucun événement sur cette période.';
             host.innerHTML = '<div class="wdg-cal-panel">' + barre() + '<div class="wdg-cal-wrap"><div class="wdg-empty">'
