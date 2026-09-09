@@ -87,7 +87,7 @@ if (mortes.length) {
    en le rendant utile demain.
    ⚠️ EN BAISSER LA VALEUR EST UNE BONNE NOUVELLE : quand une orpheline est traitée, descendre ce
    plafond d'autant, sinon le cliquet ne cliquette plus. */
-const PLAFOND_ORPHELINES = 18;   // (30/08 : le renommage « Biais / Scénario »→« Biais » a re-keyé la clé « : » et retiré la clé nue — qui était trouvée par sous-chaîne, donc PAS orpheline : le compte reste 18)
+const PLAFOND_ORPHELINES = 17;   // (09/09 : « ↑ Importer (Notion / CSV) » vivait dans le dictionnaire et était comptée orpheline parce que le code écrivait la flèche en ENTITÉ NUMÉRIQUE (`&#8593;`) là où la clé porte le caractère — la tolérance du banc ne couvre que les accents. Les quatre entités des boutons du Journal sont passées au caractère réel : la traduction est retrouvée, le cliquet descend. — 30/08 : le renommage « Biais / Scénario »→« Biais » a re-keyé la clé « : » et retiré la clé nue — qui était trouvée par sous-chaîne, donc PAS orpheline : le compte reste 18)
 if (mortes.length > PLAFOND_ORPHELINES) {
   console.log('\n✗ ' + mortes.length + ' orphelines pour un plafond de ' + PLAFOND_ORPHELINES + '.');
   console.log('  Une traduction vient de mourir : un wording FR a changé sans que sa clé suive.');

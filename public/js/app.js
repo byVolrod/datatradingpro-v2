@@ -14134,10 +14134,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const host = document.getElementById('jr-toolbar'); if (!host) return;
     host.innerHTML =
       '<button type="button" class="jr-tb-btn jr-tb-btn--add" id="jr-add">+ Nouveau</button>'
-      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : vos colonnes deviennent VOTRE journal">&#8593; Importer (Notion / CSV)</button>'
+      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : vos colonnes deviennent VOTRE journal">↑ Importer</button>'
       + '<input type="file" id="jr-import-file" accept=".zip,.csv,.tsv,.txt,application/zip,application/x-zip-compressed,text/csv,text/tab-separated-values" style="display:none">'
-      + '<button type="button" class="jr-tb-btn" id="jr-props" title="Afficher / masquer des propriétés">&#9881; Propriétés</button>'
-      + '<button type="button" class="jr-tb-btn" id="jr-export" title="Telecharger votre journal en CSV (ré-importable ici, lisible dans Excel)">&#8595; Exporter (CSV)</button>'
+      + '<button type="button" class="jr-tb-btn" id="jr-props" title="Afficher / masquer des propriétés">⚙ Propriétés</button>'
+      + '<button type="button" class="jr-tb-btn" id="jr-export" title="Telecharger votre journal en CSV (ré-importable ici, lisible dans Excel)">↓ Exporter</button>'
       + '<span class="jr-tb-spacer"></span>'
       // L'indicateur porte desormais son EXPLICATION : « ○ Gabarit DTP » ne disait a personne ce
       // qu'il fallait en comprendre. Le titre dit ce que le mode change concretement.
@@ -14217,7 +14217,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + '<div class="jr-empty-sub">Consignez votre premier trade ou importez votre journal existant : statistiques, courbe de performance et tableau de bord se construisent automatiquement.</div>'
         + '<div class="jr-empty-actions">'
         + '<button type="button" class="jr-tb-btn jr-tb-btn--add jr-addrow">+ Ajouter un trade</button>'
-        + '<button type="button" class="jr-tb-btn" id="jr-empty-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : vos colonnes deviennent votre journal">&#8593; Importer (Notion / CSV)</button>'
+        + '<button type="button" class="jr-tb-btn" id="jr-empty-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : vos colonnes deviennent votre journal">↑ Importer (Notion / CSV)</button>'
         + '</div></div></td></tr></tbody>';
       const ei = document.getElementById('jr-empty-import');
       if (ei) ei.onclick = () => { const f = document.getElementById('jr-import-file'); if (f) f.click(); };
