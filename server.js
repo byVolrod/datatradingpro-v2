@@ -25,7 +25,7 @@ const _SEA = require('./seance');     // récap de séance fabriqué par le desk
 const _WSEG = require('./wrapseg');   // mise en page du rapport de séance segmenté : rubriques, Macro complétée par notre calendrier (pur + testé)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
-const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs } = require('./scrapers/myfxbook');
+const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs, outlookDiag, identifiantsPresents } = require('./scrapers/myfxbook');
 const auth = require('./auth');
 const mailer = require('./mailer');   // emails (bienvenue, renouvellement, reset)
 const campaignPreflight = require('./campaignPreflight');   // verifications avant chaque envoi (production-grade)
@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260910-rapport-page', ts: Date.UTC(2026, 8, 10, 14, 0), title: 'Un rapport d’institution se lit maintenant comme une page, et le positionnement dit ce qui lui manque', desc: 'Deux corrections, chacune sur un retour de votre part. UN RAPPORT S’AFFICHE COMME UN DOCUMENT. Quand une banque publie un vrai fichier PDF, le desk l’ouvre dans une visionneuse : page blanche, texte noir, marges franches. Quand elle publie une page web dont nous extrayons le texte, le même onglet rendait une carte sombre, pleine largeur, flottant au milieu d’une marge blanche. Deux rapports voisins dans la même liste n’avaient rien en commun, et l’un des deux avait l’air cassé. Le second s’aligne sur le premier : une vraie page, largeur de lecture bornée et centrée, encre sombre sur papier clair, sur le fond du desk. UNE NOTE POUR L’HISTOIRE DU PRODUIT : le blanc avait déjà été demandé, et la note laissée dans le code disait la bonne chose, que le blanc appartient au document. Il était simplement appliqué au cadre qui défile plutôt qu’au document lui-même. Les deux ont été échangés. LE POSITIONNEMENT DES PARTICULIERS DIT DÉSORMAIS CE QUI LUI MANQUE. Le widget répétait une attente sans fin, quelle que soit la cause. Il affiche maintenant la vraie raison quand le serveur la connait : identifiants absents, source qui refuse la connexion, outil de récupération indisponible, ou simplement rien de publié. La première de ces causes se corrige en une ligne de configuration ; les répéter sous le mot attente revenait à ne rien dire. Au passage, une tentative de connexion partait avec des identifiants vides quand il n’y en avait pas : trente secondes perdues à chaque redémarrage, avant même le premier essai utile.' },
   { id: 'dtpu-20260910-bannis-suspendus', ts: Date.UTC(2026, 8, 10, 11, 0), title: 'Un membre banni sur la plateforme de paiement passe en suspendu sur le desk', desc: 'Fonction d’administration. Bannir quelqu’un côté plateforme de paiement ne fermait pas son accès au desk : il fallait le faire une seconde fois, à la main, et la liste des suspendus dérivait. Elle se synchronise désormais toute seule, toutes les demi-heures. UNE PRÉCAUTION QUI EXPLIQUE TOUT LE RESTE : c’est la seule automatisation du produit qui COUPE un accès. Toutes les autres ne font que prolonger, parce qu’on ne coupe pas un payeur sur un doute. Or un bannissement et une simple fin d’abonnement ressortent souvent avec le MÊME statut côté plateforme. Déduire l’un de l’autre suspendrait tout abonné arrivé au bout de sa période, y compris pendant les quelques secondes d’un renouvellement. La synchronisation n’agit donc que sur un signal EXPLICITE de bannissement : une résiliation, une expiration, un paiement en retard ou une adhésion simplement invalide ne déclenchent rien. Les comptes administrateurs sont hors de portée, chaque suspension est journalisée avec la raison qui l’a déclenchée, et rien n’est jamais réactivé par ce chemin : un membre débanni retrouve son accès par la réconciliation habituelle, celle qui prolonge. UN ÉCRAN DE VÉRIFICATION accompagne la fonction, parce que le nom du champ qui signale un bannissement se constate sur la vraie réponse de la plateforme et ne se devine pas.' },
   { id: 'dtpu-20260910-apercus-widgets', ts: Date.UTC(2026, 8, 10, 9, 0), title: 'Scenario Desk et le critère de Kelly ont enfin leur aperçu dans la bibliothèque', desc: 'Vous nous avez demandé un aperçu pour la carte Scenario Desk. Elle n’en avait pas : elle retombait sur l’icône générique, celle qui dit la catégorie et pas ce que la carte affiche. Son aperçu montre maintenant ce qu’elle a de particulier, et qu’aucune autre carte ne produit : une échéance et les deux seuils qui l’encadrent, au-dessus la devise se renforce, en dessous elle s’affaiblit, le consensus au milieu. La lecture entière du widget en un coup d’œil. LE NOUVEAU WIDGET KELLY EN A REÇU UN AU PASSAGE, et il faut dire pourquoi : en l’ajoutant, nous avions oublié le sien. Rien ne l’aurait signalé, la bibliothèque se rabat en silence sur l’icône. C’est vous qui l’aviez remarqué sur Scenario Desk. Un contrôle automatique refuse désormais qu’une carte de la bibliothèque se présente sans son aperçu propre : le prochain widget ne pourra plus arriver sans.' },
   { id: 'dtpu-20260910-dmx-chargement', ts: Date.UTC(2026, 8, 10, 8, 0), title: 'Le positionnement des particuliers ne tourne plus dans le vide', desc: 'Vous nous avez envoyé la capture d’un widget DMX figé sur son animation de chargement. LA CAUSE ÉTAIT ÉCRITE DANS LE CODE, ET PRISE POUR UNE QUALITÉ. Une note disait que cette donnée arrive instantanément depuis la mémoire, et qu’elle ne fait attendre qu’au tout premier chargement. C’est exact, mais ce premier chargement est celui d’un serveur qui vient de redémarrer, donc celui qui suit CHAQUE mise à jour de la plateforme. Et pour ce premier chargement, le serveur ouvre un navigateur et va se connecter à la source, une opération qui peut dépasser la minute. Pendant ce temps, le desk attendait, sans limite et sans rien dire. DEUX GARDE-FOUS, ET ILS SE COMPLÈTENT. Le serveur borne désormais son attente : au-delà de huit secondes il répond « je cherche encore » au lieu de faire patienter, et la récupération continue de son côté pour remplir la mémoire. Et le desk borne la sienne, parce que le serveur ne peut rien contre un réseau qui ne répond plus ou un ordinateur qui sort de veille. TROIS SITUATIONS, TROIS PHRASES. Je cherche encore, et je redemande tout seul dans dix secondes. La source n’a rien publié, et je réessaie plus lentement. Erreur de connexion, avec un bouton. Elles partageaient un seul message auparavant, et aucune ne réessayait : le widget restait sur sa phrase pour toujours.' },
@@ -10395,6 +10396,47 @@ app.get('/api/cot', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* Traduit l'état du récupérateur de positionnement en une phrase que le desk peut afficher ET sur
+   laquelle on peut AGIR. Une erreur qui ne dit pas quoi faire ne vaut guère mieux qu'un silence :
+   « identifiants absents » se corrige en une ligne du `.env` du serveur, « navigateur indisponible »
+   s'installe, « source vide » ne se corrige pas du tout — et proposer la mauvaise réparation coûte
+   une soirée à celui qui la tente. */
+const _DMX_RAISONS = {
+  'identifiants-absents':    'Identifiants Myfxbook absents sur le serveur (MFB_EMAIL / MFB_PASS).',
+  'api-refusee':             'Myfxbook a refusé la connexion : identifiants à vérifier.',
+  'navigateur-indisponible': 'Navigateur de récupération indisponible sur le serveur.',
+  'navigateur-echec':        'La page de positionnement n\'a pas pu être lue.',
+  'source-vide':             'Myfxbook ne publie aucun positionnement pour le moment.',
+};
+function _dmxRaison() {
+  try {
+    const d = (typeof outlookDiag === 'function') ? outlookDiag() : null;
+    const cle = d && d.raison;
+    if (!cle) return undefined;
+    return { cle, texte: _DMX_RAISONS[cle] || 'Positionnement indisponible.' };
+  } catch (e) { return undefined; }
+}
+
+/* DIAGNOSTIC ADMIN — la même idée que pour les cartes de direct : ce qui se passe sur le serveur
+   doit être lisible depuis un écran, sans ouvrir un journal. Chaque tentative, dans l'ordre, avec
+   son résultat. `?force=1` relance une vraie récupération au lieu de lire la dernière trace. */
+app.get('/api/admin/dmx', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    if (req.query.force === '1' && typeof forceFetchOutlook === 'function') {
+      try { await forceFetchOutlook(); } catch (e) {}
+    }
+    const d = (typeof outlookDiag === 'function') ? outlookDiag() : null;
+    res.json({
+      ok: true,
+      identifiants: (typeof identifiantsPresents === 'function') ? identifiantsPresents() : null,
+      chemin: d && d.chemin, raison: d && d.raison,
+      explication: (d && d.raison && _DMX_RAISONS[d.raison]) || null,
+      etapes: (d && d.etapes) || [],
+      derniereDonnee: (typeof outlookTs === 'function' && outlookTs()) || 0,
+    });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 app.get('/api/community-outlook', async (req, res) => {
   const period = ['H1','H4','D1'].includes(req.query.period) ? req.query.period : 'H1';
   const force  = req.query.force === '1';
@@ -10426,7 +10468,7 @@ app.get('/api/community-outlook', async (req, res) => {
       refreshOutlookBg();   // la récupération continue sans nous
       res.set('Cache-Control', 'no-store');
       return res.json({ symbols: [], period, pending: true,
-        note: 'Données de positionnement en cours de récupération.' });
+        raison: _dmxRaison(), note: 'Données de positionnement en cours de récupération.' });
     }
     /* 30/08 — PRIX COURANT accolé par paire, pour la table « Statistiques DMX » : l'écart
        entre le prix moyen d'entrée de la foule et le prix actuel ne se calcule qu'avec une cotation.
@@ -10444,7 +10486,11 @@ app.get('/api/community-outlook', async (req, res) => {
       }
     } catch {}
     const ts = (typeof outlookTs === 'function' && outlookTs()) || Date.now();
-    res.json({ symbols, period, updatedAt: new Date(ts).toISOString(), updatedTs: ts });
+    /* ⚠️ UNE RÉPONSE VIDE DOIT DIRE POURQUOI (09/09, « le DMX ne fonctionne pas »). Sans raison, le
+       desk ne peut qu'afficher une attente indéfinie — et l'utilisateur ne peut RIEN faire, alors
+       que la cause la plus probable se corrige en une ligne dans le `.env` du serveur. */
+    res.json({ symbols, period, updatedAt: new Date(ts).toISOString(), updatedTs: ts,
+      raison: symbols.length ? undefined : _dmxRaison() });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

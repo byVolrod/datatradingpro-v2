@@ -3289,18 +3289,27 @@ function buildDMXChart(forceRefresh = false, opts) {
       /* LE SERVEUR SAIT DIRE « JE CHERCHE ENCORE » (`pending`), et c'est une réponse, pas un échec :
          la récupération continue de son côté. On le dit en clair et on redemande tout seul — un
          message figé qui n'essaierait plus jamais serait la même impasse sous un autre habillage. */
+      /* ⚠️ QUAND LE SERVEUR SAIT POURQUOI, ON L'AFFICHE (09/09, « le DMX ne fonctionne pas »).
+         Un widget qui répète « en attente » sans fin ne laisse rien faire à personne — alors que la
+         cause la plus fréquente, des identifiants absents du serveur, se corrige en une ligne. La
+         phrase vient du serveur, qui seul sait ce qui a échoué ; le desk ne la devine pas. */
+      var _raison = data.raison && data.raison.texte ? String(data.raison.texte) : '';
+      var _dit = function (txt, sousTitre, relance) {
+        wrap.innerHTML = '<div class="dmx-loading">' + txt
+          + (sousTitre ? '<br><span style="opacity:.7;font-size:10px">' + sousTitre + '</span>' : '') + '</div>';
+        if (relance) setTimeout(function () { buildDMXChart(false, opts); }, relance);
+      };
       if (data.pending) {
-        wrap.innerHTML = '<div class="dmx-loading">Positionnement en cours de récupération…'
-          + '<br><span style="opacity:.7;font-size:10px">Première synchronisation avec la source, quelques instants.</span></div>';
-        setTimeout(function () { buildDMXChart(false, opts); }, 10000);
+        _dit('Positionnement en cours de récupération…',
+          _raison || 'Première synchronisation avec la source, quelques instants.', 10000);
         return;
       }
       let symbols = (data.symbols || []).filter(row => _dmxAllowed(row.symbol));
       if (!symbols.length) {
         /* Répondu, mais VIDE : ce n'est ni une attente ni une erreur. On le distingue des deux, et
-           on redemande plus lentement — la source peut être en maintenance. */
-        wrap.innerHTML = '<div class="dmx-loading">Aucun positionnement publié par la source pour le moment.</div>';
-        setTimeout(function () { buildDMXChart(false, opts); }, 60000);
+           on redemande plus lentement — la source peut être en maintenance. Si le serveur a nommé
+           la cause, c'est ELLE qu'on affiche : elle est plus utile que notre phrase générique. */
+        _dit(_raison || 'Aucun positionnement publié par la source pour le moment.', '', 60000);
         return;
       }
 

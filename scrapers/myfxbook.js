@@ -65,6 +65,21 @@ const MFB_PASS  = process.env.MFB_PASS || '';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
+/* ══ POURQUOI LE POSITIONNEMENT N'ARRIVE PAS — ÉTAT DIAGNOSTIQUABLE (09/09) ═════════════════════
+   Retour utilisateur : « le DMX ne fonctionne pas ». Le widget disait « connexion en attente », le
+   serveur écrivait « all methods failed » dans un journal que personne ne lit, et rien ne reliait
+   les deux. Un composant qui échoue sans dire POURQUOI est un composant qu'on ne peut pas réparer :
+   il faut deviner entre des identifiants absents, une source qui refuse, un navigateur manquant.
+   On garde donc trace de chaque tentative, et cette trace remonte jusqu'au desk et au panneau
+   d'administration. C'est le même mécanisme que le diagnostic des cartes de direct, pour la même
+   raison : ce qui se passe sur le serveur doit être lisible depuis l'écran. */
+let _diag = { ts: 0, chemin: null, raison: null, etapes: [] };
+function _diagRaz() { _diag = { ts: Date.now(), chemin: null, raison: null, etapes: [] }; }
+function _diagAjout(etape, ok, detail) { _diag.etapes.push({ etape, ok, detail: detail || null }); }
+function outlookDiag() { return JSON.parse(JSON.stringify(_diag)); }
+/* Identifiants présents ? La question a UNE réponse, elle doit être posée UNE fois. */
+function identifiantsPresents() { return !!(MFB_EMAIL && MFB_PASS); }
+
 let _browser   = null;
 let _launching = false;
 let _mem = {}, _memTs = {};
@@ -356,26 +371,53 @@ function _doFetch() {
     const save = data => {
       for (const p of ['H1', 'H4', 'D1']) { _mem[p] = data; _memTs[p] = Date.now(); saveDisk(p, data); }
     };
-    // Attempt 1: REST API (rapide) — 2 essais (session fraîche au 2e)
-    for (let i = 0; i < 2; i++) {
-      try {
-        const data = normalise(await fetchViaApi());
-        if (data.length > 0) { save(data); return data; }
-      } catch (e) { console.warn(`[Myfxbook] API attempt ${i + 1} failed:`, e.message); }
+    _diagRaz();
+    /* ⚠️ SANS IDENTIFIANTS, ON NE TENTE MÊME PAS — ET LE FICHIER LE PROMETTAIT DÉJÀ (09/09). Son
+       avertissement d'ouverture dit, depuis le 21/08 : « Sans eux, le scraper s'arrête proprement
+       au lieu de tenter une connexion avec une valeur périmée. » Le code, lui, appelait l'interface
+       de connexion avec DEUX CHAÎNES VIDES, deux fois de suite, avec quinze secondes de délai
+       chacune — trente secondes perdues avant même d'essayer le navigateur, à chaque démarrage à
+       froid. C'est une part directe de l'attente que l'utilisateur a vue.
+       On saute donc l'étape, on le DIT, et on passe au navigateur : la page publique de
+       positionnement s'affiche sans compte, la connexion n'apporte que les prix moyens d'entrée. */
+    if (!identifiantsPresents()) {
+      _diag.raison = 'identifiants-absents';
+      _diagAjout('api', false, 'MFB_EMAIL / MFB_PASS absents du .env : interface de connexion non appelée');
+      console.warn('[Myfxbook] identifiants absents (MFB_EMAIL/MFB_PASS) : chemin API sauté, on passe au navigateur');
+    } else {
+      // Attempt 1: REST API (rapide) — 2 essais (session fraîche au 2e)
+      for (let i = 0; i < 2; i++) {
+        try {
+          const data = normalise(await fetchViaApi());
+          if (data.length > 0) { _diag.chemin = 'api'; _diagAjout('api', true, data.length + ' symboles'); save(data); return data; }
+        } catch (e) {
+          _diagAjout('api', false, e.message);
+          console.warn(`[Myfxbook] API attempt ${i + 1} failed:`, e.message);
+        }
+      }
+      _diag.raison = 'api-refusee';
     }
     // Attempt 2: Puppeteer DOM (lent) — uniquement si l'API a échoué
     try {
       const raw = await fetchViaPuppeteer();
       if (raw && raw.length > 0) {
         const data = normalise(raw);
-        if (data.length > 0) { save(data); return data; }
+        if (data.length > 0) { _diag.chemin = 'navigateur'; _diag.raison = null; _diagAjout('navigateur', true, data.length + ' symboles'); save(data); return data; }
       }
+      _diagAjout('navigateur', false, 'page lue mais aucune ligne exploitable');
+      if (!_diag.raison || _diag.raison === 'api-refusee') _diag.raison = 'source-vide';
     } catch (e) {
+      /* On DISTINGUE « le navigateur n'a pas pu démarrer » de « la source n'a rien donné ». Le
+         premier se répare sur le serveur (installer Chromium, poser PUPPETEER_EXECUTABLE_PATH), le
+         second ne se répare pas du tout — et proposer la mauvaise réparation coûte une soirée. */
+      const chrome = /executable|ENOENT|spawn|launch|Failed to launch|Browser launch/i.test(e.message || '');
+      _diag.raison = chrome ? 'navigateur-indisponible' : 'navigateur-echec';
+      _diagAjout('navigateur', false, e.message);
       console.error('[Myfxbook] Puppeteer attempt failed:', e.message);
     } finally {
       await closeBrowser();   // libère Chromium (~150 Mo) sur hébergement 512 Mo
     }
-    console.warn('[Myfxbook] all methods failed — returning empty');
+    console.warn('[Myfxbook] aucune méthode n\'a abouti — raison : ' + (_diag.raison || 'inconnue'));
     return [];
   })().finally(() => { _fetchPromise = null; });
   return _fetchPromise;
@@ -419,4 +461,4 @@ function clearOutlookCache() {
   _sessionTs = 0;
 }
 
-module.exports = { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, closeBrowser, outlookTs };
+module.exports = { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, closeBrowser, outlookTs, outlookDiag, identifiantsPresents };

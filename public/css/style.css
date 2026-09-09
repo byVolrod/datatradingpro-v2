@@ -4835,7 +4835,11 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
    la date du rapport, qui ne s'affiche nulle part ailleurs dans cette vue. */
 /* (.br-rtag supprimée le 09/09 avec la barre qui la portait.) */
 
-.br-rcontent { flex: 1; overflow-y: auto; padding: 20px 24px; }
+/* ⚠️ LE FOND DU LECTEUR ÉTAIT LAISSÉ AU NAVIGATEUR (09/09). Aucune règle ne peignait cette zone :
+   sur la capture de l'utilisateur, le document sombre flottait au milieu d'une marge BLANCHE, avec
+   une barre de défilement blanche. Un volet de desk qui n'annonce pas son fond hérite de ce que le
+   navigateur veut bien lui donner — c'est-à-dire du blanc. */
+.br-rcontent { flex: 1; overflow-y: auto; padding: 20px 24px; background: var(--bg); }
 /* ── Rapport Institution affiché en PDF embarqué (vrai .pdf généré côté client, façon DTP) ── */
 #br-rcontent.br-rcontent--pdf { padding: 0 !important; display: flex; flex-direction: column; overflow: hidden; }
 .br-pdf-bar { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 14px; background: var(--head-bg); border-bottom: 1px solid var(--hud-line); }
@@ -9903,6 +9907,63 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
   box-sizing: border-box;
 }
 
+/* ══ LE RAPPORT SE PRÉSENTE COMME UN DOCUMENT, PAS COMME UN BLOC DE TEXTE (09/09) ═══════════════
+   Retour de l'utilisateur devant un rapport Goldman enfin lisible : « c'est mal affiché, affiche
+   bien comme leur PDF, tu vois ». La comparaison est juste, et elle vient du desk lui-même : quand
+   une banque publie un VRAI fichier PDF, le lecteur l'ouvre dans une visionneuse — pages blanches,
+   texte noir, marges franches. Quand la banque publie une page web (le cas de Goldman, dont les
+   pages sont fermées et dont on extrait le texte), le même onglet rendait une carte SOMBRE, pleine
+   largeur, sans page. Deux rapports voisins dans la même liste n'avaient donc rien en commun.
+   On aligne le second sur le premier : une PAGE. Fond papier, texte noir, largeur de lecture bornée
+   et centrée, ombre douce, sur le même fond sombre que la visionneuse.
+   ⚠️ OUI, UNE PAGE BLANCHE DANS UN DESK SOMBRE, ET C'EST DÉLIBÉRÉ. Ce n'est pas un écart à la
+   charte : c'est exactement ce que le desk affiche déjà pour tout rapport livré en PDF natif. Le
+   choix a été fait le jour où l'on a embarqué la visionneuse ; ici on cesse de le contredire une
+   fois sur deux. La marge sombre autour de la page reste, elle, aux couleurs du desk.
+   ⚠️ LA LARGEUR EST BORNÉE À 860 px, et ce n'est pas une coquetterie : une ligne de texte qui court
+   sur 1400 px oblige l'œil à retrouver le début de la ligne suivante à chaque retour. Une note de
+   recherche se lit en colonne, comme dans le PDF dont elle est tirée. */
+.br-document {
+  background: #ffffff;
+  color: #1a1a1e;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 46px 58px 56px;
+  min-height: auto;
+  border-radius: 3px;
+  box-shadow: 0 2px 18px rgba(0, 0, 0, .45);
+}
+/* La page hérite des couleurs d'encre, jamais des couleurs d'écran : tout ce qui portait un ton
+   clair pour un fond sombre est repris ici, sinon le texte resterait blanc sur blanc. */
+.br-document .br-doc-title { color: #101014; }
+.br-document .br-doc-subtitle,
+.br-document .br-ing-lead { color: #3d3d46; }
+.br-document .br-doc-body,
+.br-document .br-doc-body p,
+.br-document .br-doc-body li { color: #26262c; }
+.br-document .br-doc-body strong,
+.br-document .br-doc-body b,
+.br-document .br-doc-body h1,
+.br-document .br-doc-body h2,
+.br-document .br-doc-body h3 { color: #101014; }
+.br-document .br-doc-body a { color: #8a6d20; }
+.br-document .br-doc-body blockquote { color: #3d3d46; border-left-color: #d9d9e0; }
+.br-document .br-doc-body figcaption { color: #62626c; }
+.br-document .br-doc-body th { color: #101014; }
+.br-document .br-doc-body th,
+.br-document .br-doc-body td { border-color: #e2e2e8; }
+.br-document .br-ing-meta,
+.br-document .br-ing-date,
+.br-document .br-ing-type { color: #62626c; }
+.br-document .br-ing-sep { color: #c4c4cc; }
+.br-document .br-ing-tagline { color: #101014; }
+.br-document .br-ing-divider,
+.br-document .br-doc-divider { background: #e2e2e8; }
+/* Le filet de l'accroche garde l'or de la maison : c'est la seule marque DTP sur une page qui,
+   par ailleurs, appartient à l'éditeur. */
+.br-document .br-ing-lead { border-left-color: #b8860b; }
+.br-document .br-ing-country { color: #8a6d20; }
+
 /* ── Header ING Think (logo + tagline) ── */
 .br-ing-header {
   display: flex;
@@ -10140,18 +10201,28 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
    30/08 (capture user, « quand on clique sur le pdf ça affiche comme ça ») : le fond BLANC était
    posé EN PERMANENCE : pendant « Chargement du PDF… » toute la zone flashait en blanc, un rapport
    court laissait un vide blanc sous lui, et l'ascenseur de la zone se peignait en CLAIR : la
-   « 2ᵉ barre de scroll » claire déjà signalée par l'utilisateur. Le blanc n'appartient qu'au
-   DOCUMENT (le papier) : il n'est posé que quand un article est affiché (:has) ; chargements,
-   PDF (canvas et iframe ont leur fond sombre propre) et états d'attente restent sur le fond du
-   desk, et l'ascenseur reste noir. */
+   « 2ᵉ barre de scroll » claire déjà signalée par l'utilisateur.
+   ⚠️ ET LA CONCLUSION DE CETTE NOTE ÉTAIT JUSTE, MAIS APPLIQUÉE AU MAUVAIS ÉLÉMENT (corrigé le
+   09/09). Elle dit : « le blanc n'appartient qu'au DOCUMENT (le papier) ». C'est exactement cela.
+   Or la règle qui suivait peignait en blanc le CONTENEUR QUI DÉFILE, pendant que `.br-document`
+   gardait son fond sombre. Résultat, sur la capture envoyée par l'utilisateur : une carte sombre
+   flottant au milieu d'une large marge blanche, tout l'inverse d'une page — « c'est mal affiché,
+   affiche bien comme leur PDF ». Le blanc était au bon endroit dans le commentaire et au mauvais
+   dans le code, ce qui est la façon la plus sûre de ne jamais être relu.
+   On échange donc les deux : la zone qui défile revient au fond du desk (l'ascenseur reste noir,
+   ce que la note voulait déjà), et c'est `.br-document` qui devient le papier — largeur bornée,
+   centré, ombre douce. Voir le bloc « LE RAPPORT SE PRÉSENTE COMME UN DOCUMENT ». */
 #br-rcontent {
   background: var(--bg);
-  padding: 0;
+  /* La marge qui entoure la page. Elle vit ICI et pas sur `.br-rcontent` : un sélecteur d'identité
+     l'emporte sur une classe, et la règle de classe serait restée muette — le piège que la note du
+     bloc mobile, juste en dessous, décrit déjà pour le remplissage bas. */
+  padding: 26px 24px 40px;
   overflow-y: auto;
   flex: 1;
   min-width: 0;
 }
-#br-rcontent:has(.br-document) { background: #fff; }
+#br-rcontent.br-rcontent--pdf { padding: 0; }
 /* La barre d'accueil iOS mange la fin de ce qui défile — même raison, même remède que
    `#arlib-rcontent` (bloc ≤768). ⚠️ ET LA RÈGLE VIT ICI, PAS DANS LE BLOC MOBILE : `#br-rcontent
    { padding: 0 }` juste au-dessus a la même spécificité et gagnerait par l'ordre du source. C'est
