@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260910-bannis-suspendus', ts: Date.UTC(2026, 8, 10, 11, 0), title: 'Un membre banni sur la plateforme de paiement passe en suspendu sur le desk', desc: 'Fonction d’administration. Bannir quelqu’un côté plateforme de paiement ne fermait pas son accès au desk : il fallait le faire une seconde fois, à la main, et la liste des suspendus dérivait. Elle se synchronise désormais toute seule, toutes les demi-heures. UNE PRÉCAUTION QUI EXPLIQUE TOUT LE RESTE : c’est la seule automatisation du produit qui COUPE un accès. Toutes les autres ne font que prolonger, parce qu’on ne coupe pas un payeur sur un doute. Or un bannissement et une simple fin d’abonnement ressortent souvent avec le MÊME statut côté plateforme. Déduire l’un de l’autre suspendrait tout abonné arrivé au bout de sa période, y compris pendant les quelques secondes d’un renouvellement. La synchronisation n’agit donc que sur un signal EXPLICITE de bannissement : une résiliation, une expiration, un paiement en retard ou une adhésion simplement invalide ne déclenchent rien. Les comptes administrateurs sont hors de portée, chaque suspension est journalisée avec la raison qui l’a déclenchée, et rien n’est jamais réactivé par ce chemin : un membre débanni retrouve son accès par la réconciliation habituelle, celle qui prolonge. UN ÉCRAN DE VÉRIFICATION accompagne la fonction, parce que le nom du champ qui signale un bannissement se constate sur la vraie réponse de la plateforme et ne se devine pas.' },
   { id: 'dtpu-20260910-apercus-widgets', ts: Date.UTC(2026, 8, 10, 9, 0), title: 'Scenario Desk et le critère de Kelly ont enfin leur aperçu dans la bibliothèque', desc: 'Vous nous avez demandé un aperçu pour la carte Scenario Desk. Elle n’en avait pas : elle retombait sur l’icône générique, celle qui dit la catégorie et pas ce que la carte affiche. Son aperçu montre maintenant ce qu’elle a de particulier, et qu’aucune autre carte ne produit : une échéance et les deux seuils qui l’encadrent, au-dessus la devise se renforce, en dessous elle s’affaiblit, le consensus au milieu. La lecture entière du widget en un coup d’œil. LE NOUVEAU WIDGET KELLY EN A REÇU UN AU PASSAGE, et il faut dire pourquoi : en l’ajoutant, nous avions oublié le sien. Rien ne l’aurait signalé, la bibliothèque se rabat en silence sur l’icône. C’est vous qui l’aviez remarqué sur Scenario Desk. Un contrôle automatique refuse désormais qu’une carte de la bibliothèque se présente sans son aperçu propre : le prochain widget ne pourra plus arriver sans.' },
   { id: 'dtpu-20260910-dmx-chargement', ts: Date.UTC(2026, 8, 10, 8, 0), title: 'Le positionnement des particuliers ne tourne plus dans le vide', desc: 'Vous nous avez envoyé la capture d’un widget DMX figé sur son animation de chargement. LA CAUSE ÉTAIT ÉCRITE DANS LE CODE, ET PRISE POUR UNE QUALITÉ. Une note disait que cette donnée arrive instantanément depuis la mémoire, et qu’elle ne fait attendre qu’au tout premier chargement. C’est exact, mais ce premier chargement est celui d’un serveur qui vient de redémarrer, donc celui qui suit CHAQUE mise à jour de la plateforme. Et pour ce premier chargement, le serveur ouvre un navigateur et va se connecter à la source, une opération qui peut dépasser la minute. Pendant ce temps, le desk attendait, sans limite et sans rien dire. DEUX GARDE-FOUS, ET ILS SE COMPLÈTENT. Le serveur borne désormais son attente : au-delà de huit secondes il répond « je cherche encore » au lieu de faire patienter, et la récupération continue de son côté pour remplir la mémoire. Et le desk borne la sienne, parce que le serveur ne peut rien contre un réseau qui ne répond plus ou un ordinateur qui sort de veille. TROIS SITUATIONS, TROIS PHRASES. Je cherche encore, et je redemande tout seul dans dix secondes. La source n’a rien publié, et je réessaie plus lentement. Erreur de connexion, avec un bouton. Elles partageaient un seul message auparavant, et aucune ne réessayait : le widget restait sur sa phrase pour toujours.' },
   { id: 'dtpu-20260909-jauge-journal-directs', ts: Date.UTC(2026, 8, 9, 23, 0), title: 'La jauge de risque se sert enfin de tout son arc, et trois autres réglages de lecture', desc: 'Quatre retours, quatre corrections. LA JAUGE DE SENTIMENT DE RISQUE SEMBLAIT TOUJOURS AU MILIEU. Ce n’était pas une illusion : son arc va de moins cent à plus cent, alors que le score de risque vit, en régime ordinaire, entre moins trente et plus trente. Les trois quarts de l’arc ne servaient jamais, et deux séances aux humeurs franchement différentes plaçaient l’aiguille à quelques degrés l’une de l’autre. La course est désormais étendue au centre : un score de quinze occupe un tiers de la demi-course au lieu d’un septième. UNE PRÉCISION QUI COMPTE : c’est la PLACE qui change, pas le chiffre. Le pourcentage écrit sous la jauge et le régime affiché restent exactement ceux du serveur, l’ordre de deux valeurs n’est jamais inversé, et le centre comme les extrêmes ne bougent pas d’un pixel. Même principe qu’une échelle logarithmique sur un graphique. LA RANGÉE DE STATISTIQUES DU JOURNAL SE LIT ENFIN. Les intitulés étaient à neuf pixels dans un gris trop sombre, les valeurs à la même taille que le texte autour, et rien ne reliait un intitulé à son nombre. Intitulés plus clairs, valeurs nettement plus grandes, un filet fin entre chaque bloc, et le taux de réussite à l’or de la maison. LA COURBE DE FORCE DES DEVISES DANS LES RÉCAPS prend maintenant toute la largeur du texte : elle s’arrêtait avant, parce qu’elle était encore une image calibrée pour un e-mail. Elle est devenue un graphique, donc elle n’a plus de largeur naturelle à respecter. LES CARTES DE DIRECT tentent toujours la diffusion de la chaîne avant de se rabattre sur une rediffusion. Elles la sautaient quand le serveur avait conclu que la chaîne n’émettait pas — un verdict tiré d’une page que la plateforme vidéo refuse parfois de servir, ce qui donnait une rediffusion sous un titre Live pendant que la chaîne émettait.' },
@@ -4236,6 +4237,76 @@ async function _whopGhostSweep() {
 // (notamment pendant un rebuild du conteneur) → le reconcile devient le VRAI chemin de mise à jour.
 // Il est LÉGER (1-2 appels API) → toutes les 10 MIN : un paiement apparaît en ≤10 min même sans
 // webhook. Le balayage fantômes, LOURD (~10 appels paginés + paiements), reste boot + 6 h.
+/* ══ BANNIS WHOP → LISTE DES SUSPENDUS ══════════════════════════════════════════════════════════
+   Demande de l'utilisateur (09/09) : « les membres bannis du Whop, je veux les ajouter dans la
+   liste des suspendus, avec leur adresse, pour que la liste soit synchro et à jour ».
+
+   ⚠️ CETTE BOUCLE COUPE DES ACCÈS. C'est la seule du fichier qui aille dans ce sens : la
+   réconciliation ordinaire, elle, ne fait qu'ÉTENDRE, « on ne coupe pas un payeur sur un doute ».
+   Trois garde-fous, et chacun ferme une façon connue de nuire :
+     1. UN SIGNAL EXPLICITE, JAMAIS UNE DÉDUCTION. `whop.listBannedMemberships` n'accepte qu'un
+        champ de bannissement valant exactement `true` (ou le statut littéral « banned »). Un
+        abonnement simplement `canceled` ou `expired` n'est PAS un bannissement : le confondre
+        suspendrait tout client arrivé au bout de sa période, y compris à l'instant précis d'un
+        renouvellement. Ce dépôt garde la mémoire d'un accès révoqué à tort, trois semaines
+        d'abonnement perdues ; on ne recommence pas sur une supposition.
+     2. LES ADMINISTRATEURS SONT INTOUCHABLES, et un compte DÉJÀ suspendu n'est pas retouché — sans
+        quoi la boucle réécrirait la même ligne toutes les dix minutes pour rien.
+     3. TOUT EST TRACÉ. Chaque suspension est journalisée avec l'adresse et le marqueur qui l'a
+        déclenchée, et le dernier passage est exposé au panneau admin. Une révocation d'accès sans
+        trace est exactement ce qui a rendu l'incident de septembre introuvable pendant trois
+        semaines.
+   ⚠️ LE RETOUR EN ARRIÈRE N'EST PAS ÉCRIT, ET C'EST VOULU : un membre débanni dont l'adhésion
+   redevient valide est réactivé par `_whopReconcile`, qui prolonge et réactive déjà. Écrire une
+   réactivation ici ferait deux chemins pour la même chose. */
+let _whopBanLast = { ts: 0, vus: 0, bannis: 0, suspendus: 0, error: null };
+async function _whopBanSync() {
+  if (!whop.configured()) return { ok: false, reason: 'whop non configuré' };
+  if (typeof whop.listBannedMemberships !== 'function') return { ok: false, reason: 'API bannissements indisponible' };
+  let r;
+  try { r = await whop.listBannedMemberships(); }
+  catch (e) { _whopBanLast = { ts: Date.now(), vus: 0, bannis: 0, suspendus: 0, error: e.message }; return { ok: false, reason: e.message }; }
+  const bannis = (r && r.bannis) || [];
+  let users = []; try { users = await auth.getAllUsers(); } catch {}
+  const byEmail = new Map((users || []).map(u => [(u.email || '').toLowerCase(), u]));
+  let suspendus = 0;
+  for (const b of bannis) {
+    const u = byEmail.get(String(b.email || '').toLowerCase());
+    if (!u || u.role === 'admin') continue;      // garde-fou 2
+    if (u.active === false) continue;            // déjà suspendu : rien à réécrire
+    try {
+      await auth.updateUser(u.id, { active: false });
+      suspendus++;
+      console.log('[Whop bans] compte SUSPENDU : ' + b.email + ' (marqueur ' + b.marque + ', statut ' + (b.status || 'n.c.') + ')');
+    } catch (e) { console.error('[Whop bans] ' + b.email + ' :', e.message); }
+  }
+  _whopBanLast = { ts: Date.now(), vus: (r && r.vus) || 0, bannis: bannis.length, suspendus, error: null };
+  if (suspendus) console.log('[Whop bans] ' + suspendus + ' compte(s) suspendu(s) sur ' + bannis.length + ' bannissement(s) lu(s)');
+  return { ok: true, vus: _whopBanLast.vus, bannis: bannis.length, suspendus };
+}
+setTimeout(() => { _whopBanSync().catch(e => console.error('[Whop bans] boot:', e.message)); }, 90 * 1000);
+setInterval(() => { _whopBanSync().catch(e => console.error('[Whop bans] cycle:', e.message)); }, 30 * 60 * 1000);
+
+/* DIAGNOSTIC ADMIN. Indispensable, et pas décoratif : le nom exact du champ de bannissement ne peut
+   pas être deviné depuis le code, il se CONSTATE sur la réponse réelle de la plateforme. Cette route
+   montre ce qui a été lu — les bannissements détectés avec leur marqueur, et, quand rien n'est
+   détecté, un échantillon des champs de statut réellement reçus. Si vous bannissez quelqu'un dans le
+   tableau de bord Whop et qu'il n'apparait pas ici, l'échantillon dit sous quel nom le chercher. */
+app.get('/api/admin/whop/bannis', requireAuth, requireAdmin, async (_req, res) => {
+  if (!whop.configured()) return res.json({ ok: false, reason: 'whop non configuré' });
+  try {
+    const r = await whop.listBannedMemberships({ diag: true });
+    res.json({ ok: true, last: _whopBanLast, vus: r.vus, bannis: r.bannis, echantillon: r.echantillon,
+      note: r.bannis.length ? undefined
+        : 'Aucun bannissement explicite trouvé. Si un membre est banni côté Whop, comparez « echantillon » : le champ qui le signale doit y apparaitre.' });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+// Déclenchement à la main (le cycle tourne toutes les 30 min).
+app.get('/api/admin/whop/bannis/sync', requireAuth, requireAdmin, async (_req, res) => {
+  try { const r = await _whopBanSync(); res.json(Object.assign({ last: _whopBanLast }, r)); }
+  catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 setTimeout(() => { _whopReconcile().catch(e => console.error('[Whop reconcile] boot:', e.message)); }, 60 * 1000);
 setInterval(() => { _whopReconcile().catch(e => console.error('[Whop reconcile] cycle:', e.message)); }, 10 * 60 * 1000);
 setTimeout(() => { _whopGhostSweep().catch(e => console.error('[Whop fantôme] boot:', e.message)); }, 2 * 60 * 1000);
@@ -7297,6 +7368,7 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
          apprend l'arrêt par un client ; c'est très exactement l'histoire du keep-alive resté
          vert deux mois et demi en ne pinguant rien. Elle s'affiche donc à côté des bases. */
       whop: _whopReconLast || null,
+      whopBans: _whopBanLast || null,
       alerts: { log: _aiAlertLog.slice(0, 40), incidents: _aiAlertSent },   // journal INFO/incidents (le monitoring voit TOUT ; l'email est calibré sur l'impact réel)
     });
   } catch (e) { res.status(500).json({ error: e.message }); }

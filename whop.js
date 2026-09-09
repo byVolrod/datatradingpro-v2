@@ -342,6 +342,67 @@ async function listAllMemberEmails() {
   return [...byEmail.values()].map(v => ({ email: v.email, name: v.name, statuses: [...v.statuses] }));
 }
 
+/* ══ BANNISSEMENTS WHOP ═════════════════════════════════════════════════════════════════════════
+   Demande de l'utilisateur (09/09) : « les membres bannis du Whop, je veux les ajouter dans la
+   liste des suspendus, avec leur adresse, pour que la liste soit synchro et à jour ».
+
+   ⚠️ LE PIÈGE, ET IL COÛTE CHER. Un bannissement et une simple résiliation ressortent souvent avec
+   le MÊME statut d'adhésion (`canceled`). Traiter « canceled » comme un bannissement suspendrait
+   tout abonné arrivé au bout de son abonnement — c'est-à-dire, un jour, un client qui vient de
+   payer et dont l'adhésion se renouvelle. Ce dépôt garde la mémoire d'un accès révoqué à tort :
+   trois semaines d'abonnement perdues et un client qui ne pouvait plus se connecter. On ne
+   reproduira pas cela sur une DÉDUCTION.
+   On exige donc un signal EXPLICITE de bannissement, jamais l'absence de validité. Plusieurs noms
+   de champ sont acceptés parce que la plateforme les nomme différemment selon l'endroit d'où vient
+   l'objet ; chacun doit valoir exactement `true` (ou le statut littéral « banned »). Aucun signal =
+   aucune suspension, et c'est le bon défaut : ne rien faire ne casse rien.
+   ⚠️ ET ON NE FAIT QUE SUSPENDRE. Le retour en arrière n'a pas besoin d'être écrit : un membre
+   débanni dont l'adhésion redevient valide est réactivé par la réconciliation ordinaire, qui
+   PROLONGE et RÉACTIVE. La seule direction dangereuse est celle qui coupe l'accès ; c'est donc la
+   seule qui exige une preuve. */
+function _whopBanMarqueur(m) {
+  if (!m || typeof m !== 'object') return null;
+  const vrai = (v) => v === true;
+  if (vrai(m.banned)) return 'banned';
+  if (vrai(m.is_banned)) return 'is_banned';
+  if (vrai(m.member_banned)) return 'member_banned';
+  if (String(m.status || '').toLowerCase() === 'banned') return 'status=banned';
+  const u = m.user && typeof m.user === 'object' ? m.user : null;
+  if (u && vrai(u.banned)) return 'user.banned';
+  const mb = m.member && typeof m.member === 'object' ? m.member : null;
+  if (mb && vrai(mb.banned)) return 'member.banned';
+  return null;
+}
+
+/* Les adhésions DTP portant un signal EXPLICITE de bannissement.
+   `diag` demande, en plus, un échantillon BRUT des champs de statut réellement reçus : c'est la
+   seule façon de vérifier depuis la production quel nom de champ la plateforme emploie vraiment,
+   puisqu'on ne peut pas l'inventer depuis le code. */
+async function listBannedMemberships(opts) {
+  if (!WHOP_API_KEY) return { bannis: [], vus: 0, echantillon: [] };
+  const bannis = []; const echantillon = [];
+  let page = 1, totalPages = 1, vus = 0;
+  do {
+    let r; try { r = await fetch(`${BASE}/memberships?per=50&page=${page}&product_id=${DTP_PRODUCT}`, { headers: _auth() }); } catch { break; }
+    if (!r.ok) break;
+    const j = await r.json();
+    const data = Array.isArray(j) ? j : (j.data || []);
+    for (const m of data) {
+      if (m.product && m.product !== DTP_PRODUCT) continue;
+      vus++;
+      const em = _memEmail(m);
+      const marque = _whopBanMarqueur(m);
+      if (marque && em) bannis.push({ email: em, name: _memName(m), marque, status: m.status || '', id: m.id || null });
+      if (opts && opts.diag && echantillon.length < 8) {
+        echantillon.push({ email: em || null, status: m.status || null, valid: m.valid === true,
+          champs: Object.keys(m).filter(k => /ban|status|valid|state/i.test(k)) });
+      }
+    }
+    const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
+  } while (page <= totalPages && page <= 20);
+  return { bannis, vus, echantillon };
+}
+
 // TOUS les memberships DTP, TOUS statuts (canceled/expired inclus) — sert au balayage « accès
 // fantômes » (_whopGhostSweep, server.js) : il faut voir les adhésions MORTES, ce que
 // listValidMemberships (filtre valid=true) ne remonte jamais.
@@ -504,4 +565,4 @@ async function revenueStats(opts) {
 }
 
 module.exports = {
-  findEmailByUsername, productId: DTP_PRODUCT, getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, listAllMemberships, listPayments, listReviews, revenueStats, configured: () => !!WHOP_API_KEY };
+  findEmailByUsername, productId: DTP_PRODUCT, getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, listAllMemberEmails, listAllMemberships, listBannedMemberships, listPayments, listReviews, revenueStats, configured: () => !!WHOP_API_KEY };
