@@ -14415,11 +14415,26 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrOpenPop(anchor, html) {
     _jrClosePop();
     const p = document.createElement('div'); p.className = 'jr-pop'; p.innerHTML = html; document.body.appendChild(p);
+    /* ⚠️ LE ZOOM DU DESK, ET LE DÉPÔT AVAIT DÉJÀ LA RÉPONSE (10/09, capture user : « met la liste
+       déroulante bien en dessous du compte affiché »). `html { zoom: var(--dtp-zoom) }` vaut .9 par
+       défaut et se règle PAR COMPTE de .7 à 1.2. `getBoundingClientRect()` rend des pixels ÉCRAN,
+       alors que le `top`/`left` écrit sur un enfant de <body> est RE-multiplié par ce même zoom :
+       sans division, la bulle dérive de (1 − zoom) × sa distance au coin haut-gauche. Mesuré ici :
+       le code demandait top 38,28 et left 13,59, le menu atterrissait à 34 et 12 — et sa largeur
+       demandée de 198 se rendait à 178. Trois nombres, tous à 0,9×.
+       PRÈS DU COIN, C'EST INVISIBLE ; PLUS BAS, ÇA SE VOIT. À 600px du haut, le menu remonte de
+       60px et recouvre le contrôle qui l'a ouvert. C'est exactement ce que dit le commentaire de
+       `facteurZoom`, écrit pour la bulle d'aide : « le genre de bug qu'on ne voit pas sur sa
+       propre machine ». La fonction existait ; ces menus-ci ne l'appelaient pas. Elle couvre donc
+       AUSSI le menu Propriétés et tous les éditeurs de cellule, qui dérivaient pareil.
+       L'écart passe à 6px : « bien en dessous », pas collé au bord du contrôle. */
+    const z = facteurZoom();
     const r = anchor.getBoundingClientRect();
-    p.style.minWidth = Math.max(r.width, 198) + 'px';
-    let left = r.left, top = r.bottom + 4;
-    if (left + p.offsetWidth > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - p.offsetWidth);
-    if (top + p.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - p.offsetHeight - 4);
+    p.style.minWidth = Math.max(r.width, 198) / z + 'px';
+    let left = r.left / z, top = (r.bottom + 6) / z;
+    const vw = window.innerWidth / z, vh = window.innerHeight / z;
+    if (left + p.offsetWidth > vw - 8) left = Math.max(8, vw - 8 - p.offsetWidth);
+    if (top + p.offsetHeight > vh - 8) top = Math.max(8, (r.top - 6) / z - p.offsetHeight);
     p.style.left = left + 'px'; p.style.top = top + 'px';
     _jrPop = p;
     _jrPopOut = ev => { if (_jrPop && !_jrPop.contains(ev.target) && !anchor.contains(ev.target)) _jrClosePop(); };

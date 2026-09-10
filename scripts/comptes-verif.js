@@ -204,6 +204,11 @@ t('le compte actif se signale (les statistiques affichées sont partielles)',
   /* ⚠️ LE VRAI COMPOSANT DE MENU, PAS UN BOUCHON. Le sélecteur ouvre `.jr-pop` — le même menu
      que « Propriétés ». Un bouchon dirait « le menu s'ouvre » sans rien prouver du positionnement
      ni de la fermeture, et surtout il ne dériverait pas le jour où le composant change. */
+  /* Le facteur de zoom est une DÉPENDANCE de `_jrOpenPop` depuis le 10/09 : sans elle, la bulle
+     est bien ajoutée au DOM mais jamais positionnée — elle tombe à sa position statique, très
+     loin sous le contrôle. On extrait la vraie, du même fichier, jamais un bouchon qui rendrait 1
+     et masquerait précisément le défaut que ces contrôles surveillent. */
+  const srcZoom = entre('  var facteurZoom = function () {', '  /* La bulle est posée SUR <body>');
   const srcPop = entre('  let _jrPop = null, _jrPopOut = null;', '  function _jrEditCell(td) {')
     .replace(/  let _jrDragK[^\n]*\n/, '');
 
@@ -222,6 +227,7 @@ t('le compte actif se signale (les statistiques affichées sont partielles)',
       + 'function _jrScope(){ return _jrCompte ? _jrList.filter(e => String(e.account||"") === _jrCompte) : _jrList; }\n'
       + 'function _jrComptesConnus(){ var v = new Set(_jrComptes.filter(Boolean)); _jrList.forEach(function(e){ var a=String(e.account||"").trim(); if(a) v.add(a); }); return [...v].sort(); }\n'
       + 'function _jrCompteSet(n){ _jrCompte = String(n||""); _jrStartCap = _jrCaps[_jrCompte] != null ? _jrCaps[_jrCompte] : null; _jrRenderComptes(); }\n'
+      + srcZoom + '\n'
       + srcPop + '\n'
       + srcRendu + '\n'
       + '_jrRenderComptes();\n'
@@ -253,7 +259,38 @@ t('le compte actif se signale (les statistiques affichées sont partielles)',
       opts.every(v => !/\uFFFD|\u0000/.test(v)), JSON.stringify(opts));
     t('… et c\'est bien le menu DU DESK, pas celui du système',
       await page.evaluate(() => !!document.querySelector('.jr-pop .jr-pop-opt') && document.getElementById('jr-cpt-sel').tagName === 'BUTTON'));
-    await page.evaluate(() => { const p = document.querySelector('.jr-pop'); if (p) p.remove(); });
+    /* ⚠️ LE MENU DOIT TOMBER SOUS SON CONTRÔLE, À TOUS LES ZOOMS (10/09, capture user : « met la
+       liste déroulante bien en dessous du compte affiché »). `html { zoom: var(--dtp-zoom) }` vaut
+       .9 par défaut et se règle PAR COMPTE de .7 à 1.2 : `getBoundingClientRect()` rend des pixels
+       ÉCRAN, le `top`/`left` écrit sur un enfant de <body> est re-multiplié par ce zoom, et la
+       bulle dérivait de (1 − zoom) × sa distance au coin haut-gauche. Invisible en haut de page,
+       franc plus bas — le genre de défaut qu'on ne voit pas sur sa propre machine, et qu'aucune
+       relecture n'attrape. On MESURE donc l'écart réel, à trois zooms.
+       LE REPLI AU-DESSUS EST LÉGITIME et fait partie du contrat : quand le menu ne tient plus
+       sous le contrôle, il passe dessus, à la même distance. Un contrôle qui l'interdirait
+       exigerait un menu hors écran. */
+    for (const zoom of ['.9', '.7', '1.2']) {
+      await page.evaluate(z => { const p = document.querySelector('.jr-pop'); if (p) p.remove();
+        document.documentElement.style.setProperty('--dtp-zoom', z); }, zoom);
+      await new Promise(r => setTimeout(r, 120));
+      await page.click('#jr-cpt-sel');
+      await new Promise(r => setTimeout(r, 160));
+      const pos = await page.evaluate(() => {
+        const b = document.getElementById('jr-cpt-sel').getBoundingClientRect();
+        const p = document.querySelector('.jr-pop'); if (!p) return null;
+        const r = p.getBoundingClientRect();
+        return { dx: Math.round((r.x - b.x) * 10) / 10,
+          sous: Math.round((r.y - b.bottom) * 10) / 10,      // > 0 : posé dessous
+          dessus: Math.round((b.y - r.bottom) * 10) / 10 };   // > 0 : replié au-dessus
+      });
+      const cale = pos && (Math.abs(pos.sous - 6) <= 1.5 || Math.abs(pos.dessus - 6) <= 1.5);
+      t('zoom ' + zoom + ' — le menu se cale à 6px du contrôle (dessous, ou dessus s\'il ne tient pas)',
+        !!cale, JSON.stringify(pos));
+      t('zoom ' + zoom + ' — … et son bord gauche est celui du contrôle',
+        !!pos && Math.abs(pos.dx) <= 2, pos ? pos.dx + 'px' : 'menu absent');
+    }
+    await page.evaluate(() => { const p = document.querySelector('.jr-pop'); if (p) p.remove();
+      document.documentElement.style.removeProperty('--dtp-zoom'); });
 
     /* LE CONTRÔLE QUI AURAIT ATTRAPÉ LE DÉFAUT : on clique, et on regarde si quelque chose arrive. */
     await page.click('#jr-cpt-plus');
