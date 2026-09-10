@@ -273,6 +273,22 @@ if (bash) {
     iPrune(tendu) >= 0 && iBuild(tendu) >= 0 && iPrune(tendu) < iBuild(tendu),
     'à 100 %, nginx tronque en silence toute réponse de plus de ~750 Ko (07/09) : nettoyer après coup ne protège de rien.\n' + tendu);
 
+  /* LE VERROU EST UN CONTRAT ENTRE DEUX SCRIPTS, pas un détail de chacun. La sentinelle saute ses
+     purges Docker quand il est pris ; le tireur le prend le temps d'une construction. Deux valeurs
+     par défaut qui divergeraient, et la sentinelle surveillerait un fichier que plus personne ne
+     prend — elle purgerait EN PLEIN BUILD, sans rien signaler. On compare donc les DEUX littéraux,
+     lus dans les deux fichiers. */
+  const AUTO_BRUT = lire('scripts/vps-autodeploiement.sh');
+  const SENT_BRUT = lire('scripts/vps/dtp-disque.sh');
+  const dflt = (txt, re) => { const m = directives(txt).match(re); return m ? m[1] : null; };
+  const vTireur = dflt(AUTO_BRUT, /exec 9>"\$\{DTP_VERROU:-([^}"]+)\}"/);
+  const vSentinelle = dflt(SENT_BRUT, /VERROU_DEPLOIEMENT="\$\{DTP_VERROU:-([^}"]+)\}"/);
+  v('le tireur et la sentinelle lisent la MÊME variable de verrou (DTP_VERROU)',
+    !!vTireur && !!vSentinelle, 'tireur=' + vTireur + ' sentinelle=' + vSentinelle);
+  v('… et la même valeur par défaut', !!vTireur && vTireur === vSentinelle,
+    'divergentes, la sentinelle surveille un verrou que personne ne prend et purge pendant un build : ' +
+    vTireur + ' ≠ ' + vSentinelle);
+
   console.log('\n── Ce que chaque construction écrit sur le disque ──');
   /* `COPY . .` est la DERNIÈRE couche du Dockerfile, donc celle qui change à chaque commit : tout
      ce qu'elle contient est réécrit ENTIÈREMENT à chaque construction, puis gardé une semaine par

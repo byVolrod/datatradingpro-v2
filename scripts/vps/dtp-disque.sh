@@ -67,7 +67,13 @@ DERNIER_MAIL="$ETAT_DIR/dernier-mail"
 DERNIER_MENAGE="$ETAT_DIR/dernier-menage"
 CLEAN_LOG="$ETAT_DIR/nettoyages.log"
 BALLAST="${DTP_BALLAST:-$ETAT_DIR/ballast.tampon}"
-VERROU_DEPLOIEMENT="/run/dtp-autodeploiement.lock"
+# ⚠️ MÊME VALEUR, MÊME VARIABLE QUE LE TIREUR (vps-autodeploiement.sh). Ce chemin est un CONTRAT
+# entre deux scripts : la sentinelle saute ses purges Docker quand ce verrou est pris, pour ne
+# pas retirer des couches sous une construction en cours. Codé en dur d'un côté et surchargeable
+# de l'autre, il suffirait de poser DTP_VERROU pour que la sentinelle regarde un fichier que plus
+# personne ne prend — elle purgerait alors EN PLEIN BUILD, sans rien signaler. Un banc tient
+# l'égalité des deux valeurs par défaut.
+VERROU_DEPLOIEMENT="${DTP_VERROU:-/run/dtp-autodeploiement.lock}"
 # ── HEARTBEAT MUTUEL (volume partagé avec le conteneur) ──────────────────────────────────────────
 # La sentinelle et le moniteur applicatif se surveillent L'UN L'AUTRE. Chacun écrit son battement
 # ici ; chacun lit celui de l'autre. Ainsi la mort de l'un est DÉTECTABLE par l'autre :
