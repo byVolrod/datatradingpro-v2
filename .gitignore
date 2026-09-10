@@ -89,4 +89,8 @@ gtest/
 
 # ── Planche d'aperçu téléphone (image produite par scripts/mobile-apercu.js) ─────
 apercu-mobile*.png
+# ── Planche d'aperçu bureau (image produite par scripts/desk-apercu.js) ─────────
+# Oubliée quand l'outil bureau a été créé : seule sa jumelle téléphone était ignorée,
+# et l'image a fini par entrer dans un commit (10/09). Même règle pour les deux.
+apercu-desk*.png
 mobile/node_modules/
