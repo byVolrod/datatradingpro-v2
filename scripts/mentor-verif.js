@@ -83,6 +83,45 @@ if (FILS) {
     'c\'est la raison pour laquelle l\'ancien champ « watch » avait été retiré en v17');
 }
 
+/* ── 5. LE HEBDO AU MÊME NIVEAU QUE LE QUOTIDIEN (v51, 10/09) ─────────────────────────────────────
+   Mesuré avant d'écrire quoi que ce soit : le prompt du récap HEBDO ne portait AUCUNE des sept
+   règles gagnées de la comparaison au mentor, et son exemple était très exactement la forme que le
+   quotidien interdit depuis v27 — « a maintenu son taux à 2,25% », le niveau seul, sans l'ampleur.
+   La cible n'a donc pas eu à être devinée : elle était déjà écrite dans le champ "cb", et épinglée
+   par les contrôles ci-dessus. Ces règles-ci vérifient qu'elle est portée ET qu'elle y reste.
+   ⚠️ LA CLAUSE ANTI-INVENTION COMPTE AUTANT QUE LES AUTRES. Exiger un statut de vote, une série ou
+   une ampleur SANS elle, c'est commander la fabrication de ce qui manque au corpus. Les six
+   premières règles sans la septième rendraient le rapport plus détaillé ET moins vrai. */
+const HEBDO = (() => { const d = SERVER.indexOf('- "macro" = Points Macro Clés'); return d < 0 ? null : SERVER.slice(d, SERVER.indexOf('\n', d)); })();
+
+console.log('\n── 5. Le récap HEBDO porte les mêmes règles que le quotidien ──');
+v('le bloc de consignes macro du hebdo est isolable', !!HEBDO && HEBDO.length > 2000, HEBDO ? HEBDO.length + ' car.' : 'introuvable');
+if (HEBDO) {
+  v('une décision de taux donne l’AMPLEUR **ET** le niveau', /L'AMPLEUR DU GESTE \*\*ET\*\* le niveau/.test(HEBDO),
+    'le niveau seul ne dit pas ce que la banque a fait — c’est la forme que le quotidien interdit depuis v27.');
+  v('… et l’ancien exemple « a maintenu son taux à 2,25% (15 juil.) » a bien disparu',
+    !/ex\. « \*\*BoC :\*\* a maintenu son taux à 2,25%/.test(HEBDO),
+    'un exemple qui montre la forme interdite pèse plus lourd que la règle qui l’interdit.');
+  v('la SÉRIE de décisions est demandée', /LA SÉRIE/.test(HEBDO) && /consécutive/.test(HEBDO));
+  v('l’HORIZON que la banque se donne est une clause à garder', /L'HORIZON QUE LA BANQUE SE DONNE/.test(HEBDO));
+  v('le STATUT DE VOTE est demandé', /LE STATUT DE VOTE/.test(HEBDO) && /non votant/.test(HEBDO));
+  v('⚠️ rien de tout cela ne s’écrit SANS PREUVE dans le corpus', /SANS PREUVE DANS LE CORPUS/.test(HEBDO),
+    'sans cette clause, exiger le détail revient à commander une donnée fabriquée.');
+  v('le veto « UNE SEULE INSTITUTION PAR PUCE » vaut aussi pour le hebdo', /UNE SEULE INSTITUTION PAR PUCE/.test(HEBDO),
+    'décision user du 30/08 (« pourquoi tu mixes ECB et BoJ ») — elle ne s’arrête pas au quotidien.');
+  v('… la qualité de l’intervenant y est obligatoire', /avec sa QUALITÉ/.test(HEBDO));
+  v('… et la discipline de mode (indicatif / conditionnel) aussi', /CONDITIONNEL pour le rapporté/.test(HEBDO));
+}
+
+/* Le bump doit accompagner le prompt, sinon rien ne se régénère et la règle ne s'applique à rien.
+   RECAP_MIN_OK reste DÉLIBÉRÉMENT en arrière : régénérer la semaine déjà écrite exigerait son
+   corpus news complet, que le store ne couvre plus — on appauvrirait un bon rapport. */
+const RV = (SERVER.match(/const RECAP_VER = (\d+)/) || [])[1];
+const RM = (SERVER.match(/const RECAP_MIN_OK = (\d+)/) || [])[1];
+v('RECAP_VER ≥ 51 (le hebdo aligné sur le mentor)', Number(RV) >= 51, 'RECAP_VER=' + RV);
+v('… et RECAP_MIN_OK ne force PAS la régénération de l’édition courante', Number(RM) < Number(RV),
+  'RECAP_MIN_OK=' + RM + ' vs RECAP_VER=' + RV + ' — régénérer la semaine écrite l’appauvrirait (corpus news incomplet).');
+
 console.log('\n── 4. La version est tamponnée, sinon rien n\'est régénéré ──');
 {
   const m = /const FXR_VER = (\d+);/.exec(SERVER);
