@@ -72,6 +72,13 @@ const surfaces = [
   ['la grille et les filtres (_jrView)', /function _jrView\(\)[^\n]*\n\s*let L = _jrScope\(\);/],
   ['le Tableau de bord', /function _jrRenderDashboard\(\) \{\n[^\n]*\n\s*const L = _jrScope\(\);/],
   ['la courbe de capital', /_jrEqSeriesRef\.data\.setAll\(_jrEqData\(_jrScope\(\), m\)\)/],
+  /* ⚠️ LA SOURCE DE LA VUE, ET PAS SEULEMENT SES APPELS (ajouté le 10/09, après un défaut
+     signalé par l'utilisateur QUE CE BANC A LAISSÉ PASSER). Les deux lignes suivantes vérifiaient
+     que le graphique et le total de l'Annuel reçoivent `_jrScope()` — elles étaient vertes,
+     et la vue lisait pourtant `_jrList` à sa première ligne, ce qui alimentait les douze bilans
+     mensuels, le taux de réussite et le total R. Contrôler des feuilles ne contrôle pas le tronc. */
+  ['la SOURCE de l\'onglet Annuel (sa première ligne, celle qui alimente les bilans mensuels)',
+    /function _jrRenderYear\(\)[\s\S]{0,1400}?const L = _jrScope\(\);/],
   ['le graphique de l\'onglet Annuel', /_jrBuildAnTradesChart\(_jrScope\(\), an\)/],
   ['le total de l\'onglet Annuel', /_jrTotalAnnee\(_jrScope\(\), an, u\)/],
   ['le widget Kelly (dtpKellyStats)', /window\.dtpKellyStats = function \(\) \{[\s\S]{0,400}?const L = _jrScope\(\);/],
@@ -194,6 +201,11 @@ t('le compte actif se signale (les statistiques affichées sont partielles)',
   const struct = HTML.slice(HTML.indexOf('<div id="jr-log-view">'), HTML.indexOf('</div>\n      <div id="jr-dashboard"') + 6);
   const entre = (d, f) => APP.slice(APP.indexOf(d), APP.indexOf(f, APP.indexOf(d)));
   const srcRendu = entre('  function _jrRenderComptes() {', '  function _jrRenderStats() {');   // rendu + création
+  /* ⚠️ LE VRAI COMPOSANT DE MENU, PAS UN BOUCHON. Le sélecteur ouvre `.jr-pop` — le même menu
+     que « Propriétés ». Un bouchon dirait « le menu s'ouvre » sans rien prouver du positionnement
+     ni de la fermeture, et surtout il ne dériverait pas le jour où le composant change. */
+  const srcPop = entre('  let _jrPop = null, _jrPopOut = null;', '  function _jrEditCell(td) {')
+    .replace(/  let _jrDragK[^\n]*\n/, '');
 
   const srv = http.createServer((q, r) => {
     if (q.url.startsWith('/css/')) { r.writeHead(200, { 'Content-Type': 'text/css' }); return r.end(fs.readFileSync(path.join(RACINE, 'public', q.url.split('?')[0]))); }
@@ -210,6 +222,7 @@ t('le compte actif se signale (les statistiques affichées sont partielles)',
       + 'function _jrScope(){ return _jrCompte ? _jrList.filter(e => String(e.account||"") === _jrCompte) : _jrList; }\n'
       + 'function _jrComptesConnus(){ var v = new Set(_jrComptes.filter(Boolean)); _jrList.forEach(function(e){ var a=String(e.account||"").trim(); if(a) v.add(a); }); return [...v].sort(); }\n'
       + 'function _jrCompteSet(n){ _jrCompte = String(n||""); _jrStartCap = _jrCaps[_jrCompte] != null ? _jrCaps[_jrCompte] : null; _jrRenderComptes(); }\n'
+      + srcPop + '\n'
       + srcRendu + '\n'
       + '_jrRenderComptes();\n'
       + '<\/script></body></html>');
@@ -227,11 +240,20 @@ t('le compte actif se signale (les statistiques affichées sont partielles)',
 
     console.log('\n[6] Le sélecteur de compte, cliqué pour de vrai');
     t('aucune erreur d\'exécution au montage', !fatales.length, fatales[0]);
-    const opts = await page.evaluate(() => [...document.querySelectorAll('#jr-cpt-sel option')].map(o => o.value));
+    /* ⚠️ ON OUVRE LE MENU AU CLIC, comme un client. Le sélecteur n'est plus un `<select>` depuis
+       le 10/09 : sa liste était dessinée par le SYSTÈME au milieu d'un desk qui a son propre
+       composant (`.jr-pop`). Un banc qui interrogerait encore `#jr-cpt-sel option` lirait le
+       vide en croyant lire un menu — c'est ce qui vient d'arriver, et c'est pour ça qu'il rougit
+       plutôt que de se taire. */
+    await page.click('#jr-cpt-sel');
+    const opts = await page.evaluate(() => [...document.querySelectorAll('.jr-pop-opt[data-cpt]')].map(o => o.dataset.cpt));
     t('le menu propose « tous » + les comptes portés par des trades + les comptes déclarés',
       opts[0] === '' && opts.includes('Démo') && opts.includes('Financé') && opts.includes('Prop firm'), JSON.stringify(opts));
-    t('… et AUCUNE option-sentinelle n\'y traîne (le piège du 10/09)',
+    t('… et AUCUNE valeur-sentinelle n\'y traîne (le piège du 10/09)',
       opts.every(v => !/\uFFFD|\u0000/.test(v)), JSON.stringify(opts));
+    t('… et c\'est bien le menu DU DESK, pas celui du système',
+      await page.evaluate(() => !!document.querySelector('.jr-pop .jr-pop-opt') && document.getElementById('jr-cpt-sel').tagName === 'BUTTON'));
+    await page.evaluate(() => { const p = document.querySelector('.jr-pop'); if (p) p.remove(); });
 
     /* LE CONTRÔLE QUI AURAIT ATTRAPÉ LE DÉFAUT : on clique, et on regarde si quelque chose arrive. */
     await page.click('#jr-cpt-plus');
@@ -243,7 +265,7 @@ t('le compte actif se signale (les statistiques affichées sont partielles)',
     const apres = await page.evaluate(() => ({
       actif: window._jrCompte,
       declares: window._jrComptes ? window._jrComptes.slice() : null,
-      sel: document.getElementById('jr-cpt-sel') ? document.getElementById('jr-cpt-sel').value : null,
+      sel: document.getElementById('jr-cpt-sel') ? document.getElementById('jr-cpt-sel').textContent.replace(/[▾\s]+$/, '').trim() : null,
       or: document.getElementById('jr-cpt-sel') ? document.getElementById('jr-cpt-sel').classList.contains('jr-cpt-sel--on') : false,
       sauv: window._sauvegardes,
     }));
@@ -257,7 +279,8 @@ t('le compte actif se signale (les statistiques affichées sont partielles)',
     /* Un compte sans trade doit pouvoir être retiré ; un compte qui en porte, jamais. */
     const xVide = await page.evaluate(() => !!document.getElementById('jr-cpt-x'));
     t('un compte SANS trade porte le bouton de retrait', xVide);
-    await page.evaluate(() => { document.getElementById('jr-cpt-sel').value = 'Démo'; document.getElementById('jr-cpt-sel').dispatchEvent(new Event('change')); });
+    await page.click('#jr-cpt-sel');
+    await page.evaluate(() => { const b = [...document.querySelectorAll('.jr-pop-opt[data-cpt]')].find(x => x.dataset.cpt === 'Démo'); if (b) b.click(); });
     const etatDemo = await page.evaluate(() => ({ actif: window._jrCompte, x: !!document.getElementById('jr-cpt-x'), n: window._jrScope().length }));
     t('basculer sur un compte qui porte des trades le sélectionne', etatDemo.actif === 'Démo' && etatDemo.n === 2, JSON.stringify(etatDemo));
     t('… et ce compte-là n\'a AUCUN bouton de retrait (aucun trade ne part par ce chemin)', etatDemo.x === false);

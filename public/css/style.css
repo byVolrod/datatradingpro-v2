@@ -11075,7 +11075,12 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
    Discret tant qu'on regarde tous les comptes ; à l'or dès qu'un compte est isolé, parce que
    des statistiques partielles doivent se signaler comme telles. ── */
 .jr-comptes { display: flex; align-items: center; gap: 6px; padding: 11px 0 11px 14px; flex: 0 0 auto; }
-.jr-cpt-sel { height: 26px; max-width: 190px; padding: 0 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg3); color: var(--text2); font-size: var(--fs-title); font-family: var(--font-ui); cursor: pointer; }
+/* Le déclencheur du menu de compte : un BOUTON, plus un select — il porte donc lui-même sa
+   flèche et son alignement, que le système fournissait avant. Mêmes hauteur, cadre et jetons que
+   les autres commandes de la bande, pour qu il ne se distingue en rien. */
+.jr-cpt-sel { height: 26px; max-width: 190px; padding: 0 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg3); color: var(--text2); font-size: var(--fs-title); font-family: var(--font-ui); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.jr-cpt-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jr-cpt-chev { margin-left: auto; font-size: 9px; opacity: .7; line-height: 1; }
 .jr-cpt-sel:hover { color: var(--text); border-color: var(--border2); }
 .jr-cpt-sel--on { color: var(--gold, #e3b23a); border-color: rgba(227,178,58,0.42); background: rgba(227,178,58,0.10); font-weight: var(--fw-bold); }
 .jr-cpt-neuf-b { width: 22px; height: 22px; line-height: 1; padding: 0; border: 1px solid rgba(227,178,58,0.35); border-radius: 4px; background: rgba(227,178,58,0.10); color: var(--orange); font-size: 14px; cursor: pointer; }

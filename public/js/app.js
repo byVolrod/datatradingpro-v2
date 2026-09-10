@@ -14043,11 +14043,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const noms = _jrComptesConnus();
     const nTrades = _jrCompte ? _jrScope().length : 0;
     const vide = !!_jrCompte && nTrades === 0;
+    /* ⚠️ UN MENU DU DESK, PAS CELUI DU SYSTÈME (10/09, capture user). C'était le SEUL `<select>`
+       ouvert de cette barre : le navigateur en dessinait sa liste native — police du système,
+       coche du système, fond du système — au milieu d'un desk qui possède son propre composant de
+       menu (`.jr-pop`, celui de « Propriétés »), avec sa coche or et ses rangées. Un seul écart
+       de ce genre suffit à faire lire tout le reste comme un gabarit. On réemploie le composant
+       existant plutôt que d'habiller un select, parce qu'un select ne se style PAS de l'intérieur :
+       sa liste appartient au système d'exploitation, pas à la page.
+       ⚠️ ET LA VALEUR-SENTINELLE RESTE INTERDITE, la leçon du jour précédent tient toujours : la
+       rangée « + Nouveau compte » est un BOUTON porteur d'un ATTRIBUT (`data-neuf`), jamais une
+       option dont la VALEUR devrait ne ressembler à aucun nom de compte. On ne partage pas un
+       espace de noms avec les données de l'utilisateur — c'est ce qui avait rendu le menu
+       silencieusement inerte quand le caractère NUL devenait U+FFFD. */
+    const _lbl = _jrCompte ? _jrDisp('account', _jrCompte) : 'Tous les comptes';
     host.innerHTML =
-      '<select class="jr-cpt-sel' + (_jrCompte ? ' jr-cpt-sel--on' : '') + '" id="jr-cpt-sel" title="Le compte commande tout l’écran : trades, statistiques, tableau de bord et annuel.">'
-      + '<option value=""' + (_jrCompte ? '' : ' selected') + '>Tous les comptes</option>'
-      + noms.map(n => '<option value="' + _esc(n) + '"' + (n === _jrCompte ? ' selected' : '') + '>' + _esc(_jrDisp('account', n)) + '</option>').join('')
-      + '</select>'
+      '<button type="button" class="jr-cpt-sel' + (_jrCompte ? ' jr-cpt-sel--on' : '') + '" id="jr-cpt-sel" title="Le compte commande tout l’écran : trades, statistiques, tableau de bord et annuel.">'
+      + '<span class="jr-cpt-lbl">' + _esc(_lbl) + '</span><span class="jr-cpt-chev">▾</span></button>'
       /* ⚠️ « NOUVEAU COMPTE » EST UN BOUTON, PAS UNE OPTION DU MENU, et ce n'est pas un choix
          d'ergonomie. Une option-sentinelle demande une valeur qui ne puisse être le nom d'aucun
          compte ; le caractère NUL semblait parfait — mais l'analyseur HTML remplace U+0000 par
@@ -14057,7 +14068,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
       + '<button type="button" class="jr-cpt-neuf-b" id="jr-cpt-plus" title="Créer un compte">+</button>'
       + (vide ? '<button type="button" class="jr-cpt-x" id="jr-cpt-x" title="Retirer ce compte de la liste (il ne porte aucun trade)">×</button>' : '');
     const sel = document.getElementById('jr-cpt-sel');
-    if (sel) sel.onchange = () => _jrCompteSet(sel.value);
+    if (sel) sel.onclick = () => {
+      const pop = _jrOpenPop(sel,
+        '<div class="jr-pop-opts">'
+        + '<button class="jr-pop-opt" data-cpt="">Tous les comptes'
+        + (_jrCompte ? '' : '<span class="jr-pop-ck">✓</span>') + '</button>'
+        + noms.map(n => '<button class="jr-pop-opt" data-cpt="' + _esc(n) + '">' + _esc(_jrDisp('account', n))
+          + (n === _jrCompte ? '<span class="jr-pop-ck">✓</span>' : '') + '</button>').join('')
+        + '</div>');
+      pop.querySelectorAll('.jr-pop-opt[data-cpt]').forEach(b => {
+        b.onclick = () => { _jrClosePop(); _jrCompteSet(b.dataset.cpt); };
+      });
+    };
     const plus = document.getElementById('jr-cpt-plus');
     if (plus) plus.onclick = _jrCompteNouveau;
     const x = document.getElementById('jr-cpt-x');
@@ -15601,7 +15623,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   function _jrRenderYear() {
     const host = document.getElementById('jr-year'); if (!host) return;
-    const L = _jrList || [];
+    /* ⚠️ LA PORTÉE, PAS LE JOURNAL ENTIER (10/09, signalé par l'utilisateur : « le bilan annuel
+       doit être également sur le compte sélectionné »). Cette vue lisait `_jrList` DIRECTEMENT
+       alors que le tableau de bord, la courbe de capital et le widget Kelly passaient déjà par
+       `_jrScope()`. Un compte sélectionné donnait donc une grille filtrée et un bilan annuel
+       comptant TOUS les comptes — la moitié qui ment, sur l'écran où l'on vient chercher ses
+       chiffres. ⚠️ ET LE BANC AVAIT DEUX CONTRÔLES SUR CETTE VUE : le graphique et le total,
+       tous deux appelés avec `_jrScope()`. Ils étaient verts. Contrôler des APPELS à l'intérieur
+       d'une vue ne contrôle pas la SOURCE de la vue — les bilans mensuels, le taux de réussite et
+       le total R se servent ici, en amont de ces deux appels. Un contrôle porte désormais sur
+       cette ligne. */
+    const L = _jrScope();
     if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucune statistique pour le moment : ajoutez votre premier trade ou importez votre journal (Notion .zip / CSV) depuis « Trades ».</div>'; return; }
     const an = _jrAnneeActive(), dispo = _jrAnneesDispo(L);
     const bilans = Array.from({ length: 12 }, (_, m) => _jrBilanMois(L, an, m));
