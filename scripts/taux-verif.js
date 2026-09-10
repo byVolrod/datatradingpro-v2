@@ -477,5 +477,37 @@ v('_aiVerifyRates corrobore via _actualsDerniereDecision (une seule définition 
 v('_buildRatesPayload appelle la voie calendrier (recalage en continu, pas seulement au boot)',
   /try \{ _calendrierEcritTaux\(\); \} catch \{\}/.test(SRV));
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   LA CARTE DIT QUELLE MESURE ELLE AFFICHE (10/09, question user : « le taux de la BCE c'est 2,65 »)
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   La BCE publie DEUX taux le même jour : la facilité de dépôt et le refinancement principal,
+   séparés de 15 pb depuis la réforme du corridor de septembre 2024. La carte affiche
+   délibérément la FACILITÉ DE DÉPÔT (décision du 01/09, écrite dans _calendrierEcritTaux) — c'est
+   le taux directeur effectif que le marché price. Mais tant que l'intitulé disait « Taux actuel »
+   tout court, un lecteur qui a le refi en tête voyait une erreur là où il n'y en avait pas.
+   Le doute est revenu par la question de l'utilisateur : ces contrôles ferment la porte.
+   ⚠️ LES DEUX MOITIÉS COMPTENT. Nommer la mesure ne sert à rien si le code cesse de choisir le
+   dépôt : le libellé deviendrait alors un MENSONGE signé, pire que l'ambiguïté d'avant. On tient
+   donc l'affichage ET la règle de sélection, ensemble. ════════════════════════════════════════ */
+console.log('\n── La carte nomme la mesure exacte qu’elle affiche ──');
+{
+  const CH = fs.readFileSync(path.join(__dirname, '..', 'public/js/charts.js'), 'utf8');
+  v('une table _RTC_MESURE existe (pas un cas particulier codé en dur)',
+    /const _RTC_MESURE = \{/.test(CH) && !/b\.code === 'ECB' \?/.test(CH),
+    'un `if (code === ECB)` se retrouverait seul face à la prochaine banque qui publie deux mesures');
+  v('… la carte BCE annonce le TAUX DE DÉPÔT', /ECB: 'Taux de dépôt'/.test(CH));
+  v('… la carte Fed annonce le HAUT de fourchette', /FED: 'Fed funds \(haut\)'/.test(CH),
+    'la Fed annonce une fourchette ; CB[] commente « 3,75 = borne HAUTE »');
+  v('… et l’intitulé est bien branché sur la table, pas figé', /_RTC_MESURE\[b\.code\] \|\| 'Taux actuel'/.test(CH),
+    'sans ce branchement la table existe et ne s’affiche nulle part');
+  v('le haut de fourchette est bien ce que porte la config Fed', /3,75 = borne HAUTE/.test(SRV) || /borne HAUTE/.test(SRV),
+    'si la config passait au bas ou au milieu, le libellé « (haut) » deviendrait faux');
+  /* La règle de sélection, côté serveur : quand les deux mesures BCE tombent le même jour, c'est
+     celle qui porte « deposit » qui est retenue. Le libellé de la carte en DÉPEND. */
+  v('_calendrierEcritTaux tranche toujours sur « deposit » quand la BCE publie deux chiffres',
+    /\/deposit\/i\.test\(e\.title/.test(SRV),
+    'la sélection ne vise plus le dépôt : le libellé « Taux de dépôt » affirmerait alors quelque chose de faux.');
+}
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);

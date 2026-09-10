@@ -4115,6 +4115,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Terminologie financière EN d'origine (Next Move/Probability/Expected Δ/Current Rate/Meeting Date,
   // Scenario Distribution, Cut/Hold/Hike, Implied Δ (BPS), Base Case). Sparklines data-driven en fond.
   const _RTC_EN = { USD: 'Réserve fédérale (OIS)', EUR: 'Banque centrale européenne', GBP: 'Banque d’Angleterre', JPY: 'Banque du Japon', CHF: 'Banque nationale suisse', CAD: 'Banque du Canada', AUD: 'Banque de réserve d’Australie', NZD: 'Banque de réserve de Nouvelle-Zélande' };
+/* LA MESURE EXACTE QUE PORTE CHAQUE CARTE. Vide = « Taux actuel » suffit (une seule mesure
+   publiée). Renseignée là où la banque en publie PLUSIEURS, donc là où le doute est possible. */
+const _RTC_MESURE = {
+  ECB: 'Taux de dépôt',        // et non le refi, supérieur de 15 pb depuis septembre 2024
+  FED: 'Fed funds (haut)',     // la Fed annonce une FOURCHETTE : on affiche le haut
+};
   function _rtcCard(b) {
     const MVC = { HOLD: { txt: 'Maintien', cls: 'w' }, HIKE: { txt: 'Hausse', cls: 'g' }, CUT: { txt: 'Baisse', cls: 'r' } };
     const fr  = s => { try { const p = String(s).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return s; } };
@@ -4216,7 +4222,18 @@ document.addEventListener('DOMContentLoaded', () => {
       + '<div class="rtc-m"><span class="rtc-k">Prochain mouvement</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'
       + '<div class="rtc-m"><span class="rtc-k">Probabilité</span><span class="rtc-v rtc-prob">' + pct(_prob) + '</span>' + mspk('wavy') + '</div>'
       + '<div class="rtc-m"><span class="rtc-k">Δ attendu</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span>' + mspk(expSpk) + '</div>'
-      + '<div class="rtc-m"><span class="rtc-k">Taux actuel</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
+      /* ⚠️ « TAUX ACTUEL » NE DIT PAS DE QUEL TAUX IL S'AGIT — ET POUR LA BCE, IL Y EN A DEUX (10/09).
+         La BCE publie le MÊME JOUR la facilité de dépôt et le taux de refinancement principal,
+         séparés de 15 points de base depuis la réforme du corridor de septembre 2024. La carte
+         affiche DÉLIBÉRÉMENT la facilité de dépôt (décision du 01/09, cf. _calendrierEcritTaux) :
+         c'est le taux directeur effectif que le marché price depuis 2014. Mais un intitulé nu
+         (« Taux actuel : 2,5000% ») laisse le lecteur qui a en tête le refi (2,65 %) croire à une
+         erreur — c'est arrivé, et c'est ce qui a motivé cette ligne. Nommer la MESURE coûte trois
+         mots et ferme le doute pour de bon.
+         ⚠️ Table par banque, PAS un cas particulier BCE : la Fed publie une fourchette, la BoJ un
+         taux directeur au jour le jour. Une table se complète ; un `if (code === 'ECB')` se serait
+         retrouvé seul face à la prochaine question du même genre. */
+      + '<div class="rtc-m"><span class="rtc-k">' + (_RTC_MESURE[b.code] || 'Taux actuel') + '</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
       + '<div class="rtc-m"><span class="rtc-k">Date de réunion</span><span class="rtc-v w">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
       + '</div>'
       + '<div class="rtc-dist"><div class="rtc-dist-h">Distribution des scénarios</div>' + scRows
