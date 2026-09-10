@@ -54,7 +54,21 @@ const OUTLOOK_URL  = 'https://www.myfxbook.com/community/outlook';
 const LOGIN_URL    = 'https://www.myfxbook.com/login';
 const LOGIN_API    = 'https://www.myfxbook.com/api/login.json';
 const OUTLOOK_API  = 'https://www.myfxbook.com/api/get-community-outlook.json';
-const CACHE_FILE   = path.join(__dirname, '..', 'cache_myfxbook.json');
+/* ⚠️ LE CACHE VIT DANS LE VOLUME MONTÉ, PAS DANS L'IMAGE (10/09, retour user : le DMX tourne en
+   rond). Il s'écrivait à la RACINE du conteneur — `/app/cache_myfxbook.json` — et son commentaire
+   promettait « survives server restart ». C'était vrai d'un redémarrage, et FAUX du seul cas qui
+   compte : un DÉPLOIEMENT. `docker-compose.yml` ne monte que `/app/.chrome_profile_*` et
+   `/app/data` ; tout le reste appartient à la couche d'image, que `docker compose build` détruit
+   et reconstruit. Après CHAQUE mise à jour du desk, le positionnement repartait donc sans aucun
+   cache et devait ouvrir un navigateur à froid sur la source — plusieurs dizaines de secondes,
+   souvent un échec. C'est le « chargement infini » signalé, et la note du dépôt le disait déjà
+   sans qu'on en tire la conséquence : « ce premier chargement est celui d'un serveur qui vient de
+   redémarrer, donc celui qui suit CHAQUE mise à jour de la plateforme ».
+   `/app/data` est monté depuis l'hôte (`./data/app`), comme l'anti-doublon des e-mails : il
+   survit au build. Le dossier est créé au besoin — sur un poste de développement il n'existe pas. */
+const CACHE_DIR    = path.join(__dirname, '..', 'data');
+const CACHE_FILE   = path.join(CACHE_DIR, 'cache_myfxbook.json');
+const CACHE_ANCIEN = path.join(__dirname, '..', 'cache_myfxbook.json');   // emplacement d'avant le 10/09 — relu une fois, jamais réécrit
 const USER_DATA    = path.join(__dirname, '..', '.chrome_profile_myfxbook');
 const CACHE_TTL    = 15 * 60 * 1000;   // 15 min in-memory cache (sentiment retail = MAJ 15 min)
 const DISK_TTL     = 30 * 60 * 1000;   // 30 min disk cache (survives server restart)
@@ -90,6 +104,7 @@ let _sessionTs = 0;
 
 function saveDisk(period, data) {
   try {
+    try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch {}
     let all = {};
     try { all = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8')); } catch {}
     all[period] = { ts: Date.now(), data };
@@ -97,9 +112,14 @@ function saveDisk(period, data) {
   } catch {}
 }
 
+function _lireCache() {
+  try { return JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8')); }
+  catch { try { return JSON.parse(fs.readFileSync(CACHE_ANCIEN, 'utf8')); } catch { return null; } }
+}
+
 function loadDisk(period) {
   try {
-    const all = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+    const all = _lireCache(); if (!all) return null;
     const e   = all[period];
     if (e && Date.now() - e.ts < DISK_TTL && Array.isArray(e.data) && e.data.length > 0)
       return e.data;
@@ -355,7 +375,7 @@ async function fetchViaPuppeteer() {
 // Charge le cache disque SANS contrôle d'âge (servir des données un peu datées > rien)
 function loadDiskAny(period) {
   try {
-    const all = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+    const all = _lireCache(); if (!all) return null;
     const e   = all[period];
     if (e && Array.isArray(e.data) && e.data.length > 0) return e.data;
   } catch {}
