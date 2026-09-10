@@ -2422,6 +2422,18 @@
      depuis longtemps mais AUCUNE page ne le chargeait et son bouton declencheur n existait pas :
      369 lignes de demonstration honnete que personne ne pouvait atteindre. Rebranchee le 15/08. -->
 <script defer src="/demo.js?v=20260815"></script>
+<!-- ══ PIXEL D'ATTRIBUTION WHOP (10/09) ══════════════════════════════════════════════════════
+     Compte marchand `biz_v14m3etLS4jjJi`. Il relie une visite de la vitrine à une souscription
+     faite ensuite sur Whop, la plateforme de paiement que le desk utilise déjà (cf. _whopReconcile
+     et les clés `whop-welcome:` du journal des envois).
+     ⚠️ IL N'AFFICHE RIEN : pas de balise visible, pas d'image, pas de place occupée. « Le cacher »
+     n'a donc pas d'objet côté rendu — aucun visiteur ne le voit, par construction.
+     ⚠️ CSP : `scriptSrc` autorise déjà `https:` et `connectSrc` aussi (cf. _CSP_DIRECTIVES dans
+     server.js) — vérifié avant de poser le pixel, sans quoi il aurait été chargé... et bloqué en
+     silence en production, c'est-à-dire installé et inutile, le défaut favori de ce dépôt.
+     ⚠️ CHARGÉ EN `async`, en fin de body : la vitrine ne l'attend pas pour s'afficher. Un pixel
+     d'attribution ne doit jamais peser sur le premier rendu de la page qu'il mesure. -->
+<script>!function(w,d,s,u,n,a,b){if(w[n])return;a=w[n]={q:[],t:+new Date,s:[],o:u,track:function(){a.q.push([+new Date].concat([].slice.call(arguments)))},setScope:function(){a.s=[].slice.call(arguments).filter(function(x){return typeof x==="string"});a.q.push([+new Date,"setScope"].concat(a.s))},scope:function(){var c=[].slice.call(arguments);return{track:function(){a.q.push([+new Date].concat([].slice.call(arguments)).concat([{__scope:c}]))}}}};b=d.createElement(s);b.async=1;b.src=u+"/s.js";d.getElementsByTagName(s)[0].parentNode.insertBefore(b,d.getElementsByTagName(s)[0])}(window,document,"script","https://t.whop.tw","whop");whop.setScope("biz_v14m3etLS4jjJi");whop.track("page");</script>
 </body>
 </html>
 

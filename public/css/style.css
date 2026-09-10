@@ -20886,14 +20886,13 @@ body.dtp-premium .nav {
    lecture. Interligne un rien plus ample = respiration entre deux dépêches denses. */
 #view-news .news-description { line-height: 1.58; }
 
-/* Survol : l'éclaircissement du fond est conservé (il sépare la ligne active), le titre passe au
-   blanc pur. Un très fin liseré doré à gauche marque la ligne visée sans peser. */
+/* Survol : l'éclaircissement du fond est conservé (il sépare la ligne active) et le titre passe au
+   blanc pur. C'est SUFFISANT pour désigner la ligne visée.
+   ⚠️ LE LISERÉ DORÉ DE GAUCHE EST RETIRÉ (10/09, demande user). Il ajoutait un second signal pour
+   dire la même chose que le fond, et il le disait en OR : la couleur de marque, que le desk réserve
+   à ce qui compte. Un trait qui suit la souris n'apporte aucune information, il en dilue une.
+   `position: relative` reste : d'autres éléments du fil se positionnent par rapport à la ligne. */
 #view-news .news-item { position: relative; }
-#view-news .news-item::before {
-  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
-  background: rgba(227,178,58,0); pointer-events: none; transition: background .16s ease;
-}
-#view-news .news-item:hover::before { background: rgba(227,178,58,.55); }
 
 /* ═══ MOBILE : LIRE LA NEWS ENTIÈRE + NE PLUS COUPER LES DONNÉES DES WIDGETS (21/08) ═══════════
    Constat user sur téléphone : « on n'arrive pas à lire toute la news entière, et certaines données
