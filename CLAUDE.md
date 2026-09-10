@@ -48,6 +48,50 @@
   ⚠️ **AVANT DE TOUCHER À LA LANGUE DE QUOI QUE CE SOIT : `grep -n "veto" server.js public/js/*.js`.** J'ai livré la traduction des titres SANS le faire, contre un veto explicite. Et symétriquement, `charts.js` portait « propos jamais traduits — veto » alors que leur traduction était **demandée le 17/07** et câblée depuis : ce commentaire périmé a failli faire refuser une demande légitime. **Un commentaire périmé ment avec l'autorité du code.** Quand une règle change, corriger TOUTES ses traces dans le même commit — un banc (`propos-verif.js`) interdit désormais le retour de celui de `charts.js`.
 - **i18n** : `node scripts/i18n-verif.js` — **désormais dans `npm run check`, avec un CLIQUET** (28/08). Il était le SEUL des 36 bancs que personne ne lançait : la consigne « à passer après tout renommage » était manuelle, et le résultat s'est mesuré — **21 clés orphelines accumulées, dont six traductions réellement mortes**, parmi lesquelles le titre « Fil d'actualité ». Les six sont re-clées (le produit était passé du tutoiement au vouvoiement sans suivre, et deux titres portaient l'apostrophe droite là où le dict avait la typographique — la recherche est EXACTE après trim, un caractère suffit à tuer une traduction). Le plafond `PLAFOND_ORPHELINES` fige le nombre connu : la dette d'hier ne bloque pas, une de plus fait rougir. **Le baisser quand on en traite une**, sinon le cliquet ne cliquette plus. — le dict EN (i18n-dicts.js) est clé par CHAÎNE FR EXACTE : un wording changé = traduction morte EN SILENCE. L'outil liste les clés orphelines ; re-keyer celles des renommages + ajouter les entrées des nouveaux textes statiques dans le même commit.
 
+## Ce que la relecture de code ne voit pas (10/09) — quatre pièges mesurés le même jour
+
+Quatre défauts livrés en production, tous avec un code **correct à la lecture**. Aucun n'était
+trouvable en relisant ; tous l'étaient en mesurant. Ils reviendront sous d'autres formes.
+
+- **UNE FONCTION APPELÉE HORS DE SA PORTÉE, et `js-verif` ne peut pas le voir.** `_jrOpenPop`
+  appelait `facteurZoom`, déclarée mille lignes plus haut DANS l'IIFE `_aideAuTap`. Au clic :
+  `ReferenceError` juste après `appendChild` — la bulle existait dans le DOM, jamais positionnée,
+  invisible. Aucune erreur pour l'utilisateur, un menu simplement mort. `js-verif` déduit la
+  portée CLIENT des `<script src>` de chaque page, donc **PAR FICHIER** : un identifiant déclaré
+  n'importe où dans app.js lui paraît visible partout dans app.js. **Les IIFE lui échappent par
+  construction** — ce n'est pas un défaut de l'outil, c'est sa portée. Avant d'appeler une fonction
+  partagée depuis un autre endroit du fichier : vérifier qu'aucune IIFE ne se referme entre les
+  deux. Contrôle dédié dans `comptes-verif`.
+- **DÉPLACER UNE FONCTION PARTAGÉE, C'EST DEUX GESTES.** En remontant `facteurZoom` au premier
+  niveau, elle est sortie de la tranche que `tactile-verif` **extrait** pour éprouver la bulle
+  d'aide (`indexOf('(function _aideAuTap() {')`). Le banc a rougi sur du code sain, et a FAIT
+  ÉCHOUER UN DÉPLOIEMENT. **Une borne d'extraction est un contrat** : un banc qui annonce « le vrai
+  code, pas une copie » n'éprouve plus qu'un fragment amputé dès qu'une dépendance sort de sa
+  tranche. Après tout déplacement : `grep -n "indexOf('.*<nom de la fonction déplacée>" scripts/`.
+- **UN CACHE DURABLE VIT DANS UN VOLUME MONTÉ, PAS DANS L'IMAGE.** Le cache du DMX s'écrivait à
+  `/app/cache_myfxbook.json`, sous le commentaire « survives server restart ». Vrai d'un
+  redémarrage, **faux d'un déploiement** : `docker-compose.yml` ne monte que
+  `/app/.chrome_profile_*` et `/app/data` ; le reste appartient à la couche d'image que
+  `docker compose build` reconstruit. Après CHAQUE livraison, le widget repartait sans réserve et
+  ouvrait un navigateur à froid — le « chargement infini » signalé, pendant des semaines. Ce défaut
+  est invisible en lecture (le chemin est correct) ET en développement (rien ne se reconstruit) :
+  il n'apparaît qu'en CROISANT le code et le fichier de composition. Banc : `volume-verif.js`.
+- **UNE ANNONCE DATÉE DANS LE FUTUR SE REJOUE INDÉFINIMENT.** Les deux routes du fil DTP écrivent
+  `Math.min(u.ts, Date.now())` — une ceinture contre les « il y a » négatifs. Conséquence non
+  prévue : une date future est ramenée à MAINTENANT, donc l'annonce se présente comme neuve à
+  chaque ouverture et ne sort jamais de la fenêtre de 7 jours. 78 entrées étaient dans ce cas,
+  jusqu'à dix-huit jours d'avance ; le fil montrait en permanence des corrections d'il y a deux
+  semaines. Redatées depuis git ; `dtp-updates-verif --autotest` refuse désormais la suivante.
+
+⚠️ **ET DEUX ERREURS DE MÉTHODE DU MÊME JOUR, à ne pas refaire :**
+1. `npm run check > log 2>&1; echo "code=$?"` rapporte le code de la DERNIÈRE commande, jamais
+   celui de la suite. J'ai poussé deux fois sur une suite rouge en croyant lire un vert. **Lancer
+   la suite comme commande UNIQUE**, et lire le code de sortie de la tâche.
+2. Une hypothèse répétée finit par passer pour un fait. « Le DMX ne marche pas faute d'identifiants
+   Myfxbook » a été énoncé pendant deux jours comme s'il était établi ; c'était faux, et la vraie
+   cause était ailleurs. **Un symptôme borné deux fois de suite est le signal qu'on n'a pas atteint
+   la cause.**
+
 ## Skills du dépôt (`.claude/skills/`) — pourquoi ceux-là, et pourquoi pas les autres
 
 Trois skills sont posés DANS LE DÉPÔT, pas dans `~/.claude/`. **C'est le seul endroit durable** :
