@@ -1979,6 +1979,38 @@ function buildStrengthChart(containerId, data, opts = {}) {
          repasse une fois pour vérifier le placement sur les vraies boîtes. Borné à deux reprises —
          au-delà, c'est que la taille oscille, et boucler ne la stabiliserait pas. */
       if (refait && _dcApres < 2) { _dcApres++; setTimeout(declutter, 40); } else if (!refait) _dcApres = 0;
+
+      /* ══ L'INVARIANT, EN DERNIER RECOURS : UNE COURBE VISIBLE A UNE PASTILLE VISIBLE (10/09) ═══
+         L'utilisateur signale une pastille manquante en vue de PAIRE — la courbe est là, son
+         étiquette non. CINQ pistes ont été éliminées à la mesure, et aucune ne reproduit : 210
+         configurations de géométrie, la forme de la donnée servie par le serveur, le rognage par le
+         vrai panneau, la course 0×0 à la construction, et 25 scénarios de rafraîchissement. Le
+         défaut existe pourtant : il a été vu.
+         ⚠️ ON NE DEVINE DONC PAS LA CAUSE — ON REND L'INVARIANT VRAI. Quel que soit le chemin qui
+         désynchronise l'état d'une étiquette de celui de sa série (course d'animation, événement
+         'shown' qui ne part pas parce que la propriété n'a pas changé, passe de mise à jour
+         entrelacée), cette dernière ligne relit la visibilité RÉELLE de la série — la seule source
+         de vérité qui ne se décale pas — et rétablit l'étiquette qui la contredit.
+         ⚠️ POURQUOI ICI ET PAS DANS `update()` : à cet endroit, l'anti-collision a fini son travail
+         et les boîtes sont stables. Plus haut, on lisait des états transitoires — c'est la raison
+         pour laquelle `update()` s'appuie sur `_hiddenCcy` et NON sur `isHidden()`, et cette
+         décision-là n'est pas touchée. On n'ajoute qu'un filet, après coup, jamais une seconde
+         source de vérité concurrente.
+         ⚠️ ET IL NE FORCE RIEN DANS L'AUTRE SENS : une devise réellement masquée (légende décochée,
+         hors paire) garde son étiquette masquée. Le filet ne fait que RÉVÉLER ce qui devrait
+         l'être — le défaut inverse, une étiquette de courbe absente, serait pire. */
+      try {
+        Object.keys(labelMap).forEach(function (c) {
+          var s2 = seriesMap[c], l2 = labelMap[c];
+          if (!s2 || !l2 || !l2.range) return;
+          var cachee = _hiddenCcy.has(c) || (_only && !_only.has(c));
+          if (cachee) return;                                  // masquée pour de bon : on n'y touche pas
+          var et = l2.range.get('label'); if (!et) return;
+          if (et.get('forceHidden') === true || et.get('visible') === false) {
+            et.setAll({ forceHidden: false, visible: true });
+          }
+        });
+      } catch {}
     } catch {}
   }
   // declutter RÉSILIENT (corrige « on ne voit que l'étiquette USD ») : au build, le conteneur peut être à 0

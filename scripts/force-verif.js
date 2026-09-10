@@ -501,6 +501,32 @@ module.exports = { JEUX, CAS, SONDE, SONDE_GRILLE, SONDE_OPACITES, SONDE_POS_LEG
    carte… ce qui ferait clignoter l'écran ») : il décrivait l'intention, pas le code.
    CE CONTRÔLE EST STATIQUE ET SANS NAVIGATEUR, donc il tourne TOUJOURS — y compris sur un poste
    sans Chromium, là où la partie visuelle ci-dessous s'abstient. Il lit le VRAI widgets.js. */
+/* ══ LE FILET D'INVARIANT DES PASTILLES (10/09) ═══════════════════════════════════════════════
+   L'utilisateur a signalé une pastille manquante en vue de PAIRE : la courbe présente, son
+   étiquette non. CINQ pistes ont été éliminées à la mesure sans jamais reproduire — 210
+   configurations de géométrie, la forme de la donnée servie, le rognage par le vrai panneau, la
+   course 0×0 à la construction, 25 scénarios de rafraîchissement. Faute de cause prouvée, on ne
+   devine pas : on rend l'INVARIANT vrai en fin de declutter, là où les boîtes sont stables — une
+   série visible a une étiquette visible, quel que soit le chemin qui les a désynchronisées.
+   CE CONTRÔLE EST STATIQUE, donc il tourne PARTOUT — y compris là où la partie visuelle s'abstient
+   faute de navigateur ou de CDN, c'est-à-dire dans l'intégration. Un filet posé contre un défaut
+   qu'on ne sait pas reproduire est précisément celui qu'on retirerait sans y penser. */
+function _filetInvariantPastilles() {
+  console.log('\n── Une courbe visible a une pastille visible : le filet est en place ──');
+  const CH = fs.readFileSync(path.join(PUB, 'js/charts.js'), 'utf8');
+  const d = CH.indexOf('function declutter() {');
+  const bloc = d < 0 ? '' : CH.slice(d, CH.indexOf('function scheduleDeclutter', d));
+  v('le corps de declutter est retrouvé', !!bloc.length);
+  if (!bloc.length) return;
+  v('il relit la visibilité RÉELLE et rétablit l\'étiquette qui la contredit',
+    /forceHidden: false, visible: true/.test(bloc) && /_hiddenCcy\.has\(c\)/.test(bloc));
+  v('… et il RESPECTE le masquage voulu (légende décochée, hors paire)',
+    /_only && !_only\.has\(c\)/.test(bloc) && /if \(cachee\) return;/.test(bloc));
+  v('… il est posé EN FIN de declutter, après l\'anti-collision',
+    bloc.indexOf('if (cachee) return;') > bloc.indexOf('_dcApres'),
+    'sinon il lirait des états transitoires');
+}
+
 function _rafraichissementSilencieux() {
   console.log('\n── Le rafraîchissement de la carte ne détruit plus le graphe ──');
   const W = fs.readFileSync(path.join(PUB, 'js/widgets.js'), 'utf8');
@@ -823,6 +849,7 @@ v('… et son repli est de l\'encre, pas une couleur de devise inventée', repli
 if (require.main === module) {
   (async () => {
     _rafraichissementSilencieux();
+    _filetInvariantPastilles();
     _rattacherPastilles();
     /* ⚠️ LA DENSITÉ SE CONTRÔLE SANS NAVIGATEUR, DONC AVANT LUI. Posé d'abord dans `controler()`,
        ce lot ne tournait qu'avec amCharts joignable — c'est-à-dire jamais en développement, et
