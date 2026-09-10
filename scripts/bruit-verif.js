@@ -325,4 +325,69 @@ v('le motif « nom américain » est dans le classeur ET mène à « US Data »'
 }
 
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   QUATRE LIGNES POUR UNE SEULE DÉCISION (10/09, capture user : « on comprend pas, ça sort comme
+   ça sans info »)
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   À 21:52, le fil portait « Vote du MPC de la BoE inchangé », « … pour une hausse », « … pour une
+   baisse des taux » et « Taux directeur de la BoE » : quatre lignes pour UNE publication.
+   Le mécanisme de repli existait pourtant depuis toujours (`collapseEconGroups`), mais il ne
+   regardait QUE la catégorie « Economic Commentary ». Or une publication arrive sous la catégorie
+   de sa BANQUE (« BoE ») ou de sa FAMILLE (« Trade ») : le repli ne mordait donc jamais sur le
+   moment où le fil se remplit le plus, la décision de banque centrale.
+   ⚠️ ON JOUE LA VRAIE FONCTION sur les SIX LIGNES DE LA CAPTURE. Un banc qui lirait le jeu de
+   catégories se contenterait de vérifier qu'un nom y figure ; c'est le regroupement qu'on veut
+   voir se produire, pas la liste qui le permet. ═══════════════════════════════════════════════ */
+console.log('\n── Une publication ne prend qu’une ligne dans le fil ──');
+{
+  const APP = fs.readFileSync(path.join(__dirname, '..', 'public/js/app.js'), 'utf8');
+  const d = APP.indexOf('const _GROUPABLE_CATS');
+  const f = APP.indexOf('function collapseEconGroups(items) {');
+  const fin = APP.indexOf('\nfunction buildEconGroup');
+  v('collapseEconGroups et son jeu de catégories sont extractibles d’app.js', d >= 0 && f > d && fin > f,
+    'd=' + d + ' f=' + f + ' fin=' + fin + ' — bornes d’extraction à revoir (une borne est un contrat)');
+  if (d >= 0 && f > d && fin > f) {
+    const src = APP.slice(d, APP.indexOf('\n', APP.indexOf(']);', d))) + '\n' + APP.slice(f, fin);
+    const T = Date.parse('2026-09-10T21:52:00Z'), T2 = Date.parse('2026-09-10T21:48:00Z');
+    const lignes = () => ([
+      { timestamp: T, time: '21:52', category: 'BoE', title: 'Vote du MPC de la BoE inchangé' },
+      { timestamp: T, time: '21:52', category: 'BoE', title: 'Vote du MPC de la BoE pour une hausse' },
+      { timestamp: T, time: '21:52', category: 'BoE', title: 'Vote du MPC de la BoE pour une baisse des taux' },
+      { timestamp: T, time: '21:52', category: 'BoE', title: 'Taux directeur de la BoE' },
+      { timestamp: T2, time: '21:48', category: 'Trade', title: 'Japanese Exports YoY' },
+      { timestamp: T2, time: '21:48', category: 'Trade', title: 'Japanese Imports YoY' },
+    ]);
+    const jouer = (importante) => {
+      const fn = new Function('_isImportantNews', src + '\n return collapseEconGroups;')(importante);
+      return fn(lignes());
+    };
+    const sortie = jouer(() => false);
+    const groupes = sortie.filter(x => x && x._group);
+    v('[exécuté] les quatre lignes BoE de la capture se replient en UNE',
+      groupes.length === 1 && groupes[0]._items.length === 4,
+      'sortie : ' + sortie.map(x => x._group ? 'GROUPE(' + x._items.length + ')' : x.title).join(' | '));
+    v('[exécuté] … et le fil passe de six lignes à trois', sortie.length === 3, sortie.length + ' lignes');
+
+    /* ⚠️ LA DÉCISION ELLE-MÊME NE SE REPLIE PAS. Ranger l'annonce d'une hausse de taux dans un
+       accordéon remplacerait du bruit par une PERTE D'INFORMATION : `_isImportantNews` doit
+       continuer d'exempter ces lignes. On le vérifie en marquant tout comme important. */
+    const toutImportant = jouer(() => true);
+    v('[exécuté] une ligne IMPORTANTE reste pleine (rien ne se replie)',
+      toutImportant.length === 6 && !toutImportant.some(x => x && x._group),
+      'le repli avale une ligne importante : ' + toutImportant.length + ' ligne(s)');
+
+    /* TÉMOIN : l'ANCIEN filtre, qui ne connaissait qu'« Economic Commentary », ne doit rien
+       replier sur ces six lignes — sinon le contrôle ci-dessus passerait déjà avant la correction. */
+    const ancien = src.replace(/!_GROUPABLE_CATS\.has\(it\.category\)/, "it.category !== 'Economic Commentary'");
+    const fnAnc = new Function('_isImportantNews', ancien + '\n return collapseEconGroups;')(() => false);
+    const avant = fnAnc(lignes());
+    v('[témoin] l’ancien filtre laissait bien les six lignes telles quelles',
+      avant.length === 6 && !avant.some(x => x && x._group),
+      'le témoin ne mord pas : le repli marchait déjà, la correction ne prouve rien.');
+  }
+}
+
+
+console.log(ko ? '\n✗ ' + ko + ' contrôle(s) en échec\n' : '\n✓ ' + ok + ' contrôles au vert\n');
 process.exit(ko ? 1 : 0);

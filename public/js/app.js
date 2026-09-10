@@ -2465,6 +2465,16 @@ function getSmartTags(item) {
 }
 
 // ── Economic Commentary burst grouping ────────────────────────────────────────
+/* Les catégories sous lesquelles une PUBLICATION arrive dans le fil. « Economic Commentary » est
+   le nom générique ; le reste, ce sont les banques centrales (une décision, ses votes, son taux) et
+   les familles de données (commerce, inflation, emploi…). Toutes désignent des lignes de calendrier
+   qui tombent en rafale à la même minute, et qu'il vaut mieux lire repliées. Une catégorie inconnue
+   n'entre PAS dans le repli : le doute laisse la ligne pleine. */
+const _GROUPABLE_CATS = new Set(['Economic Commentary',
+  'Fed', 'ECB', 'BoJ', 'BoE', 'BoC', 'RBA', 'SNB', 'RBNZ',
+  'Data', 'Trade', 'Inflation', 'CPI', 'Jobs', 'NFP', 'Payrolls', 'Rates',
+  'EU Data', 'US Data', 'UK Data', 'Swiss Data', 'Japanese Data', 'Canadian Data',
+  'Australian Data', 'Chinese Data', 'New Zealand Data']);
 function collapseEconGroups(items) {
   const WINDOW_MS = 3 * 60 * 1000;
   const MIN_GROUP = 3;
@@ -2479,7 +2489,18 @@ function collapseEconGroups(items) {
   const econIdxs = [];
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
-    if (!it || it.category !== 'Economic Commentary') continue;
+    /* ⚠️ LE REGROUPEUR NE VOYAIT QU'UNE SEULE CATÉGORIE (10/09, capture user : quatre lignes BoE
+       à 21:52). Il ne prenait que « Economic Commentary », alors qu'une même publication arrive
+       sous la catégorie de sa BANQUE ou de sa FAMILLE : les trois lignes du vote du MPC et le taux
+       directeur portaient « BoE », les deux lignes japonaises « Trade ». Le mécanisme de repli
+       existait donc depuis toujours et ne mordait jamais sur les cas qui en avaient le plus besoin
+       — une décision de banque centrale, c'est-à-dire précisément le moment où le fil se remplit
+       de quatre ou cinq lignes quasi identiques à la même minute.
+       ⚠️ CE QUI RESTE HORS DU REPLI, ET C'EST VOULU : `_isImportantNews` continue d'exempter les
+       lignes importantes. La DÉCISION elle-même garde donc sa ligne pleine ; ce sont les lignes de
+       détail qui se replient sous elle. Replier l'annonce d'une hausse de taux dans un accordéon
+       serait remplacer du bruit par une perte d'information. */
+    if (!it || !_GROUPABLE_CATS.has(it.category)) continue;
     if (_isImportantNews(it)) continue;
     econIdxs.push(i);
   }
