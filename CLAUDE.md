@@ -326,6 +326,59 @@ Banc : `scripts/resilience-verif.js` — il EXÉCUTE le keep-alive pour vérifie
 ⚠️ La phrase secrète des archives doit **aussi** vivre hors du serveur : archive et clé sur le même
 disque ne protègent de rien.
 
+## Disque du VPS : cinq paliers, un ballast, et le trou qui restait (07/09 → 10/09)
+
+Le 07/09 le disque a atteint **100 %**. Dans cet état, nginx ne peut plus écrire ses fichiers
+temporaires et **TRONQUE toute réponse de plus de ~750 Ko sans erreur HTTP** : le desk arrive en
+HTML nu, sans style ni script, et **aucun symptôme ne parle de disque**. C'est le pire mode de
+panne du serveur — il se déguise en bug de front.
+
+La protection tient sur **trois étages**, tous vérifiés par `scripts/disque-verif.js` (dans
+`npm run check`) :
+- **Empêcher.** Journaux du conteneur plafonnés (`json-file`, `20m × 5` = 100 Mo max) ; ménage
+  Docker à chaque déploiement (`image prune -a` + `builder prune`, fenêtre `until=168h` — une
+  semaine d'images gardée pour qu'un retour arrière soit un redémarrage de conteneur, pas dix
+  minutes de reconstruction) ; sauvegardes bornées à 3 versions.
+- **Voir.** `scripts/vps/dtp-disque.sh`, minuteur systemd **toutes les 15 min**, au niveau de l'OS
+  (bash + systemd) et NON dans le desk : le moniteur applicatif meurt avec le desk, donc il n'est
+  plus là au moment où on en a besoin. **Cinq paliers** (70 / 80 / 90 / 95 / 98) et surtout
+  **trois critères, pas un seul pourcentage** : le %, un **plancher en Go absolus**, et une
+  **garde de vitesse** — une rafale qui projette 100 % à court terme fait monter le niveau quel
+  que soit le % courant. Le niveau est le **maximum** des trois ; une escalade ne fait que monter.
+- **Agir seul.** 95 % → nettoyage sécurisé + **re-mesure** (on ne conclut jamais « nettoyé » sur le
+  code de retour d'une commande) + frein applicatif sur les écritures régénérables. 98 % →
+  **suppression du BALLAST d'abord** (1 Go inerte posé en permanence : près de 100 %, il n'y a plus
+  la place pour que le nettoyage lui-même s'exécute), puis purge agressive.
+
+⚠️ **LE MÉNAGE VIVAIT DANS LA BRANCHE DU SUCCÈS (trouvé le 10/09, sur alerte à 76 %).** Dans
+`vps-autodeploiement.sh` il était écrit **après** la réponse de `/healthz`, donc à l'intérieur du
+seul chemin qui réussit. Or c'est le chemin qui **échoue** qui remplit le disque : une version dont
+`/healthz` reste muet est reconstruite **tous les quarts d'heure**, indéfiniment (garde des 900 s),
+et aucune de ces constructions n'était nettoyée — quatre par heure, sans fin, pendant qu'on cherche
+pourquoi le desk ne répond pas. **Une relecture ne voit pas ce défaut : les deux morceaux sont
+justes séparément, c'est leur imbrication qui est fausse.** Le ménage est donc en `trap … EXIT`
+posé avant la construction, et le banc **JOUE le vrai script** avec des doublures (`git`, `docker`,
+`curl`, `df`) pour lire ce que `docker` a réellement reçu — avec deux témoins qui mordent.
+⚠️ Corollaire mesuré le même jour : **on ne construit plus sur un disque déjà tendu.** Sous
+`DTP_DEPLOI_GO_MINI` (4 Go) de libre, le ménage passe **AVANT** `docker compose build` — nettoyer
+après coup ne protège de rien si la construction elle-même sature.
+⚠️ Et **`COPY . .` est la DERNIÈRE couche** du Dockerfile, celle qui change à chaque commit : tout
+ce qu'elle contient est réécrit **intégralement à chaque construction** puis gardé une semaine.
+16 PDF (**28 Mo** sur 45 Mo de contexte) y voyageaient, commités avant que `pdf_cache/` n'entre au
+`.gitignore`, et **jamais lus en production** (elle lit `/app/data/pdf_cache`, le volume monté).
+Écartés du contexte ET de git. **Avant d'ajouter quoi que ce soit à la racine du dépôt : ça se paie
+autant de fois qu'on déploie.**
+
+⚠️ **CE QUI RESTE DÉCOUVERT, écrit plutôt que sous-entendu** : si la machine ne répond plus DU TOUT,
+aucun message ne part — **le messager est à bord**. Ce trou ne se bouche que de l'extérieur (sonde
+type UptimeRobot sur `/healthz`). Diagnostic à la main :
+```bash
+bash scripts/vps/dtp-disque.sh --etat     # mesure réelle, n'alerte pas, ne nettoie pas
+docker system df                          # qui pèse : images, cache de construction, volumes
+journalctl -u dtp-disque.service -n 40 --no-pager
+```
+
+
 ## Design : High-Density Fintech HUD
 - Fond sombre **`#0c0c0e`** / `#0a0a0c`, dense (cockpit / salle de marché), mais **habillage landing** : **accents or**, titres **Fraunces** (serif) / **Inter Tight**, cartes à **coins doux** (`--radius` = `6px`) + bordures fines + **hover doré** sur les cartes. Garder la **densité HUD** dans l'habillage or propre à DTP.
 - Lignes de séparation fines : `border-b` très sombre (≈ `neutral-900/60`, token `--hud-line`).

@@ -202,5 +202,98 @@ if (bash) {
   } catch (e) { v('[exécuté] détection monitoring figé', false, 'test impossible: ' + e.message); }
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   LE MÉNAGE DU TIREUR — ON LE JOUE, ON NE LE LIT PAS (10/09/2026)
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   Le ménage de vps-autodeploiement.sh était écrit APRÈS la réponse de /healthz, donc dans le seul
+   chemin qui RÉUSSIT. Or c'est le chemin qui ÉCHOUE qui remplit le disque : une version dont
+   /healthz reste muet est reconstruite tous les quarts d'heure, indéfiniment (garde des 900 s),
+   et aucune de ces constructions n'était nettoyée. Quatre constructions par heure sans ménage,
+   c'est un disque qui se remplit tout seul pendant qu'on cherche pourquoi le desk ne répond pas.
+   Une RELECTURE ne voit pas ce défaut : les deux morceaux sont justes séparément, c'est leur
+   IMBRICATION qui est fausse. On exécute donc le VRAI script avec des doublures (git, docker,
+   curl, sleep, df) et on regarde ce que `docker` a réellement reçu.
+   Sans bash, on s'abstient — même idiome que le reste du fichier. ══════════════════════════════ */
+if (bash) {
+  const os = require('os');
+  const AUTO_SRC = lire('scripts/vps-autodeploiement.sh');
+  // Joue le tireur avec des doublures ; rend la trace des appels `docker`.
+  // libreKo : ce que `df` annonce de libre. curlOk : /healthz répond ou non. patch : transforme
+  // le source du script (sert aux TÉMOINS — on éprouve l'absence de la garde, pas une copie).
+  const jouer = (libreKo, curlOk, patch) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dtpauto-'));
+    fs.mkdirSync(path.join(dir, 'data'), { recursive: true });
+    const stub = fs.mkdtempSync(path.join(os.tmpdir(), 'dtpstub-'));
+    const trace = path.join(dir, 'trace');
+    const ecrire = (n, corps) => { const f = path.join(stub, n); fs.writeFileSync(f, corps); fs.chmodSync(f, 0o755); };
+    ecrire('git', '#!/bin/sh\ncase "$1" in rev-parse) echo 1111111111111111111111111111111111111111;; esac\nexit 0\n');
+    ecrire('docker', '#!/bin/sh\necho "$@" >> "' + trace.replace(/\\/g, '/') + '"\nexit 0\n');
+    ecrire('curl', '#!/bin/sh\nexit ' + (curlOk ? '0' : '1') + '\n');
+    ecrire('sleep', '#!/bin/sh\nexit 0\n');
+    ecrire('df', '#!/bin/sh\necho "Filesystem 1024-blocks Used Available Capacity Mounted on"\necho "s 24000000 ' + (24000000 - libreKo) + ' ' + libreKo + ' 50% /"\nexit 0\n');
+    const script = path.join(dir, 'tireur.sh');
+    fs.writeFileSync(script, patch ? patch(AUTO_SRC) : AUTO_SRC);
+    try {
+      cp.execFileSync('bash', [script], {
+        // ⚠️ stdio CAPTURÉ, JAMAIS HÉRITÉ. Le chemin d'échec qu'on éprouve ici écrit « ✗ /healthz
+        // muet » sur la sortie d'erreur : hérité, ce ✗ atterrit dans le journal de `npm run check`
+        // et fait compter DEUX ROUGES à qui relit le log au grep. Un banc ne doit jamais salir la
+        // trace qu'on utilise pour le juger.
+        cwd: RACINE, encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'],
+        env: Object.assign({}, process.env, { PATH: stub + path.delimiter + process.env.PATH, DTP_DIR: dir, DTP_URL: 'http://exemple.invalide' })
+      });
+    } catch { /* le chemin d'échec sort en 1 — c'est précisément celui qu'on éprouve */ }
+    let t = ''; try { t = fs.readFileSync(trace, 'utf8'); } catch {}
+    try { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(stub, { recursive: true, force: true }); } catch {}
+    return t;
+  };
+  const iBuild = (t) => t.split('\n').findIndex((l) => /compose build/.test(l));
+  const iPrune = (t) => t.split('\n').findIndex((l) => /image prune/.test(l));
+
+  console.log('\n── Le tireur nettoie-t-il VRAIMENT, y compris quand le déploiement échoue ? ──');
+  const LARGE = 12000000, ETROIT = 400000;   // ~11,4 Go libres / ~0,4 Go libres
+
+  const echec = jouer(LARGE, false, null);
+  v('[exécuté] /healthz muet : la construction a bien eu lieu', iBuild(echec) >= 0, 'trace:\n' + echec);
+  v('[exécuté] … et le ménage tourne QUAND MÊME (c’est ce chemin qui se rejoue tous les 1/4 h)',
+    iPrune(echec) >= 0, 'aucun `image prune` dans la trace — le ménage est retombé dans la branche du succès.\n' + echec);
+  v('[exécuté] … le cache de construction aussi', /builder prune/.test(echec), echec);
+
+  const succes = jouer(LARGE, true, null);
+  v('[exécuté] déploiement réussi : le ménage tourne aussi', iPrune(succes) >= 0, succes);
+  v('[exécuté] … et APRÈS la construction (on garde l’image précédente et le cache chaud)',
+    iBuild(succes) >= 0 && iPrune(succes) > iBuild(succes), succes);
+
+  console.log('\n── Une construction ne démarre pas sur un disque déjà tendu ──');
+  const tendu = jouer(ETROIT, true, null);
+  v('[exécuté] 0,4 Go libres : on fait de la place AVANT de construire',
+    iPrune(tendu) >= 0 && iBuild(tendu) >= 0 && iPrune(tendu) < iBuild(tendu),
+    'à 100 %, nginx tronque en silence toute réponse de plus de ~750 Ko (07/09) : nettoyer après coup ne protège de rien.\n' + tendu);
+
+  console.log('\n── Ce que chaque construction écrit sur le disque ──');
+  /* `COPY . .` est la DERNIÈRE couche du Dockerfile, donc celle qui change à chaque commit : tout
+     ce qu'elle contient est réécrit ENTIÈREMENT à chaque construction, puis gardé une semaine par
+     le `--filter until=168h`. Un cache régénérable qui traîne dans le contexte se paie donc autant
+     de fois qu'on déploie. Mesuré le 10/09 : 16 PDF, 28 Mo, sur 45 Mo de contexte — les deux tiers,
+     pour des fichiers que la production ne lit jamais (elle lit /app/data/pdf_cache, le volume). */
+  const DOCKIGN = lire('.dockerignore');
+  v('.dockerignore écarte le cache PDF régénérable', /^pdf_cache\/?$/m.test(DOCKIGN),
+    'sans cette ligne, le cache repart dans l’image dès qu’il se reforme localement.');
+  let suivis = '';
+  try { suivis = cp.execFileSync('git', ['ls-files', 'pdf_cache'], { cwd: RACINE, encoding: 'utf8' }).trim(); } catch { suivis = ''; }
+  const octets = suivis ? suivis.split('\n').reduce((n, f) => { try { return n + fs.statSync(path.join(RACINE, f)).size; } catch { return n; } }, 0) : 0;
+  v('… et git n’en suit plus aucun fichier (rien à embarquer)', suivis === '',
+    suivis.split('\n').length + ' fichier(s), ' + Math.round(octets / 1048576) + ' Mo réécrits à CHAQUE construction et gardés 7 jours.');
+
+  // ── LES TÉMOINS : chacun doit MORDRE séparément, sinon le banc récite au lieu de mesurer.
+  const sansTrap = jouer(LARGE, false, (s2) => s2.replace(/^trap _menage_docker EXIT$/m, ''));
+  v('[témoin] sans le `trap`, le chemin d’échec ne nettoie plus rien', iPrune(sansTrap) < 0,
+    'le témoin ne mord pas : le contrôle ci-dessus passerait même sans la correction.\n' + sansTrap);
+  const sansGarde = jouer(ETROIT, true, (s2) => s2.replace(/^LIBRE_GO="\$\(_libre_go\)"$/m, 'LIBRE_GO=999'));
+  v('[témoin] sans la garde d’avant-construction, on construit d’abord sur le disque tendu',
+    iPrune(sansGarde) >= 0 && iBuild(sansGarde) >= 0 && iPrune(sansGarde) > iBuild(sansGarde), sansGarde);
+}
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec' : '✓ ' + ok + ' contrôles au vert') + '\n');
 process.exit(ko ? 1 : 0);

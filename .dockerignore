@@ -12,6 +12,14 @@ news_history.json
 server_out.txt
 server_err.txt
 data/
+# ⚠️ CACHE RÉGÉNÉRABLE — IL NE DOIT PAS ENTRER DANS L'IMAGE (10/09/2026).
+# 16 PDF (28 Mo, dont un de 18,5 Mo) avaient été commités AVANT que `pdf_cache/` n'entre dans le
+# .gitignore. Ils partaient donc dans le contexte de construction, et `COPY . .` étant la DERNIÈRE
+# couche — celle qui change à chaque commit — ces 28 Mo étaient réécrits À CHAQUE construction et
+# gardés une semaine par le `--filter until=168h` du ménage. À la cadence de déploiement actuelle
+# c'est le gros du remplissage du disque, pour des fichiers que la production NE LIT JAMAIS : elle
+# lit `/app/data/pdf_cache`, le volume monté (DATA_DIR), pas la copie figée dans l'image.
+pdf_cache/
 *.db
 .claude
 memory

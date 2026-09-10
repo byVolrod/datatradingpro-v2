@@ -30,6 +30,44 @@ URL="${DTP_URL:-https://desk.datatradingpro.com}"
 MARQUE="$DOSSIER/data/.version-deployee"
 ESSAI="$DOSSIER/data/.version-essayee"
 
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+#   LE MÉNAGE — ET POURQUOI IL NE VIT PLUS DANS LA BRANCHE DU SUCCÈS (10/09/2026)
+#   ────────────────────────────────────────────────────────────────────────────────────────────
+#   Il était écrit APRÈS la réponse de /healthz, donc À L'INTÉRIEUR du seul chemin qui réussit.
+#   Or c'est le chemin qui ÉCHOUE qui remplit le disque : une version dont /healthz reste muet
+#   est reconstruite TOUS LES QUARTS D'HEURE (garde des 900 s, plus haut), indéfiniment, et
+#   chacune de ces constructions laissait derrière elle son image et son cache SANS QUE RIEN NE
+#   LES RETIRE. Quatre constructions par heure qui ne nettoient jamais, c'est un disque qui se
+#   remplit tout seul pendant qu'on cherche pourquoi le desk ne répond pas — c'est-à-dire au pire
+#   moment. Le ménage est donc posé en `trap … EXIT` juste avant la construction : il tourne
+#   quelle que soit l'issue, succès, échec de build, /healthz muet ou interruption.
+#
+#   ⚠️ POURQUOI `-a`, ALORS QUE deploy.sh se contentait de `prune -f`. Sans `-a`, seules les
+#   images SANS NOM sont retirées. Or celles qui se sont accumulées ici étaient NOMMÉES et
+#   inutilisées — `node:20`, `datatradingpro-datatradingpro:latest`, restes de configurations
+#   précédentes. La commande tournait, ne signalait aucune erreur, et ne libérait rien.
+#
+#   ⚠️ POURQUOI `until=168h` ET PAS UNE PURGE TOTALE. Garder une semaine d'images permet de
+#   revenir à la version précédente par un simple redémarrage de conteneur. Tout purger
+#   obligerait à reconstruire depuis Git (~10 min) le jour où il faut revenir en arrière vite —
+#   c'est-à-dire le pire jour pour attendre dix minutes. Une semaine borne la croissance sans
+#   sacrifier le retour arrière.
+#
+#   L'image EN SERVICE n'est jamais concernée : un conteneur tourne dessus, Docker la protège.
+#   Les montages liés data/* et les volumes ne sont pas touchés (aucun `--volumes` ici).
+#   `|| true` : un ménage qui échoue ne doit JAMAIS faire échouer un déploiement réussi.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+_menage_docker() {
+  docker image prune -a -f --filter until=168h >/dev/null 2>&1 || true
+  docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
+  echo "[autodeploiement] ménage : images et cache de plus de 7 jours retirés — $(df -P / | tail -1 | awk '{print $(NF-1)}') utilisé"
+}
+
+# Go libres sur la racine. Colonnes lues DEPUIS LA FIN, comme la sentinelle disque : un nom de
+# périphérique contenant un espace décale tout découpage fait depuis le début.
+_libre_go() { df -P / 2>/dev/null | tail -1 | awk '{printf "%.1f", $(NF-2)/1048576}'; }
+
+
 cd "$DOSSIER"
 
 # Réseau qui tousse → on réessaie au prochain tick, sans bruit. Le « + » du refspec est
@@ -58,6 +96,21 @@ echo "[autodeploiement] jalon $JALON → ${CIBLE:0:7} : déploiement"
 echo "$CIBLE $(date +%s)" > "$ESSAI"
 
 git reset --hard --quiet "$CIBLE"
+# ── NE PAS CONSTRUIRE SUR UN DISQUE DÉJÀ TENDU ─────────────────────────────────────────────────
+# Le ménage d'après-coup ne protège de rien si la construction elle-même sature le disque : à
+# 100 %, nginx tronque en silence toute réponse de plus de ~750 Ko et le desk arrive nu (07/09).
+# On regarde donc AVANT, et on fait de la place d'abord quand il en reste peu. En régime normal
+# cette branche ne se déclenche jamais — on garde l'image précédente et le cache chaud.
+LIBRE_GO="$(_libre_go)"
+if [ -n "$LIBRE_GO" ] && awk -v g="$LIBRE_GO" -v s="${DTP_DEPLOI_GO_MINI:-4.0}" 'BEGIN{exit !(g<s)}'; then
+  echo "[autodeploiement] ${LIBRE_GO} Go libres seulement — ménage AVANT de construire"
+  _menage_docker
+fi
+
+# Le ménage tourne QUELLE QUE SOIT L'ISSUE (voir l'encadré plus haut) : c'est le chemin d'échec,
+# rejoué tous les quarts d'heure, qui remplissait le disque.
+trap _menage_docker EXIT
+
 docker compose build "$SERVICE"
 docker compose up -d "$SERVICE"
 
@@ -66,32 +119,6 @@ for i in $(seq 1 20); do
   if curl -fsS --max-time 5 "$URL/healthz" >/dev/null 2>&1; then
     echo "$CIBLE" > "$MARQUE"
     echo "[autodeploiement] ✓ ${CIBLE:0:7} en ligne ($URL)"
-
-    # ── MÉNAGE APRÈS DÉPLOIEMENT — LE TROU PAR LEQUEL LE DISQUE S'EST REMPLI (07/09/2026) ──────
-    # Ce chemin-ci est celui qui tourne à CHAQUE push, et il ne nettoyait RIEN. Chaque construction
-    # laissait derrière elle son image et ses couches de cache ; en quelques mois le disque a
-    # atteint 100 %, et à partir de là nginx s'est mis à tronquer toute réponse dépassant ~750 Ko
-    # sans jamais émettre d'erreur : le desk arrivait en HTML nu. La panne a coûté des heures parce
-    # qu'aucun de ses symptômes ne parlait de disque.
-    #
-    # ⚠️ POURQUOI `-a`, ALORS QUE deploy.sh se contentait de `prune -f`. Sans `-a`, seules les
-    # images SANS NOM sont retirées. Or celles qui se sont accumulées ici étaient NOMMÉES et
-    # inutilisées — `node:20`, `datatradingpro-datatradingpro:latest`, restes de configurations
-    # précédentes. La commande tournait, ne signalait aucune erreur, et ne libérait rien.
-    #
-    # ⚠️ POURQUOI `until=168h` ET PAS UNE PURGE TOTALE. Garder une semaine d'images permet de
-    # revenir à la version précédente par un simple redémarrage de conteneur. Tout purger
-    # obligerait à reconstruire depuis Git (~10 min) le jour où il faut revenir en arrière vite —
-    # c'est-à-dire le pire jour pour attendre dix minutes. Une semaine borne la croissance sans
-    # sacrifier le retour arrière.
-    #
-    # L'image EN SERVICE n'est jamais concernée : un conteneur tourne dessus, Docker la protège.
-    # Les montages liés data/* et les volumes ne sont pas touchés (aucun `--volumes` ici).
-    # `|| true` : un ménage qui échoue ne doit JAMAIS faire échouer un déploiement réussi.
-    docker image prune -a -f --filter until=168h >/dev/null 2>&1 || true
-    docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
-    echo "[autodeploiement] ménage : images et cache de plus de 7 jours retirés — $(df -P / | tail -1 | awk '{print $(NF-1)}') utilisé"
-
     exit 0
   fi
   sleep 3
