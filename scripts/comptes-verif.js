@@ -208,7 +208,39 @@ t('le compte actif se signale (les statistiques affichées sont partielles)',
      est bien ajoutée au DOM mais jamais positionnée — elle tombe à sa position statique, très
      loin sous le contrôle. On extrait la vraie, du même fichier, jamais un bouchon qui rendrait 1
      et masquerait précisément le défaut que ces contrôles surveillent. */
-  const srcZoom = entre('  var facteurZoom = function () {', '  /* La bulle est posée SUR <body>');
+  const srcZoom = entre('var facteurZoom = function () {', '\n(function _aideAuTap()');
+
+/* ══ LA PORTÉE RÉELLE, QUE js-verif NE PEUT PAS VOIR (10/09) ═══════════════════════════════════
+   Défaut vécu en production : `_jrOpenPop` appelait `facteurZoom`, déclarée mille lignes plus
+   haut DANS l'IIFE `_aideAuTap` — donc invisible depuis les menus du Journal. Au clic, un
+   ReferenceError était levé JUSTE APRÈS l'ajout de la bulle au DOM : elle existait, n'était
+   jamais positionnée, et ne s'affichait nulle part. Rien en console pour l'utilisateur, un menu
+   mort. `js-verif` déduit la portée client des `<script src>` de chaque page, donc PAR FICHIER :
+   un identifiant déclaré n'importe où dans app.js lui paraît visible partout dans app.js, et les
+   IIFE lui échappent par construction. Ce banc-ci ne pouvait pas le voir non plus, puisque son
+   harnais INJECTE `facteurZoom` — un harnais ne teste jamais la portée du fichier réel.
+   ON LIT DONC LE FICHIER : toute IIFE ouverte en colonne 0 et refermée AVANT la ligne de
+   `_jrOpenPop` est une portée fermée ; la déclaration ne doit pas y être. */
+function _porteePartagee() {
+  const L = APP.split('\n');
+  const ligne = (motif) => L.findIndex(x => motif.test(x)) + 1;
+  const decl = ligne(/^\s*var facteurZoom = function/);
+  const usage = ligne(/^\s*function _jrOpenPop\(/);
+  if (!decl || !usage) return { ko: 'déclaration ou usage introuvable', decl, usage };
+  const closes = [];
+  let ouverte = null;
+  for (let i = 0; i < L.length; i++) {
+    if (/^\(function/.test(L[i]) || /^\(\(\) =>/.test(L[i])) ouverte = i + 1;
+    else if (/^\}\)\(\);|^\}\(\)\);/.test(L[i]) && ouverte) { closes.push([ouverte, i + 1]); ouverte = null; }
+  }
+  const piege = closes.find(([d, f]) => decl >= d && decl <= f && f < usage);
+  return { decl, usage, piege: piege || null, iife: closes.length };
+}
+const _sc = _porteePartagee();
+t('facteurZoom est visible depuis _jrOpenPop (aucune IIFE refermée entre les deux)',
+  !_sc.ko && !_sc.piege,
+  _sc.ko || (_sc.piege ? 'déclarée ligne ' + _sc.decl + ', dans une IIFE fermée ligne ' + _sc.piege[1]
+    + ' — usage ligne ' + _sc.usage : 'décl. ' + _sc.decl + ' · usage ' + _sc.usage));
   const srcPop = entre('  let _jrPop = null, _jrPopOut = null;', '  function _jrEditCell(td) {')
     .replace(/  let _jrDragK[^\n]*\n/, '');
 

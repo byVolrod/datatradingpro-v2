@@ -768,6 +768,27 @@ function _majPhrase(s) {
    la bulle native du bureau : rien n'y change. Un seul écouteur délégué pour tout le desk ; une
    seule bulle ouverte à la fois ; et `stopPropagation`, sans quoi taper l'éclair d'une ligne de
    calendrier ouvrirait AUSSI le Décryptage de cette ligne. */
+/* ══ LE ZOOM DU DESK, AU PREMIER NIVEAU DU FICHIER ═══════════════════════════════════════════════
+   `html { zoom: var(--dtp-zoom) }` vaut .9 par défaut et se règle PAR COMPTE (Apparence, .7 à 1.2).
+   `getBoundingClientRect()` et `innerWidth` rendent des pixels ÉCRAN, alors que le `top`/`left`
+   qu'on écrit sur un enfant de <body> est RE-multiplié par ce même zoom. Sans division, une bulle
+   dérive proportionnellement à sa distance au coin haut-gauche : rien de visible en haut à gauche,
+   un décalage franc plus bas — le genre de bug qu'on ne voit pas sur sa propre machine.
+   ⚠️ ELLE ÉTAIT DÉCLARÉE DANS L'IIFE `_aideAuTap`, ET C'EST CE QUI A CASSÉ LES MENUS DU JOURNAL
+   (10/09, capture user : « quand j'ouvre y'a rien qui s'affiche »). En l'appelant depuis
+   `_jrOpenPop`, mille lignes plus bas et hors de cette IIFE, le clic levait un ReferenceError
+   JUSTE APRÈS que la bulle ait été ajoutée au DOM : elle existait, n'était jamais positionnée,
+   et restait invisible. Aucune erreur visible pour l'utilisateur, un menu qui ne s'ouvre pas.
+   ⚠️ ET `js-verif` NE POUVAIT PAS L'ATTRAPER : il déduit la portée CLIENT des `<script src>` de
+   chaque page, donc PAR FICHIER — un identifiant déclaré n'importe où dans app.js lui paraît
+   visible partout dans app.js. Les IIFE lui échappent par construction. Un contrôle dédié le
+   couvre désormais dans `comptes-verif`. */
+var facteurZoom = function () {
+  var b = document.body;
+  var f = (b && b.offsetWidth > 0) ? (b.getBoundingClientRect().width / b.offsetWidth) : 1;
+  return (isFinite(f) && f > 0.2) ? f : 1;
+};
+
 (function _aideAuTap() {
   var MARGE = 8;            // respiration minimale contre les bords de l'écran
   var ECART = 7;            // distance glyphe → bulle
@@ -785,16 +806,9 @@ function _majPhrase(s) {
   // avec clavier détachable change de mode sans recharger la page.
   var tactile = function () { try { return window.matchMedia && window.matchMedia('(hover: none)').matches; } catch (e) { return false; } };
 
-  /* `html { zoom: var(--dtp-zoom) }` — et ce zoom est RÉGLABLE PAR COMPTE (Apparence, .7 à 1.2).
-     getBoundingClientRect() et innerWidth rendent des pixels ÉCRAN, alors que le `left` qu'on écrit
-     sur un enfant de <body> est RE-multiplié par ce même zoom. Sans division la bulle dérive
-     proportionnellement à sa distance au coin haut-gauche : rien de visible à gauche de l'écran,
-     un décalage franc à droite — exactement le genre de bug qu'on ne voit pas sur sa propre machine. */
-  var facteurZoom = function () {
-    var b = document.body;
-    var f = (b && b.offsetWidth > 0) ? (b.getBoundingClientRect().width / b.offsetWidth) : 1;
-    return (isFinite(f) && f > 0.2) ? f : 1;
-  };
+  /* `facteurZoom` VIVAIT ICI, et c'était un piège (10/09) : cette IIFE se referme mille lignes
+     plus haut que les menus du Journal, qui l'appellent aussi. Elle est remontée au premier niveau
+     du fichier — visible d'ici comme de là. Voir sa définition, et la raison de ce déplacement. */
 
   /* La bulle est posée SUR <body>, jamais en ::after du glyphe : ses deux hôtes vivent dans des
      panneaux à `overflow: auto` (.cal-table-wrap, .sbs-left). Un pseudo-élément y serait rogné dès
