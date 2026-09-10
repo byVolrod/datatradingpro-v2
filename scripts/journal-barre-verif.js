@@ -167,6 +167,43 @@ t('les boutons gardent leur explication en infobulle malgré un libellé court',
       large.bx > large.sx, 'x = ' + Math.round(large.sx) + ' / ' + Math.round(large.bx));
     t('… et rien ne déborde horizontalement', large.deb <= 1, 'débord ' + large.deb + 'px');
 
+    /* ══ LA VUE ADOPTÉE DANS UNE CARTE ÉTROITE (10/09) ═══════════════════════════════════════
+       Le Journal est ADOPTABLE : `widgets.js` déplace physiquement `.panel-journal` de
+       `#view-journal` dans une carte à onglets de `#view-widgets`, puis le remet. Cette carte
+       coupe à `overflow: hidden`. Mesuré le jour même de la refonte de la bande : à 414px de
+       carte, la barre d'actions débordait de 92px — quatre boutons devenus INATTEIGNABLES, dont
+       « + Nouveau ». Elle déclarait pourtant `flex-wrap: wrap` ; mais en `flex: 0 0 auto` dans la
+       bande, rien ne contraignait sa largeur, donc son repli ne se déclenchait jamais. Une
+       propriété de repli ne sert à rien sans une contrainte qui la déclenche.
+       ⚠️ ON ÉPROUVE LES DEUX CONTEXTES : la vue adoptée n'a pas les mêmes règles que la vue
+       normale (`#view-widgets .jr-toolbar`, `#view-widgets .jr-tb-spacer`), et c'est justement
+       celle que personne ne regarde en développant. */
+    for (const ctx of ['view-widgets', 'view-journal']) {
+      for (const w of [900, 560, 414, 342]) {
+        const m = await page.evaluate((ctx, w) => {
+          const hote = document.getElementById('view-journal') || document.querySelector('.view-panel');
+          hote.id = ctx;                                   // on rejoue le contexte, la feuille fait le reste
+          const cadre = document.querySelector('.panel-journal') || hote;
+          cadre.style.width = w + 'px';
+          cadre.style.overflow = 'hidden';
+          const c = cadre.getBoundingClientRect();
+          const s = document.getElementById('jr-stats').getBoundingClientRect();
+          const t = document.getElementById('jr-toolbar').getBoundingClientRect();
+          const btns = [...document.querySelectorAll('#jr-toolbar > button')].map(e => e.getBoundingClientRect());
+          return { debord: Math.round(Math.max(s.right, t.right) - c.right),
+            vus: btns.filter(b => b.right <= c.right + 1 && b.width > 0).length, total: btns.length };
+        }, ctx, w);
+        t('bande à ' + w + 'px dans ' + ctx + ' : rien ne déborde de la carte',
+          m.debord <= 1, 'débord ' + m.debord + 'px');
+        t('… et les ' + m.total + ' boutons restent atteignables',
+          m.total > 0 && m.vus === m.total, m.vus + '/' + m.total);
+      }
+    }
+    await page.evaluate(() => {
+      const h = document.querySelector('.view-panel'); if (h) h.id = 'view-journal';
+      const c = document.querySelector('.panel-journal'); if (c) { c.style.width = ''; c.style.overflow = ''; }
+    });
+
     await page.setViewport({ width: 700, height: 900 });
     await new Promise(r => setTimeout(r, 200));
     const etroit = await page.evaluate(() => {

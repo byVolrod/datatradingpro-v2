@@ -11174,7 +11174,14 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .jr-flt-clear[hidden] { display: none; }
 .jr-flt-count { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--text3); white-space: nowrap; }
 .jr-flt-count--on { color: var(--orange); }
-.jr-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; flex: 0 0 auto; }
+/* ⚠️ ELLE DOIT POUVOIR RÉTRÉCIR, SANS QUOI SON PROPRE REPLI NE SERT À RIEN (10/09, mesuré).
+   En `flex: 0 0 auto` dans la bande, rien ne contraignait sa largeur : elle gardait ses 463px
+   intrinsèques dans une carte de 414 — et `flex-wrap: wrap`, déclaré juste ici, ne se déclenchait
+   jamais. Le Journal est une vue ADOPTABLE : le desk déplace physiquement son panneau dans une
+   carte à onglets, qui coupe à `overflow: hidden`. Les boutons débordaient donc de 92px et
+   devenaient inatteignables. `0 1 auto` + `min-width: 0` rendent la contrainte effective, et le
+   repli s'occupe du reste. Sur le desk pleine largeur, rien ne bouge : il y a la place. */
+.jr-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 14px; flex: 0 1 auto; min-width: 0; }
 .jr-tb-btn { height: 28px; padding: 0 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg3); color: var(--text2); font-size: var(--fs-title); font-family: var(--font-ui); cursor: pointer; transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease); white-space: nowrap; }
 .jr-tb-btn:hover { color: var(--text); border-color: var(--border2); background: var(--bg2); }
 .jr-tb-btn--add { background: rgba(227,178,58,0.14); border-color: rgba(227,178,58,0.42); color: var(--orange); font-weight: var(--fw-bold); }
