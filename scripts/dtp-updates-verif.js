@@ -325,6 +325,24 @@ function autotest() {
      règle mord, et qu'elle ne crie pas sur une annonce propre. */
   const cTiret = defautsDeLangue("+  { id: 'dtpu-20260931-tiret', title: 'Un essai', desc: 'Une annonce déjà écrite avec le caractère banni — précisément celui-là — doit être retenue ici même, avant de partir chez les clients. Le garde-fou relit chaque phrase ajoutée et réclame des accents réguliers.' },");
   v('le cadratin d’une annonce NEUVE est REFUSÉ', cTiret.some(x => /cadratin/.test(x)), cTiret.join(' | '));
+  /* ── LE CLIQUET DU CADRATIN, ET POURQUOI IL FALLAIT L'AJOUTER ICI (10/09) ──────────────────────
+     `defautsDeLangue` ne tourne QUE sur un DIFF GIT, appelé par le hook `pre-commit`. Or un hook
+     n'est pas versionné : dans un clone neuf — toute session distante en conteneur éphémère — il
+     N'EXISTE PAS. Le veto du 14/08 n'a donc jamais été opposé nulle part depuis, et la mesure le
+     dit sans ambiguïté : les 153 annonces qui portent « — » sont TOUTES postérieures au veto.
+     La règle existait, le contrôle existait, et rien ne les appliquait : encore un garde-fou qui a
+     l'air posé. Le cliquet, lui, vit dans `npm run check`, qui tourne en CI à CHAQUE poussée et ne
+     peut pas être sauté. Même idiome que PLAFOND_ORPHELINES : la dette d'hier ne bloque pas, une
+     de plus fait rougir. LE BAISSER quand on en nettoie une, sinon le cliquet ne cliquette plus.
+     ⚠️ On ne réécrit pas l'histoire : le desk nettoie déjà au serve (_noDash, contrôlé ci-dessus).
+     Ce cliquet empêche la dette de GRANDIR, il ne prétend pas qu'elle n'existe pas. */
+  const PLAFOND_CADRATINS = 153;
+  const nCad = (corpus.match(/\{ id: 'dtpu-[^\n]*/g) || []).filter(l => l.includes('—')).length;
+  v('cliquet : pas UNE annonce de plus avec un cadratin (plafond ' + PLAFOND_CADRATINS + ')',
+    nCad <= PLAFOND_CADRATINS, nCad + ' annonces portent « — » : le veto du 14/08 les bannit du contenu affiché. '
+    + 'Si vous venez d’en nettoyer, BAISSEZ le plafond dans dtp-updates-verif.js.');
+  v('… et le plafond ne dort pas au-dessus du réel (sinon il ne cliquette plus)',
+    nCad >= PLAFOND_CADRATINS, 'plafond ' + PLAFOND_CADRATINS + ' pour ' + nCad + ' réelles : à baisser à ' + nCad + '.');
   v('la coquille « , , » ne vit plus dans le corpus livré', !corpus.includes(', ,'),
     'une double virgule traîne dans une annonce (classe de coquille réparée le 29/08)');
   console.log(ko ? '\n✗ ' + ko + ' ÉCHEC(S)\n' : '\n✓ le garde-fou de langue tient.\n');

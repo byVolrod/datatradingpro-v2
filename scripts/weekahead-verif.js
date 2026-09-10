@@ -565,6 +565,108 @@ console.log('\n── 18. JOUR DE DÉCISION DE TAUX : la carte porte le pricing 
     /const WA_VER = 'v3[1-9]|const WA_VER = 'v[4-9]\d/.test(src) && /v30 \(30\/08, suite de l'audit taux/.test(src));
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   « LIRE LA SUITE » : LA JAUGE DANS UN CONTENEUR SANS HAUTEUR (10/09)
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   Le bouton ne doit apparaître que si la description DÉBORDE de son clamp. La mesure se faisait
+   dans un rAF unique sans regarder si le conteneur était rendu : dans un `display:none`,
+   scrollHeight = clientHeight = 0, donc `0 <= 0 + 4` est VRAI et le bouton disparaissait de TOUTES
+   les cartes. Mesuré avant correction : 81 px de texte pour 40 px visibles, aucun bouton.
+   ⚠️ ON ÉPROUVE LES DEUX SENS. « Corriger » en affichant toujours le bouton serait une régression :
+   une carte courte porterait un bouton qui ne déplie rien. Les quatre cas ci-dessous fixent la
+   règle dans son entier, et le témoin rejoue l'ANCIENNE mesure pour vérifier qu'elle mordait.
+   Sans Chromium, cette section s'abstient — même idiome que desk-verif. ═════════════════════════ */
+_attente = _attente.then(async () => {
+  const http = require('http'), fs = require('fs'), path = require('path');
+  let pptr; try { pptr = require('puppeteer-core'); } catch { console.log('\n[SàV] puppeteer-core absent → phase navigateur abstenue.'); return; }
+  const bin = process.env.PUPPETEER_EXECUTABLE_PATH || '/opt/pw-browsers/chromium';
+  if (!fs.existsSync(bin)) { console.log('\n[SàV] Chromium introuvable → phase navigateur abstenue.'); return; }
+
+  const RAC = path.join(__dirname, '..');
+  const APP = fs.readFileSync(path.join(RAC, 'public/js/app.js'), 'utf8');
+  const CHARTS = fs.readFileSync(path.join(RAC, 'public/js/charts.js'), 'utf8');
+
+  console.log('\n── « Lire la suite » : la jauge ne décide jamais dans un conteneur caché ──');
+  /* LA VRAIE FONCTION, extraite d'app.js — jamais une copie : un banc qui récite son propre code
+     reste vert quand la source change. La borne est un contrat (leçon du 10/09 sur tactile-verif). */
+  const d0 = APP.indexOf('function _waJaugerCartes(host) {');
+  verif('_waJaugerCartes est extractible d’app.js', d0 >= 0, 'la jauge a été renommée ou supprimée');
+  if (d0 < 0) return;
+  const SRC_JAUGE = APP.slice(d0, APP.indexOf('\n}', d0) + 2);
+
+  const LONG = 'La Réserve fédérale publie ses minutes ce mercredi et le marché price déjà une inflexion du discours ; '
+    + 'le consensus attend une révision des projections de croissance, un ton plus prudent sur l’emploi et un calendrier '
+    + 'de fin de cycle repoussé au second semestre, ce qui ferait bouger la courbe deux ans en priorité.';
+  const COURT = 'Rien de majeur ce jour.';
+  const carte = (txt) => '<div class="wa-day"><div class="wa-card wa-card--high">'
+    + '<div class="wa-card-head"><div class="wa-card-headl"><span class="wa-card-title">Minutes du FOMC</span></div></div>'
+    + '<div class="wa-card-desc">' + txt + '</div>'
+    + '<button class="wa-more" type="button">Lire la suite</button></div></div>';
+
+  const PORT = 39417;
+  const srv = http.createServer((req, res) => {
+    if (req.url.startsWith('/css/')) { res.writeHead(200, { 'Content-Type': 'text/css' }); return res.end(fs.readFileSync(path.join(RAC, 'public', req.url.split('?')[0]))); }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end('<!doctype html><html lang="fr"><head><meta charset="utf-8"><link rel="stylesheet" href="/css/style.css"></head><body>'
+      + '<div class="view-panel hidden" id="vue-cachee"><div class="wa3"><div class="wa-scroll" id="hote-cache"></div></div></div>'
+      + '<div class="view-panel" id="vue-visible"><div class="wa3"><div class="wa-scroll" id="hote-visible"></div></div></div>'
+      + '</body></html>');
+  });
+  await new Promise(r => srv.listen(PORT, r));
+  let nav;
+  try { nav = await pptr.launch({ executablePath: bin, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] }); }
+  catch (e) { console.log('[SàV] Chromium refuse de démarrer → phase abstenue (' + String(e.message).slice(0, 60) + ').'); srv.close(); return; }
+  try {
+    const page = await nav.newPage();
+    await page.setViewport({ width: 1440, height: 900 });
+    await page.goto('http://localhost:' + PORT + '/', { waitUntil: 'networkidle0', timeout: 30000 });
+    await page.evaluate(SRC_JAUGE + '\nwindow._waJaugerCartes = _waJaugerCartes;');
+
+    const mesurer = (host, htmlCartes, ancienne) => page.evaluate(async (h, html, vieux) => {
+      const hote = document.getElementById(h);
+      hote.innerHTML = '<div class="wa-wrap"><div class="wa-timeline">' + html + '</div></div>';
+      await new Promise(r => requestAnimationFrame(r));
+      if (vieux) {   // TÉMOIN : l'ANCIENNE mesure, sans garde de visibilité
+        hote.querySelectorAll('.wa-card').forEach(c => {
+          const b = c.querySelector('.wa-card-desc'), t = c.querySelector('.wa-more');
+          if (b && t && b.scrollHeight <= b.clientHeight + 4) t.style.display = 'none';
+        });
+      } else window._waJaugerCartes(hote);
+      const cache = document.getElementById('vue-cachee');
+      if (cache.classList.contains('hidden')) { cache.classList.remove('hidden'); await new Promise(r => requestAnimationFrame(r)); if (!vieux) window._waJaugerCartes(hote); }
+      const d = hote.querySelector('.wa-card-desc'), t = hote.querySelector('.wa-more');
+      return { bouton: getComputedStyle(t).display !== 'none', deborde: d.scrollHeight > d.clientHeight + 4, sh: d.scrollHeight, ch: d.clientHeight };
+    }, host, htmlCartes, !!ancienne);
+    const rearmer = () => page.evaluate(() => { document.getElementById('vue-cachee').classList.add('hidden'); });
+
+    const vLong = await mesurer('hote-visible', carte(LONG));
+    verif('visible + texte long : le texte déborde ET le bouton est là', vLong.deborde && vLong.bouton, JSON.stringify(vLong));
+    const vCourt = await mesurer('hote-visible', carte(COURT));
+    verif('visible + texte court : pas de débordement, DONC pas de bouton', !vCourt.deborde && !vCourt.bouton,
+      'un bouton qui ne déplie rien est une régression, pas une correction — ' + JSON.stringify(vCourt));
+
+    await rearmer();
+    const cLong = await mesurer('hote-cache', carte(LONG));
+    verif('rendu CACHÉ puis onglet ouvert, texte long : le bouton est là', cLong.deborde && cLong.bouton,
+      'le texte est coupé sans moyen de le déplier — c’est le défaut mesuré le 10/09. ' + JSON.stringify(cLong));
+    await rearmer();
+    const cCourt = await mesurer('hote-cache', carte(COURT));
+    verif('rendu CACHÉ puis onglet ouvert, texte court : toujours pas de bouton', !cCourt.deborde && !cCourt.bouton, JSON.stringify(cCourt));
+
+    await rearmer();
+    const temoin = await mesurer('hote-cache', carte(LONG), true);
+    verif('[témoin] l’ANCIENNE mesure, elle, perdait le bouton', temoin.deborde && !temoin.bouton,
+      'le témoin ne mord pas : les contrôles ci-dessus passeraient même sans la correction. ' + JSON.stringify(temoin));
+
+    console.log('\n── La vue révélée rejauge ce qui a pu être rendu à l’aveugle ──');
+    verif('app.js expose la jauge (window._waJauger)', /window\._waJauger\s*=/.test(APP));
+    verif('… le changement de vue l’appelle', /view === 'weekahead'[\s\S]{0,400}window\._waJauger/.test(CHARTS),
+      'sans ce rappel, une carte rendue pendant que l’onglet était ailleurs garde une jauge fausse.');
+    verif('… et le montage en carte à onglets de Mon Desk aussi', /weekahead: function \(\) \{[\s\S]{0,400}window\._waJauger/.test(CHARTS),
+      'un onglet inactif est en display:none : tout s’y mesure à zéro.');
+  } finally { try { await nav.close(); } catch {} srv.close(); }
+});
+
 _attente.then(() => {
   console.log(`\n${ko === 0 ? '✓ TOUT PASSE' : '✗ ' + ko + ' ÉCHEC(S)'} — ${ok} contrôle(s) OK, ${ko} KO\n`);
   process.exit(ko ? 1 : 0);

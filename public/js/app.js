@@ -6377,14 +6377,44 @@ function _renderWeekAhead(d) {
     <div class="wa-timeline">${rows}</div>
   </div>`;
   requestAnimationFrame(() => {
-    host.querySelectorAll('.wa-card').forEach(c => {
-      const body = c.querySelector('.wa-events') || c.querySelector('.wa-card-desc');
-      const btn = c.querySelector('.wa-more');
-      if (body && btn && body.scrollHeight <= body.clientHeight + 4) btn.style.display = 'none';   // pas de débordement → pas de bouton
-    });
+    _waJaugerCartes(host);
+    /* Deuxième passe quand les polices sont VRAIMENT chargées. Tant que Fraunces/Inter Tight ne sont
+       pas là, le navigateur mesure avec les métriques de la police de repli : une description de
+       trois lignes peut en faire deux, ou l'inverse. La jauge se refait donc une fois pour de bon. */
+    try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => _waJaugerCartes(host)).catch(() => {}); } catch {}
     _waBuildChart(d.days || []);
   });
 }
+/* ══ « LIRE LA SUITE » : ON NE DÉCIDE JAMAIS DANS UN CONTENEUR SANS HAUTEUR (10/09) ══════════════
+   Le bouton n'a de sens que si la description DÉBORDE de son clamp (3 lignes, 2 dans la vue wa3).
+   La mesure se faisait dans un rAF unique, sans regarder si le conteneur était RENDU. Or un élément
+   dans un `display:none` a scrollHeight = clientHeight = 0 : la comparaison `0 <= 0 + 4` est VRAIE,
+   et le bouton disparaissait de TOUTES les cartes. À l'ouverture de l'onglet, la description était
+   donc coupée à trois lignes SANS AUCUN MOYEN DE LA DÉPLIER — mesuré : 81 px de texte pour 40 px
+   visibles, bouton absent.
+   Deux chemins mènent là, tous deux réels : le re-poll à 12 s (`setTimeout(loadWeekAheadView…)`)
+   qui rend les données alors que l'utilisateur a changé d'onglet entre-temps — la garde `visible`
+   existante ne couvre QUE les branches squelette/vide, jamais celle du succès — et l'adoption de la
+   vue dans une carte à onglets de Mon Desk, où un onglet inactif est en `display:none`.
+   C'est le MÊME piège que celui déjà nommé pour amCharts trois lignes plus haut dans charts.js
+   (« monter APRÈS le toggle .hidden : amCharts mesure 0×0 dans un conteneur caché ») ; il n'avait
+   simplement jamais été appliqué ici.
+   ⚠️ ON ÉCHOUE DU CÔTÉ SÛR : caché, on ne décide RIEN et le bouton reste. Un bouton superflu coûte
+   un clic qui ne déplie rien ; un bouton manquant coûte du texte qu'on ne peut pas lire. */
+function _waJaugerCartes(host) {
+  if (!host || !host.getClientRects().length) return false;   // pas rendu → on ne décide pas
+  host.querySelectorAll('.wa-card').forEach(c => {
+    const body = c.querySelector('.wa-events') || c.querySelector('.wa-card-desc');
+    const btn = c.querySelector('.wa-more');
+    if (!body || !btn) return;
+    if (c.classList.contains('wa-card--open')) { btn.style.display = ''; return; }   // déployée : le bouton REPLIE, il doit rester
+    btn.style.display = (body.scrollHeight <= body.clientHeight + 4) ? 'none' : '';
+  });
+  return true;
+}
+// Appelé par charts.js au moment où la vue est RÉVÉLÉE : ce qui a pu être rendu à l'aveugle est rejaugé.
+window._waJauger = function () { try { return _waJaugerCartes(document.getElementById('wa-content')); } catch { return false; } };
+
 function _waToggle(btn) {
   const card = btn.closest('.wa-card'); if (!card) return;
   const open = card.classList.toggle('wa-card--open');

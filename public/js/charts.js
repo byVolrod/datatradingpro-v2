@@ -4317,6 +4317,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (view === 'weekahead' && typeof loadWeekAheadView === 'function') {
       loadWeekAheadView();
+      // La vue vient d'être RÉVÉLÉE : on rejauge les cartes qui ont pu être rendues à l'aveugle
+      // (re-poll à 12 s pendant que l'utilisateur était ailleurs). Même raison que le montage
+      // amCharts après le toggle .hidden : dans un conteneur caché, tout se mesure à zéro.
+      if (window._waJauger) requestAnimationFrame(window._waJauger);
     }
     if (view === 'taux') { loadTauxView(); _tauxPoll = setInterval(_tauxTick, 30000); }   // TAUX : rafraîchi en TEMPS RÉEL (~30 s) tant que l'onglet est ouvert (re-render uniquement si les cotations ont changé)
     if (view === 'journal' && typeof window.loadJournalView === 'function') window.loadJournalView();
@@ -4358,7 +4362,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!window._analystTabInited && typeof initAnalystTab === 'function') { window._analystTabInited = true; initAnalystTab(); }
       loadAnalystView();
     },
-    weekahead: function () { if (typeof loadWeekAheadView === 'function') loadWeekAheadView(); },
+    weekahead: function () {
+      if (typeof loadWeekAheadView !== 'function') return;
+      loadWeekAheadView();
+      // Carte à onglets de Mon Desk : un onglet inactif est en display:none, donc tout s'y mesure
+      // à zéro. On rejauge au moment où la carte devient visible.
+      if (window._waJauger) requestAnimationFrame(window._waJauger);
+    },
     taux: function () {
       loadTauxView();
       var iv = setInterval(function () { try { loadTauxView(); } catch (e) {} }, 30000);

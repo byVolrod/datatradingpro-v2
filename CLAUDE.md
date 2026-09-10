@@ -48,6 +48,22 @@
   ⚠️ **AVANT DE TOUCHER À LA LANGUE DE QUOI QUE CE SOIT : `grep -n "veto" server.js public/js/*.js`.** J'ai livré la traduction des titres SANS le faire, contre un veto explicite. Et symétriquement, `charts.js` portait « propos jamais traduits — veto » alors que leur traduction était **demandée le 17/07** et câblée depuis : ce commentaire périmé a failli faire refuser une demande légitime. **Un commentaire périmé ment avec l'autorité du code.** Quand une règle change, corriger TOUTES ses traces dans le même commit — un banc (`propos-verif.js`) interdit désormais le retour de celui de `charts.js`.
 - **i18n** : `node scripts/i18n-verif.js` — **désormais dans `npm run check`, avec un CLIQUET** (28/08). Il était le SEUL des 36 bancs que personne ne lançait : la consigne « à passer après tout renommage » était manuelle, et le résultat s'est mesuré — **21 clés orphelines accumulées, dont six traductions réellement mortes**, parmi lesquelles le titre « Fil d'actualité ». Les six sont re-clées (le produit était passé du tutoiement au vouvoiement sans suivre, et deux titres portaient l'apostrophe droite là où le dict avait la typographique — la recherche est EXACTE après trim, un caractère suffit à tuer une traduction). Le plafond `PLAFOND_ORPHELINES` fige le nombre connu : la dette d'hier ne bloque pas, une de plus fait rougir. **Le baisser quand on en traite une**, sinon le cliquet ne cliquette plus. — le dict EN (i18n-dicts.js) est clé par CHAÎNE FR EXACTE : un wording changé = traduction morte EN SILENCE. L'outil liste les clés orphelines ; re-keyer celles des renommages + ajouter les entrées des nouveaux textes statiques dans le même commit.
 
+⚠️ **LES HOOKS `pre-commit` N'EXISTENT PAS DANS UN CLONE NEUF — DONC JAMAIS EN SESSION DISTANTE (10/09).**
+Un hook git **n'est pas versionné** : il vit dans `.git/hooks/`, que ni `git clone` ni `git pull` ne
+remplissent. Tout ce que ce fichier confie au `pre-commit` — `js-verif`, l'exigence d'une entrée
+`DTP_UPDATES`, les règles d'accents et le veto du cadratin — **ne s'applique que sur une machine où
+quelqu'un a lancé `--install` un jour**. Une session distante tourne dans un conteneur éphémère
+cloné à neuf : elle n'en a aucun. Mesuré, et sans appel : les **153 annonces** qui portent un
+cadratin sont **toutes postérieures au veto du 14/08** qui l'interdit. La règle existait, le
+contrôle existait, et rien ne les appliquait. C'est la maladie du faux vert dans sa forme la plus
+coûteuse : un garde-fou qui a l'air posé.
+**LA RÈGLE QUI EN DÉCOULE : un garde-fou qui compte doit vivre dans `npm run check`**, qui tourne en
+CI à chaque poussée et ne peut pas être sauté — le hook n'est qu'un raccourci de confort, jamais la
+garde elle-même. Le cadratin a donc son **cliquet** (`PLAFOND_CADRATINS` dans `dtp-updates-verif.js`,
+même idiome que `PLAFOND_ORPHELINES`) : la dette d'hier ne bloque pas, une de plus fait rougir. **Le
+baisser quand on en nettoie une.** Sur une machine de travail, `node scripts/js-verif.js --install`
+et `node scripts/dtp-updates-verif.js --install` restent utiles : ils font gagner un aller-retour CI.
+
 ## Ce que la relecture de code ne voit pas (10/09) — quatre pièges mesurés le même jour
 
 Quatre défauts livrés en production, tous avec un code **correct à la lecture**. Aucun n'était
