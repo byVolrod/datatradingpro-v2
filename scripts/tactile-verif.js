@@ -272,7 +272,14 @@ const SONDE_STYLE = () => {
        restait, le sens disparaissait. On éprouve ici la bulle de remplacement AU DOIGT, avec la VRAIE
        feuille de style (donc son zoom de page de 90 %) et le VRAI code d'app.js — pas une copie. */
     const APP2 = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
-    const da = APP2.indexOf('(function _aideAuTap() {');
+    /* ⚠️ LA TRANCHE PART DE `facteurZoom`, PAS DE L'IIFE (10/09). Cette fonction vivait DANS
+       `_aideAuTap` ; elle est remontée au premier niveau du fichier le jour où les menus du
+       Journal en ont eu besoin, mille lignes plus bas. La tranche qui commençait à l'IIFE a donc
+       cessé d'emporter une DÉPENDANCE de la bulle : dans la page du banc, le positionnement levait
+       un ReferenceError et la bulle restait collée au coin — cinq contrôles rouges, sur un code de
+       production parfaitement sain. Une borne d'extraction est un contrat : elle doit suivre le
+       code qu'elle prétend éprouver. On part donc de la déclaration, qui précède immédiatement. */
+    const da = APP2.indexOf('var facteurZoom = function () {');
     const fa = da < 0 ? -1 : APP2.indexOf('\n})();', da);
     if (da < 0 || fa < 0) { v('_aideAuTap est extractible d\'app.js', false, 'introuvable'); }
     else {
