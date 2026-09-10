@@ -210,6 +210,40 @@ function installer() {
 function autotest() {
   let ko = 0;
   const v = (nom, cond, detail) => { if (cond) console.log('  ✓ ' + nom); else { ko++; console.log('  ✗ ' + nom + (detail ? '\n      → ' + detail : '')); } };
+
+  /* ══ AUCUNE ANNONCE DATÉE DANS LE FUTUR (10/09, capture user : « ce sont des mises à jour qui ont
+     été faites il y a longtemps ») ═══════════════════════════════════════════════════════════════
+     78 entrées portaient une date POSTÉRIEURE au jour de leur livraison — jusqu'à DIX-HUIT JOURS
+     d'avance : `dtpu-20260918-calendrier-pays-euro` était datée du 18 septembre et livrée le
+     31 août. Or les deux routes qui servent ce fil écrivent `Math.min(u.ts, Date.now())` — une
+     ceinture posée contre les « il y a » négatifs. Conséquence non prévue : une date future est
+     ramenée à MAINTENANT, donc l'annonce se présente comme neuve à CHAQUE ouverture du desk, et
+     elle ne sort jamais de la fenêtre de 7 jours tant que l'horloge ne l'a pas rattrapée. Le fil
+     des nouveautés — celui par lequel les clients suivent ce qui change — affichait donc en
+     permanence des corrections vieilles de deux semaines, mélangées aux vraies.
+     LES 78 ONT ÉTÉ REDATÉES sur la date du commit qui les a introduites (l'historique git est la
+     seule source de vérité disponible). Ce contrôle-ci empêche la 79e. */
+  {
+    const SRV = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+    const d = SRV.indexOf('const DTP_UPDATES = [');
+    const bloc = d < 0 ? '' : SRV.slice(d, SRV.indexOf('\n];', d));
+    const now = Date.now();
+    const futures = [];
+    for (const m of bloc.matchAll(/\{ id: '([^']+)', ts: Date\.UTC\(([^)]+)\)/g)) {
+      const ts = Date.UTC(...m[2].split(',').map(x => Number(x.trim())));
+      if (ts > now + 60 * 60 * 1000) futures.push(m[1] + ' → ' + new Date(ts).toISOString().slice(0, 16));
+    }
+    v('aucune annonce n\'est datée dans le futur (elle se dirait « neuve » à chaque ouverture)',
+      futures.length === 0, futures.slice(0, 5).join(' · ') + (futures.length > 5 ? ' … (' + futures.length + ' au total)' : ''));
+    /* TÉMOIN : le balayage voit bien une date future qu'on lui glisse — sans quoi le contrôle
+       ci-dessus serait vert parce qu'il ne lit rien. */
+    const faux = "{ id: 'dtpu-essai', ts: Date.UTC(2099, 0, 1, 12, 0)";
+    let vus = 0;
+    for (const m of faux.matchAll(/\{ id: '([^']+)', ts: Date\.UTC\(([^)]+)\)/g)) {
+      if (Date.UTC(...m[2].split(',').map(x => Number(x.trim()))) > now) vus++;
+    }
+    v('… et ce balayage reconnaît bien une date future qu\'on lui glisse', vus === 1);
+  }
   console.log('\n── Nouveautés DTP : le garde-fou de langue sait-il encore refuser ? ──');
   const mauvaise = "+  { id: 'dtpu-20260101-essai', ts: 0, title: 'Le Recap Hebdo retrouve sa partie Macro et les memes titres', "
     + "desc: 'LA MACRO REVIENT A SA PLACE. Elle avait ete retiree du rendu en aout au motif qu elle repetait les blocs "

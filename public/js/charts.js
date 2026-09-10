@@ -5890,10 +5890,29 @@ async function toggleCalDetailRow(tr, ev) {
   }
 
   // Cache navigateur
+  /* ⚠️ LE SERVEUR PEUT RÉPONDRE « JE CHERCHE ENCORE » (10/09, retour user : « il prend du temps à
+     charger »). Il ouvre un navigateur complet sur la page de l'événement ; au-delà de six
+     secondes il rend la main avec `pending: true` et poursuit sa récupération en fond. Le desk ne
+     doit donc pas retomber sur « Détails indisponibles » — ce serait dire faux — mais annoncer
+     l'attente ET redemander tout seul. Une seule relance, cinq secondes plus tard : à ce
+     moment-là le cache du serveur est rempli et la réponse est immédiate. Si elle ne l'est pas,
+     on le dit franchement plutôt que de tourner indéfiniment.
+     ⚠️ ET ON N'ENTRE JAMAIS UNE RÉPONSE D'ATTENTE DANS LE CACHE : elle est vide par construction,
+     la mettre en cache figerait le vide pour toute la session. */
   let d = _calDetailCache[ev.url];
   if (!d) {
+    const demander = () => fetch('/api/calendar-detail?url=' + encodeURIComponent(ev.url)).then(r => r.json()).catch(() => null);
     try {
-      d = await fetch('/api/calendar-detail?url=' + encodeURIComponent(ev.url)).then(r => r.json());
+      d = await demander();
+      if (d && d.pending) {
+        if (bodyEl && bodyEl.isConnected) {
+          bodyEl.innerHTML = '<div class="cal-detail-empty">Les détails arrivent : la source est lente à répondre. Nouvel essai dans 5 secondes…</div>';
+        }
+        await new Promise(r => setTimeout(r, 5000));
+        if (!bodyEl || !bodyEl.isConnected) return;      // déroulé refermé pendant l'attente
+        d = await demander();
+        if (d && d.pending) d = null;                    // toujours rien : on tombera sur le message d'indisponibilité
+      }
       if (d && ((d.specs && d.specs.length) || (d.history && d.history.length))) _calDetailCache[ev.url] = d;
     } catch { d = null; }
   }
