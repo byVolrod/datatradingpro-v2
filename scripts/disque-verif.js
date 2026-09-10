@@ -241,7 +241,9 @@ if (bash) {
         // et fait compter DEUX ROUGES à qui relit le log au grep. Un banc ne doit jamais salir la
         // trace qu'on utilise pour le juger.
         cwd: RACINE, encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'],
-        env: Object.assign({}, process.env, { PATH: stub + path.delimiter + process.env.PATH, DTP_DIR: dir, DTP_URL: 'http://exemple.invalide' })
+        // DTP_VERROU dans le dossier temporaire : /run n'appartient pas à l'utilisateur d'un runner
+        // GitHub, et `exec 9>` y échoue sous `set -e` — le script mourrait avant la construction.
+        env: Object.assign({}, process.env, { PATH: stub + path.delimiter + process.env.PATH, DTP_DIR: dir, DTP_URL: 'http://exemple.invalide', DTP_VERROU: path.join(dir, 'verrou') })
       });
     } catch { /* le chemin d'échec sort en 1 — c'est précisément celui qu'on éprouve */ }
     let t = ''; try { t = fs.readFileSync(trace, 'utf8'); } catch {}
@@ -288,8 +290,13 @@ if (bash) {
 
   // ── LES TÉMOINS : chacun doit MORDRE séparément, sinon le banc récite au lieu de mesurer.
   const sansTrap = jouer(LARGE, false, (s2) => s2.replace(/^trap _menage_docker EXIT$/m, ''));
-  v('[témoin] sans le `trap`, le chemin d’échec ne nettoie plus rien', iPrune(sansTrap) < 0,
-    'le témoin ne mord pas : le contrôle ci-dessus passerait même sans la correction.\n' + sansTrap);
+  /* ⚠️ LE TÉMOIN EXIGE QUE LA CONSTRUCTION AIT EU LIEU. Sans cette moitié, il passe au vert quand
+     le script n'a RIEN fait du tout — c'est arrivé au passage 166 : `exec 9>/run/…` échouait sur le
+     runner, la trace sortait vide, et « le ménage ne tourne plus » était vrai pour la plus mauvaise
+     des raisons. Un témoin qui peut passer À VIDE ne témoigne de rien. */
+  v('[témoin] sans le `trap`, le chemin d’échec ne nettoie plus rien',
+    iBuild(sansTrap) >= 0 && iPrune(sansTrap) < 0,
+    'le témoin ne mord pas — ou pire, le script n’a pas tourné (trace vide).\n' + sansTrap);
   const sansGarde = jouer(ETROIT, true, (s2) => s2.replace(/^LIBRE_GO="\$\(_libre_go\)"$/m, 'LIBRE_GO=999'));
   v('[témoin] sans la garde d’avant-construction, on construit d’abord sur le disque tendu',
     iPrune(sansGarde) >= 0 && iBuild(sansGarde) >= 0 && iPrune(sansGarde) > iBuild(sansGarde), sansGarde);

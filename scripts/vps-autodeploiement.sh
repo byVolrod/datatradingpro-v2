@@ -89,7 +89,14 @@ if [ -f "$ESSAI" ]; then
 fi
 
 # Deux ticks ne se chevauchent jamais (un build de plusieurs minutes enjambe des ticks de 60 s).
-exec 9>"/run/dtp-autodeploiement.lock"
+# ⚠️ CHEMIN SURCHARGEABLE, ET CE N'EST PAS UN CONFORT. Écrit en dur, ce `exec 9>` rend le script
+# INJOUABLE partout où /run n'appartient pas à l'utilisateur — un runner GitHub, par exemple. Avec
+# `set -e`, la redirection échoue et le script MEURT ICI, avant la construction : un banc qui le
+# joue croit alors mesurer un déploiement alors qu'il ne mesure rien du tout. C'est exactement ce
+# qui est arrivé le 10/09 (passage 166 : la trace `docker` est sortie VIDE, et le témoin « le
+# chemin d'échec ne nettoie plus rien » est passé au VERT pour cette raison — un faux vert de plus).
+# La valeur par défaut reste celle de la production, la même que lit `dtp-disque.sh`.
+exec 9>"${DTP_VERROU:-/run/dtp-autodeploiement.lock}"
 flock -n 9 || exit 0
 
 echo "[autodeploiement] jalon $JALON → ${CIBLE:0:7} : déploiement"
