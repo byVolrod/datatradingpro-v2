@@ -21078,6 +21078,15 @@ html[data-theme="light"] .panel-header, html[data-theme="light"] .chart-header, 
 .wdg-ico svg, .wdg-step svg { width: var(--ico-svg); height: var(--ico-svg); }
 .wdg-ico--x { font-size: var(--ico-svg); }   /* la croix cesse d'être un cran plus grosse que ses voisines */
 .wdg-actions { gap: var(--sp-05, 2px); }      /* espacement du cluster UNIFIÉ (fini le 1px/3px selon la vue) */
+/* ⚠️ LA SOUS-RANGÉE AVAIT ÉTÉ OUBLIÉE PAR CETTE PASSE (mesuré le 10/09). `.wdgt-subacts` — les
+   commandes ↑↓ ? × d'une vue ADOPTÉE dans une carte à onglets — gardait son `gap: 1px` écrit cent
+   lignes plus haut, pendant que tous les autres clusters passaient au jeton. Sur la capture de
+   l'utilisateur, c'est exactement la rangée « tassée dans un coin ». Elle rejoint le jeton ; la
+   TAILLE reste plus petite que le cluster principal, et c'est voulu : ce sont des commandes
+   secondaires, à l'intérieur d'une carte qui a déjà les siennes. On harmonise le rythme, pas la
+   hiérarchie. La réserve de la barre d'onglets suit toute seule — `--wdgt-cmd` est MESURÉE par
+   widgets.js sur la plaque réelle, elle n'est pas une constante à tenir à jour. */
+.wdgt-subacts { gap: var(--sp-05, 2px); }
 
 /* ── Onglets de panneau : une seule taille de police + un seul letter-spacing ───────────────────── */
 .wdgt-tab { font-size: var(--tab-fs); letter-spacing: .05em; }
@@ -21089,6 +21098,14 @@ html[data-theme="light"] .panel-header, html[data-theme="light"] .chart-header, 
   .wdg-ico svg, .wdg-step svg { width: var(--ico-svg-tap); height: var(--ico-svg-tap); }
   .wdg-ico--x { font-size: var(--ico-svg-tap); }
   .wdg-actions { gap: var(--sp-1, 4px); }   /* un peu plus d'air entre cibles tactiles */
+  /* ⚠️ ET « NOTHING OVERRIDES THIS BLOCK » ÉTAIT FAUX (mesuré le 10/09). `.wdgt-subacts > .wdg-ico`
+     (0,2,0) bat `.wdg-ico` (0,1,0) : sur téléphone, toutes les commandes du desk grandissaient à
+     36px pendant que cette rangée-là restait à 22px, avec 1px entre quatre cibles. Le doigt fait
+     ~9mm, la cible en faisait 22px : on visait la voisine. Le commentaire affirmait le contraire
+     avec l'autorité du code — c'est la faute que ce dépôt documente le plus. Le même sélecteur,
+     repris ICI, redevient vrai parce qu'il est PLUS BAS dans la feuille. */
+  .wdgt-subacts > .wdg-ico { width: var(--ico-btn-tap); height: var(--ico-btn-tap); }
+  .wdgt-subacts { gap: var(--sp-1, 4px); }
 }
 
 /* ═══ LISIBILITÉ MOBILE — FIL D'ACTUALITÉ & DÉFILEMENT (22/08, captures user : titres coupés à
