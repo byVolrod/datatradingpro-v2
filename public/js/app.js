@@ -14246,30 +14246,32 @@ document.addEventListener('DOMContentLoaded', ()=>{
     account: ['Main Account', 'Démo', 'Funded'],
   };
   const _JR_STRUCT = { result: 1, dir: 1 };   // colonnes structurelles : options de base toujours proposées
-  const _JR_CHIPS = [
-    { bg: 'rgba(127,179,255,.15)', fg: '#a8ccff', bd: 'rgba(127,179,255,.32)' },
-    { bg: 'rgba(255,196,120,.15)', fg: '#ffd093', bd: 'rgba(255,196,120,.32)' },
-    { bg: 'rgba(120,230,170,.14)', fg: '#8ef0bd', bd: 'rgba(120,230,170,.30)' },
-    { bg: 'rgba(255,140,180,.15)', fg: '#ffa6c6', bd: 'rgba(255,140,180,.32)' },
-    { bg: 'rgba(186,140,255,.15)', fg: '#ccaaff', bd: 'rgba(186,140,255,.32)' },
-    { bg: 'rgba(255,168,120,.15)', fg: '#ffba93', bd: 'rgba(255,168,120,.32)' },
-    { bg: 'rgba(120,224,224,.14)', fg: '#8fe6e6', bd: 'rgba(120,224,224,.30)' },
-    { bg: 'rgba(206,220,130,.14)', fg: '#dde88f', bd: 'rgba(206,220,130,.30)' },
-    { bg: 'rgba(165,170,190,.14)', fg: '#c2c6d6', bd: 'rgba(165,170,190,.30)' },
-  ];
+
   const _JR_SEMCOL = {
     result:  { profit: '#00e676', tp: '#00cc99', be: '#ffb300', sl: '#ff8f00', loss: '#ff3d00' },
     dir:     { buy: '#00e676', long: '#00e676', sell: '#ff3d00', short: '#ff3d00' },
     session: { london: '#7fb3ff', 'new york': '#ffb27f', us: '#ffb27f', asia: '#c5a3ff', sydney: '#8fe6e6' },
   };
-  function _jrHash(s) { let h = 0; s = String(s || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
   function _jrHexChip(hex) {
     const n = hex.replace('#', ''), r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16), lt = c => Math.round(c + (255 - c) * 0.58);
     return { bg: 'rgba(' + r + ',' + g + ',' + b + ',.19)', fg: 'rgb(' + lt(r) + ',' + lt(g) + ',' + lt(b) + ')', bd: 'rgba(' + r + ',' + g + ',' + b + ',.42)' };
   }
+  /* ══ LA COULEUR DIT UN ÉTAT DE MARCHÉ, OU ELLE NE DIT RIEN (10/09) ═══════════════════════════
+     Hors des valeurs sémantiques, la teinte était TIRÉE PAR UN HACHAGE :
+     `_JR_CHIPS[_jrHash(colKey + '|' + value) % _JR_CHIPS.length]`. « Mercredi » sortait rose,
+     « Londres » bleu, « Swing » turquoise, au hasard du nom. Dix pastilles colorées par ligne,
+     sur cent vingt lignes, dont deux seulement portaient un sens.
+     Le coût n'est pas esthétique, il est fonctionnel : quand TOUT est coloré, plus rien ne
+     signale. Le vert et le rouge de la charte immuable du desk (gain, perte, long, short) se
+     retrouvaient noyés au milieu de teintes décoratives, et l'œil ne pouvait plus les repérer
+     d'un balayage — ce qui est pourtant la seule raison d'ouvrir un tableau de cent vingt lignes.
+     RÈGLE : la couleur reste RÉSERVÉE à ce que `_JR_SEMCOL` déclare (résultat, direction…) ;
+     tout le reste porte une seule pastille neutre. La valeur se lit toujours, elle ne crie plus.
+     C'est l'épure « Notion » demandée, et c'est aussi la charte du dépôt appliquée à la lettre. */
+  const _JR_CHIP_NEUTRE = { bg: 'rgba(255,255,255,.045)', fg: 'var(--text2)', bd: 'rgba(255,255,255,.10)' };
   function _jrChip(colKey, value) {
     const sem = _JR_SEMCOL[colKey] && _JR_SEMCOL[colKey][String(value).toLowerCase()];
-    return sem ? _jrHexChip(sem) : _JR_CHIPS[_jrHash(colKey + '|' + value) % _JR_CHIPS.length];
+    return sem ? _jrHexChip(sem) : _JR_CHIP_NEUTRE;
   }
   function _jrChipHtml(text, c) { return '<span class="jr-chip" style="background:' + c.bg + ';color:' + c.fg + ';border-color:' + c.bd + '">' + _esc(text) + '</span>'; }
   function _jrOptions(col) {
@@ -14294,7 +14296,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       case 'title': return '<span class="jr-cv-title">' + (e.pair ? _esc(e.pair) : '<i class="jr-ph">Sans titre</i>') + '</span><button class="jrd-open" data-open="' + _esc(e.id) + '" title="Ouvrir le trade"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M13.5 2.5l-5.5 5.5M6.5 13.5h-4v-4M2.5 13.5l5.5-5.5"/></svg><span>OUVRIR</span></button>';
       case 'text': return (v == null || v === '') ? '<i class="jr-ph">-</i>' : '<span class="jr-cv-text">' + _esc(v) + '</span>';
       case 'date': { const ts = col.builtin ? e.ts : v; return ts ? '<span class="jr-cv-date">' + _jrFmtDateFr(ts) + '</span>' : '<i class="jr-ph">-</i>'; }
-      case 'day': { const d = e.ts ? _jrDayEn(e.ts) : ''; return d ? _jrChipHtml(d, _JR_CHIPS[8]) : '<i class="jr-ph">-</i>'; }
+      case 'day': { const d = e.ts ? _jrDayEn(e.ts) : ''; return d ? _jrChipHtml(d, _JR_CHIP_NEUTRE) : '<i class="jr-ph">-</i>'; }
       case 'select': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; return _jrChipHtml((col.disp && col.disp[v]) || v, _jrChip(col.k, v)); }
       case 'multi': { const arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(x => _jrChipHtml(x, _jrChip(col.k, x))).join('') : '<i class="jr-ph">-</i>'; }
       case 'num': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + _jrFmtNum(v, col.signed) + (col.suffix || '') + '</span>'; }
@@ -15740,8 +15742,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }).join('');
 
     host.innerHTML =
-      '<div class="jry-head"><div class="jry-head-t">Bilan annuel</div><div class="jry-ans">' + choix + '</div></div>'
-      + '<div class="jrd-sec"><div class="jrd-sec-h">TABLEAU DE BORD ANNUEL</div>'
+      /* ⚠️ TROIS LIBELLÉS DISAIENT LA MÊME CHOSE (10/09, demande user capture à l'appui).
+         L'onglet annonce déjà « ANNUEL » ; en dessous venaient « Bilan annuel » en serif blanc
+         22 px, puis « TABLEAU DE BORD ANNUEL » en capitales or. Trois titres empilés avant le
+         premier chiffre, sur un desk dont la raison d'être est la densité. On garde le seul
+         élément qui PORTE UNE INFORMATION et sur lequel on agit : le choix de l'année. */
+      '<div class="jry-head"><div class="jry-ans">' + choix + '</div></div>'
+      + '<div class="jrd-sec jrd-sec--nu">'
         + '<div class="jry-top">'
           + _jrBarresResultat(bilans)
           + '<div class="jrd-card"><div class="jrd-card-h">R par mois</div><div id="jry-mois-chart" class="jr-chart-am jry-chart"></div></div>'

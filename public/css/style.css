@@ -11078,18 +11078,18 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 /* Le déclencheur du menu de compte : un BOUTON, plus un select — il porte donc lui-même sa
    flèche et son alignement, que le système fournissait avant. Mêmes hauteur, cadre et jetons que
    les autres commandes de la bande, pour qu il ne se distingue en rien. */
-.jr-cpt-sel { height: 26px; max-width: 190px; padding: 0 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg3); color: var(--text2); font-size: var(--fs-title); font-family: var(--font-ui); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.jr-cpt-sel { height: 28px; max-width: 190px; padding: 0 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg3); color: var(--text2); font-size: var(--fs-title); font-family: var(--font-ui); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
 .jr-cpt-lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jr-cpt-chev { margin-left: auto; font-size: 9px; opacity: .7; line-height: 1; }
 .jr-cpt-sel:hover { color: var(--text); border-color: var(--border2); }
 .jr-cpt-sel--on { color: var(--gold, #e3b23a); border-color: rgba(227,178,58,0.42); background: rgba(227,178,58,0.10); font-weight: var(--fw-bold); }
-.jr-cpt-neuf-b { width: 22px; height: 22px; line-height: 1; padding: 0; border: 1px solid rgba(227,178,58,0.35); border-radius: 4px; background: rgba(227,178,58,0.10); color: var(--orange); font-size: 14px; cursor: pointer; }
+.jr-cpt-neuf-b { width: 28px; height: 28px; line-height: 1; padding: 0; border: 1px solid rgba(227,178,58,0.35); border-radius: 4px; background: rgba(227,178,58,0.10); color: var(--orange); font-size: 14px; cursor: pointer; }
 .jr-cpt-neuf-b:hover { background: rgba(227,178,58,0.20); }
-.jr-cpt-x { width: 22px; height: 22px; line-height: 1; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: var(--bg3); color: var(--text3); font-size: 13px; cursor: pointer; }
+.jr-cpt-x { width: 28px; height: 28px; line-height: 1; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: var(--bg3); color: var(--text3); font-size: 13px; cursor: pointer; }
 .jr-cpt-x:hover { color: #ff4d2e; border-color: rgba(255,77,46,0.45); }
-.jr-cpt-neuf { height: 26px; width: 150px; padding: 0 7px; border: 1px solid rgba(227,178,58,0.42); border-radius: 4px; background: var(--bg3); color: var(--text); font-size: var(--fs-title); font-family: var(--font-ui); }
+.jr-cpt-neuf { height: 28px; width: 150px; padding: 0 7px; border: 1px solid rgba(227,178,58,0.42); border-radius: 4px; background: var(--bg3); color: var(--text); font-size: var(--fs-title); font-family: var(--font-ui); }
 .jr-cpt-neuf:focus { outline: none; border-color: var(--gold, #e3b23a); }
-.jr-cpt-ok { height: 26px; padding: 0 10px; border: 1px solid rgba(227,178,58,0.42); border-radius: 4px; background: rgba(227,178,58,0.14); color: var(--orange); font-size: var(--fs-title); font-family: var(--font-ui); font-weight: var(--fw-bold); cursor: pointer; }
+.jr-cpt-ok { height: 28px; padding: 0 10px; border: 1px solid rgba(227,178,58,0.42); border-radius: 4px; background: rgba(227,178,58,0.14); color: var(--orange); font-size: var(--fs-title); font-family: var(--font-ui); font-weight: var(--fw-bold); cursor: pointer; }
 .jr-cpt-ok:hover { background: rgba(227,178,58,0.22); }
 .jr-stats { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; padding: 11px 14px; flex: 1 1 auto; min-width: 0; }
 .jr-comptes + .jr-stats { padding-left: 16px; }
@@ -11187,7 +11187,9 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .jr-tb-btn--add { background: rgba(227,178,58,0.14); border-color: rgba(227,178,58,0.42); color: var(--orange); font-weight: var(--fw-bold); }
 .jr-tb-btn--add:hover { background: rgba(227,178,58,0.22); color: #ffb45e; border-color: rgba(227,178,58,0.6); }
 .jr-tb-spacer { flex: 1; }
-.jr-tb-mode { font-size: 10px; font-weight: var(--fw-bold); letter-spacing: .04em; text-transform: uppercase; color: var(--text3); padding: 3px 9px; border: 1px solid var(--border); border-radius: 20px; white-space: nowrap; }
+/* La pastille d'état tombait à 20 px de haut au milieu de boutons de 28 : sur une ligne unique,
+   deux gabarits se voient. Elle garde son allure de pastille, elle prend la hauteur de la ligne. */
+.jr-tb-mode { display: inline-flex; align-items: center; height: 28px; font-size: 10px; font-weight: var(--fw-bold); letter-spacing: .04em; text-transform: uppercase; color: var(--text3); padding: 0 11px; border: 1px solid var(--border); border-radius: 20px; white-space: nowrap; }
 .jr-tb-mode--perso { color: #00e676; border-color: rgba(0,230,118,0.35); background: rgba(0,230,118,0.08); }
 
 .jr-grid-wrap { flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
@@ -11346,6 +11348,9 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
    pas pour cette page-ci — mais il devient LISIBLE : un cran plus grand, et un filet qui marque le
    départ de la section. Une étiquette de 11 px flottant dans le vide ne dit pas « ici commence
    autre chose » ; un titre souligné, oui. */
+/* `--nu` : une section SANS en-tête. Sans cette variante, la marge de 18 px réservée au titre
+   retiré laissait un blanc que personne ne s'expliquait. */
+.jrd-sec--nu > :first-child { margin-top: 0; }
 .jrd-sec-h { font-size: 12px; font-weight: var(--fw-bold); letter-spacing: .09em; color: var(--orange); text-transform: uppercase; margin: 0 0 18px; padding-bottom: 10px; border-bottom: 1px solid var(--hud-line, #131316); }
 /* ══ LES CHIFFRES DU JOURNAL : DES TUILES DENSES, ET UNE JAUGE SEULEMENT LÀ OÙ ELLE COMPTE ═════
    04/09, demande utilisateur : « améliore la lisibilité du journal, revois l'UX/UI, vérifie la
@@ -11806,7 +11811,14 @@ html[data-theme="light"] { --tab-on: #17181d; }
 /* EXTENSION — memes regles pour TOUS les autres onglets/sous-onglets/periodes du desk (Institutions,
    Journal, sections news, timeframes/types/indicateurs de graphiques). Les filtres semantiques
    (.cal-imp-btn = impact) et toggles (.sea-cfg-tab--on) sont volontairement exclus. */
-.inst-tab, .jr-tab, .np-tab, .expand-tab, .tf-btn, .ct-btn, .cot-tf-btn, .ind-btn { text-transform: uppercase; letter-spacing: .06em; position: relative; background: transparent !important; border: 0 !important; border-radius: 0 !important; color: var(--text3) !important; font-weight: var(--fw-semibold) !important; }
+/* ⚠️ UN `<button>` N'HÉRITE PAS DE LA POLICE (mesuré le 10/09, style CALCULÉ).
+   Aucune de ces familles d'onglets ne posait `font-family` : le navigateur retombait donc sur SA
+   valeur par défaut, et tous les onglets du desk étaient peints en **Arial** pendant que les titres
+   voisins portaient Inter Tight. Relire la feuille ne pouvait pas le montrer — la règle n'existe
+   pas, on ne remarque pas une absence — seul `getComputedStyle` le dit : `.jr-tab--active` rendait
+   `fontFamily: "Arial"` à côté d'un `.panel-title` en `"Inter Tight"`. Une ligne ici corrige la
+   typographie de TOUS les onglets du desk d'un coup. */
+.inst-tab, .jr-tab, .np-tab, .expand-tab, .tf-btn, .ct-btn, .cot-tf-btn, .ind-btn { font-family: var(--font-ui); text-transform: uppercase; letter-spacing: .06em; position: relative; background: transparent !important; border: 0 !important; border-radius: 0 !important; color: var(--text3) !important; font-weight: var(--fw-semibold) !important; }
 .inst-tab:not(.inst-tab--active):hover, .jr-tab:not(.jr-tab--active):hover, .np-tab:not(.np-tab--active):hover, .expand-tab:not(.expand-tab--active):hover, .tf-btn:not(.tf-btn--active):hover, .ct-btn:not(.ct-btn--active):hover, .cot-tf-btn:not(.cot-tf-btn--active):hover, .ind-btn:not(.ind-btn--active):hover { color: var(--text2) !important; background: rgba(255,255,255,.045) !important; }
 .inst-tab--active, .jr-tab--active, .np-tab--active, .expand-tab.expand-tab--active, .tf-btn--active, .ct-btn--active, .cot-tf-btn--active, .ind-btn--active { color: #fff !important; font-weight: var(--fw-bold) !important; background: transparent !important; }
 .inst-tab--active::after, .jr-tab--active::after, .np-tab--active::after, .expand-tab.expand-tab--active::after, .tf-btn--active::after, .ct-btn--active::after, .cot-tf-btn--active::after, .ind-btn--active::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--orange); border-radius: 2px 2px 0 0; }
@@ -21527,11 +21539,17 @@ html[data-theme="light"] .dtp-val-neu, body.theme-light .dtp-val-neu { color: #a
    Habillage DTP et non copie de la référence : fond sombre, filets fins, or de marque sur les
    titres et l'accent, cartes à coins doux. Les couleurs d'état viennent de la charte immuable —
    vert `#00e676`, rouge `#ff3d00`, ambre `#ffb300` — et pas des bleus de la capture. */
-.jry-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 2px; }
+/* ⚠️ LE BANDEAU N'A PLUS DE TITRE À PORTER, IL PORTE UNE COMMANDE (10/09).
+   Le choix de l'année poussait à droite (`margin-left: auto`) parce qu'un titre occupait la
+   gauche. Le titre retiré, ce `auto` laissait une bande vide avec une pastille perdue au bout.
+   Les années reviennent donc à GAUCHE, là où l'œil commence, et la bande se lit comme ce
+   qu'elle est : un filtre, pas un en-tête. Un filet fin la sépare du contenu — la même
+   grammaire que les autres bandes du desk. */
+.jry-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-bottom: 11px; margin-bottom: 16px; border-bottom: 1px solid var(--hud-line, var(--border)); }
 /* Le titre de page prend la serif de la marque et la taille qui va avec : c'est le seul vrai
    titre de l'écran, il doit se distinguer des titres de section. */
 .jry-head-t { font-family: var(--font-serif, 'Fraunces', serif); font-size: 22px; font-weight: 600; color: var(--text); letter-spacing: -.015em; }
-.jry-ans { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.jry-ans { display: flex; gap: 4px; flex-wrap: wrap; }
 .jry-an {
   background: var(--bg3); border: 1px solid var(--border); color: var(--text3);
   font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-bold);

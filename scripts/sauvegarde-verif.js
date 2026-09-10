@@ -89,6 +89,75 @@ function suite() {
   v('la lecture est paginée (Supabase plafonne à 1000 lignes)', /range\(debut, debut \+ PAGE - 1\)/.test(EXP));
   v('… et un volume aberrant lève une erreur au lieu de rogner', /garde-fou, export interrompu/.test(EXP));
 
+
+  /* ══════════════════════════════════════════════════════════════════════════════════════════
+     LA LISTE DE L'ARCHIVE EST ÉCRITE À LA MAIN — DONC ELLE DÉRIVE (10/09)
+     ────────────────────────────────────────────────────────────────────────────────────────
+     `dtp-sauvegarde.sh` copie une liste EXPLICITE de fichiers de `data/app`, et c'est le bon
+     choix : un `cp -a data/` embarquerait 1,8 Go de profils de navigateur. Mais une liste écrite
+     à la main ne se met pas à jour toute seule. Rien, jusqu'ici, ne reliait ce qu'on SAUVEGARDE
+     à ce que le serveur ÉCRIT : un nouveau fichier durable posé demain n'entrerait dans aucune
+     archive, et personne ne l'apprendrait avant d'en avoir besoin. C'est exactement la forme des
+     deux incidents déjà payés ici — la sauvegarde qui ne produisait rien, le keep-alive qui ne
+     pinguait rien : une protection qui a l'air en place.
+     ⚠️ CE CONTRÔLE NE RÉCLAME PAS QUE TOUT SOIT SAUVEGARDÉ. La plupart de ces fichiers sont des
+     caches que l'IA régénère, et les embarquer gonflerait l'archive pour rien. Il réclame une
+     DÉCISION : chaque fichier écrit sous DATA_DIR est soit dans l'archive, soit inscrit ci-dessous
+     avec la raison de son exclusion. Un nom inconnu fait rougir — on choisit, on ne subit pas. */
+  const SAUV = fs.readFileSync(path.join(RACINE, 'scripts/vps/dtp-sauvegarde.sh'), 'utf8');
+  const _d = SAUV.indexOf('for f in cache_email_log.json');
+  const ARCHIVES = new Set(_d < 0 ? [] : (SAUV.slice(_d, SAUV.indexOf('; do', _d)).match(/[\w.\-]+\.json/g) || []));
+  v('la liste explicite de l’archive est lisible dans dtp-sauvegarde.sh', ARCHIVES.size >= 10,
+    ARCHIVES.size + ' fichier(s) — si 0, la boucle `for f in …` a été renommée et ce contrôle ne voit plus rien');
+
+  /* Exclusions ASSUMÉES, chacune avec sa raison. En ajouter une est un acte volontaire. */
+  const REGENERABLES = {
+    'cache_analyse.json': 'segmentation IA d’un rapport : régénérée à la demande',
+    'cache_bank_extract.json': 'extraction IA d’un PDF de banque : régénérée à la demande',
+    'cache_bias.json': 'narratif IA du Radar de Biais : régénéré chaque samedi',
+    'cache_br_seg.json': 'segmentation IA d’un rapport institutionnel : régénérée',
+    'cache_br_pdf.json': 'rendu PDF : refabriqué depuis la source',
+    'cache_br_print.json': 'rendu imprimable : refabriqué depuis la source',
+    'cache_infotitle.json': 'titres traduits : retraduits à l’affichage',
+    'cache_insights.json': 'éclairages IA : régénérés',
+    'cache_news_info.json': 'enrichissement IA du fil : régénéré',
+    'cache_sw_seg.json': 'segmentation IA du récap de séance : régénérée',
+    'cache_translate.json': 'traductions : retraduites',
+    'cache_week_ahead.json': 'aperçu de la semaine : régénéré (WA_VER le force déjà)',
+    'cache_ai_demand.json': 'compteur de sollicitation IA : se reconstruit seul',
+    'cache_reaction.json': 'réactions : elles ont leur contrepartie en base (ai_cache `chat:reactions`), donc déjà dans le dump',
+    'cache_lastseen.json': 'dernière visite par compte : se reconstruit à la visite suivante ; au pire le tri de la boîte de réception est approximatif quelques jours (users.last_login, lui, EST en base)',
+    'disque_historique.json': 'historique de remplissage du disque : la sentinelle le réapprend en quelques heures',
+    'disque_prudence.json': 'cran de prudence appris : réappris, et il ne fait que RENDRE PLUS PRUDENT (jamais moins)',
+  };
+
+  const SOURCES = ['server.js', 'auth.js', 'mailer.js', 'ai.js'];
+  const ECRITS = new Set();
+  for (const f of SOURCES) {
+    let txt = ''; try { txt = fs.readFileSync(path.join(RACINE, f), 'utf8'); } catch { continue; }
+    for (const m of txt.matchAll(/path\.join\(\s*(?:_CACHE_DIR|_DATA_DIR|DATA_DIR)\s*,\s*'([^']+\.json)'/g)) ECRITS.add(m[1]);
+  }
+  v('les fichiers durables écrits sous DATA_DIR sont repérables dans le code', ECRITS.size >= 20,
+    ECRITS.size + ' trouvé(s) — trop peu : le motif `path.join(_CACHE_DIR, …)` a changé et ce contrôle ne voit plus rien');
+
+  const inconnus = [...ECRITS].filter(f => !ARCHIVES.has(f) && !REGENERABLES[f]).sort();
+  v('aucun fichier écrit sous DATA_DIR n’échappe à une DÉCISION (archive ou exclusion motivée)',
+    inconnus.length === 0,
+    inconnus.join(', ') + '\n      → DURABLE ? l’ajouter à la boucle `for f in …` de scripts/vps/dtp-sauvegarde.sh.'
+    + '\n      → RÉGÉNÉRABLE ? l’inscrire dans REGENERABLES ici, AVEC sa raison. Ne pas laisser le choix implicite.');
+
+  /* Symétrie : une exclusion qui ne correspond plus à aucun fichier écrit est une liste périmée,
+     et une liste périmée ment avec l'autorité du code. */
+  const fantomes = Object.keys(REGENERABLES).filter(f => !ECRITS.has(f)).sort();
+  v('… et aucune exclusion ne survit à son fichier (liste non périmée)', fantomes.length === 0,
+    'plus écrit nulle part : ' + fantomes.join(', ') + ' — retirer de REGENERABLES.');
+
+  /* TÉMOIN : un fichier durable inventé DOIT être refusé, sinon le contrôle ne mord pas. */
+  const faux = new Set([...ECRITS, 'cache_tout_neuf_et_durable.json']);
+  const mordu = [...faux].filter(f => !ARCHIVES.has(f) && !REGENERABLES[f]);
+  v('[témoin] un nouveau fichier durable serait bien signalé', mordu.length === 1 && mordu[0] === 'cache_tout_neuf_et_durable.json',
+    'le contrôle ne mord pas : il laisserait passer un fichier hors de toute décision.');
+
   console.log('\n──────────────────────────────────────────────────────────────────────');
   if (ko) { console.log(`❌ sauvegarde-verif : ${ko} échec(s) sur ${ok + ko}.`); process.exit(1); }
   console.log(`✅ sauvegarde-verif : ${ok} contrôle(s) au vert.`);
