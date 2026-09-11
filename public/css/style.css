@@ -11226,6 +11226,26 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .jr-grid td.jr-c--title { position: sticky; left: 0; z-index: 2; background: var(--bg); }
 .jr-grid tbody tr:hover td.jr-c--title { background: var(--row-hover); }
 .jr-cv-title { font-weight: var(--fw-bold); color: var(--text); font-family: var(--font-mono); white-space: nowrap; }
+/* ⚠️ « OUVRIR » RECOUVRAIT LE NOM DE LA PAIRE AU SURVOL (11/09, capture user : « AU ⤢ OUVRIR »).
+   Le bouton est en `position: absolute` : il n'écarte rien, il SE POSE DESSUS. Mesuré sur la vraie
+   feuille, titre long : les 63px du bouton couvraient INTÉGRALEMENT la fin du titre, et le texte
+   débordait la cellule sans ellipse. Le lecteur perd l'information qu'il visait au moment où il
+   la vise.
+   LA RÉSERVE EST PERMANENTE, PAS AU SURVOL. La poser au survol ferait sauter la colonne sous le
+   curseur : on remplacerait un texte masqué par un texte qui bouge, ce qui se lit plus mal. Le
+   bouton étant invisible au repos, la place réservée ne se voit pas.
+   ⚠️ POURQUOI 76 ET NON 62 (la valeur que le widget portait depuis toujours). Un absolu se cale
+   sur la boîte de REMBOURRAGE de son bloc conteneur : `right: 5px` compte donc depuis le bord
+   EXTÉRIEUR de la cellule, et le rembourrage ne le repousse pas — il ne fait que reculer le
+   texte. Il faut donc couvrir la largeur du bouton PLUS son décalage. Et cette largeur ne se lit
+   pas dans un rectangle : `html { zoom: .9 }` rend `getBoundingClientRect` en pixels ÉCRAN. Le
+   bouton mesure 56,9 à l'écran mais 63 en CSS — 62 paraissait suffire et manquait de 6px. Mesuré
+   en `offsetWidth` : 63 (bouton) + 5 (décalage) + 8 (respiration) = 76.
+   `display: block` + ellipse : sans le bloc, `overflow` ne s'applique pas à un en-ligne et un
+   titre long repasserait sous le bouton au lieu d'être coupé proprement. Portée limitée aux deux
+   TABLEAUX : `.jr-cv-title` sert aussi dans le volet de détail, où rien ne doit être tronqué. */
+.jr-grid td.jr-c--title, .wdg-jrt-c.jr-c--title { padding-right: 76px; }
+.jr-grid td.jr-c--title .jr-cv-title, .wdg-jrt-c.jr-c--title .jr-cv-title { display: block; overflow: hidden; text-overflow: ellipsis; }
 .jr-cv-date { font-family: var(--font-mono); white-space: nowrap; color: var(--text2); }
 .jr-cv-num { font-family: var(--font-mono); white-space: nowrap; }
 .jr-ph { color: #44444c; font-style: normal; }
@@ -12996,7 +13016,7 @@ html[data-theme="light"] .wdg-cal-wrap { background: var(--bg2); }
 .wdg-jrt-th { position: sticky; top: 0; z-index: 2; background: var(--w-s4); text-align: left; padding: 6px 10px; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--w-t7); border-bottom: 1px solid var(--hud-line, var(--border)); white-space: nowrap; }
 .wdg-jrt-c { padding: 5px 10px; border-bottom: 1px solid var(--w-f4); vertical-align: middle; white-space: nowrap; }
 .wdg-jrt-c.jr-c--multi { white-space: normal; }   /* chips multiples : peuvent s'empiler dans la largeur de colonne, comme le desk */
-.wdg-jrt-c.jr-c--title { position: relative; padding-right: 62px; }   /* place pour le bouton OUVRIR absolu (comme le desk) */
+.wdg-jrt-c.jr-c--title { position: relative; }   /* bloc conteneur du bouton OUVRIR absolu ; la réserve de 76px est mutualisée avec le desk (voir .jr-cv-title) */
 .wdg-jrt-row { cursor: pointer; }
 .wdg-jrt-row:hover { background: var(--w-s3); }
 /* MODIFIER = bouton « OUVRIR » IDENTIQUE au vrai journal (.jrd-open, classe globale) : révélé au survol de la ligne (scope widget) */

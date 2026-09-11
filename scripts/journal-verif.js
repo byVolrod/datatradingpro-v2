@@ -88,6 +88,29 @@ const v = (nom, cond, detail) => {
    varie — sans quoi tous les mois seraient positifs et la ligne « Négatif » du bloc Résultat ne
    serait jamais exercée. Les valeurs sont DÉTERMINISTES : un jeu d'essai aléatoire rendrait le banc
    irreproductible, et un banc qu'on ne peut pas rejouer à l'identique ne prouve rien. */
+/* ⚠️ UN CHROMIUM SANS SOURIS SE DÉCLARE « hover: none » — DONC MOBILE, ET RIEN NE L'EN DISSUADE.
+   Mesuré le 11/09 : `emulateMediaFeatures` refuse « hover » (liste blanche côté puppeteer), le
+   protocole accepte la demande et ne l'applique pas, `--blink-settings` non plus. Conséquence :
+   sans précaution, une phase « bureau » mesure en réalité la variante TACTILE — libellé « OUVRIR »
+   masqué, bouton de 20px au lieu de 63, aucun recouvrement, et un banc VERT qui n'a rien éprouvé.
+   C'est exactement le faux vert que ce dépôt traque. On sert donc au navigateur la VRAIE feuille
+   privée de ses blocs `@media (hover: none)` : la cascade du desk, sur la vraie page et les vraies
+   données. Et on VÉRIFIE qu'on en a bien retiré, sans quoi la précaution se périmerait en silence
+   le jour où la requête média change de forme. */
+function sansBlocsTactiles(t) {
+  let n = 0, out = '', i = 0;
+  for (;;) {
+    const j = t.indexOf('@media (hover: none)', i);
+    if (j < 0) { out += t.slice(i); break; }
+    out += t.slice(i, j);
+    let k = t.indexOf('{', j), prof = 0;
+    for (; k < t.length; k++) { if (t[k] === '{') prof++; else if (t[k] === '}' && --prof === 0) { k++; break; } }
+    i = k; n++;
+  }
+  return { css: out, retires: n };
+}
+const CASCADE_DESK = sansBlocsTactiles(fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8'));
+
 const MOIS_VIDE = 3;                      // avril 2026, volontairement sans aucun trade
 function jeuDEssai() {
   const out = []; let id = 0, eq = 100000;
@@ -178,6 +201,8 @@ function phaseSource() {
   /* Le journal SERVI par le bouchon : mutable, pour rejouer la page sur un autre jeu sans réécrire
      un second serveur. */
   let journalServi = ENTREES;
+  /* Levé uniquement par la phase « au survol » : voir sansBlocsTactiles ci-dessus. */
+  let cascadeDesk = false;
   const srv = serveur();
   await new Promise((r) => srv.listen(PORT, r));
   const srvJ = http.createServer((rq, rs) => {
@@ -186,6 +211,24 @@ function phaseSource() {
       rs.writeHead(200, { 'Content-Type': 'application/json' });
       return rs.end(JSON.stringify({ ok: true, loggedIn: true, authenticated: true, role: 'admin',
         user: { id: 'u1', email: 'banc@datatradingpro.com', name: 'Banc', role: 'admin', plan: 'professionnel', active: true } }));
+    }
+    /* ⚠️ LA FEUILLE DU DESK EST SERVIE SOUS SA PROPRE ADRESSE, et ce n'est pas un détail. Première
+       rédaction : on remplaçait le contenu de `/css/style.css`. La phase tactile ayant déjà chargé
+       cette MÊME adresse (le jeton de cache-busting est le même, et c'est le même navigateur),
+       Chromium la resservait depuis son cache de rendu — `no-store` et `setCacheEnabled(false)` n'y
+       ont rien changé. La feuille du bureau n'arrivait jamais et la phase mesurait encore le
+       tactile. Une adresse distincte ne peut pas entrer en collision. Seul le contrôle « c'est bien
+       la commande du BUREAU » a dit que quelque chose clochait : sans lui, les contrôles suivants
+       seraient passés au vert sur un bouton de 20px qui, forcément, ne recouvre rien. */
+    if (cascadeDesk && u === '/css/style-cascade-desk.css') {
+      rs.writeHead(200, { 'Content-Type': 'text/css', 'Cache-Control': 'no-store' });
+      return rs.end(CASCADE_DESK.css);
+    }
+    if (cascadeDesk && (u === '/index.html' || u === '/')) {
+      const html = fs.readFileSync(path.join(RACINE, 'public/index.html'), 'utf8')
+        .replace(/\/css\/style\.css(\?[^"']*)?/, '/css/style-cascade-desk.css');
+      rs.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      return rs.end(html);
     }
     if (u === '/api/journal') {
       rs.writeHead(200, { 'Content-Type': 'application/json' });
@@ -530,6 +573,107 @@ function phaseSource() {
         v('la phase tactile du journal s\'exécute', false, e && e.message);
       }
       await ptac.close();
+
+      /* ══ AU SURVOL, LA COMMANDE « OUVRIR » RECOUVRAIT ENCORE LE NOM DE LA PAIRE (11/09) ════════
+         Le 04/09 on a réparé le cas TACTILE et on l'a benché — ci-dessus. Le cas BUREAU est resté
+         ouvert sept jours, et c'est celui que l'utilisateur a signalé : « quand on glisse le
+         curseur le texte est caché dans le journal de trading ». Réparer une moitié d'un défaut et
+         bencher cette moitié-là donne un banc vert sur un produit encore cassé.
+         ⚠️ POURQUOI LA RÉSERVE EST DE 76px ET NON DE 62 (la valeur que le widget portait). Deux
+         mesures qu'aucune relecture ne donne :
+         — un absolu se cale sur la boîte de REMBOURRAGE de son bloc conteneur, donc `right: 5px`
+           compte depuis le bord EXTÉRIEUR de la cellule : le rembourrage ne repousse pas le bouton,
+           il ne fait que reculer le texte. Il faut couvrir la largeur du bouton PLUS son décalage ;
+         — `html { zoom: .9 }` : `getBoundingClientRect` rend des pixels ÉCRAN. Le bouton mesure
+           56,9 à l'écran et 63 en CSS. 62 paraissait suffire et manquait de 6px.
+         ⚠️ ON SURVOLE POUR DE VRAI (`page.hover`), on ne force pas l'opacité : forcer reviendrait à
+         éprouver un état que le desk ne produit peut-être plus. Et on compare deux RECTANGLES
+         RENDUS — le recouvrement naît de la somme d'une position absolue, d'une largeur de bouton
+         et d'un rembourrage de cellule, qu'aucune de ces trois valeurs ne montre seule. */
+      console.log('\n── La première colonne, au survol ──');
+      v('la feuille sait ce qu\'elle doit écarter', CASCADE_DESK.retires > 0,
+        'aucun bloc « @media (hover: none) » retiré : la phase mesurerait la variante mobile');
+      const psur = await nav.newPage();
+      try {
+        /* Un titre DÉLIBÉRÉMENT LONG en plus du jeu d'essai : c'est lui qui déborde, et le desk en
+           accepte (la colonne « Paires » est du texte libre, pas une liste de six symboles). */
+        const LONG = 'Range asiatique casse sur EURUSD apres CPI';
+        journalServi = ENTREES.concat([Object.assign({}, ENTREES[0], { id: 'tlong', pair: LONG })]);
+        cascadeDesk = true;
+        await psur.setCacheEnabled(false);
+        await psur.setViewport({ width: 1440, height: 1000 });
+        await psur.goto(`http://localhost:${PORT + 1}/index.html`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        await new Promise((r) => setTimeout(r, 2600));
+        await psur.evaluate(() => {
+          const b = document.getElementById('journal-btn');
+          if (b) b.click(); else if (typeof activateView === 'function') activateView('journal');
+        });
+        await new Promise((r) => setTimeout(r, 2600));
+
+        const mesurer = async (long) => {
+          const sel = await psur.evaluate((LONG, long) => {
+            const tds = [...document.querySelectorAll('.jr-grid tbody td.jr-c--title')];
+            const td = tds.find((x) => long ? x.textContent.indexOf(LONG.slice(0, 12)) >= 0
+                                            : x.textContent.indexOf(LONG.slice(0, 12)) < 0);
+            if (!td || !td.parentElement) return null;
+            td.parentElement.setAttribute('data-banc-survol', '1');
+            return true;
+          }, LONG, long);
+          if (!sel) return null;
+          await psur.hover('[data-banc-survol="1"] td.jr-c--title');
+          await new Promise((r) => setTimeout(r, 260));
+          const out = await psur.evaluate(() => {
+            const td = document.querySelector('[data-banc-survol="1"] td.jr-c--title');
+            const t = td.querySelector('.jr-cv-title'), b = td.querySelector('.jrd-open');
+            if (!t || !b) return null;
+            const rt = t.getBoundingClientRect(), rb = b.getBoundingClientRect();
+            const lbl = b.querySelector('span');
+            td.parentElement.removeAttribute('data-banc-survol');
+            return { nom: t.textContent, finTexte: +rt.right.toFixed(1), debutBouton: +rb.x.toFixed(1),
+                     largeurBouton: +rb.width.toFixed(1), opacite: +getComputedStyle(b).opacity,
+                     libelle: lbl ? getComputedStyle(lbl).display : 'absent',
+                     coupe: t.scrollWidth > t.clientWidth + 1 };
+          });
+          return out;
+        };
+
+        /* On le PROUVE dans la page, on ne le déduit pas d'une largeur : la règle qui masque le
+           libellé au doigt ne doit plus exister dans aucune feuille chargée. */
+        const restes = await psur.evaluate(() => {
+          let n = 0;
+          for (const sh of document.styleSheets) {
+            try { for (const r of sh.cssRules) if (r.cssText && r.cssText.indexOf('.jrd-open span') >= 0) n++; } catch (e) {}
+          }
+          return n;
+        });
+        v('… et la page a bien reçu la cascade du BUREAU', restes === 0,
+          restes + ' règle(s) « .jrd-open span » encore chargée(s) : c\'est la variante tactile');
+
+        const C = await mesurer(false), L = await mesurer(true);
+        if (!C || !L) v('les deux lignes d\'essai du journal sont mesurables au survol', false,
+          'court : ' + (C ? 'ok' : 'introuvable') + ' · long : ' + (L ? 'ok' : 'introuvable'));
+        else {
+          /* Sans ces deux-là, tout le reste passerait dans le vide : un bouton invisible ne recouvre
+             rien, et un bouton réduit à son icône n'est pas celui du bureau. */
+          v('au survol, la commande « ouvrir » apparaît', C.opacite >= 0.9, 'opacité ' + C.opacite);
+          v('… et c\'est bien la commande du BUREAU, libellé compris',
+            C.libelle !== 'none' && C.largeurBouton > 50,
+            'libellé : ' + C.libelle + ' · bouton de ' + C.largeurBouton + ' px (variante tactile : 20 px)');
+          for (const [nom, M] of [['nom court', C], ['titre long', L]]) {
+            v('… et elle ne recouvre pas le ' + nom,
+              M.debutBouton >= M.finTexte,
+              '« ' + M.nom + ' » jusqu\'à ' + M.finTexte + ' px, bouton à partir de ' + M.debutBouton + ' px');
+          }
+          /* Un titre qui déborde doit être COUPÉ, pas glissé sous le bouton : sans ellipse, le
+             contrôle précédent redeviendrait faux dès qu'un client saisit une phrase. */
+          v('… un titre trop long est coupé par une ellipse', L.coupe === true, 'nom rendu : « ' + L.nom + ' »');
+        }
+      } catch (e) {
+        v('la phase « au survol » du journal s\'exécute', false, e && e.message);
+      }
+      cascadeDesk = false;
+      journalServi = ENTREES;
+      await psur.close();
 
       /* ══ CALIBRAGE DU CAPITAL — LES TROIS VERDICTS (04/09, retour d'un client sur le Discord) ══
          « Je l'utilise, mais pour calibrer mon capital je trouve assez moyen. » Le bloc répond en
