@@ -207,8 +207,21 @@ console.log('\n── 5. Aucun rond ne tourne sans porte de sortie ──');
      promesse pendante : ni `.then`, ni `.catch`, et le rond tourne. */
   v('la requête de la courbe a un délai maximal', /function _forceFetch/.test(APP) && /AbortController/.test(APP.slice(APP.indexOf('function _forceFetch'), APP.indexOf('function _forceFetch') + 400)),
     'une requête sans délai n\'échoue jamais : elle attend, et le rond avec elle');
-  v('… et le récap quotidien l\'utilise', /_forceFetch\('\/api\/currency-strength\?period=today'\)/.test(APP),
-    'la fonction existe et personne ne l\'appelle : du code mort qui rassure');
+  /* ⚠️ RÉGRESSION RÉELLE DU 11/09, APRÈS CE BANC DÉJÀ VERT : ce contrôle ne vérifiait que la
+     PRÉSENCE de la chaîne dans app.js — il est resté vert alors que l'appel à _fxdrTracerForce()
+     avait été posé par erreur dans _renderDTPDaily (qui n'a jamais de #fxdr-cs-all : appel mort)
+     au lieu de _renderFXDailyRecap, qui ne l'appelait JAMAIS. Le rond du Récap Quotidien tournait
+     à l'infini en prod, banc vert. On borne désormais la recherche au VRAI CORPS de
+     _renderFXDailyRecap — entre sa déclaration et la PROCHAINE fonction top-level — et plus
+     « quelque part dans le fichier ». */
+  const _fxrDeb = APP.indexOf('function _renderFXDailyRecap(');
+  v('_renderFXDailyRecap existe', _fxrDeb >= 0);
+  const _fxrFin = _fxrDeb >= 0 ? APP.indexOf('\nfunction ', _fxrDeb + 10) : -1;
+  const _fxrCorps = (_fxrDeb >= 0 && _fxrFin > _fxrDeb) ? APP.slice(_fxrDeb, _fxrFin) : '';
+  v('… et SON PROPRE corps appelle _fxdrTracerForce() (pas un autre rapport)',
+    /_fxdrTracerForce\(\);/.test(_fxrCorps),
+    'la fonction existe et est appelée ailleurs dans le fichier : du code mort qui rassure — ' +
+    'exactement ce qui a laissé le rond tourner en prod le 11/09 malgré un banc vert');
   /* Les trois hôtes de courbe doivent TOUS avoir leur message de repli. */
   for (const [nom, marque] of [['récap quotidien', '_fxdrTracerForce'], ['mini-courbe par devise', '_wrBuildCcyChart'], ['courbes paresseuses', '_wrLazyCharts']]) {
     const d = APP.indexOf('function ' + marque + '(');

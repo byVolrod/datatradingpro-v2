@@ -2255,7 +2255,7 @@ async function buildIsolatedStrength(containerId, focusCurrency, period = 'week'
   if (!el) return;
   el.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de la force des devises…') : 'Chargement…');
   try {
-    const data = await fetch(`/api/currency-strength?period=${period}`).then(r => r.json());
+    const data = await (window.dtpFetchBorne ? window.dtpFetchBorne(`/api/currency-strength?period=${period}`) : fetch(`/api/currency-strength?period=${period}`)).then(r => r.json());
     if (!data || !data.currencies) { el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; return; }
     // GARDE 0×0 (03/08, « force des devises il bug ») : même course que la carte des sessions et le
     // baromètre — amCharts mesure un cadre PAS ENCORE POSÉ (accueil monté en différé, onglet caché,
@@ -2315,15 +2315,22 @@ let _strengthTimers = [];
 // après N essais. Évite définitivement le « Unexpected token '<' » (parse d'une page d'erreur HTML).
 async function _dtpJSON(url, opts = {}) {
   const tries = opts.tries || 3, delay = opts.delay || 1200;
+  // Borne par tentative (11/09, même défaut que Force des Devises et le détail calendrier) : sans
+  // elle, un serveur qui ne répond ni n'échoue jamais bloque la 1ʳᵉ tentative pour toujours — les
+  // `tries` de retry prévus ne servent à rien si on ne sort jamais de la première boucle.
+  const delaiMs = opts.delaiMs || 12000;
   let lastErr;
   for (let i = 0; i < tries; i++) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, delaiMs);
     try {
-      const r = await fetch(url, opts.init);
+      const r = await fetch(url, Object.assign({}, opts.init || {}, { signal: ctrl.signal }));
       const ct = r.headers.get('content-type') || '';
       if (r.ok && /json/i.test(ct)) return await r.json();
       if (r.status === 401 || r.status === 403) return await r.json().catch(() => ({ error: 'unauthorized' }));   // vraie réponse d'auth → pas un hoquet
       lastErr = new Error('HTTP ' + r.status + (/html|<!/i.test(ct) ? ' (HTML)' : ''));
     } catch (e) { lastErr = e; }
+    finally { clearTimeout(t); }
     if (i < tries - 1) await new Promise(s => setTimeout(s, delay));
   }
   throw lastErr || new Error('fetch failed');
@@ -2579,7 +2586,7 @@ function buildRiskGauge() {
     try {
       // Source unique : on réutilise le snapshot partagé (fetché par app.js) si dispo,
       // sinon on fetch une fois et on alimente le snapshot. → jamais de divergence.
-      const data = dataArg || window._dtpRisk || await fetch('/api/risk-sentiment').then(r => r.json());
+      const data = dataArg || window._dtpRisk || await (window.dtpFetchBorne ? window.dtpFetchBorne('/api/risk-sentiment') : fetch('/api/risk-sentiment')).then(r => r.json());
       if (data.error) throw new Error(data.error);
       window._dtpRisk = data;
 
@@ -3190,7 +3197,7 @@ function buildCOTChart(gridId, typeArg) {
   const activeTypeBtn = document.querySelector('#rtab-cot .cot-type-btn--active');
   const cotType = typeArg || (activeTypeBtn ? activeTypeBtn.dataset.cotType : 'lev_money');
 
-  fetch(`/api/cot?type=${cotType}`)
+  (window.dtpFetchBorne ? window.dtpFetchBorne(`/api/cot?type=${cotType}`) : fetch(`/api/cot?type=${cotType}`))
     .then(r => r.json())
     .then(data => {
       if (!data.currencies || data.currencies.length === 0) {
@@ -5990,7 +5997,11 @@ async function toggleCalDetailRow(tr, ev) {
      la mettre en cache figerait le vide pour toute la session. */
   let d = _calDetailCache[ev.url];
   if (!d) {
-    const demander = () => fetch('/api/calendar-detail?url=' + encodeURIComponent(ev.url)).then(r => r.json()).catch(() => null);
+    /* fetch borné (dtpFetchBorne, app.js) : sans lui, un serveur qui ne répond jamais — même pas
+       par { pending: true } — laissait « Chargement des détails… » tourner à l'infini (capture
+       user 11/09, Core CPI m/m). 15 s = large marge au-delà des 6 s annoncées par le serveur
+       avant son propre relais en pending. */
+    const demander = () => (window.dtpFetchBorne ? window.dtpFetchBorne('/api/calendar-detail?url=' + encodeURIComponent(ev.url), {}, 15000) : fetch('/api/calendar-detail?url=' + encodeURIComponent(ev.url))).then(r => r.json()).catch(() => null);
     try {
       d = await demander();
       if (d && d.pending) {

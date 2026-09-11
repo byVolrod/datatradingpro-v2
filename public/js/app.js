@@ -36,6 +36,22 @@ function dtpLoader(label, opts) {
 }
 window.dtpLoader = dtpLoader;
 
+// ═══ Fetch universel avec délai maximal ══════════════════════
+// Un fetch sans borne n'échoue jamais : il attend. Constaté DEUX fois le 11/09 — Force des Devises
+// du Récap Quotidien, puis le déroulé de détail du calendrier — même défaut les deux fois : une
+// zone posée en dtpLoader(...) puis un fetch() sans AbortController. Quand le serveur (ou un
+// fournisseur derrière lui) ne répond jamais, la promesse reste pendante pour toujours : aucune
+// erreur, aucun .catch qui se déclenche, un rond qui tourne à l'infini. dtpFetchBorne donne à
+// CHAQUE appel le droit d'échouer au bout d'un temps fini, pour que l'appelant écrive toujours un
+// message de repli. Usage : dtpFetchBorne(url).then(r => r.json())…, ou avec un délai propre au
+// point d'entrée : dtpFetchBorne(url, {}, 15000).
+function dtpFetchBorne(url, opts, delaiMs) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, delaiMs || 12000);
+  return fetch(url, Object.assign({}, opts || {}, { signal: ctrl.signal })).finally(() => clearTimeout(t));
+}
+window.dtpFetchBorne = dtpFetchBorne;
+
 // ═══ Graphes : révélation « premium » : JAMAIS de dessin progressif visible ═══
 // Problème : amCharts trace les courbes/barres progressivement (.appear()) → l'utilisateur voit le
 // graphe « se construire ». Solution : un overlay OPAQUE shimmer (.chart-skel) est posé EN ENFANT du
@@ -4299,7 +4315,7 @@ function buildNewsItem(item) {
         if (activeTab !== 'marche') return;
         const hote = document.getElementById(_gid);
         if (!hote || !hote.isConnected) return;
-        fetch('/api/react-ohlc?pair=' + encodeURIComponent(_paire) + '&ts=' + t0)
+        dtpFetchBorne('/api/react-ohlc?pair=' + encodeURIComponent(_paire) + '&ts=' + t0)
           .then(r => r.json())
           .then(d => {
             if (activeTab !== 'marche' || !hote.isConnected) return;
@@ -4456,7 +4472,7 @@ function buildNewsItem(item) {
       expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
-      fetch(`/api/article?url=${encodeURIComponent(item.url)}&headline=${encodeURIComponent(item.headline || '')}`)
+      dtpFetchBorne(`/api/article?url=${encodeURIComponent(item.url)}&headline=${encodeURIComponent(item.headline || '')}`)
         /* ⚠️ CONTRÔLE DE `r.ok` INDISPENSABLE, PIÈGE MESURÉ (24/08). Sans lui, un HTTP 500 qui porte
            un corps JSON (cas courant : le serveur répond `{ error: … }` en 500) traversait le
            `.then` sans bruit ; `data.points` valait `undefined`, le code tombait dans la branche
@@ -5822,7 +5838,7 @@ async function loadInstCOT(force = false) {
   if (!grid) return;
   grid.innerHTML = dtpLoader('Chargement des données COT…');
   try {
-    const data = await fetch(`/api/cot?type=${_instCotType}`).then(r => r.json());
+    const data = await dtpFetchBorne(`/api/cot?type=${_instCotType}`).then(r => r.json());
     if (!data.currencies?.length) { grid.innerHTML = '<div class="inst-empty">Aucune donnée COT disponible</div>'; return; }
 
     const updatedEl = document.getElementById('inst-updated');
@@ -5860,7 +5876,7 @@ async function loadInstRetail(force = false) {
   grid.innerHTML = dtpLoader('Chargement du sentiment retail…');
   try {
     const url = `/api/community-outlook?period=H1${force ? '&force=1' : ''}`;
-    const resp = await fetch(url).then(r => r.json());
+    const resp = await dtpFetchBorne(url).then(r => r.json());
     const raw  = resp.symbols || resp; // Support both wrapped {symbols:[]} and direct array
     if (!raw?.length) { grid.innerHTML = '<div class="inst-empty">Aucune donnée disponible</div>'; return; }
 
@@ -5902,8 +5918,8 @@ async function loadInstFlow() {
   grid.innerHTML = dtpLoader('Computing net flows…');
   try {
     const [cotData, retailData] = await Promise.all([
-      fetch(`/api/cot?type=lev_money`).then(r => r.json()),
-      fetch(`/api/community-outlook?period=H1`).then(r => r.json()),
+      dtpFetchBorne(`/api/cot?type=lev_money`).then(r => r.json()),
+      dtpFetchBorne(`/api/community-outlook?period=H1`).then(r => r.json()),
     ]);
 
     const cot    = cotData.currencies || [];
@@ -6123,11 +6139,11 @@ function initAnalystTab() {
       content.scrollTop = 0;
 
       try {
-        const res  = await fetch('/api/analyst-outlook', {
+        const res  = await dtpFetchBorne('/api/analyst-outlook', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pair, cb, headlines: related }),
-        });
+        }, 45000);   // génération IA : délai plus large que les simples fetch de données
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
@@ -7922,7 +7938,7 @@ function buildBankChart(p) {
 
   const echec = m => { el.innerHTML = '<div class="bank-chart-loading">' + m + '</div>'; };
   _chargerLwc(() => {
-    fetch('/api/bank-ohlc?pair=' + encodeURIComponent(p.pair) + '&tf=' + encodeURIComponent(_bankTF))
+    dtpFetchBorne('/api/bank-ohlc?pair=' + encodeURIComponent(p.pair) + '&tf=' + encodeURIComponent(_bankTF))
       .then(r => r.json())
       .then(d => {
         if (!el.isConnected) return;
@@ -8667,7 +8683,7 @@ function _brEnsureInsights(item, brIns, preHtml) {
     if (rb) rb.onclick = () => { brIns.innerHTML = dtpLoader('Analyse du rapport…'); _brEnsureInsights(item, brIns, preHtml); };
   };
   // PDF natif / page SPA sans contenu → on récupère le corps (ou le texte dédié insightsText du serveur).
-  fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url))
+  dtpFetchBorne('/api/bank-research-content?url=' + encodeURIComponent(item.url), {}, 30000)
     .then(r => r.json()).then(d => { if (!(render(d && d.insightsText) || render(d && d.html) || render(item.description))) fail(); })
     .catch(() => { if (!render(item.description)) fail(); });
 }
@@ -11287,6 +11303,16 @@ function _renderFXDailyRecap(item) {
 
   content.innerHTML = `<div class="fxdr">${insightsHtml}<div class="fxdr-body">${body}</div></div>`;
   content.scrollTop = 0;
+  /* La courbe se trace APRÈS l'injection du corps : avant, son hôte n'existe pas encore dans le
+     document et amCharts n'aurait rien où dessiner. _fxdrTracerForce() attend buildStrengthChart
+     un temps borné (_forceQuandPret) puis écrit un message lisible si l'attente échoue.
+     ⚠️ CET APPEL MANQUAIT ICI (11/09) : la fonction existait, correctement écrite, mais son seul
+     appelant avait été posé par erreur dans _renderDTPDaily — qui ne construit JAMAIS #fxdr-cs-all.
+     Résultat : le rond du Récap Quotidien tournait indéfiniment malgré le correctif déployé, et
+     l'appel dans _renderDTPDaily ne faisait jamais rien (host toujours introuvable, sortie
+     silencieuse). Preuve : trace d'exécution reproduite en Chromium montrant _renderFXDailyRecap
+     entrée/sortie sans jamais passer par _fxdrTracerForce. */
+  _fxdrTracerForce();
 }
 
 /* ══ UN LOADER DOIT TOUJOURS AVOIR UNE PORTE DE SORTIE (11/09, capture user : « la force des
@@ -11426,12 +11452,6 @@ function _renderDTPDaily(item) {
     }
   });
   content.innerHTML = body || '<div class="fxdr-exec">Rapport en cours de génération…</div>';
-  /* La courbe se trace APRÈS l'injection du corps : avant, son hôte n'existe pas encore dans le
-     document et amCharts n'aurait rien où dessiner — c'est la version silencieuse du défaut qu'on
-     vient de corriger. On passe par les données en direct de la SÉANCE (`today`), la même source
-     que le widget Force des Devises du desk. En cas d'échec, un message lisible remplace la boîte :
-     un rapport doit dire qu'il lui manque quelque chose, jamais laisser un rectangle vide. */
-  _fxdrTracerForce();
 }
 
 // Trace la vue d'ensemble Force des Devises du RÉCAP QUOTIDIEN (période `today`).
@@ -11753,7 +11773,7 @@ function renderArlibReader(item) {
     const _header = '';
     content.innerHTML = dtpLoader('Chargement du résumé de session…');
 
-    fetch('/api/session-wrap-content?url=' + encodeURIComponent(item.url))
+    dtpFetchBorne('/api/session-wrap-content?url=' + encodeURIComponent(item.url), {}, 30000)
       .then(r => r.json())
       .then(data => {
         if (!content) return;
@@ -11786,7 +11806,7 @@ function renderArlibReader(item) {
     const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
     content.innerHTML = dtpLoader('Chargement du rapport…');
 
-    fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url))
+    dtpFetchBorne('/api/bank-research-content?url=' + encodeURIComponent(item.url), {}, 30000)
       .then(r => r.json())
       .then(data => {
         if (!content) return;
@@ -11957,7 +11977,7 @@ async function loadLondonPrep(force = false) {
   if (body) body.innerHTML = dtpLoader('Génération du rapport Ouverture Londres…');
   try {
     const url = '/api/london-prep' + (force ? '?force=1' : '');
-    const data = await fetch(url).then(r => r.json());
+    const data = await dtpFetchBorne(url, {}, 45000).then(r => r.json());
     if (data.error) throw new Error(data.error);
     renderLondonPrep(data);
   } catch (e) {
@@ -13308,8 +13328,8 @@ function _chatInbox(){
   // réseau / 500 / auth (cold-start Render, latence Supabase…). On garde la dernière liste connue.
   // → fini le faux bug « Aucun utilisateur » dû à un simple hoquet de chargement.
   Promise.all([
-    fetch('/api/admin/chat').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(d => Array.isArray(d.threads) ? d.threads : null).catch(() => null),
-    fetch('/api/support/users').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(d => Array.isArray(d.users) ? d.users : null).catch(() => null),
+    dtpFetchBorne('/api/admin/chat').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(d => Array.isArray(d.threads) ? d.threads : null).catch(() => null),
+    dtpFetchBorne('/api/support/users').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(d => Array.isArray(d.users) ? d.users : null).catch(() => null),
   ]).then(([threads, users])=>{
     if (threads === null && users === null) {            // les DEUX ont échoué → on NE blanchit pas
       if (!_chatInboxCache && list) list.innerHTML = `<div class="chat-empty">Chargement impossible : <button type="button" class="chat-retry-btn" onclick="_chatInbox()">réessayer</button></div>`;
@@ -13435,7 +13455,7 @@ function _chatOpenThread(userId, name){
   const cached = _chatMsgCache[userId];
   if (cached){ _chatSig = _sigMsgs(cached); _chatRender(cached); }   // instantané
   else { _chatSig=''; if (list) list.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement…') : '<div class="chat-empty">Chargement…</div>'); }
-  fetch('/api/admin/chat/'+encodeURIComponent(userId)).then(r=>r.json()).then(d=>{
+  dtpFetchBorne('/api/admin/chat/'+encodeURIComponent(userId)).then(r=>r.json()).then(d=>{
     const msgs = d.messages||[];
     _chatMsgCache[userId] = msgs;
     _chatPersistMsgs();
@@ -13639,7 +13659,7 @@ function _chatLoad(){
   const list = document.getElementById('chat-list');
   if (_chatMsgCache.client){ _chatSig = _sigMsgs(_chatMsgCache.client); _chatRender(_chatMsgCache.client); }   // instantané
   else if (list){ list.innerHTML = (window.dtpLoader ? window.dtpLoader('Connexion au support…') : '<div class="chat-empty">Connexion au support…</div>'); }   // loader éclipse au 1er chargement
-  fetch('/api/chat').then(r=>r.json()).then(d=>{
+  dtpFetchBorne('/api/chat').then(r=>r.json()).then(d=>{
     const msgs = d.messages||[];
     _chatMsgCache.client = msgs; _chatPersistMsgs();
     const sig = _sigMsgs(msgs);
@@ -16541,7 +16561,7 @@ window._dtpJournalBadgeInit = function () {
     _cStatus('Chargement des cours…');
     const res0 = document.getElementById('calc-results');
     if (res0) res0.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement des cours en direct…') : '');
-    fetch('/api/fxlist').then(r => r.json()).then(d => {
+    dtpFetchBorne('/api/fxlist').then(r => r.json()).then(d => {
       _rates = {};
       (d && d.pairs || []).forEach(p => { if (p && p.symbol && isFinite(p.last)) _rates[p.symbol] = p.last; });
       const sel = document.getElementById('calc-pair');
