@@ -518,5 +518,47 @@ console.log('\n── La carte nomme la mesure exacte qu’elle affiche ──')
     'la sélection ne vise plus le dépôt : le libellé « Taux de dépôt » affirmerait alors quelque chose de faux.');
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   NE PAS JETER UNE DONNÉE QU'ON A REÇUE (11/09)
+   ──────────────────────────────────────────────────────────────────────────────────────────────
+   Deux banques sur huit tombent en estimation maison. `_rpPanne` enregistre la cause PAR BANQUE,
+   et toutes ne se valent pas : un HTTP 401 est un paywall (rien à faire côté code), mais
+   « clés inattendues » signifie que la réponse est arrivée COMPLÈTE et GRATUITE et qu'on l'a
+   jetée faute de reconnaître un nom de champ. Vu du client les deux se ressemblent : même badge,
+   même repli. C'est le genre d'échec qui se fait passer pour une fatalité.
+   ⚠️ ÉLARGIR LA RECONNAISSANCE N'EST PAS RELÂCHER LA GARDE, et les deux témoins ci-dessous le
+   tiennent : sans champ de taux, ou avec un champ non numérique, on rend NaN — donc le repli
+   maison et son badge honnête. On n'invente JAMAIS un taux. ════════════════════════════════════ */
+console.log('\n── Le pricing de marché ne se perd pas sur un nom de champ ──');
+{
+  const CH = fs.readFileSync(path.join(__dirname, '..', 'public/js/charts.js'), 'utf8');
+  const d = SRV.indexOf('function _rpRate'); const f = SRV.indexOf('\n}', d) + 2;
+  v('_rpRate est extractible de server.js', d >= 0 && f > d);
+  if (d >= 0 && f > d) {
+    const _rpRate = new Function(SRV.slice(d, f) + '\n return _rpRate;')();
+    v('[exécuté] une clé explicite est lue (BCE : facilité de dépôt)',
+      _rpRate({ ecb_deposit_facility: 2.5 }, 'ecb_deposit_facility') === 2.5);
+    v('[exécuté] une clé INCONNUE mais parlante est reconnue (SNB)',
+      _rpRate({ snb_leitzins_policy: 0.25 }) === 0.25,
+      'sans ce filet, une réponse gratuite et complète part au repli maison pour un nom de champ');
+    v('[exécuté] … y compris en vocabulaire français', _rpRate({ taux_directeur: 3.1 }) === 3.1);
+    v('[exécuté] … et l’OCR néo-zélandais', _rpRate({ official_cash_rate: 2.5 }) === 2.5);
+    v('[témoin] aucun champ de taux → NaN, donc repli maison',
+      Number.isNaN(_rpRate({ label: 'x', updated: '2026' })),
+      'le filet accepterait n’importe quoi : il inventerait un taux au lieu de se replier');
+    v('[témoin] un champ non numérique → NaN aussi',
+      Number.isNaN(_rpRate({ policy_rate: 'n/a' })),
+      'une chaîne ne doit jamais passer pour un taux');
+  }
+  /* La cause exacte doit rester LISIBLE côté client : c'est elle qui distingue un paywall
+     (insoluble) d'un défaut de notre côté (réparable). Sans elle, les deux se confondent. */
+  v('la raison de l’absence de pricing est servie au client (champ `panne`)',
+    /panne: _rpPanne\[slug\]/.test(SRV),
+    'sans la raison, impossible de distinguer un paywall d’un bug à nous');
+  v('… et le badge de la carte l’affiche au survol',
+    /b\.panne \? ' \(' \+ b\.panne \+ '\)'/.test(CH),
+    'la raison existe côté serveur et personne ne peut la lire');
+}
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);

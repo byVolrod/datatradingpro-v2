@@ -14290,9 +14290,67 @@ document.addEventListener('DOMContentLoaded', ()=>{
      tout le reste porte une seule pastille neutre. La valeur se lit toujours, elle ne crie plus.
      C'est l'épure « Notion » demandée, et c'est aussi la charte du dépôt appliquée à la lettre. */
   const _JR_CHIP_NEUTRE = { bg: 'rgba(255,255,255,.045)', fg: 'var(--text2)', bd: 'rgba(255,255,255,.10)' };
+
+  /* ══ LES COULEURS DU JOURNAL, FAÇON NOTION — MAIS CHOISIES, PLUS TIRÉES AU HASARD (11/09) ═════
+     Demande de l'utilisateur, captures Notion à l'appui. La version précédente tirait la teinte
+     d'un HACHAGE du nom : « Mercredi » sortait rose, « Londres » bleu, au hasard. Je l'avais
+     neutralisée ; l'utilisateur a vu les deux rendus et tranché pour la couleur. C'est son appel,
+     et il est bon — une pastille colorée se retrouve d'un coup d'œil dans cent vingt lignes.
+     CE QUI CHANGE PAR RAPPORT AU HACHAGE : chaque valeur reçoit une teinte DÉCIDÉE, reprise de ses
+     captures. Deux valeurs proches partagent leur famille (Continuation et Continuation + Reversal
+     sont bleues toutes les deux), ce qu'un hachage ne pouvait pas faire — il les aurait envoyées
+     aux deux bouts du spectre. La couleur devient une information, au lieu d'un bruit joli.
+     ⚠️ PALETTE ADAPTÉE AU FOND SOMBRE. Les captures viennent de Notion en thème CLAIR : fond
+     pastel, texte foncé. Recopiées telles quelles sur le `#0c0c0e` du desk, elles donneraient des
+     pavés laiteux illisibles. On garde la teinte et le rapport, on inverse la clarté : fond très
+     peu saturé, texte dans la même famille mais lumineux.
+     ⚠️ RÉSULTAT ET DIRECTION NE SUIVENT PAS NOTION, ET C'EST VOULU. Chez Notion « Profit » est
+     BLEU ; ici la charte du desk est immuable : un gain est VERT, une perte est ROUGE. Ces deux
+     colonnes restent donc sur `_JR_SEMCOL`. Le reste du tableau prend les couleurs demandées.
+     ⚠️ UNE VALEUR INCONNUE RESTE NEUTRE : un journal importé apporte son propre vocabulaire, et
+     inventer une couleur pour un mot qu'on ne connaît pas, c'est revenir au hachage. */
+  const _JR_TEINTES = {
+    gris:   { bg: 'rgba(255,255,255,.055)', fg: '#b9bec9', bd: 'rgba(255,255,255,.12)' },
+    bleu:   { bg: 'rgba(96,165,250,.15)',   fg: '#93c5fd', bd: 'rgba(96,165,250,.32)' },
+    violet: { bg: 'rgba(167,139,250,.15)',  fg: '#c4b5fd', bd: 'rgba(167,139,250,.32)' },
+    rose:   { bg: 'rgba(244,114,182,.15)',  fg: '#f9a8d4', bd: 'rgba(244,114,182,.32)' },
+    rouge:  { bg: 'rgba(248,113,113,.15)',  fg: '#fca5a5', bd: 'rgba(248,113,113,.32)' },
+    orange: { bg: 'rgba(251,146,60,.15)',   fg: '#fdba74', bd: 'rgba(251,146,60,.32)' },
+    jaune:  { bg: 'rgba(250,204,21,.14)',   fg: '#fde047', bd: 'rgba(250,204,21,.30)' },
+    vert:   { bg: 'rgba(52,211,153,.15)',   fg: '#6ee7b7', bd: 'rgba(52,211,153,.32)' },
+    brun:   { bg: 'rgba(180,143,110,.15)',  fg: '#d6bfa6', bd: 'rgba(180,143,110,.32)' },
+  };
+  /* Clé = valeur en minuscules, sans accent ni espace superflue. Reprise LIGNE À LIGNE des
+     captures fournies ; les variantes françaises côtoient les anglaises, un journal importé pouvant
+     porter les unes ou les autres. */
+  const _JR_TEINTE_VAL = {
+    // Confluence
+    yield: 'rose', sesonality: 'violet', seasonality: 'violet', cot: 'orange', bank: 'bleu',
+    dmx: 'gris', correlation: 'gris', correlations: 'gris',
+    // Unité de temps
+    '15min': 'bleu', '30min': 'bleu', '1h': 'bleu', '2h': 'bleu', '4h': 'bleu', daily: 'bleu', '1d': 'bleu',
+    swing: 'gris', daytrade: 'gris', scalp: 'gris',
+    // Setup
+    reversal: 'rose', 'reversal + continuation': 'orange', continuation: 'bleu',
+    'continuation + reversal': 'bleu', attenuation: 'violet', 'attenuation + reversal': 'violet',
+    opportunity: 'orange', 'add-in': 'vert', 'add in': 'vert',
+    // Entrée
+    anticipation: 'bleu', retest: 'violet', fibo: 'gris', break: 'rose', reject: 'rouge',
+    // Stop
+    '2 sec': 'bleu', '1 sec': 'gris', large: 'bleu', normal: 'violet', tight: 'rouge',
+    // Session (Notion : US et Londres en gris, Asie en jaune)
+    us: 'gris', london: 'gris', londres: 'gris', asia: 'jaune', asie: 'jaune', tokyo: 'jaune',
+    // Jours : neutres chez Notion, neutres ici
+    monday: 'gris', tuesday: 'gris', wednesday: 'gris', thursday: 'gris', friday: 'gris',
+    lundi: 'gris', mardi: 'gris', mercredi: 'gris', jeudi: 'gris', vendredi: 'gris',
+    // Résultat : seules TP et Loading échappent à _JR_SEMCOL (les autres sont sémantiques)
+    loading: 'jaune', 'en cours': 'jaune',
+  };
   function _jrChip(colKey, value) {
     const sem = _JR_SEMCOL[colKey] && _JR_SEMCOL[colKey][String(value).toLowerCase()];
-    return sem ? _jrHexChip(sem) : _JR_CHIP_NEUTRE;
+    if (sem) return _jrHexChip(sem);                       // charte immuable : gain vert, perte rouge
+    const t = _JR_TEINTE_VAL[String(value == null ? '' : value).toLowerCase().trim()];
+    return t ? _JR_TEINTES[t] : _JR_CHIP_NEUTRE;           // inconnue → neutre, jamais de teinte inventée
   }
   function _jrChipHtml(text, c) { return '<span class="jr-chip" style="background:' + c.bg + ';color:' + c.fg + ';border-color:' + c.bd + '">' + _esc(text) + '</span>'; }
   function _jrOptions(col) {
@@ -14311,6 +14369,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const f = Math.max(0, Math.min(1, val / (max || 5))), R = 8.5, C = 2 * Math.PI * R, c = f >= 0.8 ? '#00e676' : f >= 0.5 ? '#ffb300' : '#ff8f00';
     return '<span class="jr-ring"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="#26262c" stroke-width="2.6"/><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="' + (f * C).toFixed(2) + ' ' + C.toFixed(2) + '" transform="rotate(-90 12 12)"/></svg><b>' + _jrFmtNum(val) + '</b></span>';
   }
+  /* Traduction d'AFFICHAGE des valeurs d'un journal importé. Volontairement COURTE : les jours et
+     les sessions, c'est-à-dire ce qui revient sur chaque ligne et se lit cent vingt fois. Le reste
+     du vocabulaire d'un trader (Swing, Retest, Fibo…) s'emploie en anglais sur un desk FX et le
+     traduire rendrait le journal MOINS lisible, pas plus. Une valeur absente de la table est rendue
+     telle quelle : on ne devine pas la langue d'un mot qu'on ne connaît pas. */
+  const _JR_VAL_FR = {
+    monday: 'Lundi', tuesday: 'Mardi', wednesday: 'Mercredi', thursday: 'Jeudi',
+    friday: 'Vendredi', saturday: 'Samedi', sunday: 'Dimanche',
+    london: 'Londres', asia: 'Asie', 'new york': 'New York',
+  };
+  function _jrFrVal(v) { const k = String(v == null ? '' : v).toLowerCase().trim(); return _JR_VAL_FR[k] || v; }
+
   function _jrCell(e, col) {
     const v = _jrGet(e, col);
     switch (col.type) {
@@ -14318,8 +14388,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
       case 'text': return (v == null || v === '') ? '<i class="jr-ph">-</i>' : '<span class="jr-cv-text">' + _esc(v) + '</span>';
       case 'date': { const ts = col.builtin ? e.ts : v; return ts ? '<span class="jr-cv-date">' + _jrFmtDateFr(ts) + '</span>' : '<i class="jr-ph">-</i>'; }
       case 'day': { const d = e.ts ? _jrDayEn(e.ts) : ''; return d ? _jrChipHtml(d, _JR_CHIP_NEUTRE) : '<i class="jr-ph">-</i>'; }
-      case 'select': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; return _jrChipHtml((col.disp && col.disp[v]) || v, _jrChip(col.k, v)); }
-      case 'multi': { const arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(x => _jrChipHtml(x, _jrChip(col.k, x))).join('') : '<i class="jr-ph">-</i>'; }
+      /* ⚠️ UN JOURNAL IMPORTÉ PARLE LA LANGUE DE SON AUTEUR (11/09, demande user « les jours en fr »).
+         La colonne « Jour » du gabarit DTP est DÉRIVÉE de la date et sort déjà en français (le
+         tableau `_JR_DAYS_EN` est français malgré son nom). Mais un journal importé de Notion
+         apporte ses propres options : la colonne arrive en `select` avec « Monday », « Thursday »…
+         et rien ne les traduisait. On traduit donc à l'AFFICHAGE, jamais dans la donnée — la valeur
+         stockée reste celle de l'import, et un export CSV la rend telle quelle (la règle de ce
+         dépôt : on traduit ce qu'on montre, pas ce qu'on garde). */
+      case 'select': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; return _jrChipHtml((col.disp && col.disp[v]) || _jrFrVal(v), _jrChip(col.k, v)); }
+      case 'multi': { const arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(x => _jrChipHtml(_jrFrVal(x), _jrChip(col.k, x))).join('') : '<i class="jr-ph">-</i>'; }
       case 'num': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + _jrFmtNum(v, col.signed) + (col.suffix || '') + '</span>'; }
       case 'money': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + (col.signed && n > 0 ? '+' : '') + n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' $</span>'; }
       case 'progress': { if (v == null || v === '') return '<i class="jr-ph">-</i>'; const pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#ff8f00'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _jrFmtNum(v) + '%</span></div>'; }
