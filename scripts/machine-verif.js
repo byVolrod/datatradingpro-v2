@@ -140,19 +140,31 @@ const MONITEUR = (variante) => {
     await page.goto('http://localhost:' + PORT + '/admin.html', { waitUntil: 'networkidle0', timeout: 45000 });
     /* ⚠️ ON OUVRE L'ONGLET POUR DE VRAI : les cartes existent dans le DOM même masquées, et toute
        mesure sur un élément en `display:none` rend zéro. */
+    /* ⚠️ DEUX NIVEAUX D'ONGLETS À OUVRIR, ET LE SECOND EST NOUVEAU (11/09). Le panneau a été
+       découpé en quatre onglets, et le schéma comme les cartes Machine/Disque vivent dans
+       « Serveur », qui n'est pas celui ouvert par défaut. Un élément masqué mesure ZÉRO : sans
+       cette bascule, le banc lirait une largeur nulle et des boîtes vides. C'est exactement ce
+       qu'il a fait au premier passage, et c'est ce qui a révélé le découpage au banc. */
     const ouvrir = async () => {
       await page.evaluate(() => { try { admTab('aimon'); } catch (e) {} });
-      await new Promise(r => setTimeout(r, 1600));
+      await new Promise(r => setTimeout(r, 1200));
+      await page.evaluate(() => { try { aimOnglet('serveur'); } catch (e) {} });
+      await new Promise(r => setTimeout(r, 900));
     };
     await ouvrir();
 
     const lire = () => page.evaluate(() => {
       const t = id => { const e = document.getElementById(id); return e ? (e.textContent || '').replace(/\s+/g, ' ').trim() : null; };
       const inf = document.getElementById('aim-infra');
-      const svg = inf && inf.querySelector('svg');
-      const traits = svg ? [...svg.querySelectorAll('rect')].map(r => r.getAttribute('stroke')) : [];
+      /* ⚠️ ON LIT LA COULEUR CALCULÉE, PAS L'ATTRIBUT. L'état vit dans la variable `--aims-c` et
+         c'est la feuille qui la transforme en bordure : lire l'attribut inline dirait ce que le
+         rendu a VOULU, `getComputedStyle` dit ce que l'écran MONTRE. C'est la seconde qui compte,
+         et c'est la seule qui attrape une règle de feuille qui écraserait la couleur d'état. */
+      const briques = inf ? [...inf.querySelectorAll('.aims-b')] : [];
+      const traits = briques.map(b => getComputedStyle(b).borderLeftColor);
       return { sys: t('aim-systeme'), disque: t('aim-disque'), infra: inf ? (inf.textContent || '').replace(/\s+/g, ' ').trim() : null,
-               svgLarge: svg ? svg.getBoundingClientRect().width : 0, traits,
+               briques: briques.length, vifs: inf ? inf.querySelectorAll('.aims-dot[data-vif]').length : 0,
+               svgLarge: inf ? inf.getBoundingClientRect().width : 0, traits,
                visible: !!(document.getElementById('tab-aimon') && document.getElementById('tab-aimon').offsetHeight > 0) };
     });
 
@@ -172,31 +184,110 @@ const MONITEUR = (variante) => {
     v('… et l\'âge de la sentinelle système', /7 min/.test(L.disque || ''), 'rendu : ' + String(L.disque).slice(0, 120));
 
     /* 4. LE SCHÉMA EST DYNAMIQUE : il porte les mêmes chiffres que les cartes. */
-    v('le schéma d\'architecture est dessiné', L.svgLarge > 200, 'largeur rendue : ' + Math.round(L.svgLarge) + ' px');
+    v('le schéma d\'architecture est dessiné', L.briques >= 9 && L.svgLarge > 200,
+      L.briques + ' brique(s), largeur ' + Math.round(L.svgLarge) + ' px');
+    /* Le battement ne doit s'allumer que sur une mesure RÉELLE : une brique grise qui pulse
+       donnerait l'impression d'une donnée vivante là où il n'y en a aucune. */
+    v('… et il bat, donc il se dit vivant', L.vifs >= 6, L.vifs + ' pastille(s) animée(s) sur ' + L.briques);
     v('… et il porte les chiffres de la MÊME mesure que les cartes',
-      /1234 Mo/.test(L.infra || '') && /87%/.test(L.infra || '') && /4\/4 joignables/.test(L.infra || ''),
+      /1234 Mo/.test(L.infra || '') && /87%/.test(L.infra || '') && /4\/4/.test(L.infra || '') && /joignables/.test(L.infra || ''),
       'rendu : ' + String(L.infra).slice(0, 200));
 
     /* Il SUIT l'état : on casse les bases et la brique doit changer de couleur. */
     variante = 'bases-ko';
-    await page.evaluate(() => { try { aimLoad(); } catch (e) { try { admTab('dash'); admTab('aimon'); } catch (e2) {} } });
+    await page.evaluate(() => { try { loadAIMon(); } catch (e) { try { admTab('dash'); admTab('aimon'); } catch (e2) {} } });
     await new Promise(r => setTimeout(r, 1800));
+    await page.evaluate(() => { try { aimOnglet('serveur'); } catch (e) {} });
+    await new Promise(r => setTimeout(r, 500));
     L = await lire();
     v('… et il SUIT l\'état : bases dégradées, le schéma le dit',
-      /1\/4 joignables/.test(L.infra || '') && /resynchro/i.test(L.infra || ''),
+      /1\/4/.test(L.infra || '') && /resynchro/i.test(L.infra || ''),
       'rendu : ' + String(L.infra).slice(0, 200));
 
     /* 3. LE TÉMOIN QUI COMPTE : un état INCONNU ne doit jamais être peint en vert. */
     variante = 'inconnu';
-    await page.evaluate(() => { try { aimLoad(); } catch (e) { try { admTab('dash'); admTab('aimon'); } catch (e2) {} } });
+    await page.evaluate(() => { try { loadAIMon(); } catch (e) { try { admTab('dash'); admTab('aimon'); } catch (e2) {} } });
     await new Promise(r => setTimeout(r, 1800));
     L = await lire();
-    const verts = (L.traits || []).filter(c => c === '#22c55e').length;
+    /* `getComputedStyle` rend « rgb(34, 197, 94) », jamais « #22c55e » : comparer à l'hexadécimal
+       ne trouverait JAMAIS rien et le témoin serait vert par construction, donc muet. */
+    const VERT = 'rgb(34, 197, 94)';
+    const verts = (L.traits || []).filter(c => c === VERT).length;
     v('témoin : sans données, le schéma ne peint AUCUNE brique en vert', verts === 0,
       verts + ' brique(s) vertes sur une charge vide : c\'est le faux vert, exactement');
     v('… et il le dit, au lieu de rester muet', /inconnu|pas encore|jamais/i.test(L.infra || ''),
       'rendu : ' + String(L.infra).slice(0, 200));
     v('… la carte Disque aussi', /première mesure|indisponible/i.test(L.disque || ''), 'rendu : ' + String(L.disque).slice(0, 120));
+    /* ══ LES QUATRE ONGLETS (11/09, demande user) ═════════════════════════════════════════════
+       ⚠️ UN GRAPHE amCharts RENDU DANS UN CONTENEUR MASQUÉ MESURE ZÉRO et ne se répare pas quand
+       on révèle le conteneur : il reste un cadre vide, sans erreur. C'est le piège du 02/09 sur
+       les widgets montés dans un onglet, et il mord identiquement ici. Le banc fait donc l'aller
+       ET le retour, puis mesure le graphe de l'onglet d'origine. */
+    console.log('\n── Les quatre onglets du moniteur ──');
+    const onglets = await page.evaluate(() => [...document.querySelectorAll('#aimt-bar .aimt')].map(b => ({ cle: b.dataset.aimt, nom: b.textContent.trim() })));
+    v('la barre porte quatre onglets nommés', onglets.length === 4,
+      onglets.map(o => o.nom).join(' · ') || 'aucun onglet');
+    /* Des noms EXPLICITES, c'est la demande : « renomme bien les onglets ». Un onglet nommé par sa
+       technique plutôt que par ce qu'on y cherche oblige à l'ouvrir pour savoir s'il est le bon. */
+    v('… et leurs noms disent ce qu\'on y cherche',
+      onglets.map(o => o.nom).join('|') === 'Chaîne IA|Serveur|Services|Journal',
+      onglets.map(o => o.nom).join(' · '));
+    const visibles = async () => page.evaluate(() => [...document.querySelectorAll('[data-aimt-p]')]
+      .filter(p => !p.hidden).map(p => p.dataset.aimtP));
+    v('… un seul panneau ouvert à la fois', (await visibles()).length === 1, (await visibles()).join(', '));
+    /* Chaque bloc doit vivre dans UN onglet : un bloc orphelin serait invisible pour toujours. */
+    const orphelins = await page.evaluate(() => ['aim-providers', 'aim-forecast', 'aim-mail', 'aim-egress', 'aim-db', 'aim-systeme', 'aim-disque', 'aim-infra', 'aim-journal']
+      .filter(id => { const e = document.getElementById(id); return !e || !e.closest('[data-aimt-p]'); }));
+    v('… et aucun bloc ne reste hors des onglets', !orphelins.length,
+      orphelins.join(', ') + ' : un bloc hors onglet ne s\'afficherait jamais');
+
+    /* ⚠️ LE GRAPHE SURVIT À L'ALLER-RETOUR, et c'est LE contrôle de cette section. */
+    await page.evaluate(() => { try { aimOnglet('journal'); } catch (e) {} });
+    await new Promise(r => setTimeout(r, 700));
+    await page.evaluate(() => { try { aimOnglet('ia'); } catch (e) {} });
+    await new Promise(r => setTimeout(r, 1400));
+    const graphe = await page.evaluate(() => {
+      const e = document.getElementById('aim-trend-am');
+      const r = e ? e.getBoundingClientRect() : null;
+      return { l: r ? Math.round(r.width) : 0, h: r ? Math.round(r.height) : 0 };
+    });
+    v('le graphe des appels IA survit à un aller-retour d\'onglet',
+      graphe.l > 200 && graphe.h > 60,
+      'rendu ' + graphe.l + '×' + graphe.h + ' px — un graphe construit pendant que son onglet était masqué reste un cadre vide');
+
+    /* ══ LES BOUTONS DE LIBÉRATION (11/09, demande user) ═══════════════════════════════════════
+       ⚠️ LE FORÇAGE NE PART PAS AU PREMIER CLIC. Il vide le cache des PDF et les images hors
+       rétention : le premier rapport ouvert ensuite sera plus lent, et un retour arrière demandera
+       une reconstruction. Un clic distrait ne doit pas déclencher ça. */
+    console.log('\n── Libérer la place, depuis le panneau ──');
+    await page.evaluate(() => { try { aimOnglet('serveur'); } catch (e) {} });
+    await new Promise(r => setTimeout(r, 900));
+    const bt = await page.evaluate(() => [...document.querySelectorAll('#aim-disque [data-disk]')].map(b => b.dataset.disk));
+    v('la carte Disque porte les deux boutons', bt.join(',') === 'sur,agressif', bt.join(', ') || 'aucun bouton');
+    /* On CLIQUE pour de vrai : lire la présence d'un `data-disk` ne dit pas si l'écouteur existe. */
+    const arme = await page.evaluate(async () => {
+      const b = document.querySelector('#aim-disque [data-disk="agressif"]');
+      if (!b) return null;
+      b.click();
+      await new Promise(r => setTimeout(r, 200));
+      const x = document.querySelector('#aim-disque [data-disk="agressif"]');
+      const m = document.getElementById('aim-disk-msg');
+      return { libelle: x ? x.textContent.trim() : '', msg: m ? m.textContent.trim() : '' };
+    });
+    v('… le forçage demande une confirmation au lieu de partir',
+      !!arme && /Confirmer/i.test(arme.libelle),
+      arme ? ('libellé après un clic : « ' + arme.libelle + ' »') : 'bouton introuvable');
+    v('… et il dit ce qu\'il va supprimer', !!arme && /PDF/i.test(arme.msg), arme ? arme.msg : '');
+    /* ⚠️ ET L'ÉTAT ARMÉ RETOMBE. Un bouton qui reste armé indéfiniment partira sur un clic
+       distrait trois minutes plus tard, et c'est l'action la plus destructive du panneau. */
+    await new Promise(r => setTimeout(r, 4600));
+    const retombe = await page.evaluate(() => {
+      const x = document.querySelector('#aim-disque [data-disk="agressif"]');
+      return x ? x.textContent.trim() : '';
+    });
+    v('… et l\'armement retombe tout seul', /^Forcer$/.test(retombe),
+      'libellé après 4,6 s : « ' + retombe + ' » — un bouton qui reste armé partira sur un clic distrait');
+
     v('aucune exception pendant tout le parcours', errs.length === 0, errs.slice(0, 2).join(' | '));
 
     await page.close();

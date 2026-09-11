@@ -12141,10 +12141,20 @@ document.addEventListener('DOMContentLoaded', () => {
            couvrirait le fil. Au niveau critique on carillonne (silent: false) ; à 80 % on dépose
            sans bruit — une alerte qui sonne trop tôt finit ignorée le jour où elle compte. */
         id: 'disque-' + d.niveau + '-' + Math.floor((d.t || Date.now()) / 36e5),
-        headline: 'Disque serveur ' + d.nom + ' — ' + d.pct + '% utilisé',
+        /* ⚠️ « ADMIN » EST ÉCRIT DANS LE TITRE, et ce n'est pas de la décoration (11/09, demande
+           user : « que l'admin doit voir ceci, pas les users »). L'alerte EST déjà réservée à
+           l'admin, à trois niveaux : `requireAdmin` sur la route (le seul qui compte, un rôle lu
+           au navigateur se falsifie), le test de rôle ci-dessus qui évite d'envoyer une requête
+           vouée au 403, et `npPush` qui n'écrit qu'en mémoire de CE navigateur, sans rien
+           persister ni diffuser. Mais la carte porte la même source « DTP » que les annonces
+           produit destinées aux clients : elle RESSEMBLE donc à quelque chose que tout le monde
+           verrait, et on ne peut pas le déduire en la regardant. Une garde qu'on ne peut pas voir
+           se re-vérifie à chaque fois qu'on y pense, ou pire, on finit par en douter. */
+        headline: 'ADMIN · Disque serveur ' + d.nom + ' — ' + d.pct + '% utilisé',
         description: d.libreGo + ' Go libres sur ' + d.totalGo + ' Go'
           + (d.jours != null ? ' · saturation projetée dans ' + d.jours + ' jour(s) au rythme actuel' : '')
-          + '. Un disque plein fait tronquer les fichiers du desk sans aucune erreur : le desk arrive alors sans style ni script.',
+          + '. Un disque plein fait tronquer les fichiers du desk sans aucune erreur : le desk arrive alors sans style ni script.'
+          + ' Visible par vous seul : aucun abonné ne reçoit cette alerte.',
         timestamp: d.t || Date.now(),
         source: 'DTP', category: 'Système', urgent: true,
       }], { silent: d.niveau < 3 });
@@ -14588,7 +14598,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrEditCell(td) {
     const tr = td.closest('tr'), id = tr && tr.dataset.id, k = td.dataset.k;
     const col = (_jrCols || _jrDefaultCols()).find(c => c.k === k), e = (_jrList || []).find(x => x.id === id);
-    if (!col || !e || col.type === 'day') return;
+    if (!col || !e) return;
+    if (col.type === 'day') return _jrEditJour(td, e, col);
     if (col.type === 'select') return _jrEditSelect(td, e, col);
     if (col.type === 'multi') return _jrEditMulti(td, e, col);
     if (col.type === 'date') return _jrEditDate(td, e, col);
@@ -14610,6 +14621,43 @@ document.addEventListener('DOMContentLoaded', ()=>{
     };
     inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); done(true); } else if (ev.key === 'Escape') { ev.preventDefault(); done(false); } };
     inp.onblur = () => done(true);
+  }
+  /* ⚠️ LA COLONNE « JOUR » NE SE MODIFIAIT PAS DU TOUT (11/09, demande user : « je dois avoir les
+     jours de la semaine en cliquant »). `_jrEditCell` sortait sur `col.type === 'day'`, en
+     silence : on cliquait, rien ne se passait, et rien ne disait pourquoi.
+     ⚠️ ET LA RAISON DE CE BLOCAGE ÉTAIT BONNE, c'est ce qui rend la réparation intéressante. Le
+     jour n'est pas une donnée : il est DÉDUIT de la date (`_jrDayEn(e.ts)`). Le rendre librement
+     modifiable produirait une ligne qui se contredit toute seule : un trade daté du mercredi
+     9 septembre étiqueté « Lundi ». On ne stocke donc PAS un jour à côté de la date.
+     CE QU'ON FAIT À LA PLACE : choisir un jour DÉPLACE la date sur ce jour-là, dans la MÊME
+     semaine. Les deux colonnes restent d'accord parce qu'elles restent le même fait, et
+     l'utilisateur obtient exactement ce qu'il demandait : les sept jours au clic.
+     Sans date, la semaine de référence est la semaine EN COURS : c'est le seul repère dont on
+     dispose, et l'alternative serait de refuser le clic, c'est-à-dire le défaut qu'on répare. */
+  const _JR_JOURS_ORDRE = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  function _jrEditJour(td, e, col, after) {
+    const pop = _jrOpenPop(td, '<div class="jr-pop-opts"></div><div class="jr-pop-note">Choisir un jour déplace la date du trade sur ce jour, dans la même semaine.</div>');
+    const box = pop.querySelector('.jr-pop-opts');
+    const courant = e.ts ? _jrDayEn(e.ts) : '';
+    box.innerHTML = _JR_JOURS_ORDRE.map(j => '<button class="jr-pop-opt" data-j="' + j + '">'
+      + _jrChipHtml(j, _JR_CHIP_NEUTRE) + (j === courant ? '<span class="jr-pop-ck">✓</span>' : '') + '</button>').join('');
+    box.addEventListener('click', ev => {
+      const b = ev.target.closest('.jr-pop-opt'); if (!b) return;
+      const vise = _JR_DAYS_EN.indexOf(b.dataset.j);          // 0 = dimanche, comme getDay()
+      if (vise < 0) return;
+      const base = new Date(e.ts || Date.now());
+      /* Semaine au sens ISO : on recule jusqu'au lundi, puis on avance du décalage visé. Passer
+         par le lundi évite le piège du dimanche, que `getDay()` numérote 0 et qui appartient à la
+         semaine PRÉCÉDENTE dans cette lecture. */
+      const versLundi = (base.getDay() + 6) % 7;
+      const d = new Date(base.getTime());
+      d.setDate(base.getDate() - versLundi + ((vise + 6) % 7));
+      _jrSet(e, { k: 'ts', builtin: true, type: 'date' }, d.getTime());
+      _jrSave(); _jrClosePop();
+      /* La DATE change aussi : on repeint la grille entière plutôt que la seule cellule, sinon la
+         colonne Date afficherait encore l'ancienne valeur juste à côté du nouveau jour. */
+      _jrRenderGrid(); _jrRenderStats(); if (after) after();
+    });
   }
   function _jrEditDate(td, e, col, after) {
     const cur = _jrGet(e, col);

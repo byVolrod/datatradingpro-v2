@@ -322,8 +322,38 @@ BALLAST_LIBERE=""
 MENAGE=""
 MENAGE_TXT=""
 
+# ── DEMANDE EXPRESSE DU PANNEAU ADMIN (11/09) ────────────────────────────────────────────────────
+# Le conteneur n'a AUCUNE socket Docker (verifie dans docker-compose.yml) : il ne peut pas purger
+# les images, qui sont pourtant le gros de ce qui remplit ce disque. Plutot que de lui donner les
+# pleins pouvoirs sur l'hote pour un bouton de confort, il DEPOSE une demande dans le dossier deja
+# partage entre les deux, et c'est la sentinelle -- celle qui sait nettoyer sans rien casser et qui
+# respecte deja le verrou de deploiement -- qui l'execute.
+# ⚠️ UNE DEMANDE PERIME. Sans expiration, une demande deposee puis oubliee (volume restaure, panne
+# du minuteur) declencherait une purge agressive des jours plus tard, sans personne pour l'attendre.
+# Au-dela d'une heure, on la jette en le disant.
+# ⚠️ ET ON LA CONSOMME AVANT D'AGIR : si le menage echoue, la demande ne doit pas etre rejouee a
+# chaque passage. Une demande est un ordre ponctuel, pas un etat.
+DEMANDE_F="${DTP_DISQUE_DEMANDE:-$PARTAGE_DIR/disque_demande.json}"
+DEMANDE_FAITE=""
+if [ -f "$DEMANDE_F" ]; then
+  D_TS=$(sed -n 's/.*"ts":[[:space:]]*\([0-9]*\).*/\1/p' "$DEMANDE_F" 2>/dev/null)
+  D_TS=${D_TS%[0-9][0-9][0-9]}                       # ms -> s
+  case "$D_TS" in ''|*[!0-9]*) D_TS=0;; esac
+  D_MODE=$(sed -n 's/.*"mode":[[:space:]]*"\([a-z]*\)".*/\1/p' "$DEMANDE_F" 2>/dev/null)
+  rm -f "$DEMANDE_F" 2>/dev/null                     # consommee, quoi qu'il arrive
+  if [ "$D_TS" -gt 0 ] && [ $((NOW - D_TS)) -le 3600 ]; then
+    echo "[disque] demande du panneau admin (${D_MODE:-sur}) — menage immediat, hors seuil"
+    if [ "$D_MODE" = "agressif" ]; then _menage agressif; else _menage normal; fi
+    MENAGE="$MENAGE_TXT"; DEMANDE_FAITE="${D_MODE:-sur}"
+  else
+    echo "[disque] demande du panneau admin IGNOREE (deposee il y a plus d'une heure)"
+  fi
+fi
+
 # ── NIVEAU 5 : DERNIER RECOURS ───────────────────────────────────────────────────────────────────
-if [ "$NIVEAU" -ge 5 ]; then
+if [ -n "$DEMANDE_FAITE" ] && [ "$NIVEAU" -lt 5 ]; then
+  : # menage deja fait a la demande ; on ne le rejoue pas dans la foulee
+elif [ "$NIVEAU" -ge 5 ]; then
   echo "[disque] DERNIER RECOURS ($PCT%) — suppression du ballast en premier"
   if _ballast_retire; then BALLAST_LIBERE="oui"; _mesurer; echo "[disque] ballast supprime, disque a ${PCT}%"; fi
   _menage agressif; MENAGE="$MENAGE_TXT"   # appel DIRECT (pas de sous-shell) → SORTIE_MENAGE_APRES remonte

@@ -11288,6 +11288,10 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .jr-chip-x { cursor: pointer; opacity: .55; font-weight: var(--fw-bold); font-size: 12px; }
 .jr-chip-x:hover { opacity: 1; }
 .jr-pop-opts { display: flex; flex-direction: column; gap: 1px; }
+/* La note du sélecteur de jour : elle dit ce que le clic va FAIRE, parce que déplacer la date
+   n'est pas ce qu'on attend d'un choix de jour tant qu'on ne l'a pas lu une fois. Discrète et
+   sous les options, donc lisible sans être dans le chemin du geste. */
+.jr-pop-note { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--hud-line); font-size: 10px; line-height: 1.45; color: var(--text3); }
 .jr-pop-opt { display: flex; align-items: center; gap: 6px; text-align: left; background: none; border: none; border-radius: 4px; padding: 5px 7px; cursor: pointer; color: var(--text2); font-size: var(--fs-title); font-family: var(--font-ui); width: 100%; }
 .jr-pop-opt:hover { background: rgba(255,255,255,0.05); }
 .jr-pop-ck { margin-left: auto; color: var(--orange); font-weight: var(--fw-bold); }

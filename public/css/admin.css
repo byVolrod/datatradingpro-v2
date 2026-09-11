@@ -536,8 +536,48 @@ select { cursor: pointer; }
 /* Le schéma d'architecture (11/09). Il porte son propre viewBox et se met à l'échelle tout seul :
    la seule chose à tenir ici est de le laisser respirer, et de le rendre parcourable quand la
    fenêtre descend sous sa largeur de dessin plutôt que de l'écraser jusqu'à l'illisible. */
-.aim-infra-wrap { overflow-x: auto; }
-.aim-infra-wrap svg { min-width: 560px; display: block; }
+/* ── LE SCHÉMA D'ARCHITECTURE (11/09) ─────────────────────────────────────────────────────────
+   Grille CSS, plus de SVG à coordonnées calculées à la main : le dessin se réajuste seul à la
+   largeur, et ajouter une brique ne demande pas de recalculer la grille entière.
+   Trois étages, séparés par un filet et un intitulé. Aucun trait entre les briques : l'ordre des
+   étages dit déjà le sens de lecture, et six courbes pointillées n'apprenaient rien (même
+   arbitrage que le quadrillage du journal, tranché le 05/09).
+   La couleur d'état vit dans `--aims-c`, posée par le rendu : une seule variable porte l'état, au
+   lieu de la répéter sur la bordure, la pastille et le texte. */
+.aim-infra-wrap { overflow-x: hidden; }
+.aims-et + .aims-et { margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--hud-line, var(--border)); }
+.aims-et-t {
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 9px; font-weight: 700;
+  letter-spacing: .09em; text-transform: uppercase; color: var(--text4, var(--text3));
+  margin-bottom: var(--sp-2);
+}
+/* `auto-fit` + `minmax` : trois colonnes au large, deux puis une quand la carte se resserre, sans
+   la moindre requête média à tenir d'accord avec la largeur du panneau. */
+.aims-g { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--sp-2); }
+.aims-b {
+  position: relative; background: var(--bg2, #141418); border: 1px solid var(--border);
+  border-left: 2px solid var(--aims-c, #6b7280); border-radius: 5px; padding: 9px 11px;
+  transition: border-color .18s ease;
+}
+.aims-b:hover { border-color: var(--border2); border-left-color: var(--aims-c, #6b7280); }
+.aims-b-h { display: flex; align-items: center; gap: 6px; }
+.aims-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--aims-c, #6b7280); flex-shrink: 0; }
+/* Le battement ne s'allume QUE sur une brique dont l'état est réellement connu : faire pulser une
+   brique grise donnerait l'impression d'une mesure vivante là où il n'y en a aucune. */
+.aims-dot[data-vif] { animation: aimsPouls 2.4s ease-in-out infinite; }
+@keyframes aimsPouls { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.aims-b-t {
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; color: var(--text2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.aims-b-v { margin-top: 5px; font-family: var(--font-mono, monospace); font-size: 15px; font-weight: 700; color: var(--aims-c, var(--text)); line-height: 1.1; }
+.aims-b-d { margin-top: 3px; font-size: 10px; line-height: 1.45; color: var(--text3); }
+.aims-note { margin-top: var(--sp-3); font-size: 10px; line-height: 1.6; color: var(--text3); }
+/* Le point « en direct » de l'en-tête : il bat, donc il dit que la mesure est vivante ; l'âge du
+   relevé est écrit juste à côté, parce qu'un point qui bat ne dit pas de QUAND date la donnée. */
+.aims-live { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #22c55e; margin-right: 5px; animation: aimsPouls 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .aims-dot[data-vif], .aims-live { animation: none; } }
 .aim-track { height: 5px; border-radius: var(--pill); background: var(--bg4); overflow: hidden; margin-top: var(--sp-1); }
 .aim-track > i, .aim-track > span { display: block; height: 100%; background: var(--orange); border-radius: var(--pill); }
 .aim-j-wrap { max-height: 320px; overflow-y: auto; }
@@ -812,6 +852,49 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 .aim-kpi-s { display: block; font-size: var(--fs-meta); color: var(--text3); margin-top: 2px; }
 .aim-kpi--accent { border-color: rgba(227, 178, 58, .35); }
 .aim-live-dot--busy { background: var(--neutral); box-shadow: 0 0 6px rgba(255, 179, 0, .5); }
+/* ── LIBÉRER LA PLACE (11/09) ────────────────────────────────────────────────────────────────
+   Deux boutons dont l'un supprime des choses qui coûtent à refabriquer : la hiérarchie doit se
+   voir sans lire. « Libérer » reste neutre, « Forcer » porte l'ambre des états à surveiller de la
+   charte, et passe au rouge une fois armé — l'état de confirmation ne se devine pas, il se voit.
+   Le message se met à la ligne dès que la carte se resserre : une carte de moniteur est étroite,
+   et un message tronqué sur l'action la plus destructive du panneau serait le pire endroit pour
+   économiser une ligne. */
+/* ── LES QUATRE ONGLETS DU MONITEUR (11/09) ──────────────────────────────────────────────────
+   MÊME GRAMMAIRE QUE LES ONGLETS DU DESK, et ce n'est pas une coquetterie : le panneau admin et
+   le desk sont le même produit pour la même personne. Fond transparent, soulignement doré sur
+   l'onglet actif, majuscules espacées. Un second vocabulaire visuel pour la même interaction
+   obligerait à réapprendre ce qu'on sait déjà.
+   La barre défile au doigt plutôt que de se replier : quatre onglets tiennent partout, mais un
+   cinquième ajouté un jour ne doit pas casser la rangée en deux. */
+.aimt-bar {
+  display: flex; gap: 2px; align-items: stretch; overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid var(--border); margin: 0 0 var(--sp-3);
+}
+.aimt-bar::-webkit-scrollbar { height: 0; }
+.aimt {
+  position: relative; background: none; border: 0; cursor: pointer; white-space: nowrap;
+  padding: 9px 14px; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px;
+  font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text3);
+  transition: color .14s, background .14s;
+}
+.aimt:hover:not(.on) { color: var(--text2); background: rgba(255, 255, 255, .045); }
+.aimt.on { color: var(--text); font-weight: 700; }
+.aimt.on::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  background: var(--orange); border-radius: 2px 2px 0 0;
+}
+.aim-disk-act { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.aim-btn {
+  background: var(--bg4); border: 1px solid var(--border2); color: var(--text2);
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10.5px; font-weight: 600;
+  letter-spacing: .04em; padding: 5px 10px; border-radius: 4px; cursor: pointer;
+  transition: color .14s, background .14s, border-color .14s;
+}
+.aim-btn:hover:not(:disabled) { color: var(--text); border-color: var(--orange); }
+.aim-btn:disabled { opacity: .5; cursor: default; }
+.aim-btn--warn { color: var(--neutral); border-color: rgba(255, 179, 0, .38); }
+.aim-btn--warn:hover:not(:disabled) { color: #ff3d00; border-color: rgba(255, 61, 0, .55); }
+.aim-disk-msg { flex: 1 1 100%; font-size: 10.5px; line-height: 1.5; color: var(--text3); }
 .aim-fc-row { display: flex; align-items: center; gap: var(--sp-2); padding: 5px 0; border-bottom: var(--row-sep); font-size: var(--fs-label); color: var(--text3); }
 .aim-fc-row:last-child { border-bottom: 0; }
 .aim-fc-row b { margin-left: auto; color: var(--text); font-weight: var(--fw-semibold); text-align: right; }

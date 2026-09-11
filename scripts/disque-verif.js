@@ -203,6 +203,122 @@ if (bash) {
 }
 
 
+/* ══ LIBÉRER LE DISQUE DEPUIS LE PANNEAU ADMIN — ON JOUE LA DEMANDE (11/09) ══════════════════════
+   Demande utilisateur : des boutons pour libérer la place, au besoin en forçant.
+   ⚠️ LE DESK NE PEUT PAS PURGER DOCKER : aucune socket n'est montée dans le conteneur (vérifié
+   dans docker-compose.yml). Un bouton qui rendrait « nettoyé » sans rien nettoyer serait le faux
+   vert sur le mécanisme même censé nous sauver. Le conteneur DÉPOSE donc une demande dans le
+   dossier déjà partagé, et la sentinelle de l'hôte l'exécute.
+   ⚠️ ON L'ÉPROUVE EN JOUANT LE VRAI SCRIPT, avec des doublures, et on lit ce que `docker` a
+   RÉELLEMENT reçu. Lire la présence de la chaîne « disque_demande » dans le source ne prouverait
+   ni que la demande est consommée, ni qu'elle expire, ni qu'elle déclenche le bon mode. */
+if (bash) {
+  const os = require('os');
+  /* Le disque est annoncé à 50 % : AUCUN palier ne se déclenche à ce niveau. Si un ménage a lieu,
+     il ne peut donc venir QUE de la demande — c'est ce qui rend ce banc concluant. */
+  const jouerDemande = (contenuDemande) => {
+    const part = fs.mkdtempSync(path.join(os.tmpdir(), 'dtpdem-'));
+    const trace = path.join(part, 'docker.trace');
+    if (contenuDemande !== null) fs.writeFileSync(path.join(part, 'disque_demande.json'), contenuDemande);
+    const stub = fs.mkdtempSync(path.join(os.tmpdir(), 'dtpstub-'));
+    const ecrire = (n, corps) => { const f = path.join(stub, n); fs.writeFileSync(f, corps); fs.chmodSync(f, 0o755); };
+    ecrire('df', '#!/bin/sh\necho "Filesystem 1024-blocks Used Available Capacity Mounted on"; echo "s 24000000 12000000 12000000 50% /"\n');
+    ecrire('curl', '#!/bin/sh\nexit 0\n');
+    ecrire('logger', '#!/bin/sh\nexit 0\n');
+    ecrire('journalctl', '#!/bin/sh\nexit 0\n');
+    ecrire('docker', '#!/bin/sh\necho "docker $@" >> "' + trace.replace(/\\/g, '/') + '"\ncase "$1" in ps) exit 0;; *) echo x;; esac\n');
+    const etat = fs.mkdtempSync(path.join(os.tmpdir(), 'dtpetat-'));
+    let sortie = '';
+    try {
+      sortie = cp.execFileSync('bash', ['-lc', 'PATH="' + stub.replace(/\\/g, '/') + ':$PATH" '
+        + 'DTP_CLEAN_SHARED_DIR="' + part.replace(/\\/g, '/') + '" '
+        + 'DTP_DISQUE_ETAT="' + etat.replace(/\\/g, '/') + '" '
+        + 'DTP_BALLAST="' + etat.replace(/\\/g, '/') + '/b" DTP_BALLAST_MO=1 '
+        + 'bash scripts/vps/dtp-disque.sh 2>&1'], { cwd: RACINE, encoding: 'utf8', timeout: 25000 });
+    } catch (e) { sortie = String((e.stdout || '') + (e.stderr || '')); }
+    let dock = ''; try { dock = fs.readFileSync(trace, 'utf8'); } catch {}
+    const resteDemande = fs.existsSync(path.join(part, 'disque_demande.json'));
+    try { fs.rmSync(part, { recursive: true, force: true }); fs.rmSync(stub, { recursive: true, force: true }); fs.rmSync(etat, { recursive: true, force: true }); } catch {}
+    return { sortie, dock, resteDemande };
+  };
+
+  try {
+    /* (1) TÉMOIN NÉGATIF D'ABORD : sans demande, à 50 %, il ne doit y avoir AUCUNE purge. Sans
+       lui, les contrôles suivants pourraient être verts parce que la sentinelle nettoie de toute
+       façon — ils ne prouveraient alors rien du tout. */
+    const sans = jouerDemande(null);
+    v('[témoin] sans demande et à 50 %, aucune purge d\'images', !/image prune/.test(sans.dock),
+      'docker a reçu : ' + sans.dock.trim().replace(/\n/g, ' | '));
+
+    /* (2) UNE DEMANDE FRAÎCHE DÉCLENCHE LE MÉNAGE, HORS SEUIL. */
+    const sur = jouerDemande(JSON.stringify({ ts: Date.now(), mode: 'sur', par: 'banc' }));
+    v('[exécuté] une demande du panneau admin déclenche le ménage, hors palier',
+      /demande du panneau admin/.test(sur.sortie) && /image prune/.test(sur.dock),
+      'sortie: ' + sur.sortie.trim().split('\n').slice(-3).join(' | ') + ' · docker: ' + sur.dock.trim().replace(/\n/g, ' | '));
+    /* ⚠️ ET ELLE EST CONSOMMÉE : une demande est un ordre ponctuel, pas un état. Laissée en place,
+       elle rejouerait une purge à CHAQUE passage, tous les quarts d'heure, indéfiniment. */
+    v('… et la demande est consommée, pas rejouée à chaque passage', !sur.resteDemande,
+      'le fichier de demande survit au passage : la purge se rejouerait tous les quarts d\'heure');
+    /* Le mode sûr garde la fenêtre de rétention : un retour arrière reste un redémarrage de
+       conteneur, pas dix minutes de reconstruction. */
+    v('… en mode sûr, la fenêtre de rétention d\'une semaine est respectée',
+      /image prune -a -f --filter until=168h/.test(sur.dock),
+      'docker: ' + sur.dock.trim().replace(/\n/g, ' | '));
+    v('… et le mode sûr NE purge PAS toutes les images', !/image prune -a -f\s*$/m.test(sur.dock),
+      'le mode sûr se comporte comme le forçage : la distinction ne sert plus à rien');
+
+    /* (3) LE FORÇAGE VA PLUS LOIN — c'est ce que « si besoin en forçant » veut dire. */
+    const fort = jouerDemande(JSON.stringify({ ts: Date.now(), mode: 'agressif', par: 'banc' }));
+    v('[exécuté] le forçage purge AUSSI les images hors fenêtre',
+      /image prune -a -f\s*$/m.test(fort.dock),
+      'docker: ' + fort.dock.trim().replace(/\n/g, ' | '));
+
+    /* (4) UNE DEMANDE PÉRIMÉE NE DÉCLENCHE RIEN. Sans expiration, une demande oubliée (volume
+       restauré, minuteur en panne) purgerait agressivement des jours plus tard, sans personne
+       pour l'attendre. */
+    const vieille = jouerDemande(JSON.stringify({ ts: Date.now() - 3 * 3600e3, mode: 'agressif', par: 'banc' }));
+    v('[témoin] une demande de plus d\'une heure est jetée, pas exécutée',
+      /IGNOREE/.test(vieille.sortie) && !/image prune/.test(vieille.dock),
+      'sortie: ' + vieille.sortie.trim().split('\n').slice(-2).join(' | ') + ' · docker: ' + vieille.dock.trim().replace(/\n/g, ' | '));
+  } catch (e) {
+    v('[exécuté] la demande du panneau admin s\'éprouve', false, e && e.message);
+  }
+}
+
+/* Côté serveur : la liste des fichiers purgeables ne doit contenir QUE des caches déjà reconnus
+   régénérables par le banc de sauvegarde. Sans ce croisement, on pourrait y glisser un fichier
+   durable et le bouton effacerait une donnée que la sauvegarde croit protéger. */
+{
+  const SRV = lire('server.js');
+  const SAUV = lire('scripts/sauvegarde-verif.js');
+  const m = SRV.match(/const _DISQUE_PURGEABLES = \[([\s\S]*?)\];/);
+  v('la liste des fichiers purgeables est déclarée dans server.js', !!m);
+  if (m) {
+    const purgeables = [...m[1].matchAll(/'([^']+\.json)'/g)].map(x => x[1]);
+    v('… et elle n\'est pas vide', purgeables.length >= 5, purgeables.length + ' fichier(s)');
+    const inconnus = purgeables.filter(f => !SAUV.includes("'" + f + "'"));
+    v('… chaque fichier purgeable est connu comme RÉGÉNÉRABLE par le banc de sauvegarde',
+      !inconnus.length,
+      inconnus.join(', ') + ' — un fichier durable effacé par un bouton serait une perte que la sauvegarde croit avoir couverte');
+    /* Deux fichiers sont volontairement ABSENTS de la liste, et c'est une décision : l'historique
+       du disque est la mémoire qui sert à PRÉVOIR la saturation (l'effacer, c'est casser le
+       thermomètre pour faire baisser la fièvre), et le cran de prudence appris ne rend jamais
+       moins prudent. Les nommer ici empêche qu'on les y ajoute « pour gagner quelques kilo-octets ». */
+    for (const garde of ['disque_historique.json', 'disque_prudence.json']) {
+      v('… et ' + garde + ' n\'est JAMAIS purgeable', !purgeables.includes(garde),
+        'c\'est la mémoire qui sert à prévoir la saturation : l\'effacer aveugle la sentinelle');
+    }
+  }
+  v('l\'endpoint de libération est réservé à l\'admin ET à la même origine',
+    /app\.post\('\/api\/admin\/disque\/liberer', requireSameOrigin, requireAdmin/.test(SRV),
+    'une route qui SUPPRIME des fichiers ne se protège pas d\'un seul verrou');
+  /* On re-mesure après suppression : un `unlink` réussit alors que le fichier reste ouvert par un
+     processus, et la place n'est alors PAS rendue. Même règle que la sentinelle depuis le 07/09. */
+  v('… et il RE-MESURE le disque au lieu de conclure sur les octets supprimés',
+    /const apres = await _disqueLire\(\);/.test(SRV),
+    'conclure sur la somme des tailles, c\'est croire avoir agi');
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════════════════════
    LE MÉNAGE DU TIREUR — ON LE JOUE, ON NE LE LIT PAS (10/09/2026)
    ──────────────────────────────────────────────────────────────────────────────────────────────

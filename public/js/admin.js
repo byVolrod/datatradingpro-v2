@@ -1997,7 +1997,16 @@
     /* ⚠️ « PAS ENCORE MESURÉ » N'EST PAS « TOUT VA BIEN ». La première mesure du disque arrive
        30 s après le démarrage : afficher 0% en attendant peindrait un vert rassurant sur une
        absence d'information. On le dit. */
-    if (!D || D.pct == null) { el.innerHTML = '<div class="aim-j-empty">première mesure en cours (30 s après le démarrage)…</div>'; return; }
+    /* ⚠️ LES BOUTONS RESTENT DISPONIBLES MÊME SANS MESURE, et le banc l'a exigé avant la
+       production. Première écriture : on sortait ici quand l'état du disque était inconnu, donc
+       sans les boutons. Or « je ne sais pas combien il reste » est PRÉCISÉMENT le moment où l'on
+       veut pouvoir faire de la place : une mesure qui échoue n'est pas une raison de retirer les
+       commandes, c'en est une de les garder sous la main. */
+    if (!D || D.pct == null) {
+      el.innerHTML = '<div class="aim-j-empty">première mesure en cours (30 s après le démarrage)…</div>' + _aimDisqueActions();
+      _aimBrancherDisque();
+      return;
+    }
     const c = _AIM_COUL[D.niveau] || '#22c55e';
     const nom = D.nom || (D.niveau >= 2 ? 'à surveiller' : 'normal');
     /* La sentinelle est le watchdog SYSTÈME (minuteur toutes les 15 min), et c'est elle qui agit
@@ -2013,61 +2022,196 @@
       + (D.jours != null ? '<div class="aim-kv"><span>Saturation prévue</span><b style="color:' + (D.jours <= 7 ? '#ffb300' : '#22c55e') + '">dans ' + D.jours + ' j</b></div>' : '')
       + '<div class="aim-kv"><span title="Minuteur systemd toutes les 15 min, AU NIVEAU DE L\'OS : c\'est lui qui agit quand le desk ne répond plus. Muet, il n\'y a plus de filet.">Sentinelle système</span><b style="color:' + cS + '">' + (sa == null ? 'jamais vue' : 'vue il y a ' + sa + ' min') + '</b></div>'
       + (D.frein ? '<div style="font-size:10.5px;color:#ef4444;margin-top:6px;line-height:1.5">⚠ Frein actif : les écritures régénérables (caches, aperçus) sont suspendues le temps que la sentinelle nettoie.</div>' : '')
-      + (D.motif ? '<div style="font-size:10.5px;color:#ffb300;margin-top:6px;line-height:1.5">' + _esc2(String(D.motif)) + '</div>' : '');
+      + (D.motif ? '<div style="font-size:10.5px;color:#ffb300;margin-top:6px;line-height:1.5">' + _esc2(String(D.motif)) + '</div>' : '')
+      /* ── LIBÉRER LA PLACE (11/09, demande user) ──────────────────────────────────────────────
+         ⚠️ CES BOUTONS NE PURGENT PAS DOCKER EUX-MÊMES, ET C'EST ÉCRIT SOUS EUX. Le desk tourne
+         dans un conteneur SANS socket Docker (vérifié dans docker-compose.yml) : il ne peut pas
+         toucher aux images, qui sont pourtant le gros de ce qui remplit ce disque. Il supprime ce
+         qu'il possède — ses caches régénérables — et DEMANDE la purge à la sentinelle de l'hôte,
+         qui passe tous les quarts d'heure. Annoncer « nettoyé » ici serait le faux vert sur le
+         mécanisme même censé nous sauver : on annonce donc ce qui est fait ET ce qui est demandé.
+         ⚠️ PAS DE `confirm()` : la charte du desk interdit les fenêtres natives. Le forçage
+         demande une seconde frappe sur le même bouton, qui se réarme tout seul après 4 s. */
+      + _aimDisqueActions();
+    _aimBrancherDisque();
+  }
+  /* Un seul HTML pour les deux chemins (avec et sans mesure) : deux copies divergeraient au
+     premier changement de libellé, et c'est celle qu'on regarde le moins qui se périmerait. */
+  function _aimDisqueActions() {
+    return '<div class="aim-disk-act">'
+      + '<button class="aim-btn" data-disk="sur">Libérer la place</button>'
+      + '<button class="aim-btn aim-btn--warn" data-disk="agressif">Forcer</button>'
+      + '<span class="aim-disk-msg" id="aim-disk-msg"></span>'
+      + '</div>'
+      + '<div class="aim-kpi-s" style="margin-top:6px;line-height:1.5">Le desk supprime ses propres caches tout de suite ; la purge des images Docker est demandée à la sentinelle du serveur, qui l\'exécute sous 15 min. <b>Forcer</b> vide en plus le cache des PDF et les images hors fenêtre de rétention : le premier rapport ouvert ensuite sera plus lent, et un retour arrière demandera une reconstruction.</div>';
+  }
+  /* Un seul branchement, délégué sur le conteneur : le bloc est réécrit à chaque rafraîchissement,
+     donc un écouteur posé sur les boutons eux-mêmes disparaîtrait au passage suivant. */
+  let _aimDiskArme = '';
+  let _aimDiskT = null;
+  function _aimBrancherDisque() {
+    const host = document.getElementById('aim-disque');
+    if (!host || host.dataset.branche) return;
+    host.dataset.branche = '1';
+    host.addEventListener('click', async (ev) => {
+      const b = ev.target.closest && ev.target.closest('[data-disk]');
+      if (!b) return;
+      const mode = b.dataset.disk;
+      const msg = document.getElementById('aim-disk-msg');
+      const dire = (t, c) => { const m = document.getElementById('aim-disk-msg'); if (m) { m.textContent = t; m.style.color = c || '#8b93a1'; } };
+      /* Le forçage supprime des choses qui coûtent à refabriquer : il demande une confirmation,
+         sur le bouton lui-même, et elle se périme. Un état armé qui ne retombe pas finit par
+         partir sur un clic distrait trois minutes plus tard. */
+      if (mode === 'agressif' && _aimDiskArme !== 'agressif') {
+        _aimDiskArme = 'agressif';
+        b.textContent = 'Confirmer le forçage';
+        clearTimeout(_aimDiskT);
+        _aimDiskT = setTimeout(() => { _aimDiskArme = ''; const x = document.querySelector('[data-disk="agressif"]'); if (x) x.textContent = 'Forcer'; }, 4000);
+        dire('Vide aussi le cache des PDF et les images hors rétention. Cliquez à nouveau pour confirmer.', '#ffb300');
+        return;
+      }
+      _aimDiskArme = ''; clearTimeout(_aimDiskT);
+      b.disabled = true; dire('Libération en cours…');
+      try {
+        const r = await fetch('/api/admin/disque/liberer', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode }),
+        });
+        const d = await r.json();
+        if (!r.ok || !d.ok) throw new Error((d && d.error) || ('HTTP ' + r.status));
+        /* On rapporte ce qui a ÉTÉ fait et ce qui est ATTENDU, séparément. Mélanger les deux
+           laisserait croire que la place est déjà rendue. */
+        const fait = d.fichiers + ' fichier(s) · ' + d.moOctets + ' Mo'
+          + (d.avant != null && d.apres != null ? ' · disque ' + d.avant + '% → ' + d.apres + '%' : '');
+        const suite = d.demandeDeposee
+          ? ' Purge des images demandée au serveur : effet sous ' + d.sentinelleDansMin + ' min.'
+          : ' ⚠ La demande n\'a PAS pu être déposée (volume partagé injoignable) : les images ne seront pas purgées.';
+        dire(fait + '.' + suite, d.demandeDeposee ? '#22c55e' : '#ffb300');
+        /* Et on relit la mesure : le panneau doit montrer le nouvel état, pas celui d'avant. */
+        setTimeout(() => { try { loadAIMon(); } catch (e) {} }, 800);
+      } catch (e) {
+        dire('Échec : ' + (e && e.message ? e.message : 'erreur inconnue'), '#ef4444');
+      } finally {
+        const x = document.querySelector('[data-disk="' + mode + '"]');
+        if (x) { x.disabled = false; if (mode === 'agressif') x.textContent = 'Forcer'; }
+      }
+    });
   }
   /* ── LE SCHÉMA D'ARCHITECTURE, PEINT PAR L'ÉTAT RÉEL ────────────────────────────────────────
      Vanille et SVG en ligne, comme tout le desk : aucune bibliothèque de diagrammes.
      ⚠️ AUCUN BLOC N'EST PEINT « PAR DÉFAUT EN VERT ». Un état inconnu est GRIS, jamais vert : la
      maladie du faux vert commence toujours par une valeur manquante qu'on a traitée en succès.
      Chaque brique dit d'où vient sa couleur, et la légende en bas rappelle la règle. */
-  function _aimBrique(x, y, w, h, titre, valeur, coul) {
-    const c = coul || '#6b7280';
-    return '<g><rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="6" fill="#141418" stroke="' + c + '" stroke-width="1.2"/>'
-      + '<circle cx="' + (x + 11) + '" cy="' + (y + 14) + '" r="3.4" fill="' + c + '"/>'
-      + '<text x="' + (x + 21) + '" y="' + (y + 18) + '" fill="#e6e6ea" font-size="10.5" font-weight="700" font-family="Inter Tight, sans-serif">' + _esc2(titre) + '</text>'
-      + '<text x="' + (x + 11) + '" y="' + (y + 34) + '" fill="#8b93a1" font-size="9.5" font-family="JetBrains Mono, monospace">' + _esc2(valeur) + '</text></g>';
+  /* ══ LE SCHÉMA D'ARCHITECTURE — ÉPURÉ, ET VIVANT (11/09, demande user) ═══════════════════════
+     « Améliore l'architecture, le schéma, afin qu'il soit épuré, propre et dynamique en temps réel. »
+
+     ⚠️ ON ABANDONNE LE SVG À COORDONNÉES CALCULÉES À LA MAIN. La première version plaçait neuf
+     rectangles et six courbes à coups de `x`, `y` et de courbes de Bézier : chaque texte devait
+     être positionné au pixel, rien ne se réajustait à la largeur, et ajouter une brique obligeait
+     à recalculer la grille entière. Une grille CSS fait le même dessin, s'adapte toute seule et
+     se lit dans le thème du panneau.
+     ⚠️ ET LES COURBES POINTILLÉES SONT RETIRÉES, PAS REDESSINÉES. Elles reliaient chaque étage au
+     suivant sans rien apprendre : l'ordre des étages dit déjà le sens de lecture. C'est le même
+     arbitrage que le quadrillage du journal, tranché le 05/09 — les filets horizontaux suffisent à
+     suivre une ligne, les verticaux ne font que fatiguer. Six traits de moins, zéro information
+     perdue.
+     ⚠️ « TEMPS RÉEL » SE DIT AVEC PRUDENCE, ET ON AFFICHE L'ÂGE DU RELEVÉ. Le panneau se recharge
+     toutes les 30 s, mais le disque n'est mesuré côté serveur que toutes les 5 min : annoncer « en
+     direct » sans dire de QUAND date la mesure serait exactement le faux vert qu'on traque. Le
+     point pulse tant que le relevé est frais, et l'âge est écrit à côté. */
+  const _AIM_ETAGES = [
+    { cle: 'vps', titre: 'VPS 149.71.44.90 · Docker Compose' },
+    { cle: 'flux', titre: 'Données et sorties' },
+    { cle: 'auto', titre: 'Rattrapages automatiques' },
+  ];
+  function _aimBrique(b) {
+    const c = b.coul || '#6b7280';
+    return '<div class="aims-b" style="--aims-c:' + c + '"' + (b.aide ? ' title="' + _esc2(b.aide) + '"' : '') + '>'
+      + '<div class="aims-b-h"><i class="aims-dot"' + (b.vivant ? ' data-vif="1"' : '') + '></i>'
+      + '<span class="aims-b-t">' + _esc2(b.titre) + '</span></div>'
+      + '<div class="aims-b-v">' + _esc2(b.valeur) + '</div>'
+      + (b.detail ? '<div class="aims-b-d">' + _esc2(b.detail) + '</div>' : '')
+      + '</div>';
   }
-  function _aimLien(x1, y1, x2, y2, coul) {
-    return '<path d="M' + x1 + ' ' + y1 + ' C' + x1 + ' ' + ((y1 + y2) / 2) + ', ' + x2 + ' ' + ((y1 + y2) / 2) + ', ' + x2 + ' ' + y2 + '" fill="none" stroke="' + (coul || '#26262c') + '" stroke-width="1.2" stroke-dasharray="3 3"/>';
-  }
-  /* ⚠️ `aimRenderSchema` ET NON `aimRenderInfra` : ce second nom est DÉJÀ pris, par le rendu des
-     cartes Email / Egress / Bases. Une seconde déclaration du même nom ne fait pas d'erreur en
-     JavaScript, elle REMPLACE la première en silence — et trois cartes du moniteur seraient
-     restées vides sans le moindre message, ni en console ni au banc (`js-verif` ne relève que les
-     identifiants JAMAIS déclarés, pas ceux déclarés deux fois). */
   function aimRenderSchema(d) {
     const el = document.getElementById('aim-infra'); if (!el) return;
     const S = d.systeme, D = d.disque, DB = d.db, M = d.mail, E = d.egress, W = d.whop;
     const GRIS = '#6b7280';
+    /* ⚠️ AUCUNE BRIQUE N'EST VERTE PAR DÉFAUT : un état inconnu est GRIS. Le faux vert commence
+       toujours par une valeur manquante traitée en succès. */
     const cSys = S ? (_AIM_COUL[S.niveau] || GRIS) : GRIS;
     const cDsk = (D && D.pct != null) ? (_AIM_COUL[D.niveau] || GRIS) : GRIS;
     const cDb = DB && DB.count ? (DB.okCount >= DB.count ? '#22c55e' : DB.okCount ? '#ffb300' : '#ef4444') : GRIS;
     const cMail = M ? (M.ok === false ? '#ef4444' : '#22c55e') : GRIS;
     const cEg = E ? (E.tripped ? '#ef4444' : '#22c55e') : GRIS;
     const cWhop = W ? (W.error ? '#ef4444' : '#22c55e') : GRIS;
+    const sa = D ? D.sentinelleAgeMin : null;
+    const cSent = sa == null ? GRIS : sa <= 25 ? '#22c55e' : sa <= 45 ? '#ffb300' : '#ef4444';
     const resync = DB && DB.nodes ? DB.nodes.filter(n => n.quarLect).length : 0;
-    const L = 700, C = (L - 2 * 168 - 22) / 2;   // trois colonnes de 168, deux gouttières de 22
-    const col = i => 11 + i * (168 + 22);
-    let g = '';
-    g += '<text x="11" y="14" fill="#8b93a1" font-size="9" font-weight="700" letter-spacing=".08em" font-family="Inter Tight, sans-serif">VPS 149.71.44.90 · DOCKER COMPOSE</text>';
-    g += _aimBrique(col(0), 24, 168, 46, 'Conteneur desk', S ? (S.rssMo + ' Mo · ' + S.retardMs + ' ms de retard') : 'état inconnu', cSys);
-    g += _aimBrique(col(1), 24, 168, 46, 'Disque', (D && D.pct != null) ? (D.pct + '% · ' + D.libreGo + ' Go libres') : 'pas encore mesuré', cDsk);
-    g += _aimBrique(col(2), 24, 168, 46, 'Sentinelle (systemd)', (D && D.sentinelleAgeMin != null) ? ('vue il y a ' + D.sentinelleAgeMin + ' min') : 'jamais vue', (D && D.sentinelleAgeMin != null && D.sentinelleAgeMin <= 25) ? '#22c55e' : (D && D.sentinelleAgeMin != null) ? '#ffb300' : GRIS);
-    g += _aimLien(col(0) + 84, 70, col(0) + 84, 104, cDb) + _aimLien(col(0) + 84, 70, col(1) + 84, 104, cEg) + _aimLien(col(1) + 84, 70, col(2) + 84, 104, cMail);
-    g += '<text x="11" y="98" fill="#8b93a1" font-size="9" font-weight="700" letter-spacing=".08em" font-family="Inter Tight, sans-serif">DONNÉES ET SORTIES</text>';
-    g += _aimBrique(col(0), 104, 168, 46, 'Bases Supabase', DB && DB.count ? (DB.okCount + '/' + DB.count + ' joignables' + (resync ? ' · ' + resync + ' resynchro' : '')) : 'sondes en cours', cDb);
-    g += _aimBrique(col(1), 104, 168, 46, 'Egress Supabase', E ? (E.tripped ? 'COUPURE ACTIVE' : Math.min(100, Math.round((E.bytes24h || 0) / Math.max(1, E.cap24h || 1) * 100)) + '% du plafond 24 h') : 'état inconnu', cEg);
-    g += _aimBrique(col(2), 104, 168, 46, 'Email (OVH)', M ? ((M.sent || 0) + ' envoyés · ' + (M.failed || 0) + ' échecs') : 'état inconnu', cMail);
-    g += _aimLien(col(0) + 84, 150, col(0) + 84, 184, cDb) + _aimLien(col(1) + 84, 150, col(1) + 84, 184, cWhop);
-    g += '<text x="11" y="178" fill="#8b93a1" font-size="9" font-weight="700" letter-spacing=".08em" font-family="Inter Tight, sans-serif">RATTRAPAGES AUTOMATIQUES</text>';
-    g += _aimBrique(col(0), 184, 168, 46, 'Miroir local + convergence', DB && DB.count ? 'superset à jour (volume)' : 'état inconnu', DB && DB.count ? '#22c55e' : GRIS);
-    g += _aimBrique(col(1), 184, 168, 46, 'Synchro Whop', W ? (W.error ? 'en erreur' : (W.checked || 0) + ' vérifié(s) · ' + (W.fixed || 0) + ' prolongé(s)') : 'pas encore passée', cWhop);
-    g += _aimBrique(col(2), 184, 168, 46, 'Keep-alive Supabase', (DB && DB.keepalive && DB.keepalive.last) ? (DB.keepalive.ok + '/' + DB.count + ' pingées') : 'jamais passé', (DB && DB.keepalive && DB.keepalive.last) ? (DB.keepalive.ok >= DB.count ? '#22c55e' : '#ffb300') : GRIS);
-    el.innerHTML = '<svg viewBox="0 0 ' + L + ' 240" width="100%" role="img" aria-label="Schéma de l\'infrastructure DataTradingPro, peint par l\'état réel de chaque brique">' + g + '</svg>'
-      + '<div class="aim-kpi-s" style="margin-top:8px;line-height:1.6">Chaque brique prend la couleur de son état RÉEL, lu dans la même mesure que les cartes ci-dessus : le schéma ne peut pas être en désaccord avec elles. <b style="color:#6b7280">Gris</b> = état inconnu, jamais « tout va bien » : une valeur manquante n\'est pas un succès.</div>';
+    const ka = DB && DB.keepalive;
+    const pctEg = E ? Math.min(100, Math.round((E.bytes24h || 0) / Math.max(1, E.cap24h || 1) * 100)) : null;
+
+    const etages = {
+      vps: [
+        { titre: 'Conteneur desk', valeur: S ? S.rssMo + ' Mo' : 'inconnu', coul: cSys, vivant: !!S,
+          detail: S ? S.retardMs + ' ms de retard · en ligne depuis ' + _aimDuree(S.uptimeS) : 'aucune mesure reçue',
+          aide: 'Mémoire du processus et retard de la boucle d\'événements : Node étant mono-fil, ce retard est le temps que chaque requête attend en plus.' },
+        { titre: 'Disque', valeur: (D && D.pct != null) ? D.pct + '%' : 'non mesuré', coul: cDsk, vivant: !!(D && D.pct != null),
+          detail: (D && D.pct != null) ? D.libreGo + ' Go libres sur ' + D.totalGo + ' Go' : 'première mesure 30 s après le démarrage',
+          aide: 'Un disque plein fait tronquer par nginx toute réponse de plus de 750 Ko, sans erreur HTTP : le desk arrive sans style ni script.' },
+        { titre: 'Sentinelle (systemd)', valeur: sa == null ? 'jamais vue' : 'il y a ' + sa + ' min', coul: cSent, vivant: sa != null,
+          detail: 'watchdog au niveau de l\'OS, toutes les 15 min',
+          aide: 'Elle vit hors du conteneur : c\'est elle qui agit quand le desk lui-même ne répond plus. Muette, il n\'y a plus de filet.' },
+      ],
+      flux: [
+        { titre: 'Bases Supabase', valeur: DB && DB.count ? DB.okCount + '/' + DB.count : 'inconnu', coul: cDb, vivant: !!(DB && DB.count),
+          detail: DB && DB.count ? ('joignables' + (resync ? ' · ' + resync + ' en resynchro' : '')) : 'sondes en cours',
+          aide: 'Quatre projets plus un miroir local. Une base revenue de pause ne sert aucune lecture de comptes tant qu\'elle n\'est pas resynchronisée.' },
+        { titre: 'Egress Supabase', valeur: pctEg == null ? 'inconnu' : (E.tripped ? 'COUPÉ' : pctEg + '%'), coul: cEg, vivant: !!E,
+          detail: pctEg == null ? 'aucune mesure' : 'du plafond sur 24 h',
+          aide: 'Garde-fou anti-fuite : au-delà du plafond, les lectures sont coupées avant que le quota mensuel ne saute.' },
+        { titre: 'Email (OVH)', valeur: M ? (M.sent || 0) + ' envoyés' : 'inconnu', coul: cMail, vivant: !!M,
+          detail: M ? ((M.failed || 0) + ' échec(s) · ' + (M.lastProvider || 'canal inconnu')) : 'aucune mesure',
+          aide: 'Canal principal OVH SMTP, avec repli. Les échecs se comptent sur la journée.' },
+      ],
+      auto: [
+        { titre: 'Miroir et convergence', valeur: DB && DB.count ? 'actif' : 'inconnu', coul: DB && DB.count ? '#22c55e' : GRIS, vivant: !!(DB && DB.count),
+          detail: 'superset local, repoussé vers les quatre bases',
+          aide: 'Le miroir est le superset à jour. C\'est lui qui répare une base revenue en retard, jamais l\'inverse.' },
+        { titre: 'Synchro Whop', valeur: W ? (W.error ? 'en erreur' : (W.checked || 0) + ' vérifiés') : 'jamais passée', coul: cWhop, vivant: !!W,
+          detail: W ? (W.error ? String(W.error).slice(0, 48) : (W.fixed || 0) + ' prolongé(s) · ' + (W.created || 0) + ' créé(s)') : 'au boot puis toutes les 10 min',
+          aide: 'Elle ne fait qu\'ALLONGER un abonnement en retard : on ne coupe pas un payeur sur un doute. Un abonnement réglé par virement n\'a donc aucune source externe pour se réparer.' },
+        { titre: 'Keep-alive Supabase', valeur: (ka && ka.last) ? ka.ok + '/' + DB.count : 'jamais passé', coul: (ka && ka.last) ? (ka.ok >= DB.count ? '#22c55e' : '#ffb300') : GRIS, vivant: !!(ka && ka.last),
+          detail: (ka && ka.last) ? ('dernier passage il y a ' + _aimDuree((Date.now() - ka.last) / 1000)) : 'anti-pause du palier gratuit',
+          aide: 'Écriture sur chaque base toutes les 6 h : sans elle, un projet gratuit se met en pause au bout de quelques semaines.' },
+      ],
+    };
+
+    el.innerHTML = _AIM_ETAGES.map(et =>
+      '<div class="aims-et"><div class="aims-et-t">' + _esc2(et.titre) + '</div>'
+      + '<div class="aims-g">' + etages[et.cle].map(_aimBrique).join('') + '</div></div>').join('')
+      + '<div class="aims-note"><b style="color:#6b7280">Gris</b> = état inconnu, jamais « tout va bien » : une valeur manquante n\'est pas un succès. '
+      + 'Chaque brique est peinte par la même mesure que les cartes de cet onglet, elle ne peut donc pas les contredire.</div>';
+
+    /* L'ÂGE DU RELEVÉ, écrit et rafraîchi à la seconde : « en direct » sans date est une promesse
+       qu'on ne peut pas vérifier. Le panneau recharge toutes les 30 s, le disque est mesuré côté
+       serveur toutes les 5 min : les deux durées sont différentes et l'une ne remplace pas l'autre. */
     const t = document.getElementById('aim-infra-t');
-    if (t) t.textContent = 'relevé ' + new Date(d.now || Date.now()).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    if (t) {
+      const pris = d.now || Date.now();
+      clearInterval(_aimSchemaT);
+      const ecrire = () => {
+        const s2 = Math.max(0, Math.round((Date.now() - pris) / 1000));
+        t.innerHTML = '<i class="aims-live"></i>relevé ' + (s2 < 5 ? 'à l\'instant' : 'il y a ' + _aimDuree(s2));
+      };
+      ecrire();
+      _aimSchemaT = setInterval(ecrire, 1000);
+    }
   }
+  /* ⚠️ UN SEUL MINUTEUR, ET IL EST REMPLACÉ À CHAQUE RENDU. Sans cette variable au niveau du
+     module, chaque rafraîchissement (toutes les 30 s) en empilerait un de plus : au bout d'une
+     heure le panneau tiendrait cent vingt minuteurs qui écrivent tous dans le même élément. */
+  let _aimSchemaT = null;
   function aimRenderJournal(d) {
     const all = (d.alerts && d.alerts.log) || [];
     const J = all.filter(e => !_aimJFilter || e.level === _aimJFilter);
@@ -2136,18 +2280,45 @@
     if (!d || !d.budget) { if (_last) _last.textContent = 'erreur de chargement : nouvel essai dans 30 s'; return; }
     _aimLastData = d;
     if (_last) _last.textContent = 'MAJ à ' + new Date(d.now).toLocaleTimeString('fr-FR');
+    aimAppliquer(d);
+  }
+  /* Extrait de `loadAIMon` pour être rejouable au changement d'onglet : sans cela, un graphe rendu
+     pendant que son onglet était masqué resterait un cadre vide. */
+  function aimAppliquer(d) {
     aimRenderKpis(d); aimRenderProviders(d); aimRenderLegend(d); aimRenderForecast(d); aimRenderInfra(d); aimRenderJournal(d);
     aimRenderSysteme(d); aimRenderDisque(d); aimRenderSchema(d);
     _amStacked('aim-trend-am', d.trend);
     const CATCOL = { analyst: 0xe3b23a, bank: 0x60a5fa, news: 0x22c55e, bias: 0xa78bfa, ratesbias: 0x14b8a6, weekahead: 0xf472b6, chat: 0xfbbf24, outlook: 0xef4444, weekly: 0x0ea5e9, dtpdaily: 0xfb923c };
     _amDonutCompact('aim-cat-am', Object.entries(d.categoriesToday || {}).filter(([, v]) => v > 0).map(([k, v]) => ({ cat: k, val: v, color: CATCOL[k] || 0x6b7280 })), 'aim-cat-legend');
   }
+  /* ══ LES QUATRE ONGLETS DU MONITEUR (11/09, demande user) ═══════════════════════════════════
+     ⚠️ UN GRAPHE amCharts RENDU DANS UN CONTENEUR MASQUÉ MESURE ZÉRO, et il ne se répare pas tout
+     seul quand on révèle le conteneur : il reste un cadre vide, sans la moindre erreur. C'est le
+     piège documenté le 02/09 sur les widgets montés dans un onglet, et il mord exactement pareil
+     ici. On ne se contente donc PAS de montrer et masquer : au changement d'onglet, on REJOUE le
+     rendu avec la dernière charge reçue, ce qui reconstruit les graphes à la bonne taille.
+     ⚠️ ET ON REJOUE TOUT, pas seulement l'onglet ouvert : les rendus sont idempotents et écrivent
+     dans des conteneurs identifiés ; trier lequel appartient à quel onglet créerait une seconde
+     table à tenir d'accord avec le HTML, qui se périmerait au premier onglet déplacé. */
+  let _aimOnglet = 'ia';
+  function aimOnglet(nom) {
+    const bar = document.getElementById('aimt-bar'); if (!bar) return;
+    _aimOnglet = nom;
+    bar.querySelectorAll('.aimt').forEach(b => b.classList.toggle('on', b.dataset.aimt === nom));
+    document.querySelectorAll('[data-aimt-p]').forEach(p => { p.hidden = (p.dataset.aimtP !== nom); });
+    if (_aimLastData) { try { aimAppliquer(_aimLastData); } catch (e) {} }
+  }
+
   // Câblage UNIQUE des contrôles statiques (portée du graphe + filtres du journal)
   (function _aimWire() {
     const rg = document.getElementById('aim-range');
     if (rg) rg.addEventListener('click', e => { const bt = e.target.closest('button'); if (!bt) return; _aimHours = parseInt(bt.dataset.h, 10) || 24; rg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === bt)); loadAIMon(); });
     const jf = document.getElementById('aim-j-filters');
     if (jf) jf.addEventListener('click', e => { const bt = e.target.closest('button'); if (!bt) return; _aimJFilter = bt.dataset.lvl || ''; jf.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === bt)); if (_aimLastData) aimRenderJournal(_aimLastData); });
+    /* Délégué sur la barre, comme les deux ci-dessus : un écouteur par bouton ne survivrait pas à
+       une réécriture de la barre, et il y en aurait quatre à tenir d'accord. */
+    const tb = document.getElementById('aimt-bar');
+    if (tb) tb.addEventListener('click', e => { const bt = e.target.closest('.aimt'); if (bt && bt.dataset.aimt) aimOnglet(bt.dataset.aimt); });
   })();
 
   // ── Dashboard financier (NET réel uniquement : aucune prévision) ─────────────

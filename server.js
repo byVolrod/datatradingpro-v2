@@ -1555,6 +1555,7 @@ const DTP_UPDATES = [
   { id: 'dtpu-20260911-journal-ouvrir', ts: Date.UTC(2026, 8, 11, 9, 30), title: 'Journal : le nom de votre trade ne disparaît plus sous le bouton « Ouvrir »', desc: 'Signalé par un client, capture à l’appui : « quand on glisse le curseur, le texte est caché dans le journal de trading ». C’est exact, et voici ce qui se passait. Dans la première colonne du journal, la commande « Ouvrir » apparaît au survol d’une ligne. Elle ne poussait rien : elle se posait PAR DESSUS le nom. Mesuré sur le vrai tableau, cinquante-deux pixels du nom passaient dessous, et un titre un peu long était intégralement recouvert. Autrement dit, vous perdiez l’information que vous visiez au moment précis où vous la visiez : AUDCHF devenait « AU », et deux lignes voisines ne se distinguaient plus l’une de l’autre. LA PLACE EST DÉSORMAIS RÉSERVÉE EN PERMANENCE, et non au survol. Réserver au survol aurait fait sauter la colonne sous votre curseur : on aurait remplacé un texte masqué par un texte qui bouge, ce qui se lit plus mal encore. Le bouton étant invisible au repos, cette place ne se voit pas, rien ne saute, et plus rien n’est jamais recouvert. Un titre trop long pour sa colonne est maintenant coupé proprement par des points de suspension, au lieu de déborder sous le bouton. LE MÊME DÉFAUT AVAIT DÉJÀ ÉTÉ RÉPARÉ SUR TÉLÉPHONE le 4 septembre, et seulement là : au doigt il n’y a pas de survol, le bouton reste affiché en permanence, et c’est cette moitié qui avait été traitée. La moitié « souris » est restée ouverte sept jours. Le widget Journal portait la même réserve, calculée six pixels trop courte : il est corrigé par la même règle, les deux tableaux ne peuvent plus diverger. UN CONTRÔLE AUTOMATIQUE OUVRE MAINTENANT LE VRAI JOURNAL dans un navigateur à chaque livraison, survole une ligne pour de bon, et compare les deux rectangles réellement dessinés : celui du nom et celui du bouton. Il éprouve un nom court et un titre long, et refuse la livraison si l’un des deux repasse sous la commande.' },
   { id: 'dtpu-20260911-onglets-etroits', ts: Date.UTC(2026, 8, 11, 10, 30), title: 'Panneau à onglets : le dernier onglet se lit enfin, même sur une carte étroite', desc: 'Signalé par un client : « je peux pas décaler vers la droite après l’onglet banques ». C’est exact, et ce n’était PAS un problème de défilement : le balayage fonctionnait très bien. VOICI CE QUI SE PASSAIT. Dans une carte à onglets, les quatre commandes du coin haut droit (actualiser, remplacer, aide, fermer) occupent une plaque de cent soixante pixels, et la rangée d’onglets s’arrête juste avant pour ne jamais passer dessous. Sur une carte large, il reste de la place pour tout le monde. Sur une carte étroite, non : mesuré sur la disposition par défaut en quatre colonnes, la carte fait deux cent quarante sept pixels, la plaque en réserve cent soixante dix, et il restait SOIXANTE QUINZE pixels de piste pour neuf onglets. Or l’onglet BANQUES en fait quatre vingt six : il était plus large que la fenêtre censée le montrer. Arrivé au bout de la rangée, il restait coupé à quarante et un pixels sur soixante dix sept, et aucun geste au monde ne pouvait finir de le révéler. LA PLAQUE CÈDE, LES ONGLETS RESTENT. Quand la piste devient trop étroite pour montrer le plus large de vos onglets, l’en-tête passe de lui-même sur deux lignes : les commandes gardent la première, la rangée d’onglets prend toute la largeur sur la seconde. C’est le bon partage : les commandes ont un repli, un onglet qu’on ne peut pas lire est un onglet perdu. Les onglets ne repassent PAS sous la plaque pour autant, ils y seraient invisibles ET incliquables. LE SEUIL N’EST PAS UN CHIFFRE CHOISI : il est mesuré sur VOS onglets, à partir du plus large d’entre eux. Renommez un onglet plus long, et la bascule suit. Et elle suit aussi quand vous redimensionnez votre fenêtre, ce qui n’allait pas de soi : la première écriture ne recalculait la bascule qu’au chargement, et c’est un contrôle automatique qui l’a dit avant la mise en ligne. SUR TÉLÉPHONE RIEN NE CHANGE, et c’est instructif : sous quatre cents pixels la grille passe à une seule colonne, la carte fait quatre cent vingt neuf pixels et la rangée tenait déjà. Le petit écran n’était pas le cas difficile. Un contrôle automatique éprouve désormais cette largeur intermédiaire à chaque livraison, avec son témoin : on retire la seconde ligne, et le dernier onglet doit redevenir illisible.' },
   { id: 'dtpu-20260911-taux-derniere-reunion', ts: Date.UTC(2026, 8, 11, 11, 15), title: 'Onglet Taux : la carte dit maintenant aussi QUAND la dernière décision a été prise', desc: 'Demande d’un client : « on a les dates des réunions futures, ajoute aussi la dernière qui est passée, ce serait bien pour toutes les banques ». La carte d’une banque centrale portait une ligne « Date de réunion », et c’était la PROCHAINE. On savait donc quand la question serait reposée, jamais quand elle avait été tranchée. OR LE TAUX AFFICHÉ JUSTE AU DESSUS SORT PRÉCISÉMENT DE CETTE RÉUNION PASSÉE. Sans sa date, impossible de savoir s’il date d’une semaine ou de quatre mois, et donc à quel point la prochaine décision est chargée : une banque qui n’a pas bougé depuis quatre mois et une banque qui vient de trancher ne se lisent pas de la même façon, même avec le même chiffre à l’écran. Les deux dates se lisent ensemble ou ne se lisent pas. LES DEUX INTITULÉS DEVIENNENT EXPLICITES : « Prochaine réunion » et « Dernière réunion ». Deux dates sur une même carte sans intitulé distinct se confondent, et c’était le défaut d’origine. L’ancienneté en jours s’affiche au survol de la date, pas sur la ligne : la carte est dense, et « il y a 83 jours » est un complément, pas la donnée. POUR LES HUIT BANQUES, sans exception, et c’était le point délicat. Le fournisseur de pricing ne transmet que des réunions À VENIR : y chercher une date passée n’aurait jamais rien donné, et la moitié des banques ne sont de toute façon pas servies par lui. La date vient donc du calendrier complet du desk, le même pour les huit et le même pour la prochaine réunion : les deux lignes ne peuvent pas se contredire. ON DIT QUAND, PAS CE QUI A ÉTÉ DÉCIDÉ. Accoler un verdict à cette date reviendrait à affirmer qu’on a lu le communiqué de cette réunion précise, ce qui n’est pas garanti pour les huit banques. La provenance du taux, elle, reste écrite en pied de carte comme avant. Un contrôle automatique exécute désormais le vrai calcul à chaque livraison et vérifie, pour les huit, que la date rendue est bien passée, qu’elle est bien la PLUS RÉCENTE des passées, et qu’une banque hors calendrier n’en reçoit aucune plutôt qu’une date inventée.' },
+  { id: 'dtpu-20260911-journal-jour', ts: Date.UTC(2026, 8, 11, 15, 0), title: 'Journal : la colonne Jour se choisit enfin, et elle déplace la date avec elle', desc: 'Signalé par un client : « je dois avoir les jours de la semaine en cliquant ». C’était exact, et le silence était le pire du défaut : on cliquait sur une cellule de la colonne Jour, il ne se passait rien, et rien ne disait pourquoi. LA RAISON DE CE BLOCAGE ÉTAIT POURTANT BONNE, et c’est ce qui rend la réparation intéressante. Le jour n’est pas une donnée que vous saisissez : il est DÉDUIT de la date du trade. Le rendre librement modifiable produirait une ligne qui se contredit toute seule, un trade daté du mercredi 9 septembre étiqueté « Lundi ». Nous ne stockons donc pas un jour à côté de la date. CE QUE FAIT LE CLIC MAINTENANT : les sept jours vous sont proposés, et en choisir un DÉPLACE la date du trade sur ce jour, dans la même semaine. Les deux colonnes restent d’accord parce qu’elles restent le même fait, et vous obtenez exactement ce que vous demandiez. Le sélecteur le dit en toutes lettres sous les options, parce que déplacer la date n’est pas ce qu’on attend d’un choix de jour tant qu’on ne l’a pas lu une fois. Un trade sans date prend la semaine en cours comme repère : c’est le seul dont on dispose, et refuser le clic serait revenir au défaut qu’on répare. LE DIMANCHE EST TRAITÉ COMME IL SE DOIT : dans la numérotation interne des jours il porte le zéro et passerait pour le début de semaine, ce qui aurait renvoyé un trade du dimanche à la semaine précédente. Le calcul passe par le lundi, comme une semaine se lit en France.' },
   { id: 'dtpu-20260909-noms-widgets', ts: Date.UTC(2026, 8, 9, 23, 30), title: 'Les noms de widgets sont raccourcis : douze intitulés cessent de passer à la ligne', desc: 'Les noms s’affichent dans les cartes de la bibliothèque et en tête de chaque widget posé sur votre desk. Au-delà d’une vingtaine de caractères ils passaient sur deux lignes ou se faisaient couper — dix d’entre eux allaient de vingt-quatre à vingt-huit caractères. DOUZE INTITULÉS SONT RESSERRÉS, sans rien perdre de leur sens : « Compte à rebours d’événement » devient « Compte à rebours », « Corrélations entre paires » devient « Corrélations », « Calculatrice de position » devient « Calculatrice », « Performance de la semaine » devient « Performance hebdo », « Rendement moyen par mois » devient « Rendement mensuel », « Matrice de taux croisés » devient « Taux croisés ». Le plus long du catalogue passe de vingt-huit à vingt-trois caractères, et la moyenne de dix-neuf virgule sept à dix-sept virgule deux. DEUX NOMS EN PROFITENT POUR DEVENIR PLUS JUSTES : « Historique du Sentiment » devient « Historique du risque », qui dit ce qu’il montre et se lit en paire avec « Sentiment de Risque » ; « Probabilité de mouvement » devient « Atteinte d’un seuil », qui est exactement ce que la carte calcule. VOS DESKS NE BOUGENT PAS : les dispositions enregistrées désignent chaque widget par son identifiant, jamais par son nom. Rien à refaire, rien à replacer. Et un contrôle automatique mesure désormais TOUS les noms du catalogue à chaque livraison — pas seulement les douze corrigés : le treizième, ajouté plus tard, ne pourra pas rallonger la liste sans que ce soit un choix.' },
   { id: 'dtpu-20260909-rebours-lisible', ts: Date.UTC(2026, 8, 9, 23, 0), title: 'Compte à rebours d’événement : le nom de la publication se lit enfin, et les mentions grises passent le seuil', desc: 'Retour sur la carte du compte à rebours, capture à l’appui. Le chiffre du décompte était parfaitement visible ; tout le reste l’était beaucoup moins. TROIS TEXTES ÉTAIENT SOUS LE SEUIL DE LISIBILITÉ, et ce n’est pas une impression : mesuré, le gris employé donnait un contraste de 3,96 pour 1 sur le fond du desk, là où la norme demande 4,5 pour 1 sur du petit texte — et deux de ces trois textes étaient en 9,5 pixels. Ils passent sur le gris secondaire, à 7,35 pour 1, et gagnent un point de taille. Même correction en thème clair, qui était lui aussi juste en dessous. ET LE NOM DE LA PUBLICATION CESSE D’ÊTRE UNE LÉGENDE. C’est le sujet de la carte — ce qu’on attend, la raison du décompte — et il s’affichait en gris, plus petit que le reste. Il est désormais en blanc, à la taille du texte courant. CE QUI N’A PAS ÉTÉ TOUCHÉ : le gris éteint du desk lui-même. Il habille des centaines d’éléments, et le remonter pour régler une carte aurait déplacé la hiérarchie visuelle de tout le terminal. La correction reste là où était le problème.' },
   { id: 'dtpu-20260909-espacement-layout', ts: Date.UTC(2026, 8, 9, 22, 0), title: 'L’espacement du desk se règle là où vous choisissez votre disposition', desc: 'Le réglage « Espacés / Collés » décide de la respiration ENTRE vos widgets une fois posés : c’est une propriété de la DISPOSITION. Il vivait pourtant dans la bibliothèque de widgets, l’écran où l’on choisit QUELS widgets ajouter, coincé à côté des filtres par catégorie. On le trouve désormais dans « Mes layouts », au-dessus de la liste de vos dispositions, là où on le cherche. ET IL SE COMPORTE ENFIN CORRECTEMENT QUAND ON RESTE DEVANT. Basculer l’espacement resserrait bien le desk, mais ne rafraîchissait pas son propre bouton : « Espacés » restait allumé alors que « Collés » venait d’être appliqué. Le défaut ne se voyait pas tant que le réglage vivait dans la bibliothèque, qui recalculait cet état à chaque ouverture ; il devenait visible dès qu’on reste sur le panneau. Le bouton suit maintenant le clic. Un contrôle automatique garde les deux moitiés ensemble : déplacer le bloc sans déplacer le calcul de son état actif aurait ouvert le panneau avec deux boutons éteints — le réglage en place, et l’écran affirmant le contraire.' },
@@ -7727,6 +7728,101 @@ setInterval(() => { _disqueCheck().catch(() => {}); }, 5 * 60 * 1000);
 /* Lu par le panneau admin ET par le desk (notification urgente, admin uniquement — voir app.js).
    ⚠️ `requireAdmin` N'EST PAS DÉCORATIF ICI : un abonné qui lirait « Disque VPS à 92 % » y perdrait
    confiance pour une information qui ne le concerne pas et sur laquelle il ne peut rien. */
+/* ══ LIBÉRER DU DISQUE DEPUIS LE PANNEAU ADMIN (11/09, demande utilisateur) ══════════════════════
+   « Ajoute dans le panel admin les options de pouvoir libérer en cliquant sur les boutons, si
+   besoin en forçant. »
+
+   ⚠️ LE DESK NE PEUT PAS PURGER LES IMAGES DOCKER, ET C'EST TOUT LE SUJET. Vérifié dans
+   `docker-compose.yml` avant d'écrire une ligne : AUCUNE socket Docker n'est montée dans le
+   conteneur. `docker image prune` depuis server.js ne ferait rien du tout — or les images et le
+   cache de construction sont justement le gros de ce qui remplit ce disque. Un bouton qui rendrait
+   « nettoyé » sans rien nettoyer serait la pire des réponses : le faux vert, sur le mécanisme même
+   censé nous sauver.
+   ⚠️ ET ON NE MONTE PAS CETTE SOCKET POUR AUTANT. La socket Docker donne au conteneur les pleins
+   pouvoirs sur l'hôte : ce serait échanger un problème de disque contre un problème de sécurité,
+   sur un dépôt dont la première règle est qu'une clé compromise ne se reproduit pas. Ça se décide,
+   ça ne se glisse pas dans un correctif de confort.
+
+   LE CHEMIN RETENU, QUI N'OUVRE AUCUN DROIT NOUVEAU : le conteneur et l'hôte partagent DÉJÀ un
+   dossier (`data/app`), par lequel la sentinelle dépose son journal de nettoyages et son battement.
+   On s'en sert dans l'autre sens. Le bouton fait donc DEUX choses, et les annonce séparément :
+     1. CE QUE LE CONTENEUR PEUT FAIRE TOUT DE SUITE : supprimer ses propres caches régénérables.
+        Immédiat, mesuré, et honnête sur son ordre de grandeur (quelques Mo, pas des Go).
+     2. CE QU'IL DOIT DEMANDER : une purge Docker, déposée en `disque_demande.json` et exécutée par
+        la sentinelle de l'hôte à son prochain passage. C'est ELLE qui sait nettoyer sans rien
+        casser, et qui respecte déjà le verrou de déploiement.
+   ⚠️ ON NE PRÉTEND DONC JAMAIS QUE LA PLACE EST RENDUE : on rend ce qui l'a été et l'heure à
+   laquelle le reste le sera. Une attente annoncée vaut mieux qu'un succès inventé.
+
+   ⚠️ `_DISQUE_PURGEABLES` EST UN SOUS-ENSEMBLE DES RÉGÉNÉRABLES, PAS LEUR COPIE. Tous les fichiers
+   exclus de la sauvegarde ne sont pas pour autant bons à supprimer : `cache_lastseen.json` se
+   reconstruit, mais le supprimer dégrade le tri de la boîte de réception pendant des jours, et
+   `disque_historique.json` est la mémoire qui sert à PRÉVOIR la saturation — l'effacer pour gagner
+   quelques kilo-octets reviendrait à casser le thermomètre pour faire baisser la fièvre. Ne sont
+   listés ici que de purs caches, reconstruits à la demande suivante. Un banc vérifie que chaque
+   entrée est bien connue comme régénérable : on ne peut pas y glisser un fichier durable. */
+const _DISQUE_PURGEABLES = [
+  'cache_analyse.json', 'cache_bank_extract.json', 'cache_br_seg.json', 'cache_br_pdf.json',
+  'cache_br_print.json', 'cache_infotitle.json', 'cache_insights.json', 'cache_news_info.json',
+  'cache_sw_seg.json', 'cache_translate.json', 'cache_week_ahead.json', 'cache_bias.json',
+];
+const _DISQUE_DEMANDE_F = path.join(_CACHE_DIR, 'disque_demande.json');
+
+function _octetsDe(p) { try { return fs.statSync(p).size; } catch { return 0; } }
+/* Le cache de PDF n'est pas un fichier mais un dossier, et c'est souvent le plus gros poste
+   régénérable du conteneur. Il est reconstruit au prochain rapport ouvert. */
+function _viderDossier(dir) {
+  let n = 0, octets = 0;
+  try {
+    for (const f of fs.readdirSync(dir)) {
+      const p = path.join(dir, f);
+      try { const st = fs.statSync(p); if (!st.isFile()) continue; fs.unlinkSync(p); n++; octets += st.size; } catch {}
+    }
+  } catch {}
+  return { n, octets };
+}
+
+app.post('/api/admin/disque/liberer', requireSameOrigin, requireAdmin, async (req, res) => {
+  const mode = (req.body && req.body.mode) === 'agressif' ? 'agressif' : 'sur';
+  const avant = await _disqueLire();
+  let fichiers = 0, octets = 0;
+  for (const f of _DISQUE_PURGEABLES) {
+    const p = path.join(_CACHE_DIR, f);
+    const t = _octetsDe(p);
+    if (!t) continue;
+    try { fs.unlinkSync(p); fichiers++; octets += t; } catch {}
+  }
+  /* Le cache PDF ne part QU'EN MODE FORCÉ : il évite de refabriquer des documents lourds, donc le
+     vider a un coût réel pour le premier lecteur suivant. En urgence, ce coût est le bon choix. */
+  if (mode === 'agressif') { const r = _viderDossier(_PDF_CACHE_DIR); fichiers += r.n; octets += r.octets; }
+
+  let demande = null;
+  try {
+    demande = { ts: Date.now(), mode, par: (req.user && req.user.email) || 'admin' };
+    fs.writeFileSync(_DISQUE_DEMANDE_F, JSON.stringify(demande));
+  } catch (e) { demande = null; }
+
+  /* ⚠️ ON RE-MESURE, on ne conclut pas sur le nombre d'octets supprimés : un `unlink` réussit alors
+     que le fichier reste référencé par un processus, et la place n'est alors PAS rendue. C'est la
+     même règle que la sentinelle applique à son propre ménage depuis le 07/09. */
+  const apres = await _disqueLire();
+  _aiAlertNote('info', 'disque', 'Libération demandée depuis le panneau admin (' + mode + ') : '
+    + fichiers + ' fichier(s), ' + (octets / 1048576).toFixed(1) + ' Mo, disque '
+    + (avant ? avant.pct + '%' : '?') + ' -> ' + (apres ? apres.pct + '%' : '?')
+    + (demande ? ' ; purge Docker demandée à la sentinelle.' : ' ; DEMANDE NON DÉPOSÉE (volume partagé injoignable).'));
+
+  res.json({
+    ok: true, mode, fichiers, octets,
+    moOctets: +(octets / 1048576).toFixed(1),
+    avant: avant ? avant.pct : null, apres: apres ? apres.pct : null,
+    libreGo: apres ? apres.libreGo : null,
+    demandeDeposee: !!demande,
+    /* La sentinelle passe tous les quarts d'heure : c'est le délai à annoncer, pas une estimation
+       optimiste. On donne le pire cas, il ne peut que se révéler meilleur. */
+    sentinelleDansMin: demande ? 15 : null,
+  });
+});
+
 app.get('/api/admin/disque', requireAdmin, (_req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({ ..._disqueEtat, seuils: _DISQUE_SEUILS, seuilsEffectifs: _disqueSeuilsEff(), planchersGo: _DISQUE_GO, previsionJours: _DISQUE_PREVISION_J, nettoyages: _disqueNettoyages(), incidents: _disqueIncidents() });

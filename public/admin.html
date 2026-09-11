@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260911bbg1174" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260911bbg1175" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -642,6 +642,22 @@
         </div>
       </div>
       <div class="aim-kpis" id="aim-kpis"></div>
+      <!-- ⚠️ LE PANNEAU EMPILAIT NEUF CARTES SUR UNE COLONNE (11/09, demande user : « créer des
+           onglets ici pour mieux structurer et renomme bien les onglets »). On y trouvait dans le
+           même défilement la santé des fournisseurs IA, la mémoire du VPS et la boîte d'envoi :
+           trois sujets qu'on ne consulte jamais au même moment, et qu'il fallait chercher.
+           QUATRE ONGLETS, NOMMÉS PAR CE QU'ON Y CHERCHE, pas par la technique qui les alimente :
+           « Chaîne IA » (les fournisseurs et ce qu'ils consomment), « Serveur » (la machine, son
+           disque, son architecture), « Services » (ce dont le desk dépend : e-mail, bases, egress)
+           et « Journal ». La rangée de KPI reste AU-DESSUS des onglets : c'est le résumé, il doit
+           être vrai quel que soit l'onglet ouvert. -->
+      <div class="aimt-bar" id="aimt-bar" role="tablist">
+        <button class="aimt on" data-aimt="ia" role="tab">Chaîne IA</button>
+        <button class="aimt" data-aimt="serveur" role="tab">Serveur</button>
+        <button class="aimt" data-aimt="services" role="tab">Services</button>
+        <button class="aimt" data-aimt="journal" role="tab">Journal</button>
+      </div>
+      <div class="aimt-panel" data-aimt-p="ia">
       <div class="panel-card">
         <div class="panel-head"><h2>Santé des fournisseurs IA</h2><span class="ph-spacer"></span><span class="fin-sub" id="aim-prov-sub"></span></div>
         <div class="panel-body"><div id="aim-providers" class="aim-prov-grid"></div></div>
@@ -661,6 +677,11 @@
           <div class="panel-head"><h2>Conso par catégorie</h2></div>
           <div class="panel-body"><div class="am-chart am-chart--donut" id="aim-cat-am"></div><div class="aim-cat-legend" id="aim-cat-legend"></div></div>
         </div>
+      </div>
+      </div><!-- /onglet Chaîne IA -->
+
+      <div class="aimt-panel" data-aimt-p="services" hidden>
+      <div class="aim-row aim-row--infra">
         <div class="panel-card aim-card">
           <div class="panel-head"><h2>Email (envoi)</h2></div>
           <div class="panel-body" id="aim-mail"></div>
@@ -673,6 +694,11 @@
           <div class="panel-head"><h2>Bases Supabase</h2></div>
           <div class="panel-body" id="aim-db"></div>
         </div>
+      </div>
+      </div><!-- /onglet Services -->
+
+      <div class="aimt-panel" data-aimt-p="serveur" hidden>
+      <div class="aim-row aim-row--infra">
         <!-- 11/09, demande user : « je dois voir les performances du serveur ainsi que le stockage
              du disque dur ». Les deux étaient MESURÉS depuis des semaines et n'atteignaient aucun
              écran : le disque avait son endpoint que rien n'appelait, la mémoire vivait dans le
@@ -693,6 +719,9 @@
         <div class="panel-head"><h2>Architecture DTP</h2><span class="ph-spacer"></span><span class="fin-sub" id="aim-infra-t"></span></div>
         <div class="panel-body aim-infra-wrap"><div id="aim-infra"></div></div>
       </div>
+      </div><!-- /onglet Serveur -->
+
+      <div class="aimt-panel" data-aimt-p="journal" hidden>
       <div class="panel-card aim-card">
         <div class="panel-head"><h2>Journal des événements IA</h2><span class="ph-spacer"></span><span class="fin-sub" id="aim-j-count"></span>
           <div class="aim-j-filters" id="aim-j-filters" style="margin-left:8px">
@@ -701,6 +730,7 @@
         </div>
         <div class="panel-body aim-j-wrap" id="aim-journal"></div>
       </div>
+      </div><!-- /onglet Journal -->
     </section>
 
     <!-- ─────────── SYSTÈME · Accès API ─────────── -->
@@ -866,6 +896,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260911bbg1174"></script>
+<script src="/js/admin.js?v=20260911bbg1175"></script>
 </body>
 </html>

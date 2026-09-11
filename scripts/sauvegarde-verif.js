@@ -129,6 +129,13 @@ function suite() {
     'cache_lastseen.json': 'dernière visite par compte : se reconstruit à la visite suivante ; au pire le tri de la boîte de réception est approximatif quelques jours (users.last_login, lui, EST en base)',
     'disque_historique.json': 'historique de remplissage du disque : la sentinelle le réapprend en quelques heures',
     'disque_prudence.json': 'cran de prudence appris : réappris, et il ne fait que RENDRE PLUS PRUDENT (jamais moins)',
+    /* ⚠️ NI DURABLE NI CACHE : ÉPHÉMÈRE, et c'est une troisième catégorie qu'il faut nommer plutôt
+       que de la ranger de force dans l'une des deux. Ce fichier est un ORDRE déposé par le panneau
+       admin à destination de la sentinelle de l'hôte (« libère de la place »), consommé à son
+       prochain passage, au plus tard un quart d'heure après, et jeté au-delà d'une heure.
+       L'archiver serait pire qu'inutile : on restaurerait un ordre périmé, qui déclencherait une
+       purge des jours plus tard sans personne pour l'attendre. */
+    'disque_demande.json': 'demande de libération déposée pour la sentinelle : consommée sous 15 min, périmée au-delà d’une heure. L’archiver rejouerait un ordre périmé à la restauration',
   };
 
   const SOURCES = ['server.js', 'auth.js', 'mailer.js', 'ai.js'];
