@@ -611,6 +611,59 @@ const LIGNES = /return '<div class="wdg-set-row wdg-set-tabrow" data-j="' \+ j \
     }
     v('la molette revient au début', e.sl <= 6 && /wdgt-au-debut/.test(e.classes), 'scrollLeft ' + Math.round(e.sl) + ' · ' + e.classes);
     v('… sans onglet coupé au retour', e.coupesG.length === 0, e.coupesG.join(', '));
+
+    /* ══ 9 bis. SUR UNE CARTE ÉTROITE, LE DERNIER ONGLET RESTAIT ILLISIBLE POUR TOUJOURS ═══════
+       11/09, demande user : « je peux pas décaler vers la droite après l'onglet banques ».
+       Tout ce qui précède est vert, et le défaut existe quand même — parce que tout ce qui
+       précède mesure une carte LARGE (écran de 1600, une ou deux colonnes). Mesuré à 900px, où
+       la grille donne QUATRE colonnes : carte de 247px, plaque de commandes de 160, réserve
+       publiée 170. Il reste 75px de piste pour neuf onglets, et BANQUES, le dernier, en fait 86.
+       L'onglet est plus large que la fenêtre censée le montrer : au bout du parcours, scrollLeft
+       est à sa butée et il n'est visible qu'à 41px sur 77. AUCUN geste ne peut finir de le
+       révéler, et le balayage tactile fonctionne parfaitement (mesuré aussi) : ce n'était pas un
+       défaut de défilement.
+       ⚠️ LE PETIT ÉCRAN N'EST PAS LE CAS DIFFICILE. À 390px la grille passe à UNE colonne, la
+       carte fait 429px et tout va bien. C'est à 900px que ça casse. Un banc qui n'éprouve que le
+       téléphone et le grand écran rate exactement la bande où vit le défaut, et c'est ce qui
+       s'est passé pendant onze jours. */
+    console.log('\n── 9 bis. La rangée reste lisible sur une carte ÉTROITE ──');
+    const etroit = async (deuxLignes) => page.evaluate(async (avec) => {
+      const c = document.querySelector('#view-widgets .wdg-card--tabs');
+      const bar = c.querySelector('.wdgt-bar');
+      /* Le TÉMOIN retire la classe : la piste redevient un ruban, et le dernier onglet doit
+         redevenir illisible. Sans ce retrait, le banc ne prouverait pas que c'est bien elle qui
+         répare. */
+      c.classList.toggle('wdg-card--tabs-2lignes', avec);
+      bar.scrollLeft = 99999;
+      await new Promise(r => setTimeout(r, 700));
+      const tabs = [...bar.querySelectorAll('.wdgt-tab')];
+      const d = tabs[tabs.length - 1];
+      const rb = bar.getBoundingClientRect(), rd = d.getBoundingClientRect();
+      let large = 0; tabs.forEach(t => { if (t.offsetWidth > large) large = t.offsetWidth; });
+      return { piste: bar.offsetWidth, plusLarge: large, carte: c.offsetWidth,
+               dernier: d.textContent.trim(),
+               vu: +(Math.min(rd.right, rb.right) - Math.max(rd.left, rb.left)).toFixed(1),
+               large: +rd.width.toFixed(1) };
+    }, deuxLignes);
+
+    await page.setViewport({ width: 900, height: 950 });
+    await new Promise(r => setTimeout(r, 1400));
+    const posee = await page.evaluate(() => document.querySelector('#view-widgets .wdg-card--tabs').classList.contains('wdg-card--tabs-2lignes'));
+    const E = await etroit(true);
+    v('sur une carte étroite, l\'en-tête passe de lui-même sur deux lignes', posee,
+      'carte de ' + (E && E.carte) + 'px, classe absente : la piste garde son ruban');
+    v('… la piste peut alors montrer n\'importe quel onglet en entier', E.piste >= E.plusLarge,
+      'piste de ' + E.piste + 'px pour un onglet le plus large de ' + E.plusLarge + 'px');
+    v('… et le DERNIER onglet se lit en entier au bout du parcours', E.vu >= E.large - 1,
+      '« ' + E.dernier + ' » visible sur ' + E.vu + 'px de ' + E.large);
+    /* TÉMOIN : sans la seconde ligne, le défaut doit revenir. S'il ne revient pas, les trois
+       contrôles ci-dessus sont verts pour une raison étrangère et ne prouvent rien. */
+    const T = await etroit(false);
+    v('témoin : sans la seconde ligne, le dernier onglet redevient illisible', T.vu < T.large - 1,
+      'piste de ' + T.piste + 'px, « ' + T.dernier + ' » visible sur ' + T.vu + 'px de ' + T.large
+      + ' : le défaut ne se reproduit pas, le contrôle ne prouve rien');
+    await page.evaluate(() => document.querySelector('#view-widgets .wdg-card--tabs').classList.add('wdg-card--tabs-2lignes'));
+
     await page.close();
   } catch (e) {
     v('la phase « vrai desk » s\'exécute', false, e.message);

@@ -14029,6 +14029,27 @@ html[data-theme="light"] a { color: #b8860b; }
   scroll-snap-type: x proximity;
 }
 .wdg-card--tabs .wdgt-tab { scroll-snap-align: start; }
+/* ⚠️ QUAND LA RÉSERVE NE LAISSE PLUS DE PISTE, L'EN-TÊTE PASSE SUR DEUX LIGNES (11/09, demande
+   user : « je peux pas décaler vers la droite après l'onglet banques »).
+   Mesuré sur le modèle par défaut à quatre colonnes : carte de 247px, plaque de 160, réserve 170.
+   Il restait 75px de piste pour neuf onglets, et BANQUES en fait 86 : l'onglet est plus large que
+   la fenêtre censée le montrer, donc au bout du parcours il reste coupé à 41px sur 77, DÉFINITIVEMENT.
+   Le défilement n'était pas en cause (le balayage marche, mesuré) : la piste était trop étroite.
+   La classe est posée par widgets.js, qui mesure la piste ET le plus large onglet : le seuil suit
+   les noms que l'utilisateur donne à ses onglets, il n'est pas figé dans la feuille.
+   LA PISTE PREND TOUTE LA LARGEUR et DESCEND d'une hauteur d'en-tête, sous la plaque. On ne la
+   repasse PAS sous la plaque : ce serait rejouer le défaut du 29/08, où deux onglets devenaient
+   invisibles et incliquables. `--wdgt-head-h` est la hauteur RÉELLE de la plaque, publiée par
+   widgets.js : deux valeurs jumelles écrites à la main ne resteraient pas d'accord.
+   La piste étant DANS le flux (seule la plaque flotte), tout ce qui la suit descend avec elle :
+   aucune seconde règle à tenir d'accord sur le corps de la carte. Mesuré : plaque 51,5 à 84,9,
+   piste 84,8 à 118,1, contenu en dessous. Le contenu perd les 34px de la seconde ligne, et
+   seulement sur les cartes où un onglet était de toute façon illisible. */
+.wdg-card--tabs-2lignes .wdgt-bar {
+  width: 100%;
+  margin-top: var(--wdgt-head-h, 34px);
+  padding-left: 4px;
+}
 .wdg-card--tabs > .wdg-head .wdg-actions { align-self: stretch; display: flex; align-items: center; }
 
 /* ── LE FONDU DE FIN DE RANGÉE, AUX DEUX BORDS ────────────────────────────────────────────────

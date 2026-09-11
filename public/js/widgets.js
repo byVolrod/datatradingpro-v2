@@ -8666,13 +8666,52 @@
                desk s'affiche à 90 % de zoom et `calc()` relirait des pixels écran comme des CSS. */
             var h = tete.offsetHeight;
             if (h > 0) carte.style.setProperty('--wdgt-head-h', h + 'px');
+            /* ⚠️ ET SUR UNE CARTE ÉTROITE, LA RÉSERVE MANGEAIT L'EN-TÊTE ENTIER (11/09, demande
+               user : « je peux pas décaler vers la droite après l'onglet banques »).
+               MESURÉ sur le modèle par défaut, quatre colonnes : carte de 247 px, plaque de 160,
+               réserve publiée 170, rembourrage 4 — il reste 75 px de piste pour NEUF onglets. Or
+               BANQUES, le dernier, en fait 86 : il est plus large que la fenêtre qui doit le
+               montrer. Au bout du parcours, `scrollLeft` est à sa butée et l'onglet n'est visible
+               qu'à 41 px sur 77. AUCUN geste ne peut le finir de révéler. Ce n'est donc pas un
+               défaut de défilement (le balayage fonctionne, mesuré aussi) : c'est une piste trop
+               étroite pour son contenu, et la plaque prend 69% de l'en-tête.
+               ⚠️ CE N'EST PAS UNE AFFAIRE DE LARGEUR D'ÉCRAN, et c'est pourquoi aucune requête
+               média ne peut la traiter : à 390 px de large, la grille passe à UNE colonne, la carte
+               fait 429 px et tout va bien ; c'est à 900 px, où la grille en donne QUATRE, que la
+               carte tombe à 247. Le petit écran n'est pas le cas difficile, la carte étroite l'est.
+               La bande est donc mesurée ici, où l'on tient déjà la plaque et la carte.
+               LA PLAQUE CÈDE, LES ONGLETS RESTENT. C'est le bon sens du partage : la plaque a un
+               repli (ses commandes restent atteignables en dessous, sur sa propre ligne), la piste
+               n'en a aucun — un onglet qu'on ne peut pas lire est un onglet perdu. On ne repasse
+               pas non plus la piste SOUS la plaque : c'est exactement le défaut réparé le 29/08,
+               où deux onglets devenaient invisibles ET incliquables.
+               LE SEUIL EST CELUI DU PLUS LARGE ONGLET, pas un chiffre choisi : la piste doit
+               pouvoir montrer en entier n'importe lequel d'entre eux, sans quoi il en restera
+               toujours un qu'on ne lira jamais. On le MESURE, il dépend des noms que l'utilisateur
+               donne à ses onglets. */
+            var piste = tete.offsetWidth - (tete.offsetWidth - act.offsetLeft) - 6;
+            var large = 0, ong = bar ? bar.querySelectorAll('.wdgt-tab') : [];
+            for (var i = 0; i < ong.length; i++) if (ong[i].offsetWidth > large) large = ong[i].offsetWidth;
+            if (large > 0) carte.classList.toggle('wdg-card--tabs-2lignes', piste < large);
           };
           mesureCmd();
           requestAnimationFrame(mesureCmd);     // la plaque peut être posée juste après nous
           try {
             if (carte && typeof ResizeObserver === 'function') {
-              var act0 = carte.querySelector(':scope > .wdg-head .wdg-actions');
-              if (act0) { _cmdObs = new ResizeObserver(mesureCmd); _cmdObs.observe(act0); }
+              var tete0 = carte.querySelector(':scope > .wdg-head');
+              var act0 = tete0 && tete0.querySelector('.wdg-actions');
+              /* ⚠️ OBSERVER LA PLAQUE NE SUFFIT PAS, et le banc l'a dit avant la production
+                 (11/09). La plaque garde ses 160px quoi qu'il arrive : ce qui change quand on
+                 redimensionne la fenêtre, c'est la CARTE. En n'observant que la plaque, la bascule
+                 sur deux lignes était calculée une fois au montage et ne bougeait plus jamais —
+                 élargir ou rétrécir son navigateur laissait la piste dans l'état de l'arrivée.
+                 On observe donc l'EN-TÊTE, dont la largeur suit celle de la carte, en plus de la
+                 plaque, dont la hauteur peut changer pour ses propres raisons. */
+              if (tete0 || act0) {
+                _cmdObs = new ResizeObserver(mesureCmd);
+                if (tete0) _cmdObs.observe(tete0);
+                if (act0) _cmdObs.observe(act0);
+              }
             }
           } catch (e) {}
 
