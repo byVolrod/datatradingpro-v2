@@ -250,5 +250,48 @@ console.log('\n── 5. Aucun rond ne tourne sans porte de sortie ──');
     'sans cette reprise, le rapport de secours resterait en place toute la journée');
 }
 
+console.log('\n── 7. Le panneau admin voit-il vraiment les tâches de fond, ou lit-il du vide ? ──');
+/* ⚠️ TROUVÉ EN CHASSANT LA MÊME QUESTION QUE LE CLIENT (11/09, 3ᵉ signalement de la soirée :
+   « pourquoi c'est en anglais ? »). Le panneau « Prévision & quota » du moniteur IA affichait déjà
+   une ligne « Explications de propos », avec une logique de couleur soignée (gris si éteinte,
+   rouge/orange/vert selon les tentatives) — mais elle lisait `d.providers.propos`, un champ qui
+   n'existe NULLE PART dans la réponse serveur (le vrai champ s'appelle `proposFr`). La garde
+   `if (!s …) return ''` avalait ce `undefined` sans un mot : la ligne n'a jamais dessiné un seul
+   pixel, précisément la classe de défaut que ce bloc prétendait empêcher. Deux tâches voisines
+   (pré-traduction des descriptions, Impact marché) portaient le même défaut : mesurées depuis des
+   semaines, jamais montrées nulle part dans le panneau. On EXTRAIT le vrai bloc de admin.js et on
+   l'exécute avec de fausses données — lire « `.proposFr` apparaît dans le fichier » serait vert sur
+   un bloc qui lit encore `.propos` autre part. */
+function _fondRowsBloc() {
+  const deb = APP2.indexOf('const fondRows = (() => {');
+  const fin = APP2.indexOf('})();', deb);
+  if (deb < 0 || fin < 0) return null;
+  return APP2.slice(deb, fin + 5);
+}
+const APP2 = lire('public/js/admin.js');
+const bloc = _fondRowsBloc();
+v('le bloc "fondRows" du panneau admin est extractible', !!bloc);
+if (bloc) {
+  const DONNEES = { providers: {
+    proposFr: { jour: '2026-09-11', traduits: 5, tentes: 22, plafond: 900 },
+    descFr:   { jour: '2026-09-11', traduites: 3, tentees: 8, plafond: 300 },
+    impacts:  { jour: '2026-09-11', generes: 1, tentes: 2, plafond: 60 },
+  } };
+  const rejouer = (source, d) => new Function('d', source + '\nreturn fondRows;')(d);
+  const out = rejouer(bloc, DONNEES);
+  v('[exécuté] la traduction du fil (proposFr) s\'affiche avec ses vrais chiffres',
+    out.includes('Traduction du fil') && out.includes('5<span') && out.includes('22 / 900'),
+    'sortie : ' + out.slice(0, 200));
+  v('[exécuté] la pré-traduction des descriptions (descFr) s\'affiche aussi', out.includes('Pré-traduction des descriptions'));
+  v('[exécuté] l\'impact marché (impacts) s\'affiche aussi', out.includes('Impact marché'));
+  v('[exécuté] sans aucune donnée, le bloc reste VIDE (pas de section fantôme)', rejouer(bloc, { providers: {} }) === '');
+  /* Témoin : remettre le bug d'origine (le champ « propos » plutôt que « proposFr ») doit faire
+     disparaître la ligne — sinon ce contrôle ne prouve rien. */
+  const blocMute = bloc.replace("p.proposFr, 'traduits'", "p.propos, 'traduits'");
+  v('[exécuté] mutation : revenir à `.propos` (le vrai bug du 11/09) fait DISPARAÎTRE la ligne',
+    !rejouer(blocMute, DONNEES).includes('Traduction du fil'),
+    'si cette ligne reste verte malgré la mutation, le contrôle ci-dessus ne mord pas');
+}
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);

@@ -1864,12 +1864,21 @@
         + `<div class="aim-fc-row"><span>Requêtes économisées</span><b>${(c.coalesced || 0)} coalescées · ${(c.coolskip || 0)} évitées (panne)</b></div>`
         + (c.usersIdle ? `<div class="aim-fc-row"><span>Activité</span><b style="color:#ffb300">personne connecté : fond au ralenti</b></div>` : '');
     })() : '';
-    /* EXPLICATIONS DE PROPOS : généré / tenté / plafond du jour.
-       Exigé par la règle du desk (toute évolution de plafond IA doit être VISIBLE ici). Cette ligne
-       est le SEUL ajout de ce fichier : les compteurs voisins (pré-traduction FR, Impact marché)
-       sont une dette ancienne, hors du sujet traité, et n'ont rien à faire dans ce travail.
+    /* TÂCHES DE FOND (traduction du fil, pré-traduction des descriptions, impact marché) :
+       généré / tenté / plafond du jour. Exigé par la règle du desk (toute évolution de plafond IA
+       doit être VISIBLE ici).
+       ⚠️ CE BLOC LISAIT `d.providers.propos`, UN CHAMP QUI N'EXISTE NULLE PART (11/09, capture
+       client répétée : « pourquoi c'est en anglais ? »). Le vrai champ est `proposFr`
+       (_proposFrStats, server.js) : la faute d'un caractère faisait taire ce contrôle DEPUIS SA
+       POSE — la garde `if (!s …) return ''` avalait un `undefined` sans un mot, alors que ce bloc
+       existe précisément pour qu'une tâche de fond qui compte reste VISIBLE. Impossible, depuis ce
+       panneau, de distinguer une traduction qui n'a simplement pas encore tourné (0 tentative)
+       d'une traduction qui ÉCHOUE à chaque tentative (chaîne IA dégradée) : les deux rendent le
+       même fil en anglais côté client, et seul ce chiffre les distingue. Les deux tâches voisines
+       (pré-traduction des descriptions, Impact marché) portaient le même défaut de fond — jamais
+       affichées nulle part — et reçoivent la même correction, même forme.
        ⚠️ DEUX PIÈGES D'AFFICHAGE ÉVITÉS ICI, tous deux mesurés :
-       1. UNE TÂCHE ÉTEINTE NE DOIT PAS S'AFFICHER EN VERT. PROPOS_MAX_JOUR=0 est le mécanisme de
+       1. UNE TÂCHE ÉTEINTE NE DOIT PAS S'AFFICHER EN VERT. `..._MAX_JOUR=0` est le mécanisme de
           coupure sans redéploiement ; une garde en `plafond == null` ne filtre pas 0, et un calcul
           de couleur en `cap && …` retombe sur le vert. L'administrateur aurait lu « 0 / 0 » en vert,
           c'est-à-dire une fonctionnalité arrêtée présentée comme saine. On l'annonce en gris.
@@ -1877,14 +1886,19 @@
           qui est plafonné (un refus coûte un appel réel) : colorer sur les succès afficherait du
           vert alors que le budget du jour est déjà consommé. Les deux chiffres restent lisibles. */
     const fondRows = (() => {
-      const s = (d.providers || {}).propos;
-      if (!s || s.plafond == null) return '';
-      const cap = s.plafond | 0, faits = s.generes || 0, essais = s.tentes || 0;
-      const corps = cap <= 0
-        ? `<b style="color:#6b7280">désactivée (plafond 0)</b>`
-        : `<b style="color:${essais >= cap ? '#ef4444' : (essais >= cap * 0.8 ? '#ffb300' : '#22c55e')}">${faits}<span style="color:#6b7280"> générées · ${essais} / ${cap} tentées</span></b>`;
-      return `<div class="aim-sec-title">Enrichissements de fond (jour)</div>`
-        + `<div class="aim-fc-row"><span>Explications de propos</span>${corps}</div>`;
+      const ligne = (nom, s, champFait) => {
+        if (!s || s.plafond == null) return '';
+        const cap = s.plafond | 0, faits = s[champFait] || 0, essais = s.tentes ?? s.tentees ?? 0;
+        const corps = cap <= 0
+          ? `<b style="color:#6b7280">désactivée (plafond 0)</b>`
+          : `<b style="color:${essais >= cap ? '#ef4444' : (essais >= cap * 0.8 ? '#ffb300' : '#22c55e')}">${faits}<span style="color:#6b7280"> faites · ${essais} / ${cap} tentées</span></b>`;
+        return `<div class="aim-fc-row"><span>${nom}</span>${corps}</div>`;
+      };
+      const p = d.providers || {};
+      const corps = ligne('Traduction du fil (titres)', p.proposFr, 'traduits')
+        + ligne('Pré-traduction des descriptions', p.descFr, 'traduites')
+        + ligne('Impact marché (stats tier-1)', p.impacts, 'generes');
+      return corps ? `<div class="aim-sec-title">Tâches de fond (jour)</div>` + corps : '';
     })();
     document.getElementById('aim-forecast').innerHTML =
       `<div class="aim-fc-row"><span>Quota restant</span><b>${b.remaining}</b></div>`
