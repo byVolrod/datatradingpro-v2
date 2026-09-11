@@ -8650,6 +8650,22 @@
                plaque est invisible. */
             var w = tete.offsetWidth - act.offsetLeft;
             if (w > 0 && w < tete.offsetWidth) carte.style.setProperty('--wdgt-cmd', (w + 6) + 'px');
+            /* ⚠️ ET SA HAUTEUR, POUR LA MÊME RAISON (10/09, capture user sur téléphone : le titre
+               d'une vue adoptée coupé en deux sous l'onglet BANQUES).
+               Dans une carte à onglets, `.wdg-head` est en `position: absolute` : elle FLOTTE
+               au-dessus du contenu. La barre d'onglets est censée occuper exactement cette bande,
+               et les deux déclaraient `min-height: 30px`. Sauf que la plaque DÉPASSE sa valeur —
+               ses boutons la poussent — pendant que la barre reste pile dessus : mesuré 33,4 px
+               contre 27, soit 6,4 px de plaque qui débordent sur ce qui suit, c'est-à-dire sur
+               l'en-tête de la vue adoptée. Sur un écran large la marge restante suffisait ; sur
+               téléphone elle tombe à 1,8 px, et la moindre différence de métriques la mange.
+               Deux `min-height` jumeaux écrits à la main ne peuvent pas rester d'accord : on
+               publie donc la hauteur RÉELLE, comme la largeur juste au-dessus, et la feuille s'y
+               accroche. Une icône plus haute un jour, et la réserve suit toute seule.
+               `offsetHeight` et non `getBoundingClientRect()` : pixels CSS, pas pixels écran — le
+               desk s'affiche à 90 % de zoom et `calc()` relirait des pixels écran comme des CSS. */
+            var h = tete.offsetHeight;
+            if (h > 0) carte.style.setProperty('--wdgt-head-h', h + 'px');
           };
           mesureCmd();
           requestAnimationFrame(mesureCmd);     // la plaque peut être posée juste après nous

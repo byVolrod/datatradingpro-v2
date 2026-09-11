@@ -13967,6 +13967,11 @@ html[data-theme="light"] a { color: #b8860b; }
    Le bandeau standard (poignée + actions) se superpose à la barre : poignée à gauche, actions à
    droite au survol de la carte — une ligne de gagnée pour le contenu. ── */
 .wdg-card--tabs > .wdg-head { position: absolute; top: 0; left: 0; right: 0; z-index: 6; min-height: 30px; background: transparent; border-bottom: 0; padding: 0 4px; pointer-events: none; }
+/* LA BARRE D'ONGLETS COUVRE AU MOINS LA PLAQUE FLOTTANTE (10/09). Sans cela, la plaque déborde
+   sur l'élément suivant — l'en-tête de la vue adoptée — et le coupe en deux. La hauteur vient de
+   `--wdgt-head-h`, MESURÉE sur la plaque réelle par widgets.js (même mécanique que `--wdgt-cmd`
+   pour la largeur) ; le repli 34px couvre le cas où la mesure n'a pas encore eu lieu. */
+.wdg-card--tabs .wdgt-bar { min-height: var(--wdgt-head-h, 34px); }
 .wdg-card--tabs > .wdg-head .wdg-title { display: none; }
 .wdg-card--tabs > .wdg-head .wdg-grip, .wdg-card--tabs > .wdg-head .wdg-actions { pointer-events: auto; }
 .wdg-card--tabs > .wdg-head .wdg-actions { background: transparent; border-radius: 3px; padding: 0 2px; opacity: 0; transition: opacity .14s var(--ease); }

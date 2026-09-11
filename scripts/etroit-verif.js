@@ -180,12 +180,76 @@ const PANNEAU = (port, largeur) => '<html data-theme="dark"><head>'
     v('sur un panneau large, l\'aura garde ses 820 px', large.aura === '820px', 'aura mesurée ' + large.aura);
     v('… sans ouvrir de zone vide pour autant', large.sw <= large.cw + 1, large.cw + ' → ' + large.sw);
     await page.close();
-  } catch (e) {
+  /* ══════════════════════════════════════════════════════════════════════════════════════════
+     LA PLAQUE FLOTTANTE D'UNE CARTE À ONGLETS NE DOIT RIEN RECOUVRIR (11/09, capture téléphone :
+     sous l'onglet BANQUES, le titre « TRANSACTIONS BANCAIRES » coupé en deux)
+     ────────────────────────────────────────────────────────────────────────────────────────────
+     Dans une carte à onglets, `.wdg-head` passe en `position: absolute` : elle FLOTTE au-dessus du
+     contenu. La barre d'onglets est censée occuper exactement cette bande — les deux déclaraient
+     `min-height: 30px`. Mais la plaque DÉPASSE sa valeur (ses boutons la poussent) pendant que la
+     barre reste pile dessus : mesuré 33,4 px contre 27. Les 6,4 px d'écart débordent sur l'élément
+     suivant, c'est-à-dire l'en-tête de la vue adoptée.
+     ⚠️ POURQUOI PERSONNE NE L'AVAIT VU : sur écran large il restait assez de marge. À 390 px elle
+     tombait à 1,8 px — l'en-tête commençait DÉJÀ sous la plaque — et la moindre différence de
+     métriques (encoche, zone sûre, police) la mangeait. Un défaut qui ne se voit qu'à une largeur
+     ne se trouve qu'en mesurant à cette largeur.
+     ⚠️ ON MESURE AUX DEUX LARGEURS. Ne tenir que le mobile laisserait la règle se casser sur le
+     desktop sans que rien ne le dise. ════════════════════════════════════════════════════════ */
+    if (nav) {
+    const ICO = '<button class="wdg-ico">⚙</button><button class="wdg-ico">⇅</button><button class="wdg-ico">?</button><button class="wdg-ico">✕</button>';
+    const TABS = '<button class="wdgt-tab"><span class="wdgt-nm">À venir</span></button><button class="wdgt-tab"><span class="wdgt-nm">Taux</span></button><button class="wdgt-tab on"><span class="wdgt-nm">Banques</span></button><button class="wdgt-add">+</button>';
+    const VUE = '<div class="view-panel" id="view-bank"><div class="panel panel-bank">'
+      + '<div class="panel-header"><div class="panel-header-left"><span class="panel-title">Transactions bancaires</span></div>'
+      + '<div class="panel-header-controls"></div></div><div style="height:600px"></div></div></div>';
+    const PAGE = '<div id="view-widgets"><div class="wdg-card wdg-card--tabs" style="height:340px">'
+      + '<div class="wdg-head"><div class="wdg-actions">' + ICO + '</div></div>'
+      + '<div class="wdg-body"><div class="wdgt-host"><div class="wdgt-bar">' + TABS + '</div>'
+      + '<div class="wdgt-body"><div class="wdgt-mount wdg-vuehost">' + VUE + '</div></div></div></div></div></div>';
+    console.log('\n── La plaque flottante d’une carte à onglets ne recouvre pas la vue adoptée ──');
+    for (const L of [1200, 390]) {
+      const pg = await nav.newPage();
+      await pg.setViewport({ width: L, height: 700 });
+      await pg.setContent('<!doctype html><html lang="fr"><head><meta charset="utf-8">'
+        + '<link rel="stylesheet" href="http://localhost:' + PORT + '/css/style.css"></head><body>' + PAGE + '</body></html>',
+        { waitUntil: 'networkidle0' });
+      const r = await pg.evaluate(() => {
+        /* On rejoue ce que widgets.js fait en vrai : publier la hauteur RÉELLE de la plaque. */
+        const c = document.querySelector('.wdg-card'), t = c.querySelector(':scope > .wdg-head');
+        if (t && t.offsetHeight > 0) c.style.setProperty('--wdgt-head-h', t.offsetHeight + 'px');
+        const R = (s) => { const e = document.querySelector(s); const b = e.getBoundingClientRect(); return { y: +b.top.toFixed(1), bas: +b.bottom.toFixed(1) }; };
+        const plaque = R('.wdg-head'), barre = R('.wdgt-bar'), entete = R('.wdg-vuehost .panel-header');
+        return { plaque, barre, entete, sous: entete.y < plaque.bas, marge: +(entete.y - plaque.bas).toFixed(1) };
+      });
+      v('[' + L + 'px] la barre d’onglets couvre au moins la plaque',
+        r.barre.bas >= r.plaque.bas - 0.6, 'barre ' + r.barre.bas + ' < plaque ' + r.plaque.bas + ' : la plaque déborde sur la suite');
+      v('[' + L + 'px] l’en-tête de la vue adoptée n’est PAS sous la plaque', !r.sous,
+        'il commence à ' + r.entete.y + ' alors que la plaque descend à ' + r.plaque.bas + ' (marge ' + r.marge + 'px) — c’est le titre coupé de la capture.');
+      await pg.close();
+    }
+    /* TÉMOIN : sans la réserve mesurée, la plaque reprend son débordement — sinon le contrôle
+       ci-dessus passerait déjà avant la correction. */
+    const pg2 = await nav.newPage();
+    await pg2.setViewport({ width: 390, height: 700 });
+    await pg2.setContent('<!doctype html><html lang="fr"><head><meta charset="utf-8">'
+      + '<link rel="stylesheet" href="http://localhost:' + PORT + '/css/style.css">'
+      + '<style>.wdg-card--tabs .wdgt-bar { min-height: 30px !important; }</style></head><body>' + PAGE + '</body></html>',
+      { waitUntil: 'networkidle0' });
+    const t2 = await pg2.evaluate(() => {
+      const R = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { y: +b.top.toFixed(1), bas: +b.bottom.toFixed(1) }; };
+      const p = R('.wdg-head'), e = R('.wdg-vuehost .panel-header');
+      return { sous: e.y < p.bas, e: e.y, p: p.bas };
+    });
+    v('[témoin] sans la réserve, l’en-tête repasse bien sous la plaque', t2.sous,
+      'le témoin ne mord pas : en-tête ' + t2.e + ' vs plaque ' + t2.p + ' — la correction ne prouve rien.');
+    await pg2.close();
+  }  } catch (e) {
     v('les mesures s\'exécutent', false, e.message);
   } finally {
     if (nav) try { await nav.close(); } catch {}
     srv.close();
   }
+
+
 
   console.log('');
   if (ko) { console.log('✗ ' + ko + ' ÉCHEC(S) — ' + ok + ' contrôle(s) OK, ' + ko + ' KO\n'); process.exit(1); }
