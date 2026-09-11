@@ -533,6 +533,11 @@ select { cursor: pointer; }
 .aim-prov { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--sp-2) var(--sp-3); }
 .aim-legend, .aim-cat-legend { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-left: auto; font-size: var(--fs-meta); color: var(--text3); }
 .aim-legend i, .aim-cat-legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 4px; }
+/* Le schéma d'architecture (11/09). Il porte son propre viewBox et se met à l'échelle tout seul :
+   la seule chose à tenir ici est de le laisser respirer, et de le rendre parcourable quand la
+   fenêtre descend sous sa largeur de dessin plutôt que de l'écraser jusqu'à l'illisible. */
+.aim-infra-wrap { overflow-x: auto; }
+.aim-infra-wrap svg { min-width: 560px; display: block; }
 .aim-track { height: 5px; border-radius: var(--pill); background: var(--bg4); overflow: hidden; margin-top: var(--sp-1); }
 .aim-track > i, .aim-track > span { display: block; height: 100%; background: var(--orange); border-radius: var(--pill); }
 .aim-j-wrap { max-height: 320px; overflow-y: auto; }

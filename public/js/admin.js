@@ -1948,6 +1948,126 @@
         + (DB.nodes.some(n => n.quarLect) ? '<div style="font-size:10.5px;color:#ffb300;margin-top:6px;line-height:1.5">⏳ Resynchro = la base est joignable mais a raté des écritures pendant son absence. Elle reçoit les écritures et se recomplète, mais ne sert AUCUNE lecture de comptes tant que le rattrapage n\'a pas réussi : sans ça, elle rendrait des mots de passe et des échéances périmés. Levée automatique (≤ 20 min).</div>' : '');
     })();
   }
+  /* ══ LA MACHINE, SON DISQUE, ET LE SCHÉMA QUI LES RELIE (11/09, demande user) ═════════════════
+     « Dans le panel admin je dois voir les performances du serveur ainsi que le stockage du disque
+     dur et aussi un schéma d'architecture de l'infrastructure du DTP si possible dynamique. »
+     Rien de tout cela n'était à mesurer : le serveur surveille son disque toutes les 5 minutes
+     depuis le 07/09 et sa mémoire toutes les 30 secondes depuis bien plus longtemps. Ce qui
+     manquait, c'était un ÉCRAN. Un garde-fou que personne ne regarde ne prévient personne, et ce
+     dépôt en a déjà payé le prix : le keep-alive est resté vert deux mois et demi en ne pinguant
+     rien, la sauvegarde nocturne n'avait jamais produit une archive.
+     ⚠️ TOUT VIENT DE LA MÊME CHARGE QUE LES CARTES VOISINES. Un second appel serait un second
+     endroit à tenir à jour, et surtout deux instantanés pris à des moments différents : le schéma
+     pourrait peindre une base en vert pendant que la carte juste au-dessus la dit en panne. Un
+     schéma en désaccord avec les chiffres qu'il accompagne est pire qu'aucun schéma. */
+  const _AIM_COUL = { 0: '#22c55e', 1: '#22c55e', 2: '#ffb300', 3: '#ef4444', 4: '#ef4444', 5: '#ef4444' };
+  function _aimDuree(s) {
+    s = Math.max(0, Math.round(s || 0));
+    if (s < 60) return s + ' s';
+    if (s < 3600) return Math.round(s / 60) + ' min';
+    if (s < 86400) return Math.round(s / 3600) + ' h';
+    return Math.round(s / 86400) + ' j';
+  }
+  function aimRenderSysteme(d) {
+    const el = document.getElementById('aim-systeme'); if (!el) return;
+    const S = d.systeme;
+    if (!S) { el.innerHTML = '<div class="aim-j-empty">indisponible</div>'; return; }
+    const c = _AIM_COUL[S.niveau] || '#22c55e';
+    /* ⚠️ LA MÉMOIRE SE JUGE CONTRE LE SEUIL D'ACTION, PAS CONTRE LA LIMITE DU CONTENEUR. C'est à
+       ce seuil que le serveur ferme les navigateurs pour éviter l'arrêt brutal : une barre remplie
+       à 60% de la limite ne dit rien, une barre remplie à 90% du seuil dit qu'il va se passer
+       quelque chose. On montre donc les deux repères, et on remplit contre le seuil. */
+    const pctSeuil = Math.min(100, Math.round(S.rssMo / Math.max(1, S.seuilMo) * 100));
+    /* ⚠️ ET LE RETARD DE LA BOUCLE EST LA MESURE QUI DIT « LE DESK RAME ». Node est mono-fil : une
+       charge processeur ne se voit pas dans la mémoire, elle se voit dans le temps que met un
+       minuteur à se déclencher. 200 ms de retard, c'est 200 ms de plus sur chaque requête. */
+    const cR = S.retardMs >= 400 ? '#ef4444' : S.retardMs >= 100 ? '#ffb300' : '#22c55e';
+    return void (el.innerHTML =
+      '<div class="aim-kv"><span>Mémoire du desk</span><b style="color:' + c + '">' + S.rssMo + ' Mo <span style="color:#6b7280;font-weight:400">/ ' + S.seuilMo + ' Mo avant nettoyage</span></b></div>'
+      + '<div class="aim-track" style="margin-top:7px"><i style="width:' + pctSeuil + '%;background:' + c + '"></i></div>'
+      + '<div class="aim-kpi-s" style="margin-top:5px">' + pctSeuil + '% du seuil · ' + S.memPct + '% des ' + S.limiteMo + ' Mo alloués au conteneur</div>'
+      + '<div class="aim-kv" style="margin-top:9px"><span title="Node est mono-fil : ce retard est le temps que chaque requête attend en plus.">Retard de traitement</span><b style="color:' + cR + '">' + S.retardMs + ' ms</b></div>'
+      + (S.charge1 == null ? '' : '<div class="aim-kv"><span title="Charge de l\'HÔTE, voisins compris : elle dit si la machine est chargée, quand le retard ci-dessus dit si c\'est NOUS qui la chargeons.">Charge système</span><b>' + S.charge1 + ' <span style="color:#6b7280;font-weight:400">sur ' + S.coeurs + ' cœur(s)' + (S.chargeParCoeur == null ? '' : ' · ' + Math.round(S.chargeParCoeur * 100) + '%') + '</span></b></div>')
+      + '<div class="aim-kv"><span>Tas JavaScript</span><b>' + S.heapMo + ' <span style="color:#6b7280;font-weight:400">/ ' + S.heapTotalMo + ' Mo</span></b></div>'
+      + '<div class="aim-kv"><span>En ligne depuis</span><b>' + _aimDuree(S.uptimeS) + ' <span style="color:#6b7280;font-weight:400">' + _esc2(S.node || '') + '</span></b></div>');
+  }
+  function aimRenderDisque(d) {
+    const el = document.getElementById('aim-disque'); if (!el) return;
+    const D = d.disque;
+    /* ⚠️ « PAS ENCORE MESURÉ » N'EST PAS « TOUT VA BIEN ». La première mesure du disque arrive
+       30 s après le démarrage : afficher 0% en attendant peindrait un vert rassurant sur une
+       absence d'information. On le dit. */
+    if (!D || D.pct == null) { el.innerHTML = '<div class="aim-j-empty">première mesure en cours (30 s après le démarrage)…</div>'; return; }
+    const c = _AIM_COUL[D.niveau] || '#22c55e';
+    const nom = D.nom || (D.niveau >= 2 ? 'à surveiller' : 'normal');
+    /* La sentinelle est le watchdog SYSTÈME (minuteur toutes les 15 min), et c'est elle qui agit
+       quand le desk lui-même ne répond plus. Son âge est donc une information de PREMIER plan :
+       muette, on n'a plus de filet, et personne ne le saurait. */
+    const sa = D.sentinelleAgeMin;
+    const cS = sa == null ? '#6b7280' : sa > 45 ? '#ef4444' : sa > 25 ? '#ffb300' : '#22c55e';
+    el.innerHTML =
+      '<div class="aim-kv"><span>Occupation</span><b style="color:' + c + '">' + D.pct + '% <span style="color:#6b7280;font-weight:400">' + _esc2(String(nom)) + '</span></b></div>'
+      + '<div class="aim-track" style="margin-top:7px"><i style="width:' + Math.min(100, D.pct) + '%;background:' + c + '"></i></div>'
+      + '<div class="aim-kpi-s" style="margin-top:5px">' + D.libreGo + ' Go libres sur ' + D.totalGo + ' Go</div>'
+      + (D.vitesseGoH ? '<div class="aim-kv" style="margin-top:9px"><span title="Une rafale qui projette la saturation à court terme fait monter le niveau quel que soit le pourcentage courant.">Vitesse</span><b>' + D.vitesseGoH + ' Go/h' + (D.tendance ? ' <span style="color:#6b7280;font-weight:400">' + _esc2(String(D.tendance)) + '</span>' : '') + '</b></div>' : '')
+      + (D.jours != null ? '<div class="aim-kv"><span>Saturation prévue</span><b style="color:' + (D.jours <= 7 ? '#ffb300' : '#22c55e') + '">dans ' + D.jours + ' j</b></div>' : '')
+      + '<div class="aim-kv"><span title="Minuteur systemd toutes les 15 min, AU NIVEAU DE L\'OS : c\'est lui qui agit quand le desk ne répond plus. Muet, il n\'y a plus de filet.">Sentinelle système</span><b style="color:' + cS + '">' + (sa == null ? 'jamais vue' : 'vue il y a ' + sa + ' min') + '</b></div>'
+      + (D.frein ? '<div style="font-size:10.5px;color:#ef4444;margin-top:6px;line-height:1.5">⚠ Frein actif : les écritures régénérables (caches, aperçus) sont suspendues le temps que la sentinelle nettoie.</div>' : '')
+      + (D.motif ? '<div style="font-size:10.5px;color:#ffb300;margin-top:6px;line-height:1.5">' + _esc2(String(D.motif)) + '</div>' : '');
+  }
+  /* ── LE SCHÉMA D'ARCHITECTURE, PEINT PAR L'ÉTAT RÉEL ────────────────────────────────────────
+     Vanille et SVG en ligne, comme tout le desk : aucune bibliothèque de diagrammes.
+     ⚠️ AUCUN BLOC N'EST PEINT « PAR DÉFAUT EN VERT ». Un état inconnu est GRIS, jamais vert : la
+     maladie du faux vert commence toujours par une valeur manquante qu'on a traitée en succès.
+     Chaque brique dit d'où vient sa couleur, et la légende en bas rappelle la règle. */
+  function _aimBrique(x, y, w, h, titre, valeur, coul) {
+    const c = coul || '#6b7280';
+    return '<g><rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="6" fill="#141418" stroke="' + c + '" stroke-width="1.2"/>'
+      + '<circle cx="' + (x + 11) + '" cy="' + (y + 14) + '" r="3.4" fill="' + c + '"/>'
+      + '<text x="' + (x + 21) + '" y="' + (y + 18) + '" fill="#e6e6ea" font-size="10.5" font-weight="700" font-family="Inter Tight, sans-serif">' + _esc2(titre) + '</text>'
+      + '<text x="' + (x + 11) + '" y="' + (y + 34) + '" fill="#8b93a1" font-size="9.5" font-family="JetBrains Mono, monospace">' + _esc2(valeur) + '</text></g>';
+  }
+  function _aimLien(x1, y1, x2, y2, coul) {
+    return '<path d="M' + x1 + ' ' + y1 + ' C' + x1 + ' ' + ((y1 + y2) / 2) + ', ' + x2 + ' ' + ((y1 + y2) / 2) + ', ' + x2 + ' ' + y2 + '" fill="none" stroke="' + (coul || '#26262c') + '" stroke-width="1.2" stroke-dasharray="3 3"/>';
+  }
+  /* ⚠️ `aimRenderSchema` ET NON `aimRenderInfra` : ce second nom est DÉJÀ pris, par le rendu des
+     cartes Email / Egress / Bases. Une seconde déclaration du même nom ne fait pas d'erreur en
+     JavaScript, elle REMPLACE la première en silence — et trois cartes du moniteur seraient
+     restées vides sans le moindre message, ni en console ni au banc (`js-verif` ne relève que les
+     identifiants JAMAIS déclarés, pas ceux déclarés deux fois). */
+  function aimRenderSchema(d) {
+    const el = document.getElementById('aim-infra'); if (!el) return;
+    const S = d.systeme, D = d.disque, DB = d.db, M = d.mail, E = d.egress, W = d.whop;
+    const GRIS = '#6b7280';
+    const cSys = S ? (_AIM_COUL[S.niveau] || GRIS) : GRIS;
+    const cDsk = (D && D.pct != null) ? (_AIM_COUL[D.niveau] || GRIS) : GRIS;
+    const cDb = DB && DB.count ? (DB.okCount >= DB.count ? '#22c55e' : DB.okCount ? '#ffb300' : '#ef4444') : GRIS;
+    const cMail = M ? (M.ok === false ? '#ef4444' : '#22c55e') : GRIS;
+    const cEg = E ? (E.tripped ? '#ef4444' : '#22c55e') : GRIS;
+    const cWhop = W ? (W.error ? '#ef4444' : '#22c55e') : GRIS;
+    const resync = DB && DB.nodes ? DB.nodes.filter(n => n.quarLect).length : 0;
+    const L = 700, C = (L - 2 * 168 - 22) / 2;   // trois colonnes de 168, deux gouttières de 22
+    const col = i => 11 + i * (168 + 22);
+    let g = '';
+    g += '<text x="11" y="14" fill="#8b93a1" font-size="9" font-weight="700" letter-spacing=".08em" font-family="Inter Tight, sans-serif">VPS 149.71.44.90 · DOCKER COMPOSE</text>';
+    g += _aimBrique(col(0), 24, 168, 46, 'Conteneur desk', S ? (S.rssMo + ' Mo · ' + S.retardMs + ' ms de retard') : 'état inconnu', cSys);
+    g += _aimBrique(col(1), 24, 168, 46, 'Disque', (D && D.pct != null) ? (D.pct + '% · ' + D.libreGo + ' Go libres') : 'pas encore mesuré', cDsk);
+    g += _aimBrique(col(2), 24, 168, 46, 'Sentinelle (systemd)', (D && D.sentinelleAgeMin != null) ? ('vue il y a ' + D.sentinelleAgeMin + ' min') : 'jamais vue', (D && D.sentinelleAgeMin != null && D.sentinelleAgeMin <= 25) ? '#22c55e' : (D && D.sentinelleAgeMin != null) ? '#ffb300' : GRIS);
+    g += _aimLien(col(0) + 84, 70, col(0) + 84, 104, cDb) + _aimLien(col(0) + 84, 70, col(1) + 84, 104, cEg) + _aimLien(col(1) + 84, 70, col(2) + 84, 104, cMail);
+    g += '<text x="11" y="98" fill="#8b93a1" font-size="9" font-weight="700" letter-spacing=".08em" font-family="Inter Tight, sans-serif">DONNÉES ET SORTIES</text>';
+    g += _aimBrique(col(0), 104, 168, 46, 'Bases Supabase', DB && DB.count ? (DB.okCount + '/' + DB.count + ' joignables' + (resync ? ' · ' + resync + ' resynchro' : '')) : 'sondes en cours', cDb);
+    g += _aimBrique(col(1), 104, 168, 46, 'Egress Supabase', E ? (E.tripped ? 'COUPURE ACTIVE' : Math.min(100, Math.round((E.bytes24h || 0) / Math.max(1, E.cap24h || 1) * 100)) + '% du plafond 24 h') : 'état inconnu', cEg);
+    g += _aimBrique(col(2), 104, 168, 46, 'Email (OVH)', M ? ((M.sent || 0) + ' envoyés · ' + (M.failed || 0) + ' échecs') : 'état inconnu', cMail);
+    g += _aimLien(col(0) + 84, 150, col(0) + 84, 184, cDb) + _aimLien(col(1) + 84, 150, col(1) + 84, 184, cWhop);
+    g += '<text x="11" y="178" fill="#8b93a1" font-size="9" font-weight="700" letter-spacing=".08em" font-family="Inter Tight, sans-serif">RATTRAPAGES AUTOMATIQUES</text>';
+    g += _aimBrique(col(0), 184, 168, 46, 'Miroir local + convergence', DB && DB.count ? 'superset à jour (volume)' : 'état inconnu', DB && DB.count ? '#22c55e' : GRIS);
+    g += _aimBrique(col(1), 184, 168, 46, 'Synchro Whop', W ? (W.error ? 'en erreur' : (W.checked || 0) + ' vérifié(s) · ' + (W.fixed || 0) + ' prolongé(s)') : 'pas encore passée', cWhop);
+    g += _aimBrique(col(2), 184, 168, 46, 'Keep-alive Supabase', (DB && DB.keepalive && DB.keepalive.last) ? (DB.keepalive.ok + '/' + DB.count + ' pingées') : 'jamais passé', (DB && DB.keepalive && DB.keepalive.last) ? (DB.keepalive.ok >= DB.count ? '#22c55e' : '#ffb300') : GRIS);
+    el.innerHTML = '<svg viewBox="0 0 ' + L + ' 240" width="100%" role="img" aria-label="Schéma de l\'infrastructure DataTradingPro, peint par l\'état réel de chaque brique">' + g + '</svg>'
+      + '<div class="aim-kpi-s" style="margin-top:8px;line-height:1.6">Chaque brique prend la couleur de son état RÉEL, lu dans la même mesure que les cartes ci-dessus : le schéma ne peut pas être en désaccord avec elles. <b style="color:#6b7280">Gris</b> = état inconnu, jamais « tout va bien » : une valeur manquante n\'est pas un succès.</div>';
+    const t = document.getElementById('aim-infra-t');
+    if (t) t.textContent = 'relevé ' + new Date(d.now || Date.now()).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
   function aimRenderJournal(d) {
     const all = (d.alerts && d.alerts.log) || [];
     const J = all.filter(e => !_aimJFilter || e.level === _aimJFilter);
@@ -2017,6 +2137,7 @@
     _aimLastData = d;
     if (_last) _last.textContent = 'MAJ à ' + new Date(d.now).toLocaleTimeString('fr-FR');
     aimRenderKpis(d); aimRenderProviders(d); aimRenderLegend(d); aimRenderForecast(d); aimRenderInfra(d); aimRenderJournal(d);
+    aimRenderSysteme(d); aimRenderDisque(d); aimRenderSchema(d);
     _amStacked('aim-trend-am', d.trend);
     const CATCOL = { analyst: 0xe3b23a, bank: 0x60a5fa, news: 0x22c55e, bias: 0xa78bfa, ratesbias: 0x14b8a6, weekahead: 0xf472b6, chat: 0xfbbf24, outlook: 0xef4444, weekly: 0x0ea5e9, dtpdaily: 0xfb923c };
     _amDonutCompact('aim-cat-am', Object.entries(d.categoriesToday || {}).filter(([, v]) => v > 0).map(([k, v]) => ({ cat: k, val: v, color: CATCOL[k] || 0x6b7280 })), 'aim-cat-legend');

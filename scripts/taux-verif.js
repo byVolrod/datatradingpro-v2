@@ -560,5 +560,65 @@ console.log('\n── Le pricing de marché ne se perd pas sur un nom de champ �
     'la raison existe côté serveur et personne ne peut la lire');
 }
 
+/* ══ LA DERNIÈRE RÉUNION TENUE, POUR LES HUIT BANQUES (11/09, demande utilisateur) ═══════════════
+   « On a les dates réu futures, ajoute aussi la dernière qui est passée, ce serait bien pour toutes
+   les banques. » La carte ne montrait que la PROCHAINE réunion : on savait quand la question serait
+   reposée, jamais quand elle avait été tranchée, alors que le taux affiché sort précisément de cette
+   réunion-là.
+   ⚠️ ON EXÉCUTE LA VRAIE FONCTION, EXTRAITE DE server.js. Un banc qui se contenterait de vérifier
+   que la chaîne « last: » existe dans le fichier serait vert sur une fonction qui rend toujours
+   null — c'est-à-dire sur un tiret à l'écran pour les huit banques. */
+{
+  console.log('\n── La dernière réunion tenue ──');
+  const d = SRV.indexOf('function _derniereReunion');
+  const f = SRV.indexOf('\n}', d) + 2;
+  v('_derniereReunion est extractible de server.js', d >= 0 && f > d);
+  const mD = SRV.match(/const CB_MEETINGS = \{[\s\S]*?\n\};/);
+  v('le calendrier CB_MEETINGS est extractible', !!mD);
+  if (d >= 0 && f > d && mD) {
+    const _der = new Function(mD[0] + '\n' + SRV.slice(d, f) + '\nreturn _derniereReunion;')();
+    const CODES = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'];
+    /* Un instant FIXE, choisi au milieu du calendrier : un banc calé sur `Date.now()` changerait de
+       verdict avec le temps, et se mettrait à mentir sans qu'on touche au code. */
+    const T = Date.parse('2026-09-11T12:00:00Z');
+    const manquantes = CODES.filter(c => !_der(c, T).date);
+    v('[exécuté] les HUIT banques ont une dernière réunion datée', manquantes.length === 0,
+      'sans date : ' + manquantes.join(', ') + ' — la carte afficherait un tiret');
+    /* ⚠️ ELLE EST BIEN PASSÉE, et c'est la moitié du contrôle : une fonction qui rendrait la
+       PROCHAINE réunion passerait le contrôle ci-dessus sans rien réparer. */
+    const futures = CODES.filter(c => { const r = _der(c, T); return r.date && Date.parse(r.date + 'T00:00:00Z') >= T; });
+    v('[exécuté] … et chacune est bien ANTÉRIEURE à l\'instant mesuré', futures.length === 0,
+      'dates futures rendues pour : ' + futures.join(', ') + ' : ce serait la prochaine, pas la dernière');
+    /* ⚠️ ET C'EST LA PLUS RÉCENTE DES PASSÉES, pas n'importe laquelle. Sans ce contrôle, rendre la
+       PREMIÈRE réunion du calendrier passerait les deux précédents. */
+    const eur = _der('EUR', T);
+    v('[exécuté] … et c\'est la PLUS RÉCENTE des réunions passées', eur.date === '2026-09-10',
+      'BCE au 11/09 : attendu 2026-09-10, obtenu ' + eur.date);
+    v('[exécuté] … avec son ancienneté en jours', eur.jours === 1, 'obtenu ' + eur.jours + ' jour(s)');
+    /* [témoin] Un code inconnu ne doit pas inventer de date. */
+    v('[témoin] une banque hors calendrier ne reçoit aucune date', _der('XXX', T).date === null,
+      'une date inventée pour un code inconnu serait pire qu\'un tiret');
+    /* [témoin] Avant la première réunion du calendrier, il n'y a rien à rendre. */
+    v('[témoin] avant la première réunion connue, aucune date', _der('USD', Date.parse('2026-01-01T00:00:00Z')).date === null,
+      'rendre une date antérieure au calendrier reviendrait à en fabriquer une');
+  }
+  /* Les deux chemins de rendu du serveur doivent porter le champ : celui du pricing de marché ET
+     le repli maison. En équiper un seul laisserait la moitié des banques sans date. */
+  v('les DEUX chemins du serveur portent la dernière réunion',
+    (SRV.match(/last: _der\.date/g) || []).length === 2,
+    'un seul chemin équipé : les banques servies par l\'autre afficheraient un tiret');
+  /* ⚠️ `CH` EST DÉCLARÉ DANS UN BLOC PRÉCÉDENT, DONC INVISIBLE ICI — et `node -c` ne le voit pas :
+     la grammaire est parfaite, l'erreur n'arrive qu'à l'exécution. C'est exactement le piège que ce
+     dépôt a documenté le 10/09 (une fonction appelée hors de sa portée, syntaxe impeccable). On
+     relit donc le fichier ici. */
+  const CHARTS = fs.readFileSync(path.join(RACINE, 'public/js/charts.js'), 'utf8');
+  /* Et la carte doit l'AFFICHER : un champ servi que personne ne lit est du texte mort. */
+  v('la carte affiche « Dernière réunion »', /Dernière réunion<\/span>/.test(CHARTS),
+    'le champ est servi et aucune ligne ne le montre');
+  v('… et « Date de réunion » devient explicite (« Prochaine réunion »)', /Prochaine réunion<\/span>/.test(CHARTS),
+    'deux dates sur la même carte sans intitulé distinct se confondent');
+  v('… en lisant b.last, pas une valeur recopiée', /b\.last \? fr\(b\.last\)/.test(CHARTS));
+}
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);

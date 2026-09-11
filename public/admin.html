@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260911bbg1172" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260911bbg1174" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -673,6 +673,25 @@
           <div class="panel-head"><h2>Bases Supabase</h2></div>
           <div class="panel-body" id="aim-db"></div>
         </div>
+        <!-- 11/09, demande user : « je dois voir les performances du serveur ainsi que le stockage
+             du disque dur ». Les deux étaient MESURÉS depuis des semaines et n'atteignaient aucun
+             écran : le disque avait son endpoint que rien n'appelait, la mémoire vivait dans le
+             garde anti-OOM. Surveiller sans montrer, c'est apprendre la panne par un client. -->
+        <div class="panel-card aim-card">
+          <div class="panel-head"><h2>Machine (VPS)</h2></div>
+          <div class="panel-body" id="aim-systeme"></div>
+        </div>
+        <div class="panel-card aim-card">
+          <div class="panel-head"><h2>Disque du VPS</h2></div>
+          <div class="panel-body" id="aim-disque"></div>
+        </div>
+      </div>
+      <!-- Le schéma d'architecture, DYNAMIQUE : chaque bloc prend la couleur de son état réel,
+           lu dans la même charge que les cartes ci-dessus. Un schéma figé se périme et ment ;
+           celui-ci ne peut pas être en désaccord avec les chiffres affichés juste au-dessus. -->
+      <div class="panel-card aim-card">
+        <div class="panel-head"><h2>Architecture DTP</h2><span class="ph-spacer"></span><span class="fin-sub" id="aim-infra-t"></span></div>
+        <div class="panel-body aim-infra-wrap"><div id="aim-infra"></div></div>
       </div>
       <div class="panel-card aim-card">
         <div class="panel-head"><h2>Journal des événements IA</h2><span class="ph-spacer"></span><span class="fin-sub" id="aim-j-count"></span>
@@ -847,6 +866,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260911bbg1172"></script>
+<script src="/js/admin.js?v=20260911bbg1174"></script>
 </body>
 </html>

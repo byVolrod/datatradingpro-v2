@@ -1554,6 +1554,7 @@ const DTP_UPDATES = [
   { id: 'dtpu-20260910-topbar-mobile', ts: Date.UTC(2026, 8, 10, 8, 0), title: 'Sur téléphone, la barre du haut tient enfin sur une seule ligne', desc: 'Sous 400 pixels de large — c’est-à-dire sur la plupart des téléphones — la barre du haut se coupait en DEUX rangées : le logo et vos icônes personnelles en haut, les outils et la recherche en dessous. À l’écran, une première ligne avec un vide de cent soixante pixels au milieu, une seconde qui commençait ailleurs, et deux hauteurs différentes. Rien ne s’alignait avec rien, et la barre mangeait quatre-vingt-quatre pixels de hauteur sur un écran qui n’en a pas de trop. TOUT TIENT SUR UNE LIGNE, ET C’EST MESURÉ : sur un écran de 390 pixels, le logo, les trois outils, la recherche et les cinq icônes de droite occupent trois cent quarante-neuf pixels. Il en restait quarante de libres, et on dépensait une rangée entière. La barre passe de quatre-vingt-quatre à cinquante-deux pixels : trente-deux pixels rendus au terminal, sur chaque écran. CE QUI RENDAIT LA LIGNE IMPOSSIBLE : une règle d’affichage donnait à la recherche toute la largeur disponible, ce qui annulait la case compacte prévue pour le mobile. La recherche s’étalait sur près de trois cents pixels et poussait tout le reste à la ligne. Elle redevient une case-icône — et ne perd rien au passage, puisqu’elle se déplie déjà en pleine largeur au moment où vous la touchez. SUR LES ÉCRANS LES PLUS ÉTROITS, les outils et les icônes de droite se chevauchaient carrément — vingt-cinq pixels de recouvrement mesurés sous 360 pixels. Les deux groupes se resserrent ensemble, sans qu’aucune icône ne disparaisse ni ne passe sous le seuil de ce qu’un pouce peut viser. Un contrôle automatique ouvre désormais la VRAIE barre du haut dans un navigateur, à 390 et 360 pixels, et vérifie qu’elle tient sur une ligne, qu’elle ne se replie pas, que rien ne se chevauche, que la recherche reste compacte et que les icônes partagent la même ligne d’horizon.' },
   { id: 'dtpu-20260911-journal-ouvrir', ts: Date.UTC(2026, 8, 11, 9, 30), title: 'Journal : le nom de votre trade ne disparaît plus sous le bouton « Ouvrir »', desc: 'Signalé par un client, capture à l’appui : « quand on glisse le curseur, le texte est caché dans le journal de trading ». C’est exact, et voici ce qui se passait. Dans la première colonne du journal, la commande « Ouvrir » apparaît au survol d’une ligne. Elle ne poussait rien : elle se posait PAR DESSUS le nom. Mesuré sur le vrai tableau, cinquante-deux pixels du nom passaient dessous, et un titre un peu long était intégralement recouvert. Autrement dit, vous perdiez l’information que vous visiez au moment précis où vous la visiez : AUDCHF devenait « AU », et deux lignes voisines ne se distinguaient plus l’une de l’autre. LA PLACE EST DÉSORMAIS RÉSERVÉE EN PERMANENCE, et non au survol. Réserver au survol aurait fait sauter la colonne sous votre curseur : on aurait remplacé un texte masqué par un texte qui bouge, ce qui se lit plus mal encore. Le bouton étant invisible au repos, cette place ne se voit pas, rien ne saute, et plus rien n’est jamais recouvert. Un titre trop long pour sa colonne est maintenant coupé proprement par des points de suspension, au lieu de déborder sous le bouton. LE MÊME DÉFAUT AVAIT DÉJÀ ÉTÉ RÉPARÉ SUR TÉLÉPHONE le 4 septembre, et seulement là : au doigt il n’y a pas de survol, le bouton reste affiché en permanence, et c’est cette moitié qui avait été traitée. La moitié « souris » est restée ouverte sept jours. Le widget Journal portait la même réserve, calculée six pixels trop courte : il est corrigé par la même règle, les deux tableaux ne peuvent plus diverger. UN CONTRÔLE AUTOMATIQUE OUVRE MAINTENANT LE VRAI JOURNAL dans un navigateur à chaque livraison, survole une ligne pour de bon, et compare les deux rectangles réellement dessinés : celui du nom et celui du bouton. Il éprouve un nom court et un titre long, et refuse la livraison si l’un des deux repasse sous la commande.' },
   { id: 'dtpu-20260911-onglets-etroits', ts: Date.UTC(2026, 8, 11, 10, 30), title: 'Panneau à onglets : le dernier onglet se lit enfin, même sur une carte étroite', desc: 'Signalé par un client : « je peux pas décaler vers la droite après l’onglet banques ». C’est exact, et ce n’était PAS un problème de défilement : le balayage fonctionnait très bien. VOICI CE QUI SE PASSAIT. Dans une carte à onglets, les quatre commandes du coin haut droit (actualiser, remplacer, aide, fermer) occupent une plaque de cent soixante pixels, et la rangée d’onglets s’arrête juste avant pour ne jamais passer dessous. Sur une carte large, il reste de la place pour tout le monde. Sur une carte étroite, non : mesuré sur la disposition par défaut en quatre colonnes, la carte fait deux cent quarante sept pixels, la plaque en réserve cent soixante dix, et il restait SOIXANTE QUINZE pixels de piste pour neuf onglets. Or l’onglet BANQUES en fait quatre vingt six : il était plus large que la fenêtre censée le montrer. Arrivé au bout de la rangée, il restait coupé à quarante et un pixels sur soixante dix sept, et aucun geste au monde ne pouvait finir de le révéler. LA PLAQUE CÈDE, LES ONGLETS RESTENT. Quand la piste devient trop étroite pour montrer le plus large de vos onglets, l’en-tête passe de lui-même sur deux lignes : les commandes gardent la première, la rangée d’onglets prend toute la largeur sur la seconde. C’est le bon partage : les commandes ont un repli, un onglet qu’on ne peut pas lire est un onglet perdu. Les onglets ne repassent PAS sous la plaque pour autant, ils y seraient invisibles ET incliquables. LE SEUIL N’EST PAS UN CHIFFRE CHOISI : il est mesuré sur VOS onglets, à partir du plus large d’entre eux. Renommez un onglet plus long, et la bascule suit. Et elle suit aussi quand vous redimensionnez votre fenêtre, ce qui n’allait pas de soi : la première écriture ne recalculait la bascule qu’au chargement, et c’est un contrôle automatique qui l’a dit avant la mise en ligne. SUR TÉLÉPHONE RIEN NE CHANGE, et c’est instructif : sous quatre cents pixels la grille passe à une seule colonne, la carte fait quatre cent vingt neuf pixels et la rangée tenait déjà. Le petit écran n’était pas le cas difficile. Un contrôle automatique éprouve désormais cette largeur intermédiaire à chaque livraison, avec son témoin : on retire la seconde ligne, et le dernier onglet doit redevenir illisible.' },
+  { id: 'dtpu-20260911-taux-derniere-reunion', ts: Date.UTC(2026, 8, 11, 11, 15), title: 'Onglet Taux : la carte dit maintenant aussi QUAND la dernière décision a été prise', desc: 'Demande d’un client : « on a les dates des réunions futures, ajoute aussi la dernière qui est passée, ce serait bien pour toutes les banques ». La carte d’une banque centrale portait une ligne « Date de réunion », et c’était la PROCHAINE. On savait donc quand la question serait reposée, jamais quand elle avait été tranchée. OR LE TAUX AFFICHÉ JUSTE AU DESSUS SORT PRÉCISÉMENT DE CETTE RÉUNION PASSÉE. Sans sa date, impossible de savoir s’il date d’une semaine ou de quatre mois, et donc à quel point la prochaine décision est chargée : une banque qui n’a pas bougé depuis quatre mois et une banque qui vient de trancher ne se lisent pas de la même façon, même avec le même chiffre à l’écran. Les deux dates se lisent ensemble ou ne se lisent pas. LES DEUX INTITULÉS DEVIENNENT EXPLICITES : « Prochaine réunion » et « Dernière réunion ». Deux dates sur une même carte sans intitulé distinct se confondent, et c’était le défaut d’origine. L’ancienneté en jours s’affiche au survol de la date, pas sur la ligne : la carte est dense, et « il y a 83 jours » est un complément, pas la donnée. POUR LES HUIT BANQUES, sans exception, et c’était le point délicat. Le fournisseur de pricing ne transmet que des réunions À VENIR : y chercher une date passée n’aurait jamais rien donné, et la moitié des banques ne sont de toute façon pas servies par lui. La date vient donc du calendrier complet du desk, le même pour les huit et le même pour la prochaine réunion : les deux lignes ne peuvent pas se contredire. ON DIT QUAND, PAS CE QUI A ÉTÉ DÉCIDÉ. Accoler un verdict à cette date reviendrait à affirmer qu’on a lu le communiqué de cette réunion précise, ce qui n’est pas garanti pour les huit banques. La provenance du taux, elle, reste écrite en pied de carte comme avant. Un contrôle automatique exécute désormais le vrai calcul à chaque livraison et vérifie, pour les huit, que la date rendue est bien passée, qu’elle est bien la PLUS RÉCENTE des passées, et qu’une banque hors calendrier n’en reçoit aucune plutôt qu’une date inventée.' },
   { id: 'dtpu-20260909-noms-widgets', ts: Date.UTC(2026, 8, 9, 23, 30), title: 'Les noms de widgets sont raccourcis : douze intitulés cessent de passer à la ligne', desc: 'Les noms s’affichent dans les cartes de la bibliothèque et en tête de chaque widget posé sur votre desk. Au-delà d’une vingtaine de caractères ils passaient sur deux lignes ou se faisaient couper — dix d’entre eux allaient de vingt-quatre à vingt-huit caractères. DOUZE INTITULÉS SONT RESSERRÉS, sans rien perdre de leur sens : « Compte à rebours d’événement » devient « Compte à rebours », « Corrélations entre paires » devient « Corrélations », « Calculatrice de position » devient « Calculatrice », « Performance de la semaine » devient « Performance hebdo », « Rendement moyen par mois » devient « Rendement mensuel », « Matrice de taux croisés » devient « Taux croisés ». Le plus long du catalogue passe de vingt-huit à vingt-trois caractères, et la moyenne de dix-neuf virgule sept à dix-sept virgule deux. DEUX NOMS EN PROFITENT POUR DEVENIR PLUS JUSTES : « Historique du Sentiment » devient « Historique du risque », qui dit ce qu’il montre et se lit en paire avec « Sentiment de Risque » ; « Probabilité de mouvement » devient « Atteinte d’un seuil », qui est exactement ce que la carte calcule. VOS DESKS NE BOUGENT PAS : les dispositions enregistrées désignent chaque widget par son identifiant, jamais par son nom. Rien à refaire, rien à replacer. Et un contrôle automatique mesure désormais TOUS les noms du catalogue à chaque livraison — pas seulement les douze corrigés : le treizième, ajouté plus tard, ne pourra pas rallonger la liste sans que ce soit un choix.' },
   { id: 'dtpu-20260909-rebours-lisible', ts: Date.UTC(2026, 8, 9, 23, 0), title: 'Compte à rebours d’événement : le nom de la publication se lit enfin, et les mentions grises passent le seuil', desc: 'Retour sur la carte du compte à rebours, capture à l’appui. Le chiffre du décompte était parfaitement visible ; tout le reste l’était beaucoup moins. TROIS TEXTES ÉTAIENT SOUS LE SEUIL DE LISIBILITÉ, et ce n’est pas une impression : mesuré, le gris employé donnait un contraste de 3,96 pour 1 sur le fond du desk, là où la norme demande 4,5 pour 1 sur du petit texte — et deux de ces trois textes étaient en 9,5 pixels. Ils passent sur le gris secondaire, à 7,35 pour 1, et gagnent un point de taille. Même correction en thème clair, qui était lui aussi juste en dessous. ET LE NOM DE LA PUBLICATION CESSE D’ÊTRE UNE LÉGENDE. C’est le sujet de la carte — ce qu’on attend, la raison du décompte — et il s’affichait en gris, plus petit que le reste. Il est désormais en blanc, à la taille du texte courant. CE QUI N’A PAS ÉTÉ TOUCHÉ : le gris éteint du desk lui-même. Il habille des centaines d’éléments, et le remonter pour régler une carte aurait déplacé la hiérarchie visuelle de tout le terminal. La correction reste là où était le problème.' },
   { id: 'dtpu-20260909-espacement-layout', ts: Date.UTC(2026, 8, 9, 22, 0), title: 'L’espacement du desk se règle là où vous choisissez votre disposition', desc: 'Le réglage « Espacés / Collés » décide de la respiration ENTRE vos widgets une fois posés : c’est une propriété de la DISPOSITION. Il vivait pourtant dans la bibliothèque de widgets, l’écran où l’on choisit QUELS widgets ajouter, coincé à côté des filtres par catégorie. On le trouve désormais dans « Mes layouts », au-dessus de la liste de vos dispositions, là où on le cherche. ET IL SE COMPORTE ENFIN CORRECTEMENT QUAND ON RESTE DEVANT. Basculer l’espacement resserrait bien le desk, mais ne rafraîchissait pas son propre bouton : « Espacés » restait allumé alors que « Collés » venait d’être appliqué. Le défaut ne se voyait pas tant que le réglage vivait dans la bibliothèque, qui recalculait cet état à chaque ouverture ; il devenait visible dès qu’on reste sur le panneau. Le bouton suit maintenant le clic. Un contrôle automatique garde les deux moitiés ensemble : déplacer le bloc sans déplacer le calcul de son état actif aurait ouvert le panneau avec deux boutons éteints — le réglage en place, et l’écran affirmant le contraire.' },
@@ -7450,6 +7451,10 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
          même chose, ni depuis quand. Une tâche que personne ne regarde est une tâche dont on
          apprend l'arrêt par un client ; c'est très exactement l'histoire du keep-alive resté
          vert deux mois et demi en ne pinguant rien. Elle s'affiche donc à côté des bases. */
+      /* La machine et son disque, dans la MÊME charge que le reste du moniteur : un second appel
+         serait un second endroit à tenir à jour, et le panneau se rafraîchit déjà d'un bloc. */
+      systeme: (() => { try { return _systemeEtat(); } catch (e) { return null; } })(),
+      disque: (() => { try { return Object.assign({}, _disqueEtat, { seuils: _DISQUE_SEUILS, planchersGo: _DISQUE_GO }); } catch (e) { return null; } })(),
       whop: _whopReconLast || null,
       whopBans: _whopBanLast || null,
       alerts: { log: _aiAlertLog.slice(0, 40), incidents: _aiAlertSent },   // journal INFO/incidents (le monitoring voit TOUT ; l'email est calibré sur l'impact réel)
@@ -13226,6 +13231,7 @@ function _cbMergeRates(cbArr) {
     if (!r) return Object.assign({}, c, { bank, code, bias5: _cbBias5(null, 0, c.stance) });
     return Object.assign({}, c, {
       bank, code, rate: r.rate, scenario: r.scenario, move: r.move, next: r.next, nextDays: r.nextDays,
+      last: r.last, lastDays: r.lastDays,   // la dernière réunion TENUE : même source que la prochaine, donc jamais en désaccord
       expBps: r.expBps, source: r.source, bias5: _cbBias5(r.move, r.expBps, c.stance),   // source: 'market' (rateprobability) | 'maison' (modele DTP, ex. SNB/RBNZ non cotes) -> etiquetage honnete cote UI
     });
   });
@@ -19477,6 +19483,29 @@ function _origineTaux(code, rate, srcMarche, srcAt) {
   return { via: 'ancre', libelle: cb.full || cb.bank || code, date: cb.ancre || null };
 }
 const _maisonLog = {};
+/* ══ LA DERNIÈRE RÉUNION TENUE, POUR LES HUIT BANQUES (11/09, demande utilisateur) ════════════════
+   « On a les dates réu futures, ajoute aussi la dernière qui est passée, ce serait bien pour toutes
+   les banques. » La carte ne montrait que « Date de réunion », c'est-à-dire la PROCHAINE : on savait
+   quand la question serait reposée, jamais quand elle avait été tranchée. Or le taux affiché SORT de
+   cette réunion-là : sans sa date, un lecteur ne peut pas savoir si le chiffre date d'une semaine ou
+   de quatre mois, et donc à quel point la prochaine décision est chargée.
+   ⚠️ LA SOURCE EST LE CALENDRIER, PAS LE FOURNISSEUR DE PRICING. `meetings` du fournisseur ne
+   contient QUE des réunions à venir : y chercher une date passée ne rendrait jamais rien, et la
+   moitié des banques (celles servies en repli maison) n'en ont de toute façon pas. `CB_MEETINGS`
+   porte le calendrier COMPLET des huit banques, passé compris : une seule source pour les deux
+   chemins de rendu, donc aucun moyen qu'ils divergent.
+   ⚠️ ON NE DIT PAS CE QUI A ÉTÉ DÉCIDÉ, on dit QUAND. Le taux affiché a sa propre provenance
+   (`rateSrc`), déjà écrite en pied de carte. Accoler un verdict à cette date reviendrait à affirmer
+   qu'on a lu le communiqué de cette réunion précise, ce qui n'est pas garanti pour les huit. */
+function _derniereReunion(code, now) {
+  const passees = (CB_MEETINGS[code] || []).filter(d => Date.parse(d + 'T00:00:00Z') < now).sort();
+  if (!passees.length) return { date: null, jours: null };
+  const d = passees[passees.length - 1];
+  /* ⚠️ `Math.floor`, PAS `Math.round` : on compte les jours ÉCOULÉS. Une réunion de la veille à
+     minuit vue à midi fait 36 heures — arrondie, elle se lirait « il y a 2 jours » alors qu'on est
+     le lendemain. Le banc l'a attrapé avant la production. */
+  return { date: d, jours: Math.max(0, Math.floor((now - Date.parse(d + 'T00:00:00Z')) / 86400000)) };
+}
 function _buildRatesPayload() {
   try { _refreshRates(); } catch {}
   try { _calendrierEcritTaux(); } catch {}   // recale st.rate sur la dernière décision réelle (throttle interne ~10 min)
@@ -19491,8 +19520,9 @@ function _buildRatesPayload() {
     // `move` = TENDANCE cumulée ~6,5 mois (rateprobability) — conservée telle quelle (alimente GEW, bias5, chat).
     // `stance` = PROCHAIN MOUVEMENT (FedWatch/biais maison curé) = MÊME source que le Radar de Biais → header TAUX cohérent.
     const stance = _sbStanceMove(b.code);
+    const _der = _derniereReunion(b.code, now);
     if (rp && _rpAge < 12 * 3600 * 1000) return { code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: rp.rate,
-      next: rp.next, nextDays: rp.nextDays, move: _rpDirMove(rp.meetings, rp.rate), stance, prob: rp.prob, expBps: rp.expBps,
+      next: rp.next, nextDays: rp.nextDays, last: _der.date, lastDays: _der.jours, move: _rpDirMove(rp.meetings, rp.rate), stance, prob: rp.prob, expBps: rp.expBps,
       scenario: rp.scenario, meetings: rp.meetings, source: 'market',
       srcAt: _rpBankAt[b.code] || _rpCache.at || null,   // fraîcheur PAR banque → le badge de la carte peut dire « actualisé à HH:MM »
       rateSrc: _origineTaux(b.code, rp.rate, true, _rpBankAt[b.code] || _rpCache.at || null),   // provenance du TAUX, distincte de celle du pricing
@@ -19519,6 +19549,7 @@ function _buildRatesPayload() {
     return {
       code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: st.rate,
       next: n ? n.date : null, nextDays: n ? n.days : null,
+      last: _der.date, lastDays: _der.jours,
       move: ({ hike: 'HIKE', cut: 'CUT', hold: 'HOLD' }[bb.bias] || 'HOLD'),   // en-tête DIRECTIONNEL (cohérent avec les cartes marché ; le biais maison EST déjà une direction)
       stance,   // PROCHAIN MOUVEMENT (FedWatch/biais maison curé) = header TAUX aligné sur le Radar de Biais
       prob: Math.round(Math.max(sc0.hold, sc0.hike, sc0.cut) * 10000) / 100, expBps: +sc0.impliedBps.toFixed(1),
@@ -28294,6 +28325,56 @@ function _memLimiteMo() {
 // Plancher 400 Mo (comportement d'origine sur un petit hôte) ; plafond 1500 Mo — au-delà, une RSS qui
 // grimpe autant signale une vraie fuite, et purger les navigateurs reste la bonne réaction.
 const _MEM_SEUIL_MO = Math.min(1500, Math.max(400, Math.round(_memLimiteMo() * 0.55)));
+/* ══ CE QUE LE PANNEAU ADMIN NE MONTRAIT PAS : LA SANTÉ DE LA MACHINE (11/09, demande user) ══════
+   « Dans le panel admin je dois voir les performances du serveur ainsi que le stockage du disque
+   dur. » Les deux existaient déjà côté serveur et n'atteignaient AUCUN écran : le disque a son
+   endpoint (`/api/admin/disque`) que le panneau n'appelait pas, et la mémoire était surveillée
+   par le garde anti-OOM ci-dessus sans être exposée nulle part. Surveiller sans montrer, c'est
+   apprendre la panne par un client : la leçon du keep-alive resté vert deux mois et demi.
+   ⚠️ LE RETARD DE LA BOUCLE D'ÉVÉNEMENTS EST LA MESURE QUI COMPTE, et c'est la seule que Node ne
+   donne pas tout faite. Node est mono-fil : une charge processeur ne se voit pas dans la mémoire,
+   elle se voit dans le TEMPS que met un minuteur à se déclencher. Un retard de 200 ms signifie que
+   chaque requête attend 200 ms de plus, et c'est exactement ce que ressent un client quand le desk
+   « rame » sans qu'aucun compteur ne bouge. On mesure l'écart entre l'échéance demandée et
+   l'instant réel, lissé sur les dernières secondes pour ne pas rapporter un hoquet isolé.
+   La charge système (`os.loadavg`) est gardée À CÔTÉ, pas à la place : sur un VPS partagé elle dit
+   la charge de l'HÔTE, voisins compris, quand le retard de boucle dit celle de NOTRE processus.
+   Les deux ensemble distinguent « le serveur est chargé » de « nous chargeons le serveur ». */
+let _boucleRetardMs = 0;
+(function _mesurerBoucle() {
+  const PAS = 500;
+  let attendu = Date.now() + PAS;
+  setInterval(() => {
+    const ecart = Math.max(0, Date.now() - attendu);
+    /* Lissage exponentiel : un seul relevé haut est un hoquet (un ramasse-miettes, une écriture
+       disque), une SUITE de relevés hauts est une charge. On rapporte la seconde, pas le premier. */
+    _boucleRetardMs = _boucleRetardMs * 0.7 + ecart * 0.3;
+    attendu = Date.now() + PAS;
+  }, PAS).unref && null;
+})();
+function _systemeEtat() {
+  const m = process.memoryUsage();
+  const limiteMo = Math.round(_memLimiteMo());
+  const rssMo = Math.round(m.rss / 1048576);
+  const retard = Math.round(_boucleRetardMs);
+  /* Le niveau suit la MÊME grammaire que le disque : on ne réinvente pas une échelle par écran.
+     La mémoire se juge contre le SEUIL D'ACTION réel (celui qui déclenche le nettoyage anti-OOM),
+     pas contre la limite du conteneur : c'est à ce seuil-là qu'il se passe quelque chose. */
+  const memPct = Math.min(100, Math.round(rssMo / Math.max(1, limiteMo) * 100));
+  const niveau = (rssMo >= _MEM_SEUIL_MO || retard >= 400) ? 3
+    : (rssMo >= _MEM_SEUIL_MO * 0.85 || retard >= 200) ? 2
+    : (rssMo >= _MEM_SEUIL_MO * 0.7 || retard >= 100) ? 1 : 0;
+  let charge = null, coeurs = 0;
+  try { charge = os.loadavg()[0]; coeurs = (os.cpus() || []).length || 0; } catch (e) {}
+  return {
+    rssMo, heapMo: Math.round(m.heapUsed / 1048576), heapTotalMo: Math.round(m.heapTotal / 1048576),
+    externeMo: Math.round((m.external || 0) / 1048576),
+    limiteMo, seuilMo: _MEM_SEUIL_MO, memPct,
+    retardMs: retard, charge1: charge == null ? null : Math.round(charge * 100) / 100, coeurs,
+    chargeParCoeur: (charge == null || !coeurs) ? null : Math.round(charge / coeurs * 100) / 100,
+    uptimeS: Math.round(process.uptime()), node: process.version, niveau,
+  };
+}
 console.log(`[MEM] seuil de nettoyage : ${_MEM_SEUIL_MO} Mo (mémoire disponible ~${Math.round(_memLimiteMo())} Mo)`);
 setInterval(() => {
   try {

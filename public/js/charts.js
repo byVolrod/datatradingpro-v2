@@ -4249,7 +4249,22 @@ const _RTC_MESURE_AIDE = {
       + '<div class="rtc-m"><span class="rtc-k"'
       + (_RTC_MESURE_AIDE[b.code] ? ' title="' + _RTC_MESURE_AIDE[b.code].replace(/"/g, '&quot;') + '"' : '')
       + '>' + (_RTC_MESURE[b.code] || 'Taux actuel') + '</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
-      + '<div class="rtc-m"><span class="rtc-k">Date de réunion</span><span class="rtc-v w">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
+      /* ⚠️ « DATE DE RÉUNION » NE DISAIT PAS LAQUELLE (11/09, demande user : « on a les dates réu
+         futures, ajoute aussi la dernière qui est passée, pour toutes les banques »). La carte ne
+         montrait que la PROCHAINE : on savait quand la question serait reposée, jamais quand elle
+         avait été tranchée. Or le taux juste au-dessus SORT de cette réunion passée : sans sa date,
+         impossible de savoir s'il date d'une semaine ou de quatre mois, donc à quel point la
+         prochaine décision est chargée. Les deux dates se lisent ensemble ou ne se lisent pas.
+         L'intitulé devient explicite des deux côtés : « Prochaine réunion » / « Dernière réunion ».
+         ⚠️ ON DIT QUAND, PAS CE QUI A ÉTÉ DÉCIDÉ. La provenance du taux est déjà écrite en pied de
+         carte (`rateSrc`) ; accoler un verdict à cette date reviendrait à affirmer qu'on a lu le
+         communiqué de cette réunion précise, ce qui n'est pas garanti pour les huit banques.
+         ⚠️ ET L'ANCIENNETÉ EST DANS L'INFOBULLE, PAS SUR LA LIGNE : la carte est dense, et « il y a
+         83 jours » est un complément, pas la donnée. */
+      + '<div class="rtc-m"><span class="rtc-k">Prochaine réunion</span><span class="rtc-v w">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
+      + '<div class="rtc-m"><span class="rtc-k" title="La réunion d\'où sort le taux directeur affiché ci-dessus. Sa provenance exacte est indiquée en pied de carte.">Dernière réunion</span><span class="rtc-v w"'
+      + (b.lastDays != null ? ' title="il y a ' + b.lastDays + ' jour' + (b.lastDays > 1 ? 's' : '') + '"' : '')
+      + '>' + (b.last ? fr(b.last) : '&mdash;') + '</span></div>'
       + '</div>'
       + '<div class="rtc-dist"><div class="rtc-dist-h">Distribution des scénarios</div>' + scRows
       + '<div class="rtc-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div></div>'
