@@ -293,6 +293,103 @@ console.log('\n── 3 quater. Les maquettes de widgets suivent le produit ─�
     lignes.every(n => n <= 2), 'étiquettes par ligne : ' + lignes.join(' '));
 }
 
+/* ══ 3 sexies. CE QUI DÉCIDE DU RÉFÉRENCEMENT, ET QUI SE DÉGRADE SANS BRUIT (11/09) ══════════════
+   Demande de l'utilisateur : mettre datatradingpro.com en tête sur « terminal trading forex ».
+   L'audit a montré que les balises, le JSON-LD, les sitemaps et le robots.txt étaient DÉJÀ en
+   place : ce n'était pas là que ça pêchait. Trois choses l'étaient, et aucune ne se voit en
+   relisant une page seule — elles ne se voient qu'en mesurant le SITE.
+
+   1. ⚠️ LES QUATRE PAGES QUI VISENT LA REQUÊTE ÉTAIENT À DEUX CLICS. `terminal-de-trading`,
+      `meilleur-terminal-de-trading`, `terminal-de-trading-gratuit` et `terminal-macro-forex-francais`
+      n'étaient atteignables que par la documentation, pendant que les mentions légales, elles,
+      étaient à UN clic depuis l'accueil. Or l'accueil est la page qui reçoit toute l'autorité
+      externe : elle la distribuait donc aux pages obligatoires et pas aux pages cibles. Le pied de
+      page ayant été volontairement réduit le 27/08 (« trop de liens »), la réparation passe par des
+      liens CONTEXTUELS dans les réponses de la FAQ, qui valent mieux en référencement et n'ajoutent
+      aucune interface.
+   2. ⚠️ LE BALISAGE FAQ NE COUVRAIT PAS TOUTE LA FAQ. Onze questions à l'écran, huit déclarées :
+      les deux plus utiles (« meilleur terminal », « alternative française ») manquaient. Un
+      balisage qui ne correspond pas au visible est au mieux ignoré, au pire sanctionné.
+   3. ⚠️ HUIT DESCRIPTIONS DÉPASSAIENT LA COUPE. Au-delà d'environ 160 caractères, la page de
+      résultats tronque, et c'est la FIN qui saute, donc exactement ce qui différencie.
+
+   ON MESURE LE SITE, PAS UNE PAGE. Chacun de ces trois défauts est invisible dans le fichier où il
+   vit : il n'apparaît qu'en parcourant le graphe de liens, ou en comparant deux représentations du
+   même contenu. C'est précisément le genre de chose qui se re-dégrade au premier coup de balai. */
+console.log('\n── 3 sexies. Référencement : ce qui se dégrade sans bruit ──');
+{
+  const DOC = path.join(LAND, 'documentation');
+  const pages = fs.readdirSync(DOC).filter(f => f.endsWith('.html'));
+
+  /* (1) PROFONDEUR DEPUIS L'ACCUEIL — on parcourt le VRAI graphe de liens, on ne cherche pas une
+     chaîne : un `href` peut exister dans un commentaire, ou pointer vers un fichier absent. */
+  const versFichier = (u) => {
+    u = String(u).split('#')[0].split('?')[0].replace(/^https:\/\/datatradingpro\.com/, '');
+    if (/^(mailto:|tel:|https?:)/.test(u)) return null;
+    u = u.replace(/^\//, '');
+    if (!u) u = 'index.html';
+    if (u.endsWith('/')) u += 'index.html';
+    if (!u.endsWith('.html')) u += '.html';
+    return fs.existsSync(path.join(LAND, u)) ? u : null;
+  };
+  const sortants = (f) => [...fs.readFileSync(path.join(LAND, f), 'utf8').matchAll(/href="([^"]+)"/g)]
+    .map(m => versFichier(m[1])).filter(Boolean);
+  const prof = { 'index.html': 0 };
+  for (let file = ['index.html']; file.length;) {
+    const f = file.shift();
+    for (const l of sortants(f)) if (prof[l] === undefined) { prof[l] = prof[f] + 1; file.push(l); }
+  }
+  /* Les quatre pages qui portent la requête « terminal (de) trading forex ». Ce sont ELLES qui
+     doivent recevoir l'autorité de l'accueil, pas les pages obligatoires. */
+  const CIBLES = ['terminal-de-trading', 'meilleur-terminal-de-trading', 'terminal-de-trading-gratuit', 'terminal-macro-forex-francais'];
+  const loin = CIBLES.filter(c => prof['documentation/' + c + '.html'] !== 1);
+  v('les pages qui visent « terminal trading forex » sont à UN clic de l\'accueil', !loin.length,
+    loin.map(c => c + ' : ' + (prof['documentation/' + c + '.html'] === undefined ? 'inatteignable' : prof['documentation/' + c + '.html'] + ' clics')).join(' · ')
+    + ' — l\'accueil reçoit toute l\'autorité externe, il doit la passer aux pages cibles');
+  /* ⚠️ TÉMOIN : si TOUTES les pages étaient à un clic, le contrôle ci-dessus serait vrai sans rien
+     prouver (un pied de page de trente-cinq liens le rendrait vert). On exige donc que la
+     profondeur DISTINGUE encore : des pages secondaires restent volontairement à deux clics,
+     conformément à la réduction du pied de page décidée le 27/08. */
+  const secondaires = pages.filter(f => prof['documentation/' + f] > 1).length;
+  v('… sans avoir rouvert le pied de page en plan du site', secondaires >= 5,
+    secondaires + ' page(s) au-delà d\'un clic : si tout est à un clic, le contrôle précédent ne mesure plus rien');
+
+  /* (2) LE BALISAGE FAQ COUVRE TOUTE LA FAQ VISIBLE. */
+  const qJson = [...IDX.matchAll(/"@type": "Question",\s*\n\s*"name": "([^"]+)"/g)].map(m => m[1]);
+  const qVis = [...IDX.matchAll(/<details class="qa"><summary>(.*?)<span class="ic"/g)].map(m => m[1].trim());
+  v('la FAQ visible est entièrement balisée', qVis.length > 0 && qJson.length === qVis.length,
+    qVis.length + ' question(s) à l\'écran pour ' + qJson.length + ' déclarée(s) : un balisage qui ne correspond pas au visible est ignoré');
+  const nonBalisees = qVis.filter(q => !qJson.includes(q));
+  v('… question par question, pas seulement en nombre', !nonBalisees.length, nonBalisees.join(' | '));
+  /* La question qui ouvre la FAQ est la question POSÉE au moteur : c'est ce format définitionnel
+     que l'aperçu génératif extrait. La perdre, c'est sortir de cette conversation. */
+  v('… et elle répond à « qu\'est-ce qu\'un terminal de trading forex »',
+    /Qu'est-ce qu'un terminal de trading forex/.test(IDX),
+    'sans réponse définitionnelle, la vitrine vend à qui sait déjà ce qu\'il cherche');
+
+  /* (3) LES DESCRIPTIONS TIENNENT SOUS LA COUPE — et existent. */
+  const CAP = 160, PLANCHER = 70;
+  const trop = [], vides = [];
+  for (const f of pages) {
+    const s2 = fs.readFileSync(path.join(DOC, f), 'utf8');
+    const m = s2.match(/<meta name="description" content="([^"]*)"/);
+    if (!m || !m[1].trim()) { vides.push(f); continue; }
+    if (m[1].length > CAP || m[1].length < PLANCHER) trop.push(f + ' (' + m[1].length + ')');
+  }
+  v('chaque page de documentation a une description', !vides.length, vides.join(', '));
+  v('… et aucune ne sera tronquée dans les résultats', !trop.length,
+    trop.join(', ') + ' — au-delà de ' + CAP + ' caractères, c\'est la FIN qui saute, donc ce qui différencie');
+
+  /* (4) LE SITEMAP DÉCLARE TOUT CE QUI EXISTE, ET RIEN QUI N'EXISTE PAS. */
+  const SM = fs.readFileSync(path.join(LAND, 'sitemap-pages.xml'), 'utf8');
+  const locs = [...SM.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
+  const absentes = pages.filter(f => f !== 'index.html' && !locs.some(u => u.endsWith('/' + f)));
+  v('le sitemap déclare toutes les pages de documentation', !absentes.length, absentes.join(', '));
+  const fantomes = locs.map(versFichier).map((r, i) => r ? null : locs[i]).filter(Boolean)
+    .filter(u => !/\/actualites/.test(u));
+  v('… et aucune URL sans fichier', !fantomes.length, fantomes.join(', '));
+}
+
 console.log('\n── 4. Rendu réel, dans un navigateur ──');
 (async () => {
   let pp = null;
