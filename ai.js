@@ -363,15 +363,41 @@ function _aiStat(f) {
 // Après 3 échecs TOTAUX consécutifs de generateText (tous providers down — le scénario de
 // l'incident), backoffActive() devient vrai pendant une fenêtre exponentielle (10 min → 6 h max).
 // Les self-heals (narratifs, recap, retries horaires) DOIVENT le consulter avant d'attaquer.
-let _totalFails = 0, _lastTotalFailAt = 0;
-function _noteTotalFail() { _totalFails++; _lastTotalFailAt = Date.now(); }
-function _noteTotalOk()   { _totalFails = 0; }
+let _totalFails = 0, _lastTotalFailAt = 0, _debutPanneAt = 0;
+function _noteTotalFail() { if (!_totalFails) _debutPanneAt = Date.now(); _totalFails++; _lastTotalFailAt = Date.now(); }
+function _noteTotalOk()   { _totalFails = 0; _debutPanneAt = 0; }
+/* ⚠️ CIRCUIT SEMI-OUVERT : ON RE-SONDE, ON N'ATTEND PLUS LA FIN D'UNE FENÊTRE (11/09).
+   CE QUI S'EST PASSÉ, mesuré sur la capture du panneau : 56 échecs totaux consécutifs. L'ancienne
+   formule calculait alors une fenêtre de `min(6 h, 10 min × 2^(56-3))`, soit le plafond de SIX
+   HEURES, comptée depuis le dernier échec. Or les fournisseurs gratuits, eux, étaient revenus au
+   bout de quelques minutes (Groq, GitHub et OpenRouter affichaient 100/100 sur la même capture).
+   Résultat : une avarie de quelques minutes gelait la génération de fond pendant six heures, et
+   pendant ce temps les titres du fil restaient en anglais sur un produit annoncé 100% français.
+   LE DÉFAUT N'ÉTAIT PAS LA PROTECTION, C'ÉTAIT SA DURÉE : le compteur d'échecs mesure la GRAVITÉ
+   passée, jamais l'état PRÉSENT. L'escalader jusqu'à six heures, c'est punir la reprise.
+   ⚠️ ET ON NE CONSOMME AUCUN JETON DE SONDE : la fenêtre se referme parce qu'une TENTATIVE a
+   échoué (`_noteTotalFail` repousse `_lastTotalFailAt`), jamais parce que quelqu'un a POSÉ la
+   question. C'est ce qui rend cette écriture sûre : `status()` et le panneau admin interrogent
+   `backoffActive()` toutes les 30 s pour l'afficher — avec un jeton à consommer, ils auraient
+   mangé la sonde des tâches de fond, qui n'auraient alors jamais retenté. Ici, observer ne coûte
+   rien et n'a aucun effet.
+   Le rythme reste espacé et croissant, mais BORNÉ À 30 MIN : une chaîne réellement morte n'est
+   sondée que deux fois par heure (une poignée d'appels qui échouent, aucun quota consommé), et une
+   chaîne revenue est reprise en 10 min au pire au lieu de 6 h. */
+const _SONDE_MIN_MS = 10 * 60 * 1000;
+const _SONDE_MAX_MS = 30 * 60 * 1000;
 function backoffActive() {
   if (_totalFails < 3) return false;
-  const windowMs = Math.min(6 * 3600 * 1000, 10 * 60 * 1000 * Math.pow(2, _totalFails - 3));   // 10 min → 6 h
-  if (Date.now() - _lastTotalFailAt >= windowMs) { _totalFails = Math.min(_totalFails, 3); return false; }   // fenêtre expirée → on DÉGONFLE : un échec isolé ne ré-armera que ~10 min (pas 6 h) — la reprise « flaky » n'est plus gelée
-  return true;
+  const sondeMs = Math.min(_SONDE_MAX_MS, _SONDE_MIN_MS * Math.pow(2, _totalFails - 3));   // 10 → 20 → 30 min, plafonné
+  return (Date.now() - _lastTotalFailAt) < sondeMs;
 }
+/* ⚠️ DEPUIS LE PREMIER ÉCHEC DE LA SÉRIE, PAS LE DERNIER. C'est la durée de l'INCIDENT que
+   l'alerte doit connaître : une avarie de deux minutes et une panne de trois heures ne se
+   signalent pas de la même façon. Compté sur `_lastTotalFailAt`, ce chrono serait remis à zéro
+   par chaque nouvelle tentative ratée — il n'aurait jamais dépassé l'intervalle de sonde, et le
+   seuil d'alerte n'aurait donc JAMAIS été franchi, quelle que soit la durée réelle de la panne.
+   Lecture pure, aucun effet de bord. */
+function backoffDepuisMs() { return _totalFails >= 3 && _debutPanneAt ? Date.now() - _debutPanneAt : 0; }
 
 // ════════════ AI TRAFFIC INTELLIGENCE (router scoré + token-bucket + circuit breaker) ════════════
 // But : éviter les RAFALES (RPM = cause des 429), router vers les (modèle,clé) les plus SAINS, et
@@ -1038,6 +1064,7 @@ module.exports = {
   hasAnthropic,
   claudeUsable,
   backoffActive,
+  backoffDepuisMs,
   getClaudeState,
   hydrateClaudeState,
   onUsage,

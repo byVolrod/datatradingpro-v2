@@ -10991,6 +10991,26 @@ function _renderFXDailyRecap(item) {
   //    racontaient la même journée (un lead nu, puis l'encadré « Synthèse »). Un seul désormais : il
   //    porte le fil des séances ET le fait dominant chiffré. Anciens rapports (v14, avec `intro`
   //    séparée) : les deux textes sont recollés en un seul bloc, jamais affichés l'un sous l'autre.
+  /* ⚠️ UN RAPPORT PROVISOIRE DOIT LE DIRE (11/09, capture user : « la synthèse n'est pas à jour,
+     on n'a plus de truc d'IA dans le rapport quotidien »).
+     CE QUE MONTRAIT LA CAPTURE : une « Synthèse » composée de titres BRUTS EN ANGLAIS mis bout à
+     bout — « PRIMER : Asia Session Recap… · DTP Synthèse des Marchés… ». Ce n'est pas un bug de
+     rédaction : c'est le REPLI DÉTERMINISTE, qui recycle les dépêches quand la chaîne IA ne répond
+     pas. Il existe pour une bonne raison — un rapport imparfait vaut mieux qu'une page vide — et il
+     se répare tout seul : tant qu'il est en place, le serveur retente la génération française
+     toutes les 15 min, et la remplace dès que l'IA répond.
+     LE DÉFAUT N'ÉTAIT DONC PAS LE REPLI, C'ÉTAIT SON SILENCE. Rien ne distinguait à l'écran cette
+     version de secours du vrai rapport : le lecteur — un client — croyait lire le produit. C'est
+     exactement la règle que ce dépôt applique déjà aux courbes (« un rapport doit dire ce qui lui
+     manque, jamais laisser un rectangle vide ») ; elle n'avait simplement jamais été appliquée au
+     TEXTE. Le drapeau `_ai:false` voyageait pourtant jusqu'ici depuis le serveur, sans que rien ne
+     le lise. */
+  const _provisoire = !!(item && item._fxr && item._fxr._ai === false);
+  if (_provisoire) {
+    body += '<div class="fxdr-provisoire">Version provisoire : la synthèse rédigée n\'a pas pu être produite '
+      + '(chaîne d\'analyse momentanément indisponible). Les faits ci-dessous sont réels et datés ; '
+      + 'le rapport se complète automatiquement dès que la rédaction repart, sans action de votre part.</div>';
+  }
   const _lead = [w.intro, w.summary].filter(Boolean).join('\n\n');
   if (_lead) body += _sec('Synthèse') + `<div class="fxdr-exec">${_wrParas(_lead)}</div>`;
 
@@ -11269,6 +11289,40 @@ function _renderFXDailyRecap(item) {
   content.scrollTop = 0;
 }
 
+/* ══ UN LOADER DOIT TOUJOURS AVOIR UNE PORTE DE SORTIE (11/09, capture user : « la force des
+   devises charge à l'infini ») ══════════════════════════════════════════════════════════════════
+   CE QUI SE PASSAIT, et c'était écrit en toutes lettres : les fonctions qui remplacent le loader
+   commençaient par `if (… typeof buildStrengthChart !== 'function') return;`. Une sortie SILENCIEUSE.
+   `buildStrengthChart` vit dans charts.js, chargé séparément : quand le rapport se rend avant que
+   ce fichier ne soit analysé, la fonction sortait sans rien faire — pas de requête, donc pas de
+   `.catch` possible, donc le rond tournait pour toujours. Aucune erreur en console, rien à voir
+   dans le réseau : un défaut parfaitement muet.
+   ⚠️ ET LE DÉFAUT FRAPPE PRÉCISÉMENT QUAND LE SERVEUR SOUFFRE. La requête n'avait AUCUN délai
+   maximal : pendant la panne IA du 11/09, où le serveur enchaînait les tentatives vers des
+   fournisseurs morts, un point d'entrée lent suffisait à laisser la promesse pendante
+   indéfiniment. Les deux causes produisent le même écran, et c'est celui de la capture.
+   LA RÈGLE, désormais tenue au même endroit pour les quatre courbes : on ATTEND le traceur un
+   temps borné, et s'il n'arrive pas, on ÉCRIT. Un rapport doit dire ce qui lui manque ; il n'a
+   jamais le droit de faire tourner un rond sans fin. */
+const _FORCE_ATTENTE_MS = 4000;      // charts.js arrive en général en quelques dizaines de ms
+const _FORCE_DELAI_MS = 12000;       // au-delà, le point d'entrée est considéré muet
+function _forceQuandPret(suite, echec) {
+  const t0 = Date.now();
+  (function essayer() {
+    if (typeof buildStrengthChart === 'function') { try { suite(); } catch (e) { try { echec(); } catch (_) {} } return; }
+    if (Date.now() - t0 >= _FORCE_ATTENTE_MS) { try { echec(); } catch (_) {} return; }
+    setTimeout(essayer, 150);
+  })();
+}
+/* Une requête sans délai maximal n'échoue jamais : elle attend. `AbortController` lui donne le
+   droit d'échouer, donc de dire quelque chose. */
+function _forceFetch(url) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, _FORCE_DELAI_MS);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+const _FORCE_MSG = '<div class="wr-chart-loading">Force des devises indisponible pour le moment.</div>';
+
 // Construit la vue d'ensemble Force des Devises (toutes devises) figée dans #wr-cs-all.
 function _wrBuildCsAll(data) {
   const host = document.getElementById('wr-cs-all'); if (!host) return;
@@ -11282,7 +11336,14 @@ function _wrBuildCsAll(data) {
 //  makePane rattrape un éventuel 0-height résiduel). État volatil : reset à chaque réouverture du rapport.
 function _wrBuildCcyChart(chartEl) {
   if (!chartEl || chartEl.dataset.built) return;
-  if (!_wrStrengthData || typeof buildStrengthChart !== 'function') return;
+  /* Même règle que le quotidien : sans données ou sans traceur, on ÉCRIT au lieu de laisser le
+     rond tourner sous une carte qu'on vient d'ouvrir exprès pour la voir. */
+  if (!_wrStrengthData) { chartEl.dataset.built = '1'; chartEl.innerHTML = _FORCE_MSG; return; }
+  if (typeof buildStrengthChart !== 'function') {
+    chartEl.dataset.built = '1';
+    _forceQuandPret(() => { delete chartEl.dataset.built; _wrBuildCcyChart(chartEl); }, () => { chartEl.innerHTML = _FORCE_MSG; });
+    return;
+  }
   if (!chartEl.id) chartEl.id = 'wr-chart-' + (chartEl.dataset.wrChart || 'x') + '-' + Math.random().toString(36).slice(2, 7);
   chartEl.dataset.built = '1';
   chartEl.innerHTML = '';
@@ -11308,7 +11369,13 @@ window._wrToggleAllCcy = function (btn) {
 };
 
 function _wrLazyCharts(content) {
-  if (!_wrStrengthData || typeof buildStrengthChart !== 'function') return;
+  if (!content) return;
+  /* Sortir d'ici laissait TOUTES les mini-courbes du rapport sur leur rond, d'un coup. */
+  if (!_wrStrengthData) { content.querySelectorAll('[data-wr-chart]').forEach(el => { el.innerHTML = _FORCE_MSG; }); return; }
+  if (typeof buildStrengthChart !== 'function') {
+    _forceQuandPret(() => _wrLazyCharts(content), () => { content.querySelectorAll('[data-wr-chart]').forEach(el => { el.innerHTML = _FORCE_MSG; }); });
+    return;
+  }
   if (_wrChartObserver) { try { _wrChartObserver.disconnect(); } catch {} }
   const charts = [...content.querySelectorAll('[data-wr-chart]')];
   charts.forEach((el, i) => { if (!el.id) el.id = 'wr-chart-' + el.dataset.wrChart + '-' + i; });
@@ -11370,12 +11437,16 @@ function _renderDTPDaily(item) {
 // Trace la vue d'ensemble Force des Devises du RÉCAP QUOTIDIEN (période `today`).
 function _fxdrTracerForce() {
   const host = document.getElementById('fxdr-cs-all');
-  if (!host || typeof buildStrengthChart !== 'function') return;
-  fetch('/api/currency-strength?period=today').then(r => r.json()).then(d => {
-    if (!d || !d.currencies) throw new Error('sans données');
-    host.innerHTML = '';
-    buildStrengthChart('fxdr-cs-all', d, { isolated: true });
-  }).catch(() => { host.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; });
+  if (!host) return;                                  // le rapport a été fermé : plus rien à peindre
+  const rate = () => { const h = document.getElementById('fxdr-cs-all'); if (h) h.innerHTML = _FORCE_MSG; };
+  _forceQuandPret(() => {
+    _forceFetch('/api/currency-strength?period=today').then(r => r.json()).then(d => {
+      if (!d || !d.currencies) throw new Error('sans données');
+      const h = document.getElementById('fxdr-cs-all'); if (!h) return;
+      h.innerHTML = '';
+      buildStrengthChart('fxdr-cs-all', d, { isolated: true });
+    }).catch(rate);
+  }, rate);
 }
 
 // FILET UNIVERSEL (demande user : Éclairages desk dans TOUS les rapports Analyste). Après le rendu de n'importe
