@@ -4121,6 +4121,19 @@ const _RTC_MESURE = {
   ECB: 'Taux de dépôt',        // et non le refi, supérieur de 15 pb depuis septembre 2024
   FED: 'Fed funds (haut)',     // la Fed annonce une FOURCHETTE : on affiche le haut
 };
+/* ⚠️ ET L'AUTRE CHIFFRE, AU SURVOL. Nommer la mesure ferme la moitié du doute ; l'autre moitié
+   vient de ce qu'on lit AILLEURS. Les sites grand public (TradingEconomics par exemple) titrent le
+   taux de la zone euro sur le REFINANCEMENT PRINCIPAL, pas sur le dépôt : quelqu'un qui compare
+   voit deux chiffres différents et conclut à une erreur. Le survol dit donc lequel est lequel, et
+   pourquoi celui-ci est affiché. Écrit une fois, ça évite la question à chaque fois. */
+const _RTC_MESURE_AIDE = {
+  ECB: 'La BCE publie DEUX taux : la facilité de dépôt (affichée ici) et le refinancement principal, '
+     + 'supérieur de 15 points de base depuis la réforme du corridor de septembre 2024. '
+     + 'Le dépôt est le taux directeur effectif que le marché price : c’est lui qui commande les probabilités ci-dessous. '
+     + 'Les sites grand public titrent souvent le refinancement : d’où l’écart si vous comparez.',
+  FED: 'La Fed annonce une FOURCHETTE (par exemple 3,50-3,75%). La carte affiche sa borne HAUTE, '
+     + 'la convention des tables de taux et des contrats à terme.',
+};
   function _rtcCard(b) {
     const MVC = { HOLD: { txt: 'Maintien', cls: 'w' }, HIKE: { txt: 'Hausse', cls: 'g' }, CUT: { txt: 'Baisse', cls: 'r' } };
     const fr  = s => { try { const p = String(s).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return s; } };
@@ -4233,7 +4246,9 @@ const _RTC_MESURE = {
          ⚠️ Table par banque, PAS un cas particulier BCE : la Fed publie une fourchette, la BoJ un
          taux directeur au jour le jour. Une table se complète ; un `if (code === 'ECB')` se serait
          retrouvé seul face à la prochaine question du même genre. */
-      + '<div class="rtc-m"><span class="rtc-k">' + (_RTC_MESURE[b.code] || 'Taux actuel') + '</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
+      + '<div class="rtc-m"><span class="rtc-k"'
+      + (_RTC_MESURE_AIDE[b.code] ? ' title="' + _RTC_MESURE_AIDE[b.code].replace(/"/g, '&quot;') + '"' : '')
+      + '>' + (_RTC_MESURE[b.code] || 'Taux actuel') + '</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
       + '<div class="rtc-m"><span class="rtc-k">Date de réunion</span><span class="rtc-v w">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
       + '</div>'
       + '<div class="rtc-dist"><div class="rtc-dist-h">Distribution des scénarios</div>' + scRows

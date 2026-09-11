@@ -504,6 +504,15 @@ console.log('\n── La carte nomme la mesure exacte qu’elle affiche ──')
     'si la config passait au bas ou au milieu, le libellé « (haut) » deviendrait faux');
   /* La règle de sélection, côté serveur : quand les deux mesures BCE tombent le même jour, c'est
      celle qui porte « deposit » qui est retenue. Le libellé de la carte en DÉPEND. */
+  /* L'autre moitié du doute vient de ce qu'on lit AILLEURS : les sites grand public titrent le
+     taux de la zone euro sur le REFINANCEMENT. Le survol doit nommer les deux, sinon la
+     comparaison rouvre la question que le libellé vient de fermer. */
+  v('… et le survol explique l’écart avec le refinancement principal',
+    /_RTC_MESURE_AIDE/.test(CH) && /refinancement principal/.test(CH) && /15 points de base/.test(CH),
+    'sans cette aide, comparer avec une source externe fait rouvrir la question');
+  v('… l’aide est bien BRANCHÉE sur le libellé (title), pas seulement déclarée',
+    /_RTC_MESURE_AIDE\[b\.code\] \? ' title="'/.test(CH),
+    'une table d’aide que rien n’affiche est du texte mort');
   v('_calendrierEcritTaux tranche toujours sur « deposit » quand la BCE publie deux chiffres',
     /\/deposit\/i\.test\(e\.title/.test(SRV),
     'la sélection ne vise plus le dépôt : le libellé « Taux de dépôt » affirmerait alors quelque chose de faux.');
