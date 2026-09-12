@@ -22926,6 +22926,28 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
    l'en-tête de la carte et un lien que le lecteur YouTube porte lui-même, pour 32 px d'image en
    moins. Le lien vers l'éditeur reste ENTIER dans le repli, où il est la seule chose utile.) */
 
+/* ══ LA LOUPE DE RECHERCHE ÉTAIT PEINTE, ET INVISIBLE (12/09, capture user : « je ne vois pas
+   l'icône de recherche ») ════════════════════════════════════════════════════════════════════════
+   Le mécanisme mobile existait déjà et fonctionnait : une case-icône tapable dans la topbar, qui se
+   déplie en pleine largeur au focus. Rien à recréer — le défaut était de CONTRASTE, et il se mesure.
+   MESURÉ DANS CHROMIUM, à 390 px : la loupe est bien rendue (13,5 px, au bon endroit, opacité 1),
+   en `var(--text4)` = #444444 sur le fond de topbar #16171b. Soit un rapport de contraste de
+   1,91:1, là où la norme demande 3:1 pour un élément d'interface porteur de sens. L'icône était donc
+   littéralement invisible : l'utilisateur ne cherchait pas au mauvais endroit, il n'y avait rien à
+   voir. C'est la répétition exacte du défaut du compte à rebours (09/09), au même endroit du
+   raisonnement : un gris choisi pour être discret, passé sous le seuil du lisible.
+   ⚠️ ET SUR MOBILE, CETTE LOUPE EST LA SEULE AFFORDANCE : le champ est transparent tant qu'il n'a
+   pas le focus, le libellé est masqué. Elle n'y est pas un ornement à côté d'un placeholder comme
+   sur grand écran, elle EST le bouton. Elle prend donc la couleur et la taille de ses voisines
+   (Journal, Calculatrice, Mon Desk), qui sont exactement les boutons auxquels elle ressemble.
+   Le banc `recherche-verif.js` CALCULE le contraste rendu et refuse tout retour sous 3:1. */
+.topbar-symbol-search .search-icon { color: var(--text3); }          /* 3,7:1 : discret près du placeholder, mais lisible */
+@media (max-width: 768px) {
+  .topbar-symbol-search .search-icon { color: #aeb6c2; }             /* seule affordance au doigt → couleur des icônes voisines (9:1) */
+  .topbar-symbol-search .search-icon svg { width: 18px; height: 18px; }   /* et leur taille de glyphe : 13,5 px faisait tache à côté de 18 */
+  .topbar-symbol-search:focus-within .search-icon { color: #e3b23a; }     /* dépliée : la loupe passe en or, comme tout état actif du desk */
+}
+
 /* ══ SENTINELLE D'ARRIVÉE — DOIT RESTER LA DERNIÈRE RÈGLE DU FICHIER (09/09) ═════════════════════
    Elle ne peint rien. Elle PROUVE que la feuille est arrivée jusqu'au bout : un transfert coupé en
    route ne donne pas une erreur franche, il donne un fichier tronqué que le navigateur applique
