@@ -2611,9 +2611,12 @@
            `.cs-badge-val--seul` et le libellé du réglage annonçaient tous trois la valeur seule.
            Réparé le 02/09 sur capture de référence de l'utilisateur ; un contrôle de force-verif
            regarde désormais le HTML rendu dans les deux positions du réglage. */
-        /* Coché par défaut depuis le 04/09 (cf. `_avecValeur` dans charts.js) : l'étiquette porte
-           la valeur, le code vivant déjà dans la légende. Décocher rend la pastille au code. */
-        { k: 'valeurs', lbl: 'Valeur sur les étiquettes', type: 'bascule', def: true },
+        /* DÉCOCHÉ par défaut depuis le 12/09 (cf. `_avecValeur` dans charts.js) : l'étiquette porte
+           le CODE de la devise — au bout d'une courbe, on cherche laquelle on lit, la valeur étant
+           donnée par l'axe juste à côté et par le survol. Cocher rend la pastille au nombre.
+           ⚠️ Ce défaut a été l'inverse entre le 04/09 et le 12/09 ; ne pas le rebasculer sans
+           relire la note de `buildStrengthChart`, qui porte les deux décisions et leur motif. */
+        { k: 'valeurs', lbl: 'Valeur sur les étiquettes', type: 'bascule', def: false },
       ],
       mount: function (host, it) {
         var W = this;

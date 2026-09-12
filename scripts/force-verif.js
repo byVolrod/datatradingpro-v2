@@ -666,21 +666,24 @@ function _rattacherPastilles() {
     && /\.cs-dense \.cs-badge-val--seul \{[^}]*min-width: 4\.2em/.test(CSS),
     (CSS.match(/\.cs-badge-val--seul \{[^}]*\}/) || [''])[0]);
 
-  /* ══ ET LA VALEUR EST LE DÉFAUT (04/09, demande utilisateur, capture de référence) ══════════════
-     « Met comme la 2e image pour la colonne là où il y a les étiquettes, tu vois, le nombre. » Le
-     terminal de référence range huit NOMBRES au bout de ses huit courbes ; le desk rangeait huit
-     CODES — l'information la moins utile des deux, puisque le code est déjà dans la légende du
-     haut, en permanence et avec sa teinte. Le réglage reste, il est coché par défaut.
-     ⚠️ `!== false` ET NON `!!` : un appelant muet doit recevoir la valeur, un appelant qui écrit
-     `false` doit recevoir le code. Écrit `!!opts.avecValeur`, le défaut serait resté le code et ce
-     banc aurait vu passer un réglage « par défaut » qui ne l'était pas. */
-  v('l\'étiquette porte la valeur SANS qu\'on la demande',
-    /const _avecValeur = opts\.avecValeur !== false;/.test(CH),
+  /* ══ ET LE CODE DE LA DEVISE EST LE DÉFAUT (12/09, demande utilisateur : « ici ça doit être le
+     nom des devises au lieu du prix ») ══════════════════════════════════════════════════════════
+     ⚠️ CE CONTRÔLE DISAIT L'INVERSE JUSQU'AU 12/09, et c'est la raison d'être de cette note. Le
+     04/09, sur capture d'un terminal de référence, la valeur était devenue le défaut ; à l'usage le
+     client tranche dans l'autre sens — au bout d'une courbe on cherche QUELLE devise on lit, la
+     valeur étant déjà donnée par l'axe voisin et par le survol. Un banc qui aurait gardé l'ancienne
+     règle aurait fait ROUGIR la demande légitime au lieu de la protéger : c'est le défaut relevé le
+     28/08 sur le commentaire de `charts.js`, dans sa version banc.
+     ⚠️ `=== true` ET NON `!== false` : un appelant muet doit recevoir le CODE, un appelant qui
+     demande la valeur la reçoit. Écrit `!== false`, le défaut serait resté le nombre et ce banc
+     aurait validé un réglage « par défaut » qui ne l'était pas. */
+  v('l\'étiquette porte le CODE de la devise SANS qu\'on la demande',
+    /const _avecValeur = opts\.avecValeur === true;/.test(CH),
     (CH.match(/const _avecValeur = [^\n]*/) || [''])[0]);
   const WG = fs.readFileSync(path.join(__dirname, '..', 'public/js/widgets.js'), 'utf8');
-  v('… et le réglage du widget est coché par défaut, pas seulement le code',
-    /\{ k: 'valeurs', lbl: 'Valeur sur les étiquettes', type: 'bascule', def: true \}/.test(WG),
-    'un défaut de code et un réglage décoché se contrediraient');
+  v('… et le réglage du widget est DÉCOCHÉ par défaut, pas seulement le code',
+    /\{ k: 'valeurs', lbl: 'Valeur sur les étiquettes', type: 'bascule', def: false \}/.test(WG),
+    'un défaut de code et un réglage coché se contrediraient');
 
   /* ══ LES DEVISES DÉCOCHÉES SE MÉMORISENT (04/09, demande utilisateur) ═══════════════════════════
      « Quand l'utilisateur décoche certaines devises et qu'il change d'onglet puis revient, ça doit

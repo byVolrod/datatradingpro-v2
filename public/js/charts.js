@@ -969,16 +969,20 @@ function _csMemoEcris(set) {
   try { if (window.DTPPref) DTPPref.set(_CS_MEMO_KEY, Array.from(set).join(',')); } catch (e) {}
 }
 function buildStrengthChart(containerId, data, opts = {}) {
-  /* ══ L'ÉTIQUETTE PORTE LA VALEUR PAR DÉFAUT (04/09, demande utilisateur, capture de référence à
-     l'appui : « met comme la 2e image pour la colonne là où il y a les étiquettes, tu vois, le
-     nombre »). Le terminal de référence range huit nombres au bout de ses huit courbes ; le desk
-     rangeait huit codes de devise, l'information la moins utile des deux — le code est déjà dans
-     la légende du haut, en permanence, avec sa teinte. La colonne de droite disait donc deux fois
-     la même chose et jamais où en est la devise.
-     Le réglage « Valeur sur les étiquettes » ne disparaît pas : il est simplement COCHÉ par défaut,
-     et le décocher rend la pastille au code, à l'identique. `!== false` et non `!!` : un appelant
-     qui ne dit rien reçoit la valeur, un appelant qui dit `false` reçoit le code. */
-  const _avecValeur = opts.avecValeur !== false;
+  /* ══ L'ÉTIQUETTE PORTE LE CODE DE LA DEVISE PAR DÉFAUT (12/09, demande utilisateur : « ici ça
+     doit être le nom des devises au lieu du prix »). C'est l'INVERSE de la règle du 04/09, qui
+     avait été prise sur une capture de terminal de référence rangeant huit nombres au bout de ses
+     huit courbes. À l'usage, le client tranche dans l'autre sens : au bout d'une courbe, ce qu'on
+     cherche c'est QUELLE devise on lit, pas sa valeur au centième — la valeur se lit sur l'axe,
+     qui est juste à côté, et au survol.
+     ⚠️ LA RÈGLE DU 04/09 EST DONC LEVÉE, ET TOUTES SES TRACES SONT RÉÉCRITES DANS CE MÊME COMMIT :
+     ce commentaire, le défaut du réglage dans widgets.js, et les deux contrôles de force-verif qui
+     l'épinglaient. Un commentaire périmé ment avec l'autorité du code, et un banc périmé fait
+     rougir une demande légitime — les deux sont déjà arrivés sur ce dépôt.
+     Le réglage « Valeur sur les étiquettes » ne disparaît pas : il est simplement DÉCOCHÉ par
+     défaut, et le cocher rend la pastille au nombre, à l'identique. `=== true` et non `!== false` :
+     un appelant qui ne dit rien reçoit le code, un appelant qui demande la valeur la reçoit. */
+  const _avecValeur = opts.avecValeur === true;
   const _focus = opts.focusCurrency || null;   // (optionnel) 1 devise mise en avant, les autres grisées
   const _iso   = !!opts.isolated;              // graphique autonome (rapport) → ne touche pas la réf. globale
   // (optionnel) n'afficher QUE ces devises (ex. les 2 de la paire EURAUD → EUR+AUD) : les autres
