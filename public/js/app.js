@@ -10080,7 +10080,29 @@ function _renderWeeklyRecap(item) {
       body += `<div class="wr-section-title">Synthèse de la semaine</div>`;
       w.synthese.filter(s => s && !/commerce international/i.test(String(s.heading || ''))).forEach((s, si) => {
         body += (si ? `<div class="wr-sep"></div>` : '') + `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
-        (s.bullets || []).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+        /* ⚠️ LA COULEUR VIENT DES LIGNES STRUCTURÉES, PAS DE LA PHRASE (12/09, demande user : « il
+           manque les couleurs pour distinguer si c'est positif, négatif ou neutre »). `bullets` est
+           une chaîne que `_wrInline` ÉCHAPPE : on ne peut pas y colorer un chiffre sans afficher le
+           balisage. Le serveur envoie donc `rows` — les mêmes lignes avec réel, attendu et
+           précédent séparés — et on y applique `_dataCls`, LA MÊME règle de couleur que les autres
+           chiffres du rapport (surprise haussière, baissière, conforme). Deux règles de couleur
+           dans un même rapport finiraient par diverger ; il n'y en a qu'une.
+           Repli sur `bullets` quand `rows` est absent : c'est le cas de tous les rapports déjà
+           archivés, et ils doivent rester lisibles sans être régénérés. */
+        if (Array.isArray(s.rows) && s.rows.length) {
+          s.rows.forEach(r => {
+            if (!r) return;
+            const cls = _dataCls(r.actual, r.forecast, r.titre || '');
+            const att = r.forecast
+              ? ` <span class="wr-chiffre-att">(attendu ${_wrEsc(r.forecast)}${r.previous ? `, préc. ${_wrEsc(r.previous)}` : ''})</span>`
+              : (r.previous ? ` <span class="wr-chiffre-att">(préc. ${_wrEsc(r.previous)})</span>` : '');
+            body += `<div class="wr-bullet wr-chiffre">`
+              + `<strong>${_wrEsc(r.jour || '')}</strong> · ${_wrEsc(r.ccy || '')} : ${_wrEsc(r.titre || '')} : `
+              + `<b class="${cls}">${_wrEsc(r.actual)}</b>${att}</div>`;
+          });
+        } else {
+          (s.bullets || []).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+        }
       });
     } else if (w.highlights) {
       body += `<div class="wr-section-title">Synthèse de la semaine</div>`;

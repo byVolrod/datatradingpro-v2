@@ -23069,6 +23069,12 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
   .wdg-lib-grid .wdg-lib-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* Les chiffres marquants de la semaine : le réel porte la couleur sémantique du desk (cv-pos /
+   cv-neg / cv-neu, la MÊME que le calendrier et les autres chiffres du rapport), l'attendu et le
+   précédent restent en retrait — ce sont des repères, pas le fait. */
+.wr-chiffre-att { color: var(--text3, #6b7280); font-size: .95em; }
+.wr-chiffre b { font-variant-numeric: tabular-nums; }
+
 /* ══ SENTINELLE D'ARRIVÉE — DOIT RESTER LA DERNIÈRE RÈGLE DU FICHIER (09/09) ═════════════════════
    Elle ne peint rien. Elle PROUVE que la feuille est arrivée jusqu'au bout : un transfert coupé en
    route ne donne pas une erreur franche, il donne un fichier tronqué que le navigateur applique
