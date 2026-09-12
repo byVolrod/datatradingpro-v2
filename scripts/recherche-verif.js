@@ -75,7 +75,22 @@ let mutation = false;
    Donc : le RESSERREMENT est ce qui sauve 375 px, et la remise à zéro des marges est ce qui laisse
    une vraie réserve au lieu de 2 px. Les deux portent, mais pas la même chose — et chaque témoin
    n'affirme que ce qu'il mesure. */
-let mutationMarges = false, mutationResserrement = false;
+let mutationMarges = false, mutationResserrement = false, mutationOrigine = false;
+/* ⚠️ LE TÉMOIN LE PLUS FORT DISPONIBLE : la feuille TELLE QU'ELLE ÉTAIT quand le client a
+   photographié le défaut. Pas une mutation que j'invente et dont je peux me convaincre qu'elle
+   reproduit le symptôme : la version qui l'avait vraiment.
+   ⚠️ ÉPINGLÉ SUR UN COMMIT, JAMAIS SUR `HEAD~1`. Ma première écriture lisait `HEAD~1` : une cible
+   MOUVANTE, qui au commit suivant aurait éprouvé une feuille DÉJÀ corrigée et serait donc passée au
+   vert en ne prouvant plus rien — un faux vert fabriqué par le banc lui-même, exactement la maladie
+   que ce dépôt traque. `a402b35` est le commit de la capture, il ne bougera pas.
+   ⚠️ ET IL S'ABSTIENT SI L'HISTORIQUE EST TRONQUÉ : le CI cloue la copie à un seul commit
+   (`fetch-depth: 1`), l'objet n'y est donc pas lisible. Un témoin absent doit se taire, jamais
+   bloquer un déploiement pour une raison qui n'a rien à voir avec le code livré. */
+const SHA_CAPTURE = 'a402b35';
+const CSS_ORIGINE = (() => {
+  try { return require('child_process').execSync(`git show ${SHA_CAPTURE}:public/css/style.css`, { cwd: RACINE, maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'] }).toString(); }
+  catch { return null; }
+})();
 const RE_MARGES = /\.topbar-center \.topbar-icon--desk,\s*\n\s*\.topbar-center \.topbar-icon--journal,\s*\n\s*\.topbar-center \.topbar-icon--calc \{ margin-right: 0; \}/;
 const RE_RESSERREMENT = /\/\* Le resserrement de la bande étroite[\s\S]*?\n\}\n/;
 const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text3\); \}[\s\S]*?@media \(max-width: 768px\) \{\s*\n\s*\.topbar-symbol-search \.search-icon \{ color: #aeb6c2; \}[\s\S]*?\n\}/;
@@ -87,6 +102,10 @@ const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text
     if (u.startsWith('/api/')) { rs.writeHead(200, { 'Content-Type': 'application/json' }); return rs.end(JSON.stringify({ items: [], total: 0, ok: true, user: UTIL, ...UTIL })); }
     const f = path.join(PUB, u === '/' ? 'index.html' : u.replace(/^\/+/, ''));
     if (!f.startsWith(PUB) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { rs.writeHead(404); return rs.end('404'); }
+    if (mutationOrigine && CSS_ORIGINE && /style\.css$/.test(f)) {
+      rs.writeHead(200, { 'Content-Type': MIME['.css'] });
+      return rs.end(CSS_ORIGINE);
+    }
     if ((mutation || mutationMarges || mutationResserrement) && /style\.css$/.test(f)) {
       rs.writeHead(200, { 'Content-Type': MIME['.css'] });
       let css = fs.readFileSync(f, 'utf8');
@@ -173,6 +192,26 @@ const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text
       /* La barre elle-même ne doit pas déborder : si le centre tient mais que la barre déborde, le
          contenu est simplement poussé hors de l'écran — un autre visage du même défaut. */
       debordeBarre: (() => { const b = document.querySelector('.topbar'); return b ? Math.round(b.scrollWidth - b.clientWidth) : null; })(),
+      /* ⚠️ LE CONTRÔLE QUI MESURE CE QUE L'ŒIL VOIT, ET QUE LES PRÉCÉDENTS NE VOYAIENT PAS (12/09,
+         3ᵉ retour user : « c'est coupé encore »). Comparer `case.right` à `centre.right` répond à
+         « la case déborde-t-elle de sa boîte ? » — et une case EXACTEMENT à ras passe ce test tout
+         en ayant l'air tranchée par le filet vertical, parce que le groupe voisin, plus tard dans le
+         document, PEINT PAR-DESSUS. C'est exactement la capture du client. On interroge donc le
+         navigateur là où ça se joue : quel élément est au-dessus, 2 px À L'INTÉRIEUR du bord droit
+         de la case ? Si ce n'est pas la case, son bord est recouvert, quels que soient les chiffres
+         de rectangles. Aucun raisonnement, un survol. */
+      bordDroitDecouvert: (() => {
+        const b = document.querySelector('.topbar-symbol-search'); if (!b) return null;
+        const r = b.getBoundingClientRect();
+        const el = document.elementFromPoint(r.right - 2, r.top + r.height / 2);
+        return !!(el && (el === b || b.contains(el)));
+      })(),
+      /* Et l'air qui reste avant le groupe voisin : « à ras » et « avec de la marge » ne se
+         distinguent qu'en les comptant. */
+      ecartDroite: (() => {
+        const b = document.querySelector('.topbar-symbol-search'), d = document.querySelector('.topbar-right');
+        return (b && d) ? +(d.getBoundingClientRect().left - b.getBoundingClientRect().right).toFixed(1) : null;
+      })(),
     };
   });
 
@@ -234,6 +273,12 @@ const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text
        topbar SANS l'icône Mon Desk, donc plus légère d'un bouton et de son écart que celle du client :
        elle est passée au vert sur une case réellement coupée. On vérifie donc que la topbar mesurée
        EST bien la lourde — sinon tous les contrôles de cette boucle ne prouvent rien. */
+    v(`[mesuré] ${L}px : le bord DROIT de la case est découvert (survol, pas un calcul)`,
+      !!(r && r.bordDroitDecouvert),
+      'un autre élément est peint par-dessus le bord droit : c\'est le « c\'est coupé » de la capture, ' +
+      'et aucune comparaison de rectangles ne le voit quand la case est exactement à ras');
+    v(`[mesuré] ${L}px : il reste de l'air avant le groupe d'icônes voisin (≥ 6px)`,
+      !!(r && r.ecartDroite >= 6), r ? 'écart mesuré : ' + r.ecartDroite + 'px' : 'mesure impossible');
     v(`[mesuré] ${L}px : c'est bien la topbar LOURDE qui est mesurée (icône Mon Desk posée)`,
       !!(r && r.deskIcon),
       'sans Mon Desk, la rangée a un bouton de moins : le banc mesurerait une topbar plus confortable que la vraie');
@@ -295,6 +340,39 @@ const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text
   v('[mesuré] sans le resserrement, la case redevient coupée à 375px',
     !!(rr375 && (rr375.rognee || rr375.depasse > 0.5)),
     rr375 ? 'dépassement mesuré : ' + rr375.depasse + 'px (attendu : ~8px)' : 'mesure impossible');
+  /* ⚠️ CE QUE CE TÉMOIN NE PROUVE PAS, et je l'ai vérifié avant de l'écrire : le bord droit n'y est
+     PAS recouvert. Sans le resserrement la case déborde de sa rangée, mais dans du vide — le groupe
+     voisin est encore plus loin. Le recouvrement, lui, demande que la case morde sur ce groupe, et
+     c'est l'état d'origine qui le produit. Un témoin n'affirme que ce qu'il mesure : celui-là dit
+     « elle déborde », celui d'en dessous dit « elle est recouverte ». */
+  mutationResserrement = false;
+
+  console.log('\n── Témoin d\'ORIGINE : la feuille du commit ' + SHA_CAPTURE + ', celle de la capture client ──');
+  let couverts = 0, serres = 0, vus = 0;
+  if (!CSS_ORIGINE) {
+    console.log('  · historique tronqué : la feuille de ' + SHA_CAPTURE + ' n\'est pas lisible ici → témoin ABSTENU');
+  } else {
+    mutationOrigine = true;
+    for (const L of [375, 390]) {
+      const { page: po } = await ouvrir(L, 780);
+      const ro = await rognage(po);
+      await po.close();
+      if (ro) { vus++; if (ro.bordDroitDecouvert === false) couverts++; if (ro.ecartDroite < 6) serres++; }
+    }
+  }
+  /* ⚠️ LES DEUX VISAGES DU MÊME SYMPTÔME, ET ILS N'APPARAISSENT PAS AUX MÊMES LARGEURS — mesuré,
+     après m'être trompé une fois de plus en l'écrivant d'avance. À 375 px la case est RECOUVERTE par
+     le groupe voisin ; à 390 px elle ne l'est pas, elle est COLLÉE au filet vertical. À l'œil c'est
+     identique : dans les deux cas le bord arrondi de droite n'existe pas. C'est donc l'AIR qui est le
+     contrôle universel — il manque aux deux largeurs — et le recouvrement le contrôle du pire cas.
+     Chacun n'affirme que ce qu'il mesure. */
+  if (CSS_ORIGINE) {
+    v('[mesuré] sur la feuille d\'origine, le bord droit est RECOUVERT au moins à une largeur',
+      vus === 2 && couverts >= 1, couverts + ' largeur(s) sur ' + vus + ' recouvertes (mesuré : 375px oui, 390px collée)');
+    v('[mesuré] … et AUCUNE des deux n\'avait d\'air avant le groupe voisin (le symptôme commun)',
+      vus === 2 && serres === 2, serres + ' largeur(s) sur ' + vus + ' sous 6px d\'écart');
+  }
+  mutationOrigine = false;
   mutationResserrement = false;
 
   await nav.close(); srv.close();
