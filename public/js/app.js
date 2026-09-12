@@ -13988,21 +13988,107 @@ document.addEventListener('DOMContentLoaded', ()=>{
   window.addEventListener('resize', _close);
   function _flag(flags,v){ return flags[v] ? '<span class="dtpsel-flag">'+flags[v]+'</span>' : ''; }
   function _renderBtn(sel,dd,flags){ var o=sel.options[sel.selectedIndex]||sel.options[0]; if(!o) return; dd._lbl.innerHTML=_flag(flags,o.value)+'<span>'+o.text+'</span>'; }
+  /* ══ UNE LONGUE LISTE SE TAPE, ET NE RECOUVRE PAS CE QU'ELLE SERT À CHOISIR (12/09) ═══════════
+     Capture user sur le sélecteur de paires : « il cache la paire affichée, et qu'on puisse taper
+     à l'écrit aussi la paire ». Deux défauts distincts, tous deux dans CE composant partagé.
+     ⚠️ ET C'EST LA TROISIÈME SURFACE À RECEVOIR LA MÊME RÉPARATION, ce qui est le vrai signal.
+     Le panneau de réglages a eu son champ de recherche le 01/09 (`filtrerChoix`), le menu maison
+     des <select> de widgets le 02/09 (`wdg-ddm`), et l'audit de ce jour-là notait déjà « deux
+     surfaces distinctes, deux mises en œuvre ». `dtpsel` est pourtant LE composant par lequel
+     passent TOUS les <select> stylés du desk : le réparer ici couvre d'un coup tous les menus que
+     les deux autres ne touchaient pas. Même seuil que partout ailleurs (au-delà de 14 entrées),
+     même libellé de vide, même pliage des accents : trois seuils différents pour trois listes
+     seraient trois comportements à retenir.
+     ⚠️ LE RECOUVREMENT N'ÉTAIT PAS UN DÉFAUT DE POSITION MAIS DE HAUTEUR. Le panneau s'ouvrait à
+     `bas + 5` sans jamais borner sa taille : à 300 px de haut (plafond CSS) devant un bouton situé
+     au deux tiers de l'écran, il débordait vers le bas, et la bascule vers le haut ne se
+     déclenchait que si TOUTE la hauteur tenait au-dessus. Entre les deux, il couvrait la carte.
+     On mesure donc la place des deux côtés, on choisit la plus grande, et on BORNE la hauteur à ce
+     qui y tient : le panneau défile au lieu de mordre sur ce qu'il sert à régler. */
+  var DTPSEL_SEUIL_RECH = 14;
+  function _plie(s){ return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
   function _open(sel,dd,flags){
     _close();
     var panel=document.createElement('div'); panel.className='dtpsel-panel'; dd._panel=panel;
-    Array.prototype.forEach.call(sel.options,function(o){
+    var opts=Array.prototype.slice.call(sel.options);
+    var longue=opts.length>DTPSEL_SEUIL_RECH, champ=null, vide=null, items=[];
+    if(longue){
+      var tete=document.createElement('div'); tete.className='dtpsel-head';
+      champ=document.createElement('input');
+      champ.className='dtpsel-rech'; champ.type='search'; champ.spellcheck=false;
+      champ.placeholder='Rechercher…'; champ.setAttribute('aria-label','Rechercher dans la liste');
+      tete.appendChild(champ); panel.appendChild(tete);
+    }
+    opts.forEach(function(o){
       var it=document.createElement('div'); it.className='dtpsel-item'+(o.selected?' sel':'');
       it.innerHTML=_flag(flags,o.value)+'<span>'+o.text+'</span>';
+      /* La recherche porte sur la VALEUR autant que sur le libellé : « audjpy » doit trouver
+         « AUD/JPY », sinon le champ punit la frappe rapide qu'il promet. */
+      it._q=_plie(o.value+' '+o.text)+' '+_plie(String(o.value).replace(/[^A-Za-z0-9]/g,''));
       it.addEventListener('click',function(ev){ ev.stopPropagation(); sel.value=o.value; _renderBtn(sel,dd,flags); _close(); sel.dispatchEvent(new Event('change',{bubbles:true})); });
-      panel.appendChild(it);
+      panel.appendChild(it); items.push(it);
+      if(o.selected) panel._sel=it;
     });
+    if(longue){
+      vide=document.createElement('div'); vide.className='dtpsel-vide'; vide.hidden=true;
+      vide.textContent='Aucune entrée ne correspond.'; panel.appendChild(vide);
+    }
+    function _filtrer(){
+      var q=_plie(champ.value).trim().replace(/[^a-z0-9]/g,''), n=0;
+      items.forEach(function(it){
+        var ok=!q||it._q.replace(/[^a-z0-9 ]/g,'').indexOf(q)>=0;
+        it.hidden=!ok; if(ok) n++;
+      });
+      if(vide) vide.hidden=!!n;
+    }
+    if(champ){
+      champ.addEventListener('input',_filtrer);
+      /* Entrée valide la PREMIÈRE entrée encore visible : taper « audj » puis Entrée doit suffire,
+         sinon le champ fait gagner un balayage des yeux pour le faire reperdre à la souris. */
+      champ.addEventListener('keydown',function(ev){
+        if(ev.key!=='Enter') return;
+        ev.preventDefault();
+        for(var i=0;i<items.length;i++){ if(!items[i].hidden){ items[i].click(); return; } }
+      });
+    }
+    /* ⚠️ LE VRAI « IL CACHE LA PAIRE AFFICHÉE » EST UNE ERREUR D'UNITÉ, PAS DE HAUTEUR (12/09).
+       Trouvé au banc, pas à la lecture. `getBoundingClientRect()` rend des pixels VISUELS, déjà
+       multipliés par le zoom global du desk (`html{zoom:.9}`) ; une valeur écrite dans `style.top`
+       est au contraire interprétée en pixels CSS, donc RE-multipliée par ce même zoom au rendu.
+       Écrire `top = r.bottom + 5` posait donc le panneau à 0,9 × (bas du bouton), c'est-à-dire
+       10 pourcent PLUS HAUT que le bouton — et d'autant plus haut qu'on est bas dans l'écran.
+       MESURÉ : bouton à 350-377, panneau rendu de 344 à 627. Il recouvrait intégralement le
+       contrôle qu'il sert à régler. C'est exactement le piège déjà écrit pour le menu des widgets
+       (« coordonnées locales : différence de rects VISUELS ÷ zoom ») — ce composant-ci ne l'avait
+       simplement jamais appliqué. On divise donc TOUT ce qu'on écrit par le zoom. */
     var r=dd._btn.getBoundingClientRect();
-    panel.style.position='fixed'; panel.style.left=r.left+'px'; panel.style.top=(r.bottom+5)+'px'; panel.style.minWidth=r.width+'px';
+    var z=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dtp-zoom'))||1;
+    panel.style.position='fixed'; panel.style.left=(r.left/z)+'px'; panel.style.minWidth=(r.width/z)+'px';
+    /* Place réelle de part et d'autre du bouton, marge comprise — en pixels VISUELS, ceux de
+       l'écran. La borne de hauteur, elle, s'écrit en pixels CSS : d'où la division. */
+    var MARGE=8, bas=window.innerHeight-r.bottom-MARGE, haut=r.top-MARGE;
+    var versHaut=(bas<Math.min(180,haut)&&haut>bas);
+    /* Bornée par la place ET par un plafond : sur un grand écran, dérouler 40 paires sur 900 px de
+       haut n'aide personne — c'est le défilement du panneau qui sert, pas sa taille. */
+    panel.style.maxHeight=Math.max(120,Math.min(340,Math.floor((versHaut?haut:bas)/z)))+'px';
+    panel.style.top=((r.bottom+5)/z)+'px';
     document.body.appendChild(panel);
-    var ph=panel.getBoundingClientRect().height;
-    if(r.bottom+5+ph>window.innerHeight && r.top-5-ph>0) panel.style.top=(r.top-5-ph)+'px';
+    if(versHaut) panel.style.top=(Math.max(MARGE,r.top-5-panel.getBoundingClientRect().height)/z)+'px';
     dd.classList.add('open'); _openDD=dd;
+    /* Ouvrir sur l'option COURANTE : une liste de 28 paires qui s'ouvre sur la première oblige à
+       chercher des yeux celle qu'on a déjà. */
+    try{ if(panel._sel&&panel._sel.scrollIntoView) panel._sel.scrollIntoView({block:'nearest'}); }catch(e){}
+    /* ⚠️ LE FOCUS SE REFUSE AU POINTEUR GROSSIER, IL NE SE RÉSERVE PAS AU POINTEUR FIN. La nuance
+       décide du cas par défaut, et le banc l'a tranchée : `(hover: hover) and (pointer: fine)` rend
+       FAUX dans Chromium sans périphérique déclaré. Une condition écrite dans ce sens-là refuse donc
+       le focus dès que la question n'a pas de réponse — c'est-à-dire qu'elle casse « on peut taper »,
+       la demande même, chaque fois qu'elle ne sait pas. Écrite en négatif, l'inconnu retombe du bon
+       côté : on ne s'abstient que là où l'on SAIT que c'est un doigt, parce qu'un clavier logiciel
+       recouvrirait la liste qu'on vient d'ouvrir. */
+    try{
+      var tactile=window.matchMedia&&window.matchMedia('(pointer: coarse)').matches;
+      if(champ&&!tactile) champ.focus();
+    }catch(e){}
   }
   window.enhanceSelect=function(sel,flags){
     flags=flags||{};

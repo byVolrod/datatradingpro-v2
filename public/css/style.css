@@ -23012,6 +23012,63 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
   .topbar-right { gap: 3px; padding-left: 2px; padding-right: 2px; }
 }
 
+/* ══ LE MENU DÉROULANT PARTAGÉ SE TAPE (12/09, capture user sur le sélecteur de paires) ════════
+   « Il cache la paire affichée, et qu'on puisse taper à l'écrit aussi la paire. »
+   L'habillage est COPIÉ SUR CELUI DU MENU DES WIDGETS (`.wdg-ddm-head` / `.wdg-ddm-rech`, 02/09),
+   pas réinventé : deux champs de recherche qui ne se ressemblent pas dans le même produit, c'est
+   la duplication que l'audit de ce jour-là reprochait déjà, sous une autre forme.
+   ⚠️ L'EN-TÊTE EST COLLANT, PAS FIXE. `.dtpsel-panel` est LUI-MÊME la boîte à défilement
+   (max-height + overflow-y) : un en-tête posé en flux normal disparaîtrait à la première molette,
+   et on chercherait le champ en remontant la liste — exactement le geste qu'il supprime. */
+.dtpsel-head {
+  position: sticky; top: -5px; z-index: 2; margin: -5px -5px 5px; padding: 6px 6px 5px;
+  background: var(--pop-bg, #16171b); border-bottom: 1px solid var(--hud-line, var(--border));
+}
+.dtpsel-rech {
+  width: 100%; box-sizing: border-box; padding: 5px 8px;
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; color: var(--text, #e6e8eb);
+  background: var(--bg2); border: 1px solid var(--hud-line, var(--border)); border-radius: 4px; outline: none;
+  transition: border-color var(--t-fast, .12s) var(--ease, ease);
+}
+.dtpsel-rech::placeholder { color: var(--text4, #6b7280); }
+.dtpsel-rech:focus { border-color: rgba(227, 178, 58, .55); }
+/* Le champ natif de type `search` pose une croix d'effacement grise sur fond sombre : illisible,
+   et redondante avec Échap qui ferme le menu. */
+.dtpsel-rech::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.dtpsel-vide { padding: 10px 10px 8px; font-size: 11px; color: var(--text4, #6b7280); }
+/* Une entrée masquée par le filtre ne doit pas garder sa place : `hidden` seul perd contre le
+   `display: flex` de `.dtpsel-item`, qui est plus spécifique en cascade. */
+.dtpsel-item[hidden] { display: none !important; }
+
+/* ══ L'APERÇU NE REMPLISSAIT PAS SA CARTE (12/09, capture user) ═══════════════════════════════
+   « Il y a un grand vide sous l'aperçu, l'aperçu ne comble pas totalement la carte. »
+   MESURÉ dans Chromium à 390 px d'écran, carte « Scenario Desk » : la carte fait 384 px de large,
+   le cadre de l'aperçu 382, et le dessin RÉELLEMENT peint 115 sur 45. Il restait donc 267 px de
+   vide, et l'aperçu n'occupait que 30 pourcent de son cadre.
+   LA CAUSE : tous les aperçus partagent un seul gabarit, `viewBox="0 0 120 56"` avec
+   `preserveAspectRatio="xMidYMid meet"` (widgets.js), c'est-à-dire « garde mes proportions et
+   centre-toi ». On leur imposait en face un cadre de HAUTEUR FIXE (62 px) dont la largeur suit la
+   colonne : 127 px sur trois colonnes, mais 382 px quand le téléphone n'en met qu'une. Le rapport
+   passe de 2,05 à 6,2 pour un dessin qui en vaut 2,14 : le navigateur cale alors sur la hauteur et
+   laisse tout le reste en marges latérales. Le dessin était juste, le cadre ne lui allait pas.
+   ⚠️ ET ON NE DÉFORME PAS, ON N'AGRANDIT PAS : c'est le CADRE qui prend les proportions du dessin.
+   `preserveAspectRatio="none"` étirerait les courbes (une tendance plate paraîtrait raide) et
+   `slice` couperait le dessin. `aspect-ratio` laisse le rapport intact et supprime les marges par
+   construction, à TOUTE largeur de colonne — y compris celles que personne n'a encore éprouvées.
+   Les cartes d'une même rangée restent alignées au pixel : les colonnes sont des `1fr` égales,
+   donc des cadres de même hauteur. */
+.wdg-lib-grid .wdg-lib-row .wdg-lib-card--prev .wdg-lib-prev {
+  height: auto; aspect-ratio: 120 / 56;
+}
+/* ⚠️ ET DEUX COLONNES SUR TÉLÉPHONE, sans quoi la correction se paie en défilement. Une colonne
+   unique donnerait un aperçu de 382 × 178 px : l'aperçu remplirait enfin sa carte, mais on ne
+   verrait plus que deux widgets par écran dans une bibliothèque qui en compte cinquante-trois. À
+   deux colonnes le cadre tombe à ~186 × 87 px, ce qui reste très lisible au doigt et garde quatre
+   rangées à l'écran. Corriger un défaut en en créant un autre plus bas n'est pas corriger. */
+@media (max-width: 560px) {
+  .wdg-lib-grid .wdg-lib-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* ══ SENTINELLE D'ARRIVÉE — DOIT RESTER LA DERNIÈRE RÈGLE DU FICHIER (09/09) ═════════════════════
    Elle ne peint rien. Elle PROUVE que la feuille est arrivée jusqu'au bout : un transfert coupé en
    route ne donne pas une erreur franche, il donne un fichier tronqué que le navigateur applique
