@@ -20601,7 +20601,13 @@ html[data-theme="light"] .wdg-td-l.est-contre .wdg-td-ecart, html[data-theme="li
   /* La recherche reste la case-icône du mobile : elle se déplie au tap, par-dessus la topbar. */
   .topbar-symbol-search { flex: 0 0 34px; width: 34px; min-width: 34px; max-width: 34px; margin: 0 2px; }
 }
-@media (max-width: 360px) {
+/* ⚠️ BORNE DÉPLACÉE DE 360 À 374 PX (12/09), ET C'EST UNE MESURE, PAS UN ARRONDI : 375 px est la
+   PREMIÈRE largeur d'écran où une rangée centrale de quatre boutons à 36 px CSS — le plancher
+   tactile du projet — tient sans être rognée. En dessous, elle ne tient pas, quel que soit
+   l'espacement : c'est donc le palier étroit qui doit couvrir jusque-là. Laisser la borne à 360
+   abandonnait la bande 361-374 px à des boutons de 36 px dans une rangée de 151, et la case de
+   recherche s'y faisait couper — exactement la capture du 12/09. */
+@media (max-width: 374px) {
   .topbar { padding: 0 6px; }
 }
 
@@ -21878,7 +21884,7 @@ body.dtp-outil-plein .views-col { height: calc(var(--vph) - var(--topbar-h)); }
 /* Sous 360 px, la rangée est trop courte pour cinq icônes de droite à 30 px plus les outils :
    mesuré, il manquait 25 px et les deux groupes se chevauchaient. On resserre l'écart et la
    cible passe à 28 px — au-dessus du seuil tactile de 24 px, et sans rien masquer. */
-@media (max-width: 360px) {
+@media (max-width: 374px) {   /* borne mesurée, cf. le commentaire du palier étroit plus haut */
   .topbar-right { gap: 4px; padding-left: 4px; padding-right: 2px; }
   .topbar-center { gap: 2px; padding: 0 2px; }
   /* ⚠️ LES DEUX GROUPES RÉTRÉCISSENT ENSEMBLE. Ne réduire que les icônes de DROITE les décalait de
@@ -21886,13 +21892,13 @@ body.dtp-outil-plein .views-col { height: calc(var(--vph) - var(--topbar-h)); }
      exactement le défaut d'alignement qu'on vient de corriger, réintroduit par le remède. */
   .topbar-right .topbar-icon, .topbar-right #topbar-avatar,
   .topbar-center .topbar-icon { width: 28px; height: 28px; }
-  /* La case de recherche mesurait 32 px quand les icônes en font 25 : elle prend leur taille.
-     ⚠️ MESURÉ, ET LE COMPTE N'EST PAS TOUT À FAIT JUSTE : à 320 et 360 px il reste 2 px d'écart
-     entre l'ordonnée des icônes et la sienne, dus à son rembourrage interne. À 390 px — la largeur
-     des téléphones concernés — tout est sur UNE seule ordonnée. On note l'écart plutôt que de
-     prétendre l'avoir supprimé ; il se corrigera en reprenant le rembourrage de la case, pas sa
-     hauteur. */
-  .topbar-center .topbar-symbol-search { height: 25px; min-height: 25px; width: 25px; min-width: 25px; max-width: 25px; }
+  /* ⚠️ LA TAILLE DE LA CASE DE RECHERCHE A MIGRÉ EN FIN DE FEUILLE (12/09). Elle valait 25 px ici,
+     soit 3 px de moins que les icônes qui l'entourent : c'est le dernier élément de la rangée, donc
+     celui qui payait les comptes qui ne tombaient pas juste. Elle suit désormais EXACTEMENT la
+     taille de ses voisines, palier par palier, et sous une garde `:not(:focus-within)` sans laquelle
+     la largeur fixe empêche le champ de se déplier au toucher. Chercher « la case prend la taille
+     EXACTE de ses voisines » plus bas. Ne pas redéclarer sa taille ici : deux endroits pour un
+     réglage, c'est un des deux qui mentira. */
 }
 
 /* ═══ FAMILLE VOLATILITÉ : le PRÉSENT sur les 5 cartes (23/08) ══════════════════════════════════
@@ -22946,6 +22952,64 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
   .topbar-symbol-search .search-icon { color: #aeb6c2; }             /* seule affordance au doigt → couleur des icônes voisines (9:1) */
   .topbar-symbol-search .search-icon svg { width: 18px; height: 18px; }   /* et leur taille de glyphe : 13,5 px faisait tache à côté de 18 */
   .topbar-symbol-search:focus-within .search-icon { color: #e3b23a; }     /* dépliée : la loupe passe en or, comme tout état actif du desk */
+
+  /* ══ ET ELLE SE FAISAIT COUPER EN DEUX (12/09, 2ᵉ capture user : « elle est coupée ») ═══════
+     Le contraste réparé, la loupe restait tronquée : seul son bord arrondi de gauche apparaissait.
+     MESURÉ dans Chromium sur la topbar d'un compte qui a « Mon Desk » — celle du client, pas une plus
+     légère : à 375 px d'écran la case dépassait de 20,7 px hors de sa rangée, à 390 px de 5,7 px, et
+     il ne restait ZÉRO pixel de réserve dans la barre. Le défaut est arithmétique, pas graphique.
+     ⚠️ ET LA CAUSE N'EST PAS CELLE QUE J'AI ÉCRITE D'ABORD. Ma première rédaction mettait tout sur le
+     compte d'un double espacement ; le témoin du banc l'a démentie en une mesure. Les deux moitiés
+     ont donc été éprouvées SÉPARÉMENT, et voilà ce qu'elles font, chacune, à 375 px :
+       · remise à zéro des marges SEULE   : encore coupée de 8,1 px  (390 px, lui, est sauvé)
+       · resserrement des espaces SEUL    : entière, mais 2 px de réserve seulement
+       · les deux ensemble                : entière, 14 px de réserve
+     C'est donc le RESSERREMENT qui sauve 375 px, et la remise à zéro des marges qui donne une vraie
+     réserve au lieu de 2 px — une rangée à 2 px ne survit pas à l'ajout du prochain bouton. Les deux
+     portent ; elles ne portent pas la même chose. Chaque affirmation ci-dessus a son témoin dans
+     `scripts/recherche-verif.js`, et les deux MORDENT.
+     ⚠️ CE QUI NE SE PAIE PAS : LA TAILLE DES BOUTONS. Ma première version rétrécissait les icônes du
+     centre à 32 px CSS entre 361 et 400 px. `mobile-verif` l'a REFUSÉE, et il avait raison : 32 px
+     CSS valent 28,8 px RÉELS sous le zoom de 0,9, quand le plancher tactile du projet est de 32 px
+     réels — soit 36 px CSS (garde du point 2 des cibles tactiles). On ne prend donc pas la place sur
+     le doigt du client : ce sont les rembourrages et les écarts qui se resserrent, et les neuf
+     boutons de la barre gardent tous leur cible de 32,4 px réels, mesurée largeur par largeur.
+     ⚠️ LE DOUBLE ESPACEMENT, PUISQU'IL EST RÉEL MÊME S'IL N'EST PAS LA CAUSE : chaque icône du centre
+     porte un `margin-right` HÉRITÉ du grand écran, où il servait à égaliser trois écarts (décision du
+     11/08), et le conteneur applique EN PLUS son propre `gap`. Sur téléphone les deux se cumulent :
+     6 px de marge plus 6 px de gap entre chaque icône, là où un seul réglage suffit. Le `gap` espace
+     déjà ; on retire les marges qui font doublon, 18 px rendus à la rangée.
+     ⚠️ ET LA BANDE ENTRE 361 ET 400 PX N'ÉTAIT COUVERTE PAR AUCUN PALIER. Les paliers existants
+     traitaient « ≤ 360 » puis « ≤ 480 » ; entre les deux se trouvent les iPhone SE 2 et 3, les 12 et
+     13 mini, des téléphones très répandus. La borne du palier étroit est donc passée à 374 px, et ce
+     n'est pas un arrondi : 375 px est la PREMIÈRE largeur où une rangée de quatre boutons à 36 px CSS
+     tient, mesurée. `recherche-verif` éprouve neuf largeurs une par une, DONT LES DEUX CÔTÉS DE CETTE
+     BORNE (374 et 375) : un réglage qui va bien à 360 et à 402 ne dit RIEN de ce qui se passe entre
+     les deux, et c'est exactement là que le défaut vivait. */
+  .topbar-center .topbar-icon--desk,
+  .topbar-center .topbar-icon--journal,
+  .topbar-center .topbar-icon--calc { margin-right: 0; }
+  .topbar-center .topbar-symbol-search { margin-left: 0; margin-right: 0; }
+}
+/* La case prend la taille EXACTE de ses voisines, palier par palier : une rangée de boutons se règle
+   ensemble, sinon c'est toujours le dernier qui paie. `:not(:focus-within)` est indispensable — sans
+   lui ces largeurs battaient l'expansion au toucher (spécificité 0,2,0 déclarée plus tard) et le
+   champ ne se dépliait plus. Le banc l'a mesuré avant la livraison, pas après. */
+@media (min-width: 375px) and (max-width: 768px) {
+  .topbar-center .topbar-symbol-search:not(:focus-within) {
+    flex: 0 0 36px; width: 36px; min-width: 36px; max-width: 36px; height: 36px; min-height: 36px;
+  }
+}
+@media (max-width: 374px) {
+  .topbar-center .topbar-symbol-search:not(:focus-within) {
+    flex: 0 0 28px; width: 28px; min-width: 28px; max-width: 28px; height: 28px; min-height: 28px;
+  }
+}
+/* Le resserrement de la bande étroite : rembourrages et écarts, JAMAIS les cibles tactiles. */
+@media (min-width: 375px) and (max-width: 400px) {
+  .topbar { padding-left: 4px; padding-right: 4px; column-gap: 2px; }
+  .topbar-center { padding-left: 0; padding-right: 0; column-gap: 3px; }
+  .topbar-right { gap: 3px; padding-left: 2px; padding-right: 2px; }
 }
 
 /* ══ SENTINELLE D'ARRIVÉE — DOIT RESTER LA DERNIÈRE RÈGLE DU FICHIER (09/09) ═════════════════════

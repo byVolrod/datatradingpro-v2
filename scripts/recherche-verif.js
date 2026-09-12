@@ -41,12 +41,43 @@ if (!pp || !NAV) {
 }
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon', '.jpg': 'image/jpeg' };
-const UTIL = { loggedIn: true, authenticated: true, email: 'banc@dtp.fr', role: 'client', plan: 'professionnel' };
+/* ⚠️ UN COMPTE QUI A « MON DESK » : c'est la quatrième icône du centre, celle qui fait déborder la
+   rangée. Le drapeau est posé par la RÉPONSE de l'API (app.js l'y lit) — le forcer côté page serait
+   écrasé au chargement, et le banc retomberait sur la topbar allégée qui l'a rendu vert à tort. */
+const UTIL = { loggedIn: true, authenticated: true, email: 'banc@dtp.fr', role: 'admin', plan: 'professionnel', monDesk: true, mondesk: true };
 const PORT = 4994;
 const SEUIL = 3;                     // WCAG 1.4.11 : 3:1 pour un élément d'interface porteur de sens
+/* ⚠️ LE PLANCHER TACTILE EST CELUI DU PROJET, PAS UN QUE CE BANC SE CHOISIT (12/09). Sa première
+   version se contentait de 30 px CSS — plus laxiste que la garde de `mobile-verif` (32 px RÉELS,
+   soit 36 px CSS sous le zoom de 0,9). Elle est donc passée au VERT sur un correctif qui rétrécissait
+   les icônes du centre à 32 px CSS, c'est-à-dire 28,8 px réels : `mobile-verif` l'a refusé, ce banc
+   ne l'a pas vu. Deux bancs qui mesurent la même chose avec deux seuils différents, c'est le plus
+   laxiste qui décide — et il décide à tort. On lit donc le MÊME seuil, et la conversion de px réels
+   en px CSS est faite ici une fois pour toutes. */
+const CIBLE_REELLE_MIN = 32;
+/* En dessous de 375 px d'écran, une rangée de quatre boutons à 36 px CSS ne tient PAS, quel que soit
+   l'espacement : le palier étroit y descend à 28 px CSS (25,2 réels). C'est un arbitrage assumé et
+   ANTÉRIEUR à ce correctif — un bouton un peu petit mais ENTIER vaut mieux qu'un bouton coupé — et
+   on l'écrit plutôt que de le laisser passer pour une conformité. */
+const BORNE_36 = 375;
 /* Témoin : quand il est posé, la feuille est servie SANS le bloc correctif. Le contraste doit alors
    retomber sous le seuil — sinon les contrôles ci-dessus ne mesureraient pas ce qu'ils prétendent. */
 let mutation = false;
+/* ══ LES TÉMOINS DU ROGNAGE, ET CE QUE CHACUN PROUVE EXACTEMENT ═════════════════════════════════
+   Le correctif a DEUX moitiés, et elles ont été mesurées SÉPARÉMENT avant d'écrire une ligne de
+   commentaire — parce que ma première rédaction attribuait tout le rognage aux marges en doublon, et
+   le témoin l'a démentie : les marges remises, la case ne se coupait PLUS. Relevés à 375 px, en px
+   d'écran, avec la topbar lourde :
+     · état d'origine                       375 : coupée de 20,7 px  ·  390 : coupée de 5,7 px
+     · remise à zéro des marges SEULE       375 : coupée de  8,1 px  ·  390 : entière
+     · resserrement des espaces SEUL        375 : entière, 2 px de marge restante dans la barre
+     · les deux                             375 : entière, 14 px de marge restante
+   Donc : le RESSERREMENT est ce qui sauve 375 px, et la remise à zéro des marges est ce qui laisse
+   une vraie réserve au lieu de 2 px. Les deux portent, mais pas la même chose — et chaque témoin
+   n'affirme que ce qu'il mesure. */
+let mutationMarges = false, mutationResserrement = false;
+const RE_MARGES = /\.topbar-center \.topbar-icon--desk,\s*\n\s*\.topbar-center \.topbar-icon--journal,\s*\n\s*\.topbar-center \.topbar-icon--calc \{ margin-right: 0; \}/;
+const RE_RESSERREMENT = /\/\* Le resserrement de la bande étroite[\s\S]*?\n\}\n/;
 const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text3\); \}[\s\S]*?@media \(max-width: 768px\) \{\s*\n\s*\.topbar-symbol-search \.search-icon \{ color: #aeb6c2; \}[\s\S]*?\n\}/;
 
 (async () => {
@@ -56,9 +87,13 @@ const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text
     if (u.startsWith('/api/')) { rs.writeHead(200, { 'Content-Type': 'application/json' }); return rs.end(JSON.stringify({ items: [], total: 0, ok: true, user: UTIL, ...UTIL })); }
     const f = path.join(PUB, u === '/' ? 'index.html' : u.replace(/^\/+/, ''));
     if (!f.startsWith(PUB) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { rs.writeHead(404); return rs.end('404'); }
-    if (mutation && /style\.css$/.test(f)) {
+    if ((mutation || mutationMarges || mutationResserrement) && /style\.css$/.test(f)) {
       rs.writeHead(200, { 'Content-Type': MIME['.css'] });
-      return rs.end(fs.readFileSync(f, 'utf8').replace(RE_CORRECTIF, ''));
+      let css = fs.readFileSync(f, 'utf8');
+      if (mutation) css = css.replace(RE_CORRECTIF, '');
+      if (mutationMarges) css = css.replace(RE_MARGES, '');
+      if (mutationResserrement) css = css.replace(RE_RESSERREMENT, '');
+      return rs.end(css);
     }
     rs.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' });
     fs.createReadStream(f).pipe(rs);
@@ -81,6 +116,7 @@ const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text
     const contraste = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
     const svg = ico.querySelector('svg'), rs = svg && svg.getBoundingClientRect(), rb = boite.getBoundingClientRect();
     return {
+      zoom: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dtp-zoom')) || 1,
       couleurIcone: getComputedStyle(ico).color, couleurFond: `rgb(${cFond.r}, ${cFond.g}, ${cFond.b})`,
       contraste: Math.round(contraste * 100) / 100,
       glyphe: rs ? Math.round(rs.width) : 0,
@@ -92,15 +128,53 @@ const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text
     };
   });
 
+  /* ⚠️ LA TOPBAR DU BANC DOIT ÊTRE CELLE DU CLIENT, PAS UNE PLUS LÉGÈRE (12/09). La première version
+     de ce banc mesurait un compte sans « Mon Desk » : trois icônes au centre au lieu de quatre, donc
+     une quinzaine de pixels de marge en trop. Elle est passée au vert sur une topbar où la case se
+     faisait RÉELLEMENT couper chez l'utilisateur. On force donc le drapeau qui pose la quatrième
+     icône — un banc qui teste une configuration plus confortable que la vraie est un faux vert. */
   async function ouvrir(largeur, hauteur) {
     const page = await nav.newPage();
     const erreurs = [];
     page.on('pageerror', e => erreurs.push(String(e.message || e)));
+    await page.evaluateOnNewDocument(() => { window._pdMonDesk = true; });
     await page.setViewport({ width: largeur, height: hauteur, isMobile: largeur <= 480, hasTouch: largeur <= 480 });
     await page.goto('http://localhost:' + PORT + '/index.html', { waitUntil: 'networkidle2', timeout: 45000 });
-    await new Promise(r => setTimeout(r, 900));
+    await new Promise(r => setTimeout(r, 1200));
     return { page, erreurs };
   }
+
+  /* Rognage : la case dépasse-t-elle le cadre de la rangée qui la contient ? C'est la mesure qui
+     décrit la capture user (« elle est coupée »), et elle ne se déduit d'aucune règle CSS lue. */
+  const rognage = page => page.evaluate(() => {
+    const centre = document.querySelector('.topbar-center');
+    const boite = document.querySelector('.topbar-symbol-search');
+    if (!centre || !boite) return null;
+    const c = centre.getBoundingClientRect(), b = boite.getBoundingClientRect();
+    return {
+      rognee: b.right > c.right + 0.5 || b.left < c.left - 0.5,
+      depasse: Math.round(b.right - c.right),
+      taille: Math.round(b.width),
+      deskIcon: !!document.getElementById('widgets-btn'),
+      nbIcones: centre.querySelectorAll('.topbar-icon').length,
+      /* Cible de la plus petite icône VOISINE dans la rangée : la référence à laquelle la case doit
+         s'aligner. En px réels, comme tout ce qui se juge au doigt. */
+      cibleIcone: Math.min(...[...centre.querySelectorAll('.topbar-icon')].map(e => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height); }).filter(x => x > 0)),
+      /* Réserve encore libre dans la barre, en px CSS : largeur de la barre moins ses rembourrages,
+         ses écarts et ses trois groupes. C'est la mesure qui dit si la rangée tient de justesse ou
+         avec de la marge — « 0 px » et « 14 px » se ressemblent tant qu'on ne les compte pas. */
+      reserve: (() => {
+        const b = document.querySelector('.topbar'); if (!b) return null;
+        const sb = getComputedStyle(b), zz = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dtp-zoom')) || 1;
+        const enfants = [...b.children].reduce((a, e) => a + e.getBoundingClientRect().width, 0);
+        const ecarts = (b.children.length - 1) * parseFloat(sb.columnGap || 0);
+        return +((b.getBoundingClientRect().width - parseFloat(sb.paddingLeft) - parseFloat(sb.paddingRight) - ecarts - enfants) / zz).toFixed(1);
+      })(),
+      /* La barre elle-même ne doit pas déborder : si le centre tient mais que la barre déborde, le
+         contenu est simplement poussé hors de l'écran — un autre visage du même défaut. */
+      debordeBarre: (() => { const b = document.querySelector('.topbar'); return b ? Math.round(b.scrollWidth - b.clientWidth) : null; })(),
+    };
+  });
 
   console.log('\n── Sur un téléphone (390px) : la loupe se VOIT ──');
   const { page: mob, erreurs: errMob } = await ouvrir(390, 780);
@@ -114,8 +188,10 @@ const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text
       'soit une icône rendue mais invisible — exactement ce que décrit la capture user.');
     v('[mesuré] son glyphe a la taille de ses voisines de topbar (≥ 16px)', m.glyphe >= 16,
       'glyphe mesuré : ' + m.glyphe + 'px (les icônes Journal / Calculatrice / Mon Desk font 18px)');
-    v('[mesuré] sa cible tactile reste confortable (≥ 30px)', m.cible.w >= 30 && m.cible.h >= 30,
-      'cible : ' + m.cible.w + '×' + m.cible.h);
+    /* Le desk applique un zoom global : la cible se juge en px RÉELS, ceux que le doigt touche. */
+    v(`[mesuré] sa cible tactile tient le plancher du projet (≥ ${CIBLE_REELLE_MIN}px réels)`,
+      m.cible.w >= CIBLE_REELLE_MIN && m.cible.h >= CIBLE_REELLE_MIN,
+      'cible : ' + m.cible.w + '×' + m.cible.h + 'px réels (zoom ' + m.zoom + ')');
   }
 
   console.log('\n── Et elle marche toujours : un tap déplie le champ ──');
@@ -139,6 +215,43 @@ const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text
   );
   await desk.close();
 
+  console.log('\n── Elle n\'est COUPÉE sur aucune largeur de téléphone ──');
+  /* ⚠️ LES LARGEURS SONT ÉPROUVÉES UNE PAR UNE, jamais déduites l'une de l'autre : le défaut du
+     12/09 vivait précisément dans une bande que personne n'avait mesurée (361-400 px, soit les
+     iPhone SE 2/3 et les mini), entre deux paliers qui allaient bien chacun de leur côté. */
+  /* ⚠️ LES DEUX CÔTÉS DE LA BORNE SONT MESURÉS (374 ET 375). Une borne de palier qu'on ne mesure
+     que d'un côté est exactement l'endroit où le défaut du 12/09 s'était logé. */
+  for (const L of [320, 360, 374, 375, 390, 400, 401, 412, 430]) {
+    const { page: p } = await ouvrir(L, 780);
+    const r = await rognage(p);
+    const mm = await mesurer(p);
+    v(`[mesuré] ${L}px : la case n'est pas coupée` + (r ? ` (marge ${r.depasse}px, ${r.nbIcones} icônes au centre)` : ''),
+      !!(r && !r.rognee),
+      r ? `la case déborde de ${r.depasse}px hors de la rangée : c'est le « elle est coupée » de la capture` : 'mesure impossible');
+    v(`[mesuré] ${L}px : la barre du haut ne déborde pas non plus`, !!(r && r.debordeBarre <= 1),
+      r ? `${r.debordeBarre}px de débordement : le contenu serait poussé hors de l'écran` : 'mesure impossible');
+    /* ⚠️ LE CONTRÔLE QUI EMPÊCHE LE FAUX VERT DE REVENIR. La première version de ce banc mesurait une
+       topbar SANS l'icône Mon Desk, donc plus légère d'un bouton et de son écart que celle du client :
+       elle est passée au vert sur une case réellement coupée. On vérifie donc que la topbar mesurée
+       EST bien la lourde — sinon tous les contrôles de cette boucle ne prouvent rien. */
+    v(`[mesuré] ${L}px : c'est bien la topbar LOURDE qui est mesurée (icône Mon Desk posée)`,
+      !!(r && r.deskIcon),
+      'sans Mon Desk, la rangée a un bouton de moins : le banc mesurerait une topbar plus confortable que la vraie');
+    /* Sous 375px, le palier étroit descend volontairement à 28px CSS : la rangée ne tient pas
+       autrement (mesuré), et entier vaut mieux que coupé. Au-dessus, le plancher du projet. */
+    const plancher = L >= BORNE_36 ? CIBLE_REELLE_MIN : 25;
+    v(`[mesuré] ${L}px : elle reste lisible et à la cible de ses voisines (≥ ${plancher}px réels)`,
+      !!(mm && mm.contraste >= SEUIL && mm.cible.w >= plancher && mm.cible.h >= plancher),
+      mm ? `contraste ${mm.contraste}:1, cible ${mm.cible.w}×${mm.cible.h}px réels` : '');
+    /* ⚠️ ET LA CASE DOIT AVOIR LA MÊME CIBLE QUE SES VOISINES, pas seulement « une cible suffisante » :
+       c'est le dernier élément de la rangée, donc celui sur qui se réglaient les comptes qui ne
+       tombaient pas juste. Elle valait 25px quand les icônes en faisaient 28. */
+    v(`[mesuré] ${L}px : la case a EXACTEMENT la cible des icônes voisines`,
+      !!(r && mm && Math.abs(mm.cible.h - r.cibleIcone) <= 1),
+      r && mm ? `case ${mm.cible.h}px réels, icônes voisines ${r.cibleIcone}px` : 'mesure impossible');
+    await p.close();
+  }
+
   console.log('\n── Témoin : sans le correctif, la loupe redevient invisible ──');
   const brut = fs.readFileSync(path.join(PUB, 'css/style.css'), 'utf8');
   v('le bloc correctif est bien présent dans la feuille (sinon le témoin ne mute rien)', RE_CORRECTIF.test(brut));
@@ -149,6 +262,40 @@ const RE_CORRECTIF = /\.topbar-symbol-search \.search-icon \{ color: var\(--text
     !!(t && t.contraste < SEUIL),
     'si le contraste reste bon ici, le contrôle plus haut ne mesure pas le correctif : ' + JSON.stringify(t));
   await mut.close();
+  mutation = false;
+
+  console.log('\n── Témoin des MARGES : sans leur remise à zéro, la barre n\'a plus de réserve ──');
+  const brutM = fs.readFileSync(path.join(PUB, 'css/style.css'), 'utf8');
+  v('la remise à zéro des marges est bien dans la feuille (sinon le témoin ne mute rien)', RE_MARGES.test(brutM));
+  const { page: pAvec } = await ouvrir(375, 780);
+  const reserveAvec = (await rognage(pAvec)).reserve;
+  await pAvec.close();
+  mutationMarges = true;
+  const { page: pSans } = await ouvrir(375, 780);
+  const reserveSans = (await rognage(pSans)).reserve;
+  await pSans.close();
+  /* ⚠️ CE QUE CE TÉMOIN PROUVE, ET RIEN DE PLUS. Les marges remises, la case n'est PAS re-coupée —
+     mesuré, et c'est ce qui a corrigé ma rédaction. Ce qu'elles coûtent, c'est la RÉSERVE : 14 px
+     libres dans la barre avec la remise à zéro, 2 px sans. Deux px, c'est une rangée qui ne survit
+     pas à l'ajout d'un seul élément, donc au prochain correctif. On mesure donc la réserve, pas un
+     rognage qu'on n'obtient pas : un témoin qui affirme plus que sa mesure est un faux témoin. */
+  v('[mesuré] les marges en doublon remises, la réserve de la barre s\'effondre (≥ 8px → ≤ 4px)',
+    reserveAvec >= 8 && reserveSans <= 4,
+    'réserve à 375px : ' + reserveAvec + 'px CSS avec la remise à zéro, ' + reserveSans + 'px sans');
+  mutationMarges = false;
+
+  console.log('\n── Témoin du RESSERREMENT : sans lui, la case est coupée à 375px ──');
+  v('le bloc de resserrement est bien dans la feuille (sinon le témoin ne mute rien)', RE_RESSERREMENT.test(brutM));
+  mutationResserrement = true;
+  const { page: pr } = await ouvrir(375, 780);
+  const rr375 = await rognage(pr);
+  await pr.close();
+  /* C'est CETTE moitié qui sauve 375 px : sans elle, 8,1 px de la case passent hors de la rangée —
+     la capture user, à la largeur d'un iPhone SE 2/3 ou d'un 12/13 mini. */
+  v('[mesuré] sans le resserrement, la case redevient coupée à 375px',
+    !!(rr375 && (rr375.rognee || rr375.depasse > 0.5)),
+    rr375 ? 'dépassement mesuré : ' + rr375.depasse + 'px (attendu : ~8px)' : 'mesure impossible');
+  mutationResserrement = false;
 
   await nav.close(); srv.close();
   console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
