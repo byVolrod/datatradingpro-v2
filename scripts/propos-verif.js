@@ -412,6 +412,46 @@ const nouv = (o) => Object.assign({ id: Math.random().toString(36).slice(2), tim
     !/propos \(titres VO, jamais traduits/.test(CHARTS),
     'le commentaire périmé est revenu — il contredit le comportement réel depuis le 17/07');
 
+  console.log('\n── 8. « Important » ne rate pas les dépêches au PLURIEL ──');
+  /* ⚠️ TROUVÉ EN CHERCHANT POURQUOI DEUX DÉPÊCHES TRÈS URGENTES RESTAIENT EN ANGLAIS (11/09, capture
+     user : « North Korea launches multiple ballistic missiles », « Iran strikes… », non traduites
+     alors que des titres bien moins pressants l'étaient). `_isImportantNews` trie la file de
+     traduction de fond par importance (§7 déjà couvert : « les news importantes passent en
+     premier ») — mais `\bmissile\b` et `\bstrike\b` exigent une frontière de mot PILE après le
+     singulier : dans « missileS »/« strikeS », le « s » qui suit reste un caractère de mot, \b ne
+     matche donc JAMAIS, et la ligne retombait « non importante ». Elle passait alors derrière tout
+     le reste dans une file qui ne débite que 20 titres/minute. Un contrôle de mots-clés isolé
+     serait vert sur une regex qui ne matche plus rien en pratique : on l'éprouve donc contre de
+     VRAIES formes de titres, au pluriel ET au singulier. */
+  const rxM = SRV.match(/const _IMPORTANT_RX = (\/.*\/i);/);
+  v('_IMPORTANT_RX est extractible de server.js', !!rxM);
+  if (rxM) {
+    const RX = eval(rxM[1]);
+    const cas = [
+      ['North Korea launches multiple ballistic missiles: South Korea\'s JCS', true],
+      ['North Korea launched a ballistic missile', true],
+      ['Iran strikes Israeli targets near Hormuz', true],
+      ['Fed signals rate cuts ahead', true],
+      ['ECB rate decisions loom before the summer break', true],
+      ['Traders watch for interest rates moves this week', true],
+      ['Trade wars escalate between two nations', true],
+      ['OPEC agrees to new production quotas', true],
+      ['Random equity news about a company earnings call', false],
+    ];
+    let toutBon = true;
+    for (const [texte, attendu] of cas) {
+      const r = RX.test(texte);
+      if (r !== attendu) { toutBon = false; console.log(`      ⚠ "${texte}" -> ${r} (attendu ${attendu})`); }
+    }
+    v('[exécuté] les formes au PLURIEL (missiles, strikes, cuts, decisions, rates, wars) comptent comme importantes', toutBon);
+    /* Témoin : remettre les singuliers stricts (le vrai bug du 11/09) doit faire échouer le test
+       précédent sur "missiles"/"strikes" — sinon ce contrôle ne prouve rien. */
+    const RX_MUTEE = /\b(fed|fomc|powell|ecb|bce|lagarde|boe|bailey|boj|ueda|snb|boc|rba|rbnz|cpi|inflation|nfp|payrolls?|gdp|pib|rate (decision|cut|hike)|interest rate|emergency|intervention|war|missile|strike|ceasefire|sanctions?|default|bailout|opec)\b/i;
+    v('[exécuté] mutation : revenir aux singuliers stricts fait bien RATER les deux dépêches de la capture',
+      !RX_MUTEE.test(cas[0][0]) && !RX_MUTEE.test(cas[2][0]),
+      'si la mutation matche encore, le contrôle ci-dessus ne mord pas');
+  }
+
   if (_attenteAsync) { try { await _attenteAsync; } catch (e) { v('les contrôles asynchrones s\'exécutent', false, e.message); } }
   console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec' : '✓ ' + ok + ' contrôles au vert'));
   process.exit(ko ? 1 : 0);

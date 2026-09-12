@@ -1097,6 +1097,21 @@ function _dtpAppareil() {
 }
 
 // ═══ WebSocket ════════════════════════════
+/* ⚠️ LE BANDEAU « ERREUR DE CONNEXION » S'AFFICHAIT SUR UN SIMPLE BLIP MOBILE (11/09, capture
+   user : bandeau visible sur téléphone, 5G). Il partait sur `onerror`, DIRECTEMENT, pour n'importe
+   quelle coupure — même celle qui se répare en moins d'une seconde grâce au reconnect immédiat du
+   retour au premier plan (`visibilitychange`, ci-dessous). Une coupure réseau ordinaire (bascule
+   WiFi/5G, quelques secondes en zone blanche) n'est pas une panne : c'est le lot commun du mobile,
+   et le reconnect existant la répare déjà toute seule.
+   ⚠️ ET `onerror` NE COUVRE MÊME PAS TOUTES LES COUPURES : un redémarrage propre du serveur
+   (chaque déploiement en pousse un) ferme la socket via `onclose` SANS forcément déclencher
+   `onerror`, qui est réservé aux échecs réseau. Le bandeau pouvait donc rester muet pendant qu'un
+   déploiement coupait tout le monde, et s'affoler sur un blip mobile sans gravité : l'inverse de
+   ce qu'on veut montrer.
+   Le bandeau part désormais de `onclose` (qui couvre les DEUX causes), après un DÉLAI COURT : s'il
+   se reconnecte avant l'échéance — le cas courant, un blip ou le retour au premier plan — personne
+   ne voit jamais le message. Il ne s'affiche que si la coupure TIENT. */
+let _wsAvisTimer = null;
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   // `?a=` : un navigateur ne peut poser aucun en-tête sur un WebSocket. Sans ce paramètre, le flux
@@ -1105,6 +1120,7 @@ function connectWS() {
   ws = new WebSocket(`${proto}://${location.host}${_a ? '?a=' + encodeURIComponent(_a) : ''}`);
 
   ws.onopen = () => {
+    if (_wsAvisTimer) { clearTimeout(_wsAvisTimer); _wsAvisTimer = null; }
     showStatus('Connecté', 'ok');
     if (liveDot) { liveDot.style.background = 'var(--green)'; liveDot.style.boxShadow = '0 0 6px var(--green)'; }
   };
@@ -1115,7 +1131,6 @@ function connectWS() {
   };
 
   ws.onerror = () => {
-    showStatus('Erreur de connexion', 'err');
     if (liveDot) { liveDot.style.background = 'var(--red)'; liveDot.style.boxShadow = 'none'; }
   };
 
@@ -1123,6 +1138,8 @@ function connectWS() {
     if (liveDot) { liveDot.style.background = 'var(--red)'; liveDot.style.boxShadow = 'none'; }
     if (reconnectTimer) clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(connectWS, 5000);
+    if (_wsAvisTimer) clearTimeout(_wsAvisTimer);
+    _wsAvisTimer = setTimeout(() => { _wsAvisTimer = null; showStatus('Erreur de connexion', 'err'); }, 1500);
   };
 }
 
