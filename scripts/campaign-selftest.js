@@ -53,6 +53,60 @@ ok('Decryptage : aucun tiret cadratin', !/—/.test(dc.html));
 ok('Decryptage : aucun undefined/NaN visible', !/>\s*(undefined|NaN)\s*</.test(dc.html));
 const dcAlt = M.buildCampaignDecryptage({ name: '', email: 'a@b.com', campaign: 'st', context: CTX_DATA, recentKeys: ['taux-mecanisme'], isMember: false });
 ok('Decryptage : anti-redondance (concept different)', dcAlt.conceptKey !== 'taux-mecanisme', 'alt=' + dcAlt.conceptKey);
+
+// ── LE CATALOGUE ENTIER, PAS SEULEMENT LE CONCEPT DU JOUR ──────────────────────────
+// POURQUOI (16/09, à l'ajout du concept « pricing »). Les trois contrôles ci-dessus n'éprouvent
+// QUE le concept que la rotation choisit pour le thème « rates », c'est-à-dire TOUJOURS le même,
+// `taux-mecanisme`. Un concept ajouté en fin de catalogue pouvait donc être mal formé, ou ne
+// jamais être ATTEIGNABLE par la rotation, sans qu'aucun banc ne rougisse : on ne le découvrait
+// qu'en le voyant — ou en ne le voyant jamais — dans une boîte de réception.
+// Deux propriétés, éprouvées sur CHAQUE entrée : elle rend un mail propre, et la rotation finit
+// par la servir quand les autres concepts de son thème sont couverts.
+const _CAT = M.DECRYPT_CONCEPTS || [];
+function _auditCatalogue(liste) {
+  const maux = [];
+  const vues = new Set();
+  for (const c of liste) {
+    const q = (m) => maux.push((c && c.key ? c.key : '(sans clé)') + ' : ' + m);
+    if (!c || !c.key) { q('clé absente'); continue; }
+    if (vues.has(c.key)) q('clé en double'); vues.add(c.key);
+    if (!c.theme) q('thème absent');
+    if (!Array.isArray(c.paras) || c.paras.filter(Boolean).length < 2) q('moins de deux paragraphes');
+    let r = null;
+    try { r = M.buildCampaignDecryptage({ name: '', email: 'a@b.com', campaign: 'st', context: CTX_DATA, conceptKey: c.key, isMember: false }); } catch (e) { q('le rendu lève : ' + e.message); continue; }
+    if (!r || !r.html || !r.subject) q('ne rend pas de mail');
+    else {
+      if (r.conceptKey !== c.key) q('l’épinglage ne rend pas ce concept (' + r.conceptKey + ')');
+      if (/\$\{/.test(r.html)) q('variable ${} non résolue');
+      if (/—/.test(r.html)) q('tiret cadratin');
+      if (/>\s*(undefined|NaN)\s*</.test(r.html)) q('undefined/NaN visible');
+      if (/\d[\s\u00a0\u202f]+%/.test(r.html)) q('une espace sépare le chiffre du pourcent');
+    }
+    // ATTEIGNABLE : tous les AUTRES concepts de son thème couverts → c'est lui qui sort.
+    const freres = liste.filter(x => x && x.theme === c.theme && x.key !== c.key).map(x => x.key);
+    const choisi = M.pickDecryptConcept({ theme: c.theme }, freres);
+    if (!choisi || !choisi.concept || choisi.concept.key !== c.key) q('jamais atteignable par la rotation (sort ' + (choisi && choisi.concept && choisi.concept.key) + ')');
+  }
+  return maux;
+}
+const _mauxCat = _auditCatalogue(_CAT);
+ok('Decryptage : le catalogue entier rend et tourne (' + _CAT.length + ' concepts)', _mauxCat.length === 0, _mauxCat.slice(0, 4).join(' | '));
+// TÉMOIN — sans lui, le contrôle ci-dessus pourrait être vert en ne mesurant rien.
+const _temoinCat = _auditCatalogue(_CAT.concat([{ key: 'temoin-casse', theme: 'rates', title: 'Témoin', paras: ['Un seul paragraphe à 74 % de chances d’être refusé.'] }]));
+ok('… et le contrôle mord (témoin : un para, une espace avant le pourcent)', _temoinCat.length >= 2, 'maux=' + _temoinCat.length);
+// … et un second témoin pour la propriété la plus discrète des deux : L'ATTEINTE. Un concept
+// parfaitement rédigé mais rangé sous le thème « calm » n'est JAMAIS servi — « calm » ne figure
+// pas dans sa propre liste de repli (mesuré : la rotation sort `cpi-vs-core`). Sans ce témoin, le
+// contrôle d'atteinte pourrait être vert en ne mesurant rien, puisque le premier témoin échoue
+// déjà sur la forme.
+const _temoinAtteinte = _auditCatalogue(_CAT.concat([{ key: 'temoin-inatteignable', theme: 'calm', title: 'Témoin', paras: ['Deux paragraphes bien formés, un pourcent collé à 74%.', 'La règle de lecture : rien à signaler.'] }]));
+ok('… et l’atteinte est bien mesurée (témoin : concept rangé sous un thème jamais servi)',
+  _temoinAtteinte.some(m => /temoin-inatteignable.*atteignable/.test(m)), _temoinAtteinte.join(' | ') || 'aucun mal relevé');
+// Le concept demandé le 16/09 : présent, et son dernier paragraphe DÉCLARE la règle de lecture
+// (sans quoi il s'afficherait sous « À retenir », ce qui reste juste mais perd l'intitulé voulu).
+const _pricing = _CAT.find(c => c.key === 'deja-price');
+ok('Decryptage : le concept du pricing est au catalogue', !!_pricing);
+ok('… et sa règle de lecture est déclarée', !!_pricing && /^La règle de lecture\s*:/.test(String(_pricing.paras[_pricing.paras.length - 1])));
 const dcM = M.buildCampaignDecryptage({ name: '', email: 'a@b.com', campaign: 'st', context: CTX_DATA, recentKeys: [], isMember: true });
 ok('Variante MEMBRE : CTA "Ouvrir mon Desk"', /Ouvrir mon Desk/.test(dcM.html));
 ok('Variante NON-MEMBRE : CTA "Decouvrir le Desk"', /D[eé]couvrir le Desk/.test(dc.html));

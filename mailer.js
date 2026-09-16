@@ -2241,6 +2241,18 @@ const DECRYPT_CONCEPTS = [
     "En risk-off, ils cherchent la sécurité : dollar américain, yen, franc suisse et or se renforcent, les actions souffrent.",
     "Savoir dans quel régime on se trouve évite de se battre contre le courant dominant du marché. C'est l'une des premières lectures du desk chaque matin.",
   ] },
+  // ── Ajout 16/09 (demande utilisateur, référence fournie : une newsletter concurrente consacrée au
+  //    « pricing »). Notion absente du catalogue alors qu'elle commande TOUTES les autres : sans elle,
+  //    un lecteur qui connaît le CPI, le NFP et la courbe des taux ne comprend toujours pas pourquoi
+  //    un bon chiffre fait baisser une devise. Texte 100% DTP, écrit d'après ce que le desk affiche
+  //    (onglet Taux, rendements, Force des Devises), aucune phrase reprise d'une newsletter existante.
+  { key: 'deja-price', theme: 'rates', eyebrow: 'ANTICIPATIONS', title: "Déjà pricé ou pas : pourquoi une bonne nouvelle fait parfois baisser une devise", paras: [
+    "La Fed baisse ses taux et le dollar monte. Une inflation ressort plus chaude que prévu et le dollar recule. Ces réactions n'ont rien d'absurde : il manque une donnée pour les lire, ce que le marché avait DÉJÀ anticipé avant l'annonce. C'est ce qu'on appelle le pricing.",
+    "Une information pricée, c'est une information sur laquelle les investisseurs se sont déjà positionnés. Si une baisse de 25 points de base est donnée à 95% de probabilité, personne n'attend le jour de la réunion pour agir : les taux courts, l'obligataire et la devise ont bougé pendant les séances qui précèdent. Le jour venu, une décision conforme ne surprend plus personne, et le mouvement peut même repartir en sens inverse.",
+    "Aucun indicateur n'annonce « cette publication est pricée à 74% ». On le reconstitue en croisant quatre lectures que le desk affiche en continu : ce que le marché attend de la banque centrale et avec quelle conviction (onglet Taux), ce que les rendements obligataires ont déjà fait, ce que la devise a déjà fait sur les deux dernières semaines, et pourquoi elle l'a fait.",
+    "Le consensus du calendrier est un repère, pas la vérité du jour : il est établi plusieurs séances à l'avance et ne bouge plus, pendant que le marché, lui, continue d'intégrer le pétrole, les discours et les chiffres tombés depuis. Et le chiffre seul ne dit rien : un CPI à 3,4% est une mauvaise surprise face à 3,0% attendus, une bonne face à 3,6%. C'est l'écart qui parle, jamais le niveau.",
+    "La règle de lecture : avant un rendez-vous, séparez ce qui est déjà pricé de ce qui ne l'est pas, puis posez-vous une seule question, qu'est-ce qui devrait arriver pour que le marché soit obligé de changer d'avis ? C'est cet écart-là, et lui seul, qui déclenche un repricing et fait bouger les prix.",
+  ] },
 ];
 // Selection PURE : choisit le concept selon le theme du contexte, en sautant les cles couvertes recemment.
 function pickDecryptConcept(context, recentKeys, extraConcepts) {
