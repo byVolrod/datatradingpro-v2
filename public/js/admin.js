@@ -1911,6 +1911,33 @@
       + `<div class="aim-sec-title">Demande attendue (apprise)</div>` + nh;
   }
   function aimRenderInfra(d) {
+    /* ══ POURQUOI UN RAPPORT QUOTIDIEN EST PROVISOIRE (16/09) ════════════════════════
+       Le repli déterministe recycle les dépêches BRUTES, donc anglaises : un client ouvre le
+       Récap Quotidien et lit de l'anglais. C'était signalé au lecteur depuis le 11/09 et
+       diagnosticable par personne. La cause vit désormais ici, avec l'heure et la taille du
+       prompt envoyé : une réponse tronquée face à un prompt de 40 000 caractères ne se lit pas
+       comme un fournisseur en panne, et les deux se corrigent à des endroits différents. */
+    const _rp = document.getElementById('aim-rapports');
+    if (_rp) _rp.innerHTML = (() => {
+      const R = d.rapports;
+      if (!R || R.erreur) return '<div class="aim-j-empty">indisponible' + (R && R.erreur ? ' : ' + _esc2(R.erreur) : '') + '</div>';
+      const ligne = (r) => {
+        if (!r) return '';
+        if (!r.present) return `<div class="aim-kv"><span>${_esc2(r.nom || '')}</span><b style="color:#6b7280">pas encore g\u00e9n\u00e9r\u00e9 (${_esc2(r.jour || '')})</b></div>`;
+        const col = r.ia ? '#22c55e' : '#ffb300';
+        let h = `<div class="aim-kv"><span>${_esc2(r.nom || '')} <span style="color:#6b7280">${_esc2(r.jour || '')}</span></span><b style="color:${col}">${r.ia ? 'r\u00e9dig\u00e9 ✓' : 'PROVISOIRE'}</b></div>`;
+        if (!r.ia) {
+          h += `<div class="aim-kpi-s" style="margin:-2px 0 8px;color:#c8ccd4;line-height:1.45">${_esc2(String(r.raison || '').slice(0, 220))}</div>`;
+          const bas = [];
+          if (r.raisonTs) bas.push(new Date(r.raisonTs).toLocaleString('fr-FR'));
+          if (r.promptLen) bas.push('prompt ' + r.promptLen.toLocaleString('fr-FR') + ' caract\u00e8res');
+          if (bas.length) h += `<div class="aim-kpi-s" style="margin:-6px 0 8px;color:#6b7280">${_esc2(bas.join(' \u00b7 '))}</div>`;
+        }
+        return h;
+      };
+      return ligne(R.fxRecap) + ligne(R.dtpDaily)
+        + '<div class="aim-kpi-s" style="margin-top:6px;color:#6b7280">Un rapport provisoire se rejoue tout seul toutes les 15 minutes jusqu\u2019\u00e0 obtenir sa version fran\u00e7aise.</div>';
+    })();
     document.getElementById('aim-mail').innerHTML = (() => {
       const M = d.mail; if (!M) return '<div class="aim-j-empty">indisponible</div>';
       const ovhOk = !!(M.ovh && M.ovh.configured);

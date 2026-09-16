@@ -1557,6 +1557,7 @@ const DTP_UPDATES = [
   { id: 'dtpu-20260911-taux-derniere-reunion', ts: Date.UTC(2026, 8, 11, 11, 15), title: 'Onglet Taux : la carte dit maintenant aussi QUAND la dernière décision a été prise', desc: 'Demande d’un client : « on a les dates des réunions futures, ajoute aussi la dernière qui est passée, ce serait bien pour toutes les banques ». La carte d’une banque centrale portait une ligne « Date de réunion », et c’était la PROCHAINE. On savait donc quand la question serait reposée, jamais quand elle avait été tranchée. OR LE TAUX AFFICHÉ JUSTE AU DESSUS SORT PRÉCISÉMENT DE CETTE RÉUNION PASSÉE. Sans sa date, impossible de savoir s’il date d’une semaine ou de quatre mois, et donc à quel point la prochaine décision est chargée : une banque qui n’a pas bougé depuis quatre mois et une banque qui vient de trancher ne se lisent pas de la même façon, même avec le même chiffre à l’écran. Les deux dates se lisent ensemble ou ne se lisent pas. LES DEUX INTITULÉS DEVIENNENT EXPLICITES : « Prochaine réunion » et « Dernière réunion ». Deux dates sur une même carte sans intitulé distinct se confondent, et c’était le défaut d’origine. L’ancienneté en jours s’affiche au survol de la date, pas sur la ligne : la carte est dense, et « il y a 83 jours » est un complément, pas la donnée. POUR LES HUIT BANQUES, sans exception, et c’était le point délicat. Le fournisseur de pricing ne transmet que des réunions À VENIR : y chercher une date passée n’aurait jamais rien donné, et la moitié des banques ne sont de toute façon pas servies par lui. La date vient donc du calendrier complet du desk, le même pour les huit et le même pour la prochaine réunion : les deux lignes ne peuvent pas se contredire. ON DIT QUAND, PAS CE QUI A ÉTÉ DÉCIDÉ. Accoler un verdict à cette date reviendrait à affirmer qu’on a lu le communiqué de cette réunion précise, ce qui n’est pas garanti pour les huit banques. La provenance du taux, elle, reste écrite en pied de carte comme avant. Un contrôle automatique exécute désormais le vrai calcul à chaque livraison et vérifie, pour les huit, que la date rendue est bien passée, qu’elle est bien la PLUS RÉCENTE des passées, et qu’une banque hors calendrier n’en reçoit aucune plutôt qu’une date inventée.' },
   { id: 'dtpu-20260911-journal-jour', ts: Date.UTC(2026, 8, 11, 15, 0), title: 'Journal : la colonne Jour se choisit enfin, et elle déplace la date avec elle', desc: 'Signalé par un client : « je dois avoir les jours de la semaine en cliquant ». C’était exact, et le silence était le pire du défaut : on cliquait sur une cellule de la colonne Jour, il ne se passait rien, et rien ne disait pourquoi. LA RAISON DE CE BLOCAGE ÉTAIT POURTANT BONNE, et c’est ce qui rend la réparation intéressante. Le jour n’est pas une donnée que vous saisissez : il est DÉDUIT de la date du trade. Le rendre librement modifiable produirait une ligne qui se contredit toute seule, un trade daté du mercredi 9 septembre étiqueté « Lundi ». Nous ne stockons donc pas un jour à côté de la date. CE QUE FAIT LE CLIC MAINTENANT : les sept jours vous sont proposés, et en choisir un DÉPLACE la date du trade sur ce jour, dans la même semaine. Les deux colonnes restent d’accord parce qu’elles restent le même fait, et vous obtenez exactement ce que vous demandiez. Le sélecteur le dit en toutes lettres sous les options, parce que déplacer la date n’est pas ce qu’on attend d’un choix de jour tant qu’on ne l’a pas lu une fois. Un trade sans date prend la semaine en cours comme repère : c’est le seul dont on dispose, et refuser le clic serait revenir au défaut qu’on répare. LE DIMANCHE EST TRAITÉ COMME IL SE DOIT : dans la numérotation interne des jours il porte le zéro et passerait pour le début de semaine, ce qui aurait renvoyé un trade du dimanche à la semaine précédente. Le calcul passe par le lundi, comme une semaine se lit en France.' },
   { id: 'dtpu-20260911-panne-ia-silencieuse', ts: Date.UTC(2026, 8, 11, 18, 40), title: 'Une panne d\'analyse ne peut plus passer inaperçue, ni laisser un rond tourner', desc: 'Retour d’un client sur une même journée : des titres du fil restés en anglais, une courbe de Force des devises en chargement infini dans le Récap Quotidien, et une synthèse qui alignait des dépêches brutes au lieu d’un texte rédigé. Un seul incident derrière les trois, et trois défauts qui l’attendaient. CE QUI S’EST PASSÉ. La chaîne d’analyse s’appuie sur sept fournisseurs, essayés l’un après l’autre. Ils ont vacillé ensemble quelques minutes, ce qui arrive. Le desk a fait exactement ce qu’il devait : il a basculé sur ses solutions de repli, personne n’a vu de page vide. Mais les replis sont restés en place bien plus longtemps que la panne. PREMIER DÉFAUT : LE DESK PUNISSAIT SA PROPRE REPRISE. Après une série d’échecs, il s’impose une pause avant de réessayer, ce qui est sain : marteler des serveurs à terre ne les ressuscite pas. Sauf que cette pause grandissait avec le NOMBRE d’échecs passés, jusqu’à SIX HEURES. Une avarie de quelques minutes gelait donc la rédaction pour la demi-journée, longtemps après le retour des fournisseurs. Le compteur d’échecs mesure ce qui s’est passé, jamais ce qui se passe MAINTENANT. Le desk re-teste désormais la chaîne à intervalle court et BORNÉ : au pire dix à trente minutes, jamais six heures. Dès qu’un fournisseur répond, tout repart d’un coup. DEUXIÈME DÉFAUT : LA SURVEILLANCE AFFIRMAIT « utilisateur non impacté ». Littéralement, dans le code. Elle vérifiait deux choses, que le fil se charge et que la mémoire répond, et concluait que tout allait bien. Ces deux voyants étaient au vert pendant que le client lisait de l’anglais. Une panne d’analyse qui dure déclenche maintenant une vraie alerte, parce qu’à ce stade du contenu dégradé est DÉJÀ sous les yeux des lecteurs. Une avarie courte, elle, ne réveille personne : une alerte qui sonne pour rien est une alerte qu’on finit par ne plus ouvrir. TROISIÈME DÉFAUT : LE FILET DE SECOURS AVAIT DISPARU EN SILENCE. Le dernier recours de la chaîne est un service payant, et son compte était à sec depuis un moment. C’était traité comme une situation connue, donc sans alarme, ce qui était juste pour ne pas crier à la panne. Mais ça ne prévenait personne non plus, et c’est précisément l’absence de ce dernier recours qui a transformé une avarie ordinaire en interruption complète. Ne pas s’alarmer et ne rien dire sont deux décisions différentes : elles sont désormais séparées. LA COURBE QUI TOURNAIT SANS FIN. Le traceur de courbes vit dans un fichier chargé à part. Quand le rapport s’affichait avant lui, le code sortait sans un mot : aucune requête, donc aucune erreur possible, donc un rond qui tourne pour toujours. Et la requête n’avait aucun délai maximal, si bien qu’un serveur ralenti suffisait à produire le même écran. Les deux sont fermés, sur les quatre courbes concernées : le traceur est attendu un temps borné, la requête a le droit d’échouer, et un message honnête remplace le rond. Un rapport doit dire ce qui lui manque. ET LE RAPPORT DE SECOURS DIT MAINTENANT QU’IL EN EST UN. Quand la rédaction ne peut pas être produite, le desk assemble un rapport à partir des dépêches réelles plutôt que de ne rien publier. C’est utile et ça se remplace tout seul en un quart d’heure. Mais rien ne le distinguait à l’écran du vrai rapport : vous croyiez lire le produit fini. Un bandeau l’annonce désormais, et précise que la version rédigée arrive automatiquement, sans rien faire de votre côté.' },
+  { id: 'dtpu-20260916-rapport-provisoire', ts: Date.UTC(2026, 8, 16, 7, 25), title: 'Récap Quotidien en anglais : la panne dit enfin son nom', desc: 'Vous nous avez resignalé le Récap Quotidien affiché en « Version provisoire », avec du contenu en anglais. CE QUE CE BANDEAU VEUT DIRE, et il dit vrai : la rédaction du rapport n’a pas abouti, et le desk publie alors un repli qui recycle les dépêches brutes plutôt que de vous laisser une page vide. Ce repli se rejoue tout seul toutes les quinze minutes et se remplace dès que la rédaction repart. CE QUI N’ALLAIT PAS, ET QUI EST CORRIGÉ AUJOURD’HUI : la cause de l’échec n’était ÉCRITE NULLE PART. Le desk savait vous prévenir depuis le 11 septembre, il ne savait le dire à personne d’autre. Sur les quatre façons dont la rédaction peut échouer, TROIS ne laissaient aucune trace : la chaîne d’analyse mise en pause après des échecs répétés, une réponse qui arrive mais sans le format attendu, et une réponse bien formée mais vide de ce qu’on lui demandait. Seule la quatrième écrivait quelque chose. Autant dire qu’on cherchait la panne à l’aveugle, et qu’elle est revenue à l’identique. DÉSORMAIS chaque repli enregistre POURQUOI il a eu lieu, en français, avec l’heure et de quoi trancher entre les causes qui se ressemblent : une réponse coupée en plein milieu par un plafond de longueur ne se soigne pas au même endroit qu’un fournisseur en panne, et les deux se présentaient jusqu’ici de la même façon. La même correction est posée sur les TROIS rapports concernés : le Récap Quotidien, le Point Marché de l’ouverture US, et le rapport hebdomadaire, dont un contrôle automatique a révélé qu’il souffrait du même silence. Rien ne change pour vous à l’écran : le bandeau reste, il est honnête. Ce qui change, c’est que la prochaine fois la cause sera lisible d’un coup d’œil au lieu d’être devinée pendant des jours.' },
   { id: 'dtpu-20260916-mail-pricing', ts: Date.UTC(2026, 8, 16, 7, 5), title: 'Leçon du mardi : « déjà pricé ou pas » rejoint le catalogue', desc: 'La leçon du mardi, celle qui arrive dans votre boîte sous le titre Comprendre le marché, gagne une notion qui lui manquait et qui commande toutes les autres : le PRICING. Vous pouviez connaître le CPI, le NFP et la courbe des taux et rester devant votre graphique à vous demander pourquoi la Fed baisse ses taux et le dollar monte, ou pourquoi une inflation plus chaude que prévu fait reculer le billet vert. Il ne manquait qu’une donnée pour lire ces séances : ce que le marché avait DÉJÀ anticipé avant l’annonce. CE QUE LE MAIL EXPLIQUE. Ce que veut dire « une information pricée », et pourquoi une décision donnée à 95% de probabilité a déjà fait bouger les taux courts, l’obligataire et la devise plusieurs séances avant la réunion. Comment on reconstitue ce qui est pricé, faute d’indicateur qui l’annonce, en croisant quatre lectures que le desk affiche en continu : les anticipations de taux de l’onglet Taux, les rendements obligataires, ce que la devise a déjà fait, et pourquoi. Pourquoi le consensus du calendrier est un repère et non la vérité du jour, puisqu’il est établi des séances à l’avance et ne bouge plus. Et pourquoi un même chiffre raconte deux histoires opposées : un CPI à 3,4% est une mauvaise surprise face à 3,0% attendus, une bonne face à 3,6%. LE CONTRÔLE QUI VA AVEC. Jusqu’ici notre banc n’éprouvait que le concept servi par défaut, toujours le même : une leçon ajoutée en fin de catalogue pouvait être mal formée, ou n’être JAMAIS servie par la rotation, sans que rien ne le signale. Les quinze leçons sont désormais rendues une par une à chaque livraison, et le banc vérifie aussi que chacune finit par être servie quand les autres leçons de son thème ont été couvertes.' },
   { id: 'dtpu-20260916-journal-scroller', ts: Date.UTC(2026, 8, 16, 6, 47), title: 'Le tableau du Journal annonce enfin ses colonnes de droite', desc: 'Sur le tableau du Journal de trading, les colonnes de droite étaient hors de vue et rien ne l’indiquait. Vous nous avez demandé un moyen visible de faire défiler vers la droite. LE DÉFILEMENT EXISTAIT DÉJÀ, ET C’EST TOUT LE PROBLÈME. Le tableau se faisait glisser depuis toujours ; ce qui manquait n’était pas la mécanique mais le SIGNAL. Deux raisons se cumulaient. La barre du desk mesure huit pixels avec un curseur sombre sur fond sombre : à l’horizontale, sous un tableau dense, elle se confond avec la bordure de la dernière ligne. Et sur Mac comme sur Windows 11, une barre de ce type n’est DESSINÉE QUE PENDANT le geste : elle ne pouvait donc pas servir d’indice, puisqu’elle n’apparaît qu’une fois qu’on a deviné qu’elle existait. CE QUI CHANGE : un dégradé sur le bord droit indique qu’il y a une suite, et s’efface quand vous êtes arrivé au bout. Il ne s’allume pas quand tout tient à l’écran : il ne promet jamais une suite qui n’existe pas. C’est exactement le même langage que la rangée d’onglets des cartes, qui l’utilise déjà ; deux façons différentes de dire la même chose dans un même produit finiraient par se contredire. La barre de défilement, elle, est désormais demandée explicitement et habillée aux couleurs de la maison, plus haute et plus contrastée, là où votre système accepte de la peindre en permanence. UNE PRÉCISION HONNÊTE : cette dernière partie dépend de votre système d’exploitation, pas de nous, et notre banc de contrôle ne peut pas la mesurer. Le contrôle automatique porte donc sur ce qui est vérifiable partout, le dégradé : il ouvre le Journal dans un vrai navigateur, provoque un débordement, et vérifie que le signal s’allume, s’éteint au bout de la course, et reste absent quand il n’y a rien à annoncer.' },
   { id: 'dtpu-20260912-recherche-encoche', ts: Date.UTC(2026, 8, 12, 16, 40), title: 'La barre de recherche ne passe plus sous l’encoche au moment du tap', desc: 'Votre capture a enfin montré ce que je cherchais depuis ce matin, et le défaut n’était pas là où je le mesurais. La loupe REPLIÉE allait bien : c’est la barre de recherche DÉPLIÉE, au moment du tap, qui se posait trop haut, son sommet tranché par la barre d’état et par-dessus la rangée d’icônes au lieu de se centrer dedans. UNE CORRECTION EN AVAIT ANNULÉ UNE AUTRE, et c’est le vrai enseignement. Ce défaut avait déjà été réparé : un bloc de la feuille de style le décrit mot pour mot, « sur un iPhone récent, le champ déplié se posait à cheval sous la barre d’état », et le corrigeait. Un second bloc, écrit le 31 août pour une autre raison et placé plus bas dans le fichier, a pris le dessus et rouvert le problème sans que personne ne relise la règle qu’il remplaçait. DEUX ERREURS, PAS UNE. La première : la barre se centrait dans la hauteur TOTALE du haut d’écran, laquelle comprend déjà le retrait réservé à l’encoche, ce qui la plaçait dans l’encoche même. La seconde, trouvée par le contrôle automatique : le bloc du 31 août avait remplacé la position mais oublié d’annuler un décalage vertical hérité de la règle écrasée. Les deux se combinaient. Mesuré sur un écran SANS aucune encoche, le haut du champ tombait déjà à moins treize pixels, donc hors de l’écran. Écraser une règle, c’est en reprendre toutes les propriétés : celles qu’on oublie ne disparaissent pas, elles se combinent en silence. UN CONTRÔLE FABRIQUE DÉSORMAIS UNE ENCOCHE. Le navigateur d’essai n’en a aucune, et c’est précisément pour cela que ce défaut a pu vivre : tout paraissait normal en vérification. La feuille de style est maintenant servie au banc avec un vrai retrait d’encoche, à trois largeurs d’iPhone, et le champ doit se centrer sur la rangée d’icônes sans jamais mordre sur la barre d’état. Un témoin remet l’ancien calcul pour vérifier que le contrôle sait encore échouer.' },
@@ -7415,6 +7416,26 @@ function _telForecast(buckets) {
   };
 }
 // Endpoint admin : santé providers + budget + tendance horaire + prévisions (alimente le dashboard).
+// État des DEUX rapports quotidiens pour le moniteur IA : version IA française en place, ou repli
+// déterministe (et alors POURQUOI). Lecture seule, ne génère rien, ne jette jamais.
+function _etatRapportsQuotidiens() {
+  const lire = (type, champ, jour) => {
+    try {
+      const it = allNews.find(i => i && i._reportType === type && i[champ] && i[champ].day === jour);
+      if (!it) return { jour, present: false };
+      const r = it[champ];
+      return { jour, present: true, ia: r._ai !== false, titre: String(it.headline || '').slice(0, 120),
+        raison: r._ai === false ? (r._raison || 'cause non enregistr\u00e9e (repli ant\u00e9rieur au 16/09)') : null,
+        raisonTs: r._raisonTs || null, promptLen: r._promptLen || null };
+    } catch (e) { return { jour, present: false, erreur: e.message }; }
+  };
+  try {
+    return {
+      fxRecap: Object.assign({ nom: 'R\u00e9cap Quotidien' }, lire('FX Daily Recap', '_fxr', _fxrTargetDayKey())),
+      dtpDaily: Object.assign({ nom: 'Point March\u00e9 : Ouverture US' }, lire('DTP Daily', '_dtpd', _dtpdTodayKey())),
+    };
+  } catch (e) { return { erreur: e.message }; }
+}
 app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
   try {
     const range = Math.min(168, Math.max(6, parseInt(req.query.hours, 10) || 24));
@@ -7468,6 +7489,13 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
          serait un second endroit à tenir à jour, et le panneau se rafraîchit déjà d'un bloc. */
       systeme: (() => { try { return _systemeEtat(); } catch (e) { return null; } })(),
       disque: (() => { try { return Object.assign({}, _disqueEtat, { seuils: _DISQUE_SEUILS, planchersGo: _DISQUE_GO }); } catch (e) { return null; } })(),
+      /* ⚠️ LES DEUX RAPPORTS QUOTIDIENS, ET POURQUOI ILS SONT PROVISOIRES QUAND ILS LE SONT (16/09).
+         Même leçon que la réconciliation Whop juste en dessous : un repli qui ne s'affiche nulle part
+         est un repli dont on apprend l'existence par une capture d'écran de client. Le bandeau
+         « Version provisoire » posé le 11/09 prévient le LECTEUR ; ce bloc prévient l'EXPLOITANT, et
+         lui seul porte la cause : le message exact du fournisseur, l'heure, et la taille du prompt
+         envoyé (une réponse tronquée et un prompt au plafond se lisent ensemble, jamais séparément). */
+      rapports: _etatRapportsQuotidiens(),
       whop: _whopReconLast || null,
       whopBans: _whopBanLast || null,
       alerts: { log: _aiAlertLog.slice(0, 40), incidents: _aiAlertSent },   // journal INFO/incidents (le monitoring voit TOUT ; l'email est calibré sur l'impact réel)
@@ -12906,8 +12934,13 @@ ${recentCtx.join('\n')}`;
       _aiReset();
       const text = await ai.generateText(prompt, 7000);   // marge généreuse → highlights + US Preview complets, jamais tronqués
       aiNote('weekly');
-      const m = text.match(/\{[\s\S]*\}/);
-      const parsed = m ? JSON.parse(m[0]) : null;
+      // MÊME TRAITEMENT QUE LES DEUX RAPPORTS QUOTIDIENS (16/09) : ce bloc portait à l'identique le
+      // chemin muet qu'on vient de fermer ailleurs. Le GEW n'a pas de bandeau « provisoire » (sa
+      // dégradation est partielle, pas totale), donc pas de champ à porter : mais sa raison
+      // s'écrit au journal, au lieu de disparaitre.
+      const _gr = _aiJsonOuRaison(text, p => !!p);
+      if (_gr.raison) console.warn(`[GEW] REPLI : ${_gr.raison} (prompt ${prompt.length} caract\u00e8res)`);
+      const parsed = _gr.parsed || null;
       if (parsed) {
         title = _stripMd(String(parsed.title || title));   // jamais de markdown brut dans le titre
         // Purge À LA SOURCE (10/08) : l'IA ouvrait parfois son titre par une REFORMULATION du nom du
@@ -14297,6 +14330,49 @@ function _fxrStripDateLead(t) {
     .replace(/^\s*(?:le\s+|ce\s+)?(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b[^:]{0,45}?\b20\d{2}\b[^:]{0,15}:\s*/i, '')
     .trim();
 }
+/* ══ POURQUOI UN RAPPORT EST PROVISOIRE : ÉCRIT, PAS DEVINÉ (16/09) ════════════════════
+
+   Le 11/09, le desk a appris à DIRE au client qu'un rapport est provisoire : le bandeau
+   « Version provisoire ». C'était la moitié du travail, et on s'en aperçoit cinq jours plus tard,
+   le rapport étant toujours en anglais : le client sait qu'il lit une version de secours, et
+   PERSONNE ne sait pourquoi. Les deux générateurs (FX Recap, DTP Daily) avaient TROIS chemins
+   muets sur quatre :
+     · la chaîne IA est en pause (backoff) → la branche entière est sautée, aucune trace ;
+     · un fournisseur répond mais sans JSON (préambule, refus, page d'erreur) → `m` vaut null,
+       `parsed` vaut null, et on tombe au repli SANS UNE LIGNE DE JOURNAL ;
+     · le JSON est valide mais les champs attendus manquent → même silence.
+   Seul le quatrième, l'exception, écrivait quelque chose. Et la ligne finale, elle, dit
+   « fallback » sans jamais dire de quoi il est le repli.
+   C'est exactement la maladie que ce dépôt a déjà payée deux fois (le keep-alive vert qui ne
+   pinguait rien, la sauvegarde qui ne produisait aucune archive) : une panne qui ne dit pas son
+   nom se diagnostique par hypothèses, et « une hypothèse répétée finit par passer pour un fait ».
+   Cette fonction rend donc TOUJOURS l'un des deux : le JSON exploitable, ou la RAISON de son
+   absence, en français, avec de quoi trancher — la taille de la réponse (une réponse tronquée
+   par un plafond de jetons a un JSON illisible et une longueur au plafond), son début (un refus
+   ou un préambule se lit en dix mots), et les clés reçues (un schéma qui a dérivé se voit à œil nu).
+   Elle ne juge RIEN : elle décrit. Le choix du repli reste à l'appelant. */
+function _aiJsonOuRaison(text, exploitable) {
+  const brut = (text == null) ? '' : String(text);
+  if (!brut.trim()) return { raison: 'r\u00e9ponse vide du fournisseur' };
+  const apercu = brut.trim().replace(/\s+/g, ' ').slice(0, 140);
+  const m = brut.match(/\{[\s\S]*\}/);
+  if (!m) {
+    /* DISTINGUER LES DEUX ÉCHECS QUI SE RESSEMBLENT. Une accolade ouvrante SANS fermante n'est pas
+       « pas de JSON » : c'est une réponse COUPÉE EN PLEIN MILIEU, la signature d'un plafond de
+       jetons atteint. Les confondre enverrait chercher un mauvais prompt là où il faut lire un
+       plafond — et cette différence-là est précisément ce qu'on est venu chercher ici. */
+    if (brut.indexOf('{') >= 0) return { raison: `r\u00e9ponse TRONQU\u00c9E : accolade ouvrante sans fermeture (${brut.length} caract\u00e8res re\u00e7us : signature d'un plafond de jetons atteint)` };
+    return { raison: `r\u00e9ponse sans JSON (${brut.length} caract\u00e8res, d\u00e9but : \u00ab ${apercu} \u00bb)` };
+  }
+  let parsed = null;
+  try { parsed = JSON.parse(m[0]); }
+  catch (e) { return { raison: `JSON illisible : ${e.message} (r\u00e9ponse de ${brut.length} caract\u00e8res, bloc de ${m[0].length} : une r\u00e9ponse coup\u00e9e par un plafond de jetons donne exactement cela)` }; }
+  if (typeof exploitable === 'function' && !exploitable(parsed)) {
+    const cles = (parsed && typeof parsed === 'object') ? Object.keys(parsed).slice(0, 12).join(', ') : typeof parsed;
+    return { raison: `JSON valide mais inexploitable (champs attendus absents ; cl\u00e9s re\u00e7ues : ${cles || 'aucune'})` };
+  }
+  return { parsed };
+}
 function _fxrSanitize(p, dayKey, dateLabel) {
   let title = _fxrTxt(p.title, 170) || 'Daily market wrap';
   title = _fxrStripDateLead(title);   // retire un préfixe de date redondant (« La journée du mardi 14 juillet 2026 : ») — demande user
@@ -14480,7 +14556,10 @@ async function generateFXDailyRecap(force = false, dayKeyOverride = null) {
 
     // ── Génération IA (structure complète façon pro, EN ANGLAIS) ──
     let fxr = null;
-    if (!(ai.backoffActive && ai.backoffActive())) {
+    // La RAISON d'un éventuel repli, et la taille du prompt envoyé (voir _aiJsonOuRaison).
+    let _fxrRaison = '', _fxrTailleP = 0;
+    if (ai.backoffActive && ai.backoffActive()) _fxrRaison = 'cha\u00eene IA en pause (backoff arm\u00e9 par des \u00e9checs r\u00e9p\u00e9t\u00e9s en amont)';
+    else {
       const prompt = `Tu es le stratège FX & macro senior de « DataTradingPro », tu rédiges le rapport analyste phare de fin de journée « FX Daily Recap » : même profondeur, ton et structure qu'un rapport analyste la référence. Le rapport couvre toute la journée de trading du ${dateLabel}.
 
 Rédige une NOTE DE DESK ULTRA-CONDENSÉE de la journée : droit à l'essentiel, UNIQUEMENT ce qui a compté pour les marchés : avec un FOCUS FX clair, en t'appuyant STRICTEMENT sur les données fournies ci-dessous. RÈGLES CENTRALES, NON NÉGOCIABLES :
@@ -14535,18 +14614,28 @@ ${csLine || '(n/d)'}
 
 === ÉVÉNEMENTS À VENIR À FORT/MOYEN IMPACT (jours suivants) ===
 ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
+      _fxrTailleP = prompt.length;
       try {
         _aiReset();
         const text = await ai.generateText(prompt, 7000);
         aiNote('fxrecap');
-        const m = text.match(/\{[\s\S]*\}/);
-        const parsed = m ? JSON.parse(m[0]) : null;
-        if (parsed && (parsed.summary || parsed.title)) fxr = _fxrSanitize(parsed, dayKey, dateLabel);
-      } catch (e) { console.warn('[FX Recap] IA échec → repli déterministe:', e.message); }
+        const r = _aiJsonOuRaison(text, p => !!(p && (p.summary || p.title)));
+        if (r.parsed) fxr = _fxrSanitize(r.parsed, dayKey, dateLabel);
+        else _fxrRaison = r.raison;
+      } catch (e) { _fxrRaison = 'aucun fournisseur n\'a r\u00e9pondu : ' + e.message; console.warn('[FX Recap] IA échec → repli déterministe:', e.message); }
     }
 
     // ── Repli déterministe : TOUJOURS un rapport exploitable (sans Gemini) ──
-    if (!fxr) fxr = _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine, wrapItems });
+    if (!fxr) {
+      fxr = _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine, wrapItems });
+      // La raison VOYAGE AVEC LE RAPPORT (elle survit au redémarrage, comme lui) et s'affiche dans le
+      // moniteur IA. Sans elle, le bandeau « Version provisoire » pose une question à laquelle aucun
+      // écran ne répond, et on la diagnostique par hypothèses pendant des jours.
+      fxr._raison = _fxrRaison || 'cause non identifi\u00e9e';
+      fxr._raisonTs = Date.now();
+      if (_fxrTailleP) fxr._promptLen = _fxrTailleP;
+      console.warn(`[FX Recap] REPLI ${dayKey} : ${fxr._raison}${_fxrTailleP ? ` (prompt ${_fxrTailleP} caract\u00e8res)` : ''}`);
+    }
 
     // ── « DONNÉES DU JOUR » PAR PAYS (v9, référence user : « Allemagne : Inflation → PPI M/M -0.3 %
     //    (attendu -0.2 %, précédent 0.3 %) → surprise baissière ») — 100 % DÉTERMINISTE depuis le calendrier
@@ -14762,7 +14851,11 @@ async function generateDTPDaily(force = false) {
     try { ratesLines = _recapCbRatesCtx(); } catch {}
 
     let dtpd = null;
-    if (!(ai.backoffActive && ai.backoffActive())) {
+    // MÊME TRAITEMENT QUE LE FX RECAP, ET POUR LA MÊME RAISON. Les deux générateurs sont jumeaux :
+    // corriger l'un en laissant l'autre muet ne fait que décaler le prochain signalement d'une semaine.
+    let _dtpdRaison = '', _dtpdTailleP = 0;
+    if (ai.backoffActive && ai.backoffActive()) _dtpdRaison = 'cha\u00eene IA en pause (backoff arm\u00e9 par des \u00e9checs r\u00e9p\u00e9t\u00e9s en amont)';
+    else {
       const prompt = `Tu es le stratège macro & FX senior de « DataTradingPro ». Tu rédiges le rapport quotidien « Point Marché : Ouverture US », publié vers midi (Paris) : une synthèse PROFESSIONNELLE et structurée de la nuit asiatique et de la matinée européenne, jusqu'à l'ouverture des marchés américains, le ${dateLabel}.
 
 Rédige un rapport COMPLET et dense (même profondeur qu'un rapport analyste de référence). Appuie-toi STRICTEMENT sur les données fournies. FRANÇAIS professionnel et fluide. N'INVENTE aucun chiffre : n'utilise que ceux présents ci-dessous. N'inclus une section QUE si tu as de la matière réelle pour elle.
@@ -14815,22 +14908,28 @@ ${biasLine || '(n/d)'}
 
 === TAUX DIRECTEURS & PRICING (données desk par banque : taux actuel recalé sur la dernière décision réelle + scénario de la prochaine réunion + source) ===
 ${ratesLines || '(n/d)'}`;
+      _dtpdTailleP = prompt.length;
       try {
         _aiReset();
         const text = await ai.generateText(prompt, 7000);
         aiNote('dtpdaily');
-        const m = text.match(/\{[\s\S]*\}/);
-        const parsed = m ? JSON.parse(m[0]) : null;
-        if (parsed && Array.isArray(parsed.sections) && parsed.sections.length) {
-          dtpd = _dtpdSanitize(parsed, dayKey, dateLabel);
+        const r = _aiJsonOuRaison(text, p => !!(p && Array.isArray(p.sections) && p.sections.length));
+        if (r.parsed) {
+          dtpd = _dtpdSanitize(r.parsed, dayKey, dateLabel);
           // La section DONNÉES ÉCONOMIQUES vient TOUJOURS du vrai calendrier (devise + impact + majeurs
           // garantis), jamais de l'IA (qui omettait le FOMC et n'avait pas la devise). On remplace.
           const eco = _buildEcoDataSection(dataRows);
           if (eco) { dtpd.sections = (dtpd.sections || []).filter(s => s.kind !== 'data'); dtpd.sections.push(eco); }
-        }
-      } catch (e) { console.warn('[DTP Daily] IA échec → repli déterministe:', e.message); }
+        } else _dtpdRaison = r.raison;
+      } catch (e) { _dtpdRaison = 'aucun fournisseur n\'a r\u00e9pondu : ' + e.message; console.warn('[DTP Daily] IA échec → repli déterministe:', e.message); }
     }
-    if (!dtpd || !dtpd.sections || !dtpd.sections.length) dtpd = _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows });
+    if (!dtpd || !dtpd.sections || !dtpd.sections.length) {
+      dtpd = _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows });
+      dtpd._raison = _dtpdRaison || 'cause non identifi\u00e9e';
+      dtpd._raisonTs = Date.now();
+      if (_dtpdTailleP) dtpd._promptLen = _dtpdTailleP;
+      console.warn(`[DTP Daily] REPLI ${dayKey} : ${dtpd._raison}${_dtpdTailleP ? ` (prompt ${_dtpdTailleP} caract\u00e8res)` : ''}`);
+    }
 
     // ANTI-RÉTROGRADATION (même règle que le FX Recap, bug « pourquoi c'est en anglais » 15/07) : un repli
     // déterministe (_ai:false, titres bruts anglais) ne remplace jamais une version IA française du même jour.

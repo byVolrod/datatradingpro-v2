@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260916bbg1185" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260916bbg1186" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -694,6 +694,12 @@
           <div class="panel-head"><h2>Bases Supabase</h2></div>
           <div class="panel-body" id="aim-db"></div>
         </div>
+        <!-- 16/09 : le bandeau « Version provisoire » prévient le LECTEUR qu'un rapport est une
+             version de secours ; il ne dit à PERSONNE pourquoi. Cette carte porte la cause. -->
+        <div class="panel-card aim-card">
+          <div class="panel-head"><h2>Rapports quotidiens</h2></div>
+          <div class="panel-body" id="aim-rapports"></div>
+        </div>
       </div>
       </div><!-- /onglet Services -->
 
@@ -896,6 +902,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260916bbg1185"></script>
+<script src="/js/admin.js?v=20260916bbg1186"></script>
 </body>
 </html>
