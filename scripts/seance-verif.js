@@ -1079,7 +1079,18 @@ v('les récaps de séance portent bien ce _reportType', /if \(_SEA\.FENETRES\[re
    décapitait précisément la matière qu'on venait chercher. */
 v('un récap de séance reçoit 900 caractères, pas 320', /const cap = _estRecapSeance\(i\) \? 900 : 320;/.test(SRV));
 v('le bloc envoyé au modèle a été élargi en conséquence', /wrapLines\.join[\s\S]{0,12}slice\(0, 4200\)/.test(SRV));
-v('le repli déterministe s\'en sert aussi', /const intro = \(wrapItems && wrapItems\.length\)/.test(SRV));
+/* ⚠️ CE CONTRÔLE ÉPINGLAIT UNE ÉCRITURE, PAS UNE PROPRIÉTÉ (réécrit le 16/09). Il cherchait
+   `const intro = (wrapItems && wrapItems.length)` : le jour où le repli a été corrigé pour lire les
+   titres TRADUITS des récaps de séance, l'écriture a changé sans que l'intention bouge d'un pouce,
+   et le banc a rougi sur du code sain — exactement le piège déjà payé le 10/09 avec une borne
+   d'extraction. Ce qu'il doit prouver tient en une phrase : le repli déterministe construit bien
+   son intro À PARTIR des récaps de séance. On épingle donc ça, et la phrase d'amorce qui le rend
+   reconnaissable à l'écran, plutôt qu'une ligne de code. */
+v('le repli d\u00e9terministe s\'en sert aussi',
+  /Fil de la journ\u00e9e, s\u00e9ance apr\u00e8s s\u00e9ance/.test(SRV) && /_fxrFrancais\(wrapItems\)/.test(SRV));
+/* Et il s'en sert en lisant la TRADUCTION, pas le titre d'origine : c'est la correction du 16/09,
+   et sans ce contrôle rien n'empêcherait un retour à `i.headline` dans six mois. */
+v('\u2026 en lisant le titre TRADUIT, jamais l\'original', !/wrapItems\.slice\(0, 3\)\.map\(i => _fxrTxt\(i\.headline/.test(SRV));
 v('la version du Quotidien a été bumpée', /const FXR_VER = 2[5-9];/.test(SRV));
 /* Le bloc TITRES continue d'écarter les rapports internes — c'est voulu : un récap de séance n'est
    pas une dépêche, il a SA place dans le bloc dédié. Sans cette exclusion il serait compté deux fois. */

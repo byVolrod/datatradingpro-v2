@@ -2367,6 +2367,19 @@ const NEWS_TAG_FR = {
   'Data': 'Données', 'Inflation': 'Inflation', 'Rates': 'Taux', 'Jobs': 'Emploi',
   'Equities': 'Actions', 'Bonds': 'Obligations', 'Tariffs': 'Tarifs', 'Sanctions': 'Sanctions',
   'Geopolitical': 'Géopolitique', 'Yuan': 'Yuan', 'Asia': 'Asie', 'Energy': 'Énergie',
+  /* ⚠️ LES TAGS QUE LE DESK FABRIQUE LUI-MÊME POUR SES RAPPORTS (16/09, capture utilisateur).
+     Cette table était keylée sur les tags du FIL. Les rapports, eux, se posent leurs propres tags
+     (côté serveur, `_fxrAutoTags`) : quatorze libellés, dont TREIZE n'avaient aucune entrée ici.
+     Résultat mesuré sur la capture : une rangée mi-anglaise mi-française sous le Récap Quotidien,
+     « geopolitics, oil prices, federal reserve » à côté de « matières premières » et « chine »,
+     les deux derniers venant du fil et non du rapport. Le pire des deux mondes : assez de français
+     pour qu'on ne soupçonne pas un défaut, assez d'anglais pour que ça se voie.
+     La source émet désormais du français directement ; ces entrées couvrent les rapports DÉJÀ
+     STOCKÉS, qui portent encore les anciens libellés et que personne ne va réécrire. */
+  'Geopolitics': 'Géopolitique', 'Oil Prices': 'Prix du pétrole', 'Federal Reserve': 'Réserve fédérale',
+  'Bank of Japan': 'Banque du Japon', 'Treasury Yields': 'Rendements obligataires',
+  'Global Equities': 'Actions mondiales', 'Commodities': 'Matières premières', 'US Dollar': 'Dollar américain',
+  'China': 'Chine', 'Trade': 'Commerce',
 };
 
 function getSmartTags(item) {
