@@ -1359,6 +1359,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260916-calendrier-doublon', ts: Date.UTC(2026, 8, 16, 20, 14), title: 'Calendrier : plus de double ligne pour un seul rendez-vous, et les libellés ne sont plus rognés', desc: 'Deux corrections nées de vos captures. LE DOUBLE CPI. Vous aviez raison deux fois : après la correction de l’horloge du flux, ce matin, les deux lignes se sont retrouvées à la MÊME heure, et elles auraient dû fusionner. Elles ne l’ont pas fait, pour une raison précise : la règle qui supprime les doublons compare le PAYS, or l’un des deux fournisseurs renseigne le pays et l’autre le laisse vide. Deux pays différents aux yeux du code, donc deux lignes. Or un pays absent ne veut pas dire un autre pays, il veut dire je ne sais pas. Le pays reste décisif entre deux pays CONNUS, et c’est indispensable : l’inflation espagnole et l’italienne tombent à la même seconde sous la devise euro et ne sont pas un doublon. Mais quand l’un des deux l’ignore, il s’agit du même rendez vous vu par deux sources, et c’est la ligne la mieux renseignée qui reste. Sur votre capture, c’est celle à 3,1 pour cent, la bonne. LES LIBELLÉS ROGNÉS du choix de disposition d’un onglet. Là aussi la cause est nette, et elle ne se voyait pas en relisant : la feuille de style contenait une adaptation pour les cartes étroites, qui interrogeait un conteneur dont le nom n’était déclaré NULLE PART. Une règle de ce type ne signale rien quand son conteneur n’existe pas, elle reste simplement inerte. Cette adaptation n’avait donc jamais fonctionné depuis qu’elle a été écrite. Le conteneur est posé, et l’adaptation porte désormais sur la HAUTEUR, qui était le vrai problème : dans un onglet court, les vignettes et les textes se resserrent au lieu d’être coupés, et un nom de disposition passe à la ligne plutôt que d’être tranché. Un contrôle automatique balaie maintenant les cinquante neuf règles de ce type du desk et refuse qu’une seule vise un conteneur inexistant. C’est exactement ce que nous faisons déjà côté code pour les noms de variables : un nom lu, déclaré nulle part, est un défaut silencieux.' },
+  { id: 'dtpu-20260916-recuperation', ts: Date.UTC(2026, 8, 16, 20, 6), title: 'Vos données sont désormais récupérables base par base', desc: 'Vos données privées vivent en quatre exemplaires, sur quatre bases, pour qu’aucune panne ne puisse les emporter. La lecture sert toujours la version la plus RÉCENTE : c’est la bonne règle, posée début septembre pour qu’une base revenue d’interruption ne vous serve plus un modèle vieux de trois mois. MAIS ELLE A UN ANGLE MORT, et il s’est manifesté aujourd’hui. Si un enregistrement récent est plus PAUVRE qu’une version plus ancienne conservée ailleurs, c’est le récent qui gagne. Rien n’est perdu, tout est caché. Et de votre côté de l’écran, caché et perdu se ressemblent exactement. Il manquait une seule chose pour trancher : POUVOIR REGARDER. Le panneau d’administration permet maintenant de voir, pour un compte donné, ce que CHAQUE base détient : nombre de dispositions, de widgets, de trades, de colonnes, présence d’un modèle personnalisé, avec la date de chaque version. Quand les bases divergent, c’est écrit en toutes lettres et la version la plus complète est signalée. Un bouton réaligne alors les quatre bases sur celle là. TROIS PRÉCAUTIONS, parce qu’un outil de réparation qui abîme est pire que pas d’outil. La réparation ne peut recopier qu’une valeur qui EXISTE DÉJÀ sur l’une des bases : jamais une valeur fabriquée, jamais une suppression. Elle refuse de réaligner vers une version plus pauvre sans une confirmation explicite, parce qu’on ne devine pas l’intention d’un geste irréversible. Et elle passe par le chemin d’écriture normal, celui qui diffuse aux quatre bases : une correction écrite à la main dans une seule base serait effacée au passage suivant, ce que ce desk a déjà appris à ses dépens. ENFIN, L’ÉCRAN NE MONTRE JAMAIS LE CONTENU. Il annonce trente sept trades, vingt et une colonnes, un modèle personnalisé. Pas une paire, pas une note, pas un montant : de quoi choisir une version, rien de plus. Dix huit contrôles automatiques tiennent l’ensemble à chaque livraison, dont un qui vérifie qu’aucun contenu privé ne peut fuir dans ces résumés.' },
   { id: 'dtpu-20260916-coffre-donnees', ts: Date.UTC(2026, 8, 16, 19, 34), title: 'Vos données privées ne peuvent plus être effacées par un enregistrement qui arrive vide', desc: 'Un client nous a signalé son modèle de journal introuvable, puis une de ses dispositions disparue. Vérification faite en base : SES DONNÉES ÉTAIENT INTACTES, trente sept trades, vingt et une colonnes, son modèle personnalisé. Rien n’était perdu. Mais en cherchant pourquoi le desk ne les montrait plus, nous avons trouvé DEUX chemins par lesquels elles auraient pu l’être, et nous les avons fermés tous les deux. PREMIER CHEMIN, LE JOURNAL. L’enregistrement reconstruisait l’objet ENTIÈREMENT à partir de ce que le navigateur envoyait. Un client qui enregistre avant d’avoir reçu ses données, parce que la page a été rouverte pendant un redémarrage, parce que le réseau est lent ou parce que le navigateur a restauré un onglet, écrivait donc un journal VIDE par dessus le vôtre. Et comme le champ qui mémorise que votre journal est personnalisé repassait lui aussi à zéro, le desk reproposait le gabarit standard : votre modèle semblait avoir disparu. Désormais l’enregistrement FUSIONNE au lieu de remplacer. Ce qui n’est pas envoyé garde sa valeur, jamais effacé par omission. Ce qui reste possible, à dessein : supprimer vos trades un par un jusqu’au dernier, ou réimporter un journal. Ce qui est refusé, c’est l’enregistrement qui n’apporte rien face à un journal qui a tout : ce n’est pas une modification, c’est un navigateur qui n’a rien chargé. SECOND CHEMIN, LES DISPOSITIONS. Le filet existait déjà, trois sauvegardes espacées d’au moins vingt quatre heures. Règle juste pour une séance de mise en page ordinaire : une dizaine d’enregistrements ne doit pas chasser trois jours de sauvegardes. Sauf qu’il en découlait ceci : le premier enregistrement de la journée fige l’état, et tous les suivants écrasent sans plus rien sauvegarder. Si ce premier enregistrement est DÉJÀ celui qui perd des dispositions, la sauvegarde conserve l’état appauvri et le filet certifie la perte au lieu de la rattraper. C’est exactement ce que nous avons mesuré. Une sauvegarde se prend maintenant AUSSI, hors quota, au moment précis où un enregistrement RÉTRÉCIT ce qui est en place : c’est le seul instant où elle vaut vraiment quelque chose, et c’était le seul que la règle écartait. Avec une garde de plus : une sauvegarde riche ne peut pas être chassée par une sauvegarde pauvre, sinon trois enregistrements malheureux d’affilée videraient le filet de ce qu’il protège. ET UNE PRÉCISION SUR LE JOURNAL DES ENVOIS. La mention compte supprimé s’affichait dès qu’un identifiant n’était pas résolu, ce qui arrive aussi quand la liste des comptes est momentanément incomplète, ou quand la ligne ne porte aucun identifiant. Trois situations, une seule était une suppression. Elles portent maintenant trois mentions distinctes, et la suppression n’est affirmée que lorsque le registre des comptes supprimés le confirme. Vingt huit contrôles automatiques rejouent ces deux scénarios à chaque livraison, chacun avec son témoin.' },
   { id: 'dtpu-20260916-caches-deploiement', ts: Date.UTC(2026, 8, 16, 15, 53), title: 'Le desk ne repart plus de zéro à chaque mise à jour', desc: 'Une réparation invisible à l’écran, et pourtant vous la sentiez. CE QUI SE PASSAIT. Le desk garde des réserves sur disque : le calendrier économique de secours, le positionnement des particuliers, les rapports d’institutions déjà récupérés, les sessions de navigation ouvertes sur les sources. Ces réserves servent exactement quand une source tombe ou répond lentement. Or la plupart étaient rangées à un endroit que CHAQUE mise à jour du desk efface. Elles survivaient à un redémarrage, et à rien d’autre. Résultat : après chaque livraison, le desk repartait sans aucune réserve, devait tout redemander aux sources en même temps, et si l’une d’elles était indisponible à ce moment précis, il n’avait plus rien à servir. C’est ce qui explique certains chargements qui n’en finissent pas juste après une mise à jour. UN DÉFAUT DÉJÀ TROUVÉ, ET DÉCLARÉ CLOS TROP VITE. Nous avions repéré ce mécanisme le 10 septembre sur le widget de positionnement, nous l’avions corrigé, et nous avions considéré le sujet réglé. Le contrôle automatique posé ce jour là surveillait UN SEUL fichier, écrit à la main dans une liste. Six jours plus tard, un balayage automatique en a trouvé HUIT AUTRES, dont la réserve du calendrier économique. La liste tenue à la main était elle même le défaut. CE QUI CHANGE. Toutes les réserves vivent désormais dans l’espace de stockage permanent du serveur, celui qui traverse les mises à jour. Rien n’est perdu au passage : les anciens fichiers sont recopiés une fois, automatiquement. Les sessions de navigation ouvertes sur les sources suivent le même chemin, y compris celles des sources que nous ajouterons plus tard. ET LE CONTRÔLE NE PEUT PLUS DEVENIR AVEUGLE. Il ne lit plus une liste : il balaie le code, sous deux angles différents, et un cliquet refuse qu’il se mette à surveiller moins de fichiers qu’aujourd’hui. Nous avons d’ailleurs vu ce piège se refermer pendant la réparation elle même : en déplaçant les fichiers, leur écriture a changé de forme, et le contrôle a cessé de les voir tout en passant au vert. Un garde fou qui cesse de regarder est pire qu’un garde fou absent, parce qu’il rassure.' },
   { id: 'dtpu-20260916-rendements-10-ans', ts: Date.UTC(2026, 8, 16, 15, 45), title: 'Nouvelle carte : les rendements souverains à 10 ans', desc: 'Le desk savait dire ce qu’une banque centrale DÉCIDE, dans l’onglet Taux, et ce que le marché price pour sa PROCHAINE réunion. Il ne disait rien de ce que le marché price au delà. C’est ce qui manquait, et c’est ce que cette carte apporte : le rendement de l’emprunt d’État à dix ans des huit pays majeurs, c’est à dire le prix de l’argent long. LA BARRE MONTRE L’ÉCART AU DIX ANS AMÉRICAIN, PAS LE NIVEAU, et c’est un choix. Un rendement de 4,3 pour cent ne dit rien tout seul : c’est élevé pour l’Allemagne, bas pour la Nouvelle Zélande. Le dollar étant la jambe commune de sept des huit majeures, c’est le DIFFÉRENTIEL qui explique le portage d’une paire, pas le chiffre isolé. Les États Unis sont donc la référence, et leur barre reste vide plutôt que d’afficher un zéro qu’on lirait comme une mesure. LA COLONNE DE DROITE EST EN POINTS DE BASE. Un point de base vaut un centième de point : plus douze points de base se compare d’un pays à l’autre, là où plus zéro virgule douze se confond avec un pourcentage. Et au survol, la prime de terme : l’écart entre ce dix ans et le taux directeur du pays. Négative, le marché price des baisses ; fortement positive, il price de la croissance ou un risque budgétaire. AUCUNE SOURCE NOUVELLE, ET C’EST VOULU. Ces rendements sont lus sur la page que le Radar de Biais consulte DÉJÀ toutes les huit heures pour ses fondamentaux : pas une requête de plus, pas un chemin réseau de plus à surveiller. CE QUE LA CARTE N’AFFICHE PAS : ni le deux ans ni le trente ans, donc pas de pente de courbe. Ils demanderaient une vraie seconde source, et nous n’affichons pas un chiffre venu d’un chemin que nous n’avons pas encore vu répondre en production. La pente viendra avec sa source et sa vérification, pas avant. ENFIN, UNE VALEUR ABSENTE RESTE ABSENTE : si la source ne publie pas un pays, sa ligne est vide et la carte le dit. Resservir le dernier rendement connu sous la date du jour se lirait exactement comme un rendement frais, et c’est le défaut que ce desk a déjà payé deux fois. Vingt trois contrôles automatiques tiennent l’ensemble à chaque livraison, dont un qui rejoue la page de la source avec ses pièges d’intitulés voisins.' },
@@ -5588,17 +5590,51 @@ function _calDropLevels(items) {
    EXCEPTION — les PRISES DE PAROLE : plusieurs officiels parlent réellement à la même heure sous un
    libellé générique (« FOMC Member Speaks »). Ce sont de vrais événements distincts, on n'y touche pas. */
 const _CAL_SPEECH_RX = /speaks|speech|testimony|testifies|press conf|discours|audition/i;
+/* ⚠️ UN PAYS ABSENT N'EST PAS UN AUTRE PAYS (16/09, seconde capture user : « pourquoi on a 2 CPI
+   y/y alors que sur forexfactory y'en a 1 »). Le doublon du matin venait de l'horloge du flux,
+   corrigée ce jour ; une fois les deux lignes ramenées à la MÊME heure, elles auraient dû fusionner
+   ici. Elles ne l'ont pas fait : la clé porte le PAYS, la ligne ForexFactory arrive avec un pays
+   VIDE et la ligne TradingView avec « GB ». Deux clés, deux lignes, le même rendez-vous.
+   Le pays a été ajouté à cette clé le 31/08 pour une raison qui reste entière : l'IPC espagnol et
+   l'IPC italien tombent à la même seconde sous la devise EUR, et ce ne sont PAS des doublons. Mais
+   cette règle ne vaut qu'entre deux pays CONNUS. Un pays absent ne dit pas « autre pays », il dit
+   « je ne sais pas » — et deux lignes de même devise, même heure et même intitulé dont l'une
+   ignore son pays sont le même rendez-vous vu par deux fournisseurs.
+   On fusionne donc dans ce cas, et le score départage : celle qui est la mieux renseignée gagne
+   (impact, puis prévision, puis résultat). C'est exactement ce qu'il faut ici — la ligne qui porte
+   son pays porte aussi, presque toujours, les vraies valeurs du fournisseur qui les publie. */
+function _calPaysCompatible(a, b) {
+  const pa = String(a || '').trim().toUpperCase();
+  const pb = String(b || '').trim().toUpperCase();
+  if (!pa || !pb) return true;        // l'un des deux ignore son pays → on ne peut pas les dire différents
+  return pa === pb;
+}
 function _calDropHomonyms(items) {
-  const best = new Map();
   const score = e => (/high/i.test(e.impact || '') ? 8 : /medium/i.test(e.impact || '') ? 4 : 0)
-    + (e.forecast ? 2 : 0) + (e.actual ? 1 : 0);
+    + (e.forecast ? 2 : 0) + (e.actual ? 1 : 0)
+    + ((e.ctry || e.country) ? 1 : 0);   // à égalité, la ligne qui SAIT son pays est la mieux renseignée
+  /* La clé ne porte plus le pays : elle regroupe les candidats, et le pays sert d'ARBITRE à
+     l'intérieur du groupe. Sans ce découplage, un pays vide fabriquerait toujours sa propre clé. */
+  const groupes = new Map();
   items.forEach((e, i) => {
     if (!e || !e.title || _CAL_SPEECH_RX.test(e.title)) return;
-    const k = e.currency + '|' + (e.ctry || e.country || '') + '|' + e.timestamp + '|' + String(e.title).trim().toLowerCase();   // le PAYS compte : l'IPC espagnol et l'italien de la même heure ne sont pas un doublon
-    const p = best.get(k);
-    if (p === undefined || score(e) > score(items[p])) best.set(k, i);
+    const k = e.currency + '|' + e.timestamp + '|' + String(e.title).trim().toLowerCase();
+    if (!groupes.has(k)) groupes.set(k, []);
+    groupes.get(k).push(i);
   });
-  const keep = new Set(best.values());
+  const keep = new Set();
+  for (const idx of groupes.values()) {
+    /* Dans un groupe, on ne garde qu'UNE ligne par pays RÉELLEMENT distinct. Une ligne sans pays
+       rejoint la première avec laquelle elle est compatible ; si aucune ne l'est, elle vit seule. */
+    const retenus = [];
+    for (const i of idx) {
+      const e = items[i];
+      const j = retenus.findIndex(r => _calPaysCompatible(items[r].ctry || items[r].country, e.ctry || e.country));
+      if (j < 0) { retenus.push(i); continue; }
+      if (score(e) > score(items[retenus[j]])) retenus[j] = i;
+    }
+    retenus.forEach(i => keep.add(i));
+  }
   return items.filter((e, i) => !e || !e.title || _CAL_SPEECH_RX.test(e.title) || keep.has(i));
 }
 // Applique le renommage à une liste servie au client (copie superficielle : la donnée stockée est intacte).
@@ -27726,6 +27762,117 @@ function _mailLogType(key) {
   const pref = String(key || '').split(':')[0].trim();
   return (pref && pref !== key) ? 'Autre : ' + pref : 'Autre';
 }
+/* ══ RÉCUPÉRATION : CE QUE CHAQUE BASE DÉTIENT, ET COMMENT LES RÉALIGNER (16/09) ══════════════════
+   Retour user : « mon layout JOT a disparu », puis « rétablis ». Vérification faite, rien n'était
+   perdu sur la base principale (journal intact : 37 trades, 21 colonnes, personnalisation en place)
+   mais une disposition manquait, et je n'avais AUCUN moyen de regarder ce que les trois autres
+   bases détenaient. C'est ce trou-là qu'on bouche, parce qu'il se rouvrira sinon.
+
+   POURQUOI UNE BASE PEUT DÉTENIR MIEUX QUE CE QU'ON VOIT. `ai_cache` est dual-écrite sur les quatre
+   nœuds, et la lecture arbitre à la FRAÎCHEUR (`_lireFraicheur`, posé le 03/09 pour qu'une base
+   revenue de pause ne serve plus un modèle de juin). Conséquence non prévue : une écriture RÉCENTE
+   et PAUVRE masque une écriture ANCIENNE et RICHE. Rien n'est perdu, tout est caché — et du point
+   de vue du client, c'est identique. Le dépôt l'avait déjà écrit pour `chat_messages`.
+
+   DEUX ROUTES, ET LA SÉPARATION EST VOLONTAIRE :
+   · l'une CONSTATE (lecture seule, aucun effet) ;
+   · l'autre RÉALIGNE, et seulement sur une valeur qui existe DÉJÀ sur l'un des nœuds — jamais une
+     valeur fabriquée, jamais une suppression. Le pire cas d'une réparation est qu'elle recopie
+     partout ce qu'une base détenait déjà.
+   ⚠️ ET ELLE PASSE PAR `aiCacheSet`, PAS PAR DU SQL DIRECT. Écrire à la main dans une base serait
+   écrasé au passage suivant (le dépôt l'a appris le 03/09 sur les échéances) : seul le chemin
+   normal diffuse aux quatre nœuds et met la RAM à jour. */
+const _RECUP_FAMILLES = [
+  { cle: uid => 'wdg:' + uid,            quoi: 'Dispositions (Mon Desk)' },
+  { cle: uid => 'wdg:' + uid + ':hist',  quoi: 'Dispositions — sauvegardes' },
+  { cle: uid => 'wdg:' + uid + ':bak',   quoi: 'Dispositions — sauvegarde héritée' },
+  { cle: uid => 'journal:' + uid,        quoi: 'Journal de trading' },
+  { cle: uid => 'uipref:' + uid,         quoi: 'Préférences d\'affichage' },
+  { cle: uid => 'symrecent:' + uid,      quoi: 'Recherches récentes' },
+];
+/* RICHESSE : de quoi comparer deux versions d'une même clé SANS connaître sa forme. On compte ce
+   qui compte pour un client — ses dispositions, ses widgets, ses trades, ses colonnes — et à défaut
+   la taille. Un nombre qui ne veut rien dire tout seul, mais qui ordonne correctement deux versions
+   de la MÊME clé, ce qui est exactement l'usage. */
+function _recupRichesse(v) {
+  if (v == null) return 0;
+  try {
+    let n = 0;
+    if (Array.isArray(v.layouts)) n += v.layouts.length * 10 + v.layouts.reduce((s, l) => s + ((l && Array.isArray(l.items)) ? l.items.length : 0), 0);
+    if (Array.isArray(v.entries)) n += v.entries.length;
+    if (Array.isArray(v.cols)) n += v.cols.length;
+    if (Array.isArray(v.v)) n += v.v.reduce((s, x) => s + _recupRichesse(x && x.cfg), 0);   // historique de dispositions
+    if (v.cfg) n += _recupRichesse(v.cfg);
+    if (n) return n;
+    return Math.min(9999, JSON.stringify(v).length);
+  } catch { return 0; }
+}
+app.get('/api/admin/recuperation', requireAdmin, async (req, res) => {
+  const uid = String((req.query && req.query.uid) || '').slice(0, 64);
+  if (!uid) return res.status(400).json({ ok: false, erreur: 'compte manquant' });
+  if (typeof auth.aiCacheParNoeud !== 'function') return res.json({ ok: false, erreur: 'lecture par nœud indisponible' });
+  const familles = [];
+  for (const f of _RECUP_FAMILLES) {
+    const cle = f.cle(uid);
+    let noeuds = [];
+    try { noeuds = await auth.aiCacheParNoeud(cle); } catch (e) { noeuds = [{ erreur: String(e && e.message || e) }]; }
+    const vus = noeuds.map(n => Object.assign({}, n, {
+      richesse: n.present ? _recupRichesse(n.valeur) : 0,
+      resume: n.present ? _recupResume(n.valeur) : '',
+      valeur: undefined,   // on ne renvoie JAMAIS le contenu privé à l'écran : un résumé suffit à choisir
+    }));
+    const max = Math.max(0, ...vus.map(n => n.richesse || 0));
+    const min = Math.min(...vus.filter(n => n.present).map(n => n.richesse || 0), max);
+    familles.push({ quoi: f.quoi, cle, noeuds: vus,
+      // DIVERGENT = au moins un nœud détient plus qu'un autre. C'est le seul signal qui appelle une action.
+      divergent: max > 0 && min < max, max });
+  }
+  res.json({ ok: true, uid, familles });
+});
+/* Un résumé LISIBLE, jamais le contenu : l'administrateur doit choisir une version, pas lire le
+   journal de quelqu'un. */
+function _recupResume(v) {
+  if (v == null) return 'vide';
+  try {
+    const p = [];
+    if (Array.isArray(v.layouts)) p.push(v.layouts.length + ' disposition(s)',
+      v.layouts.reduce((s, l) => s + ((l && Array.isArray(l.items)) ? l.items.length : 0), 0) + ' widget(s)');
+    if (Array.isArray(v.entries)) p.push(v.entries.length + ' trade(s)');
+    if (Array.isArray(v.cols)) p.push(v.cols.length + ' colonne(s)');
+    if (v.custom === true) p.push('modèle personnalisé');
+    if (Array.isArray(v.v)) p.push(v.v.length + ' sauvegarde(s)');
+    if (Array.isArray(v)) p.push(v.length + ' entrée(s)');
+    return p.length ? p.join(' · ') : (JSON.stringify(v).length + ' octets');
+  } catch { return '?'; }
+}
+app.post('/api/admin/recuperation/realigner', requireAdmin, async (req, res) => {
+  const uid = String((req.body && req.body.uid) || '').slice(0, 64);
+  const cle = String((req.body && req.body.cle) || '').slice(0, 120);
+  const noeud = String((req.body && req.body.noeud) || '').slice(0, 40);
+  if (!uid || !cle || !noeud) return res.status(400).json({ ok: false, erreur: 'paramètres manquants' });
+  /* LA CLÉ DOIT APPARTENIR AU COMPTE DEMANDÉ. Sans cette garde, un identifiant choisi librement
+     laisserait recopier n'importe quelle clé de la base, y compris celles qui ne concernent aucun
+     compte. Une route d'administration reste une route : elle se borne. */
+  if (!_RECUP_FAMILLES.some(f => f.cle(uid) === cle)) return res.status(400).json({ ok: false, erreur: 'clé hors du compte' });
+  try {
+    const noeuds = await auth.aiCacheParNoeud(cle);
+    const src = noeuds.find(n => n.noeud === noeud && n.present);
+    if (!src) return res.json({ ok: false, erreur: 'cette base ne détient pas cette clé' });
+    /* ON NE RÉALIGNE PAS VERS PLUS PAUVRE SANS LE DIRE. La bonne direction est presque toujours de
+       restaurer la version la plus riche ; l'inverse existe (revenir sur un import raté) mais il
+       doit être VOULU, donc explicite. On ne devine pas l'intention d'une opération irréversible. */
+    const rMax = Math.max(...noeuds.filter(n => n.present).map(n => _recupRichesse(n.valeur)));
+    const rSrc = _recupRichesse(src.valeur);
+    if (rSrc < rMax && !(req.body && req.body.appauvrirAssume === true)) {
+      return res.json({ ok: false, appauvrit: true, richesseSource: rSrc, richesseMax: rMax,
+        erreur: 'cette version est plus pauvre qu\'une autre base : à confirmer explicitement' });
+    }
+    await auth.aiCacheSet(cle, src.valeur);   // chemin normal → diffusion aux quatre nœuds + RAM
+    console.warn('[Récupération] ' + cle + ' réalignée depuis ' + noeud + ' (richesse ' + rSrc + ')');
+    res.json({ ok: true, cle, depuis: noeud, resume: _recupResume(src.valeur) });
+  } catch (e) { res.status(500).json({ ok: false, erreur: String(e && e.message || e).slice(0, 160) }); }
+});
+
 app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
   try {
     const _dur = await auth.emailLogAllDurable();

@@ -1777,7 +1777,38 @@ setTimeout(() => { dbHealth().catch(() => {}); }, 15000);   // préchauffe au bo
    On les expose donc, plutôt que de laisser un écran conclure à notre place. */
 function estSupprime(id) { return _isTombstoned(id); }
 
+/* ══ CE QUE CHAQUE BASE DÉTIENT, BASE PAR BASE (16/09) ═══════════════════════════════════════════
+   Retour user : « mon layout JOT a disparu », puis « rétablis ». La lecture normale d’`ai_cache`
+   arbitre à la FRAÎCHEUR (`_lireFraicheur`) : sur quatre bases dual-écrites, c’est la ligne au
+   `created_at` le plus récent qui gagne. Règle juste — elle a été posée le 03/09 précisément pour
+   qu’une base revenue de pause ne serve plus un modèle de juin. Mais elle a un angle mort : une
+   écriture RÉCENTE et PAUVRE masque une écriture ANCIENNE et RICHE. Rien n’est perdu, tout est
+   caché — et du point de vue du client c’est identique, ce que ce fichier note déjà pour
+   `chat_messages` le 03/09.
+   Il manquait donc une seule chose : POUVOIR REGARDER. Cette fonction lit la même clé sur CHAQUE
+   nœud, séparément, et rend ce que chacun détient avec sa date. Elle n’arbitre rien, ne répare
+   rien et n’écrit rien : c’est un CONSTAT, et c’est à un humain de décider ensuite.
+   ⚠️ LECTURE SEULE, ET QUI NE PÉNALISE AUCUN NŒUD. Un nœud muet ou en erreur est rapporté tel
+   quel, sans `_markDown` : on vient justement voir des bases dont on soupçonne qu’elles divergent,
+   les déclarer en panne au passage ferait basculer le desk sur ses replis pour un diagnostic. */
+async function aiCacheParNoeud(key) {
+  const k = String(key);
+  const now = Date.now();
+  const noeuds = _dbNodes.filter(n => n.downUntil <= now);
+  const rep = await Promise.allSettled(noeuds.map(n =>
+    _applyOps(n.client, AICACHE_TABLE, [['select', ['value, created_at']], ['eq', ['key', k]], ['limit', [1]]])));
+  return rep.map((s, i) => {
+    const nom = noeuds[i] && noeuds[i].name;
+    if (s.status !== 'fulfilled') return { noeud: nom, erreur: String((s.reason && s.reason.message) || s.reason).slice(0, 140) };
+    const r = s.value;
+    if (r && r.error) return { noeud: nom, erreur: String(r.error.message || r.error).slice(0, 140) };
+    const ligne = (r && Array.isArray(r.data) && r.data[0]) || null;
+    return { noeud: nom, present: !!ligne, valeur: ligne ? ligne.value : null, le: ligne ? ligne.created_at : null };
+  });
+}
+
 module.exports = {
+  aiCacheParNoeud,
   estSupprime,
   isStaff,
   seedAdmin,
