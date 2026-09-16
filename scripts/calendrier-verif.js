@@ -41,6 +41,16 @@ const MESURES = [
   { quoi: 'PIB australien',             date: '09-02-2026', heure: '1:30am',  vraiUTC: '2026-09-02T01:30:00Z' },
 ];
 
+function extraire(nom) {
+  const i = SRV.indexOf('function ' + nom + '(');
+  if (i < 0) return null;
+  let prof = 0;
+  for (let k = SRV.indexOf('{', i); k < SRV.length; k++) {
+    if (SRV[k] === '{') prof++;
+    else if (SRV[k] === '}') { prof--; if (prof === 0) return SRV.slice(i, k + 1); }
+  }
+  return null;
+}
 titre('Les huit publications mesurées tombent à la bonne seconde');
 for (const m of MESURES) {
   const attendu = Date.parse(m.vraiUTC);
@@ -201,6 +211,72 @@ titre("L'archive ne rejoue pas une publication déjà à l'écran sous un autre 
       const n = sansGarde(fenetre).filter(e => (RENOMME[e.title] || e.title) === 'CPI y/y').length;
       if (n === 2) vert('témoin : sans la garde, les deux « CPI y/y » reviennent bien');
       else rouge(`témoin muet : sans la garde on obtient ${n} ligne(s) au lieu de 2`);
+    }
+  }
+}
+
+
+titre('Deux CPI y/y à la même heure : un seul rendez-vous');
+/* ⚠️ SECONDE CAPTURE USER (16/09) : « pourquoi on a 2 CPI y/y alors que sur forexfactory y'en a 1,
+   et le bon c'est celui qui est sorti à 3.1 ». Le doublon du matin venait de l'horloge du flux,
+   corrigée le même jour ; une fois les deux lignes ramenées à la MÊME heure, elles auraient dû
+   fusionner ici. Elles ne l'ont pas fait : la clé portait le PAYS, la ligne ForexFactory arrive avec
+   un pays VIDE et la ligne TradingView avec « GB ». Deux clés, deux lignes, le même rendez-vous. */
+{
+  const SRC_H = extraire('_calDropHomonyms');
+  const SRC_C = extraire('_calPaysCompatible');
+  if (!SRC_H || !SRC_C) {
+    rouge('`_calDropHomonyms` / `_calPaysCompatible` introuvables', 'contrôle à recâbler');
+  } else {
+    vert('la déduplication des homonymes est extraite de server.js');
+    const drop = new Function('_CAL_SPEECH_RX',
+      SRC_C + '\n' + SRC_H + '\nreturn _calDropHomonyms;')(/speaks|speech|testimony|press conf/i);
+    const T = 1789531200000;   // une heure quelconque, la même pour tous
+
+    // LE CAS DE LA CAPTURE : la ligne qui SAIT son pays porte 3,1% ; celle qui l'ignore porte 3,4%.
+    const capture = [
+      { currency: 'GBP', ctry: '',   title: 'CPI y/y', timestamp: T, impact: 'High', actual: '3.4%', forecast: '3.1%' },
+      { currency: 'GBP', ctry: 'GB', title: 'CPI y/y', timestamp: T, impact: 'High', actual: '3.1%', forecast: '3.1%' },
+    ];
+    const r = drop(capture);
+    if (r.length === 1) vert('une seule ligne « CPI y/y » survit');
+    else rouge(r.length + ' lignes survivent : le doublon de la capture est toujours là', JSON.stringify(r.map(x => x.actual)));
+    if (r.length === 1 && r[0].actual === '3.1%') vert('… et c\'est bien celle à 3,1%, la ligne qui porte son pays');
+    else if (r.length === 1) rouge('la mauvaise ligne a été gardée', r[0].actual);
+
+    // CONTRE-EXEMPLE QUI COMPTE : deux PAYS connus et différents ne fusionnent JAMAIS.
+    const euro = [
+      { currency: 'EUR', ctry: 'ES', title: 'CPI y/y', timestamp: T, impact: 'High', actual: '2.1%' },
+      { currency: 'EUR', ctry: 'IT', title: 'CPI y/y', timestamp: T, impact: 'High', actual: '1.7%' },
+    ];
+    if (drop(euro).length === 2) vert('l\'IPC espagnol et l\'italien de la même heure restent DEUX lignes (règle du 31/08 intacte)');
+    else rouge('deux pays distincts ont été fusionnés : la correction du 31/08 est perdue');
+
+    // Trois lignes : deux pays connus + une sans pays → elle rejoint le premier compatible, pas les deux.
+    const trois = [
+      { currency: 'EUR', ctry: 'ES', title: 'CPI y/y', timestamp: T, impact: 'High', actual: '2.1%' },
+      { currency: 'EUR', ctry: 'IT', title: 'CPI y/y', timestamp: T, impact: 'High', actual: '1.7%' },
+      { currency: 'EUR', ctry: '',   title: 'CPI y/y', timestamp: T, impact: 'Medium', actual: '' },
+    ];
+    if (drop(trois).length === 2) vert('une ligne sans pays rejoint UN groupe, elle n\'en efface pas deux');
+    else rouge('la ligne sans pays a mal fusionné', String(drop(trois).length));
+
+    // Les prises de parole restent intactes : plusieurs officiels parlent à la même heure.
+    const disc = [
+      { currency: 'USD', ctry: 'US', title: 'FOMC Member Speaks', timestamp: T, impact: 'Medium' },
+      { currency: 'USD', ctry: '',   title: 'FOMC Member Speaks', timestamp: T, impact: 'Medium' },
+    ];
+    if (drop(disc).length === 2) vert('deux prises de parole à la même heure restent deux événements');
+    else rouge('une prise de parole a été avalée');
+
+    // TÉMOIN : on remet le pays dans la clé de regroupement, le doublon doit revenir.
+    const mute = SRC_H.replace("const k = e.currency + '|' + e.timestamp", "const k = e.currency + '|' + (e.ctry || e.country || '') + '|' + e.timestamp");
+    if (mute === SRC_H) {
+      rouge('la mutation du témoin n\'a rien changé', 'la clé a changé de forme : ce témoin ne prouve plus rien');
+    } else {
+      const dropM = new Function('_CAL_SPEECH_RX', SRC_C + '\n' + mute + '\nreturn _calDropHomonyms;')(/speaks|speech/i);
+      if (dropM(capture).length === 2) vert('(témoin) avec le pays dans la clé, les deux CPI reviennent bien');
+      else rouge('(témoin) la mutation ne mord pas');
     }
   }
 }

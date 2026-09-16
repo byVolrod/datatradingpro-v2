@@ -2038,7 +2038,17 @@
           if (dem) t += '⏳ Démarrage = le desk vient de redémarrer, et toute livraison le redémarre. Un processus neuf ne peut pas savoir ce qu’une base a manqué pendant qu’il n’existait pas : elles repartent donc toutes prudemment en quarantaine de lecture, le temps de la première convergence. Aucune n’a rien raté. Levée automatique (~30 s).';
           if (res) t += (t ? '<br>' : '') + '⏳ Resynchro = la base est joignable mais a raté des écritures pendant son absence. Elle reçoit les écritures et se recomplète, mais ne sert AUCUNE lecture de comptes tant que le rattrapage n’a pas réussi : sans ça, elle rendrait des mots de passe et des échéances périmés. Levée automatique (≤ 20 min).';
           return t ? '<div style="font-size:10.5px;color:#ffb300;margin-top:6px;line-height:1.5">' + t + '</div>' : '';
-        })();
+        })()
+        + `<div class="aim-recup" style="margin-top:10px;padding-top:9px;border-top:1px solid #1c1c20">
+             <div class="aim-kpi-s" style="color:#8b93a1;margin-bottom:6px;line-height:1.45">Récupération : voir ce que <b>chaque</b> base détient pour un compte, et les réaligner. La lecture normale sert la version la plus RÉCENTE, ce qui peut masquer une version plus COMPLÈTE sur une autre base.</div>
+             <div style="display:flex;gap:6px;align-items:center">
+               <input id="recup-uid" type="text" placeholder="identifiant du compte (ex. 1)" spellcheck="false"
+                 style="flex:1;min-width:0;background:#0c0c0e;border:1px solid #26262b;border-radius:4px;color:#e6e6e6;font-size:12px;padding:5px 8px">
+               <button type="button" id="recup-go"
+                 style="background:transparent;border:1px solid #3a3f4b;border-radius:4px;color:#e3b23a;font-size:12px;padding:5px 12px;cursor:pointer">Constater</button>
+             </div>
+             <div id="recup-out" style="margin-top:7px"></div>
+           </div>`;;
     })();
   }
   /* ══ LA MACHINE, SON DISQUE, ET LE SCHÉMA QUI LES RELIE (11/09, demande user) ═════════════════
@@ -3424,3 +3434,57 @@ function adCropValider() {
   try { document.addEventListener('DOMContentLoaded', poser); } catch (e) {}
 })();
 try { document.addEventListener('DOMContentLoaded', adSupAvLoad); } catch (e) {}
+
+/* ══ RÉCUPÉRATION — DÉLÉGATION, PAS D'ACCROCHE DIRECTE ═══════════════════════════════════════
+   La carte Bases est REDESSINÉE à chaque rafraîchissement du panneau : un gestionnaire posé sur
+   le bouton disparaîtrait au rendu suivant, et le bouton deviendrait mort sans que rien ne le
+   dise. On délègue donc au document, une fois. C'est le même piège que la barre de sauvegardes
+   du volet Layouts, déjà payé le 21/08. */
+(function _recupBrancher() {
+  if (window.__recupPret) return; window.__recupPret = true;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const sortie = () => document.getElementById('recup-out');
+  async function constater(uid) {
+    const o = sortie(); if (!o) return;
+    o.innerHTML = '<div class="aim-kpi-s" style="color:#8b93a1">Lecture des quatre bases…</div>';
+    let d = null;
+    try { d = await (await fetch('/api/admin/recuperation?uid=' + encodeURIComponent(uid))).json(); } catch (e) {}
+    if (!d || !d.ok) { o.innerHTML = '<div class="aim-kpi-s" style="color:#ef4444">' + esc((d && d.erreur) || 'lecture impossible') + '</div>'; return; }
+    let h = '';
+    for (const f of d.familles) {
+      const presents = f.noeuds.filter(n => n.present);
+      if (!presents.length && !f.noeuds.some(n => n.erreur)) continue;   // famille absente partout : rien à montrer
+      h += '<div style="margin:8px 0 3px;font-size:11px;font-weight:600;color:' + (f.divergent ? '#ffb300' : '#8b93a1') + '">'
+        + esc(f.quoi) + (f.divergent ? ' · les bases DIVERGENT' : '') + '</div>';
+      for (const n of f.noeuds) {
+        const dét = n.erreur ? '<span style="color:#ef4444">' + esc(n.erreur) + '</span>'
+          : (n.present ? esc(n.resume) : '<span style="color:#6b7280">absent</span>');
+        const meilleur = n.present && f.divergent && n.richesse === f.max;
+        h += '<div class="aim-kv" style="font-size:11.5px"><span>' + esc(n.noeud || '?') + '</span>'
+          + '<b style="font-weight:400;color:' + (meilleur ? '#00e676' : '#e6e6e6') + '">' + dét
+          + (meilleur ? ' <button type="button" class="recup-do" data-uid="' + esc(d.uid) + '" data-cle="' + esc(f.cle) + '" data-noeud="' + esc(n.noeud) + '" style="margin-left:8px;background:transparent;border:1px solid #3a3f4b;border-radius:4px;color:#e3b23a;font-size:11px;padding:2px 9px;cursor:pointer">Réaligner les 4 bases</button>' : '')
+          + '</b></div>';
+      }
+    }
+    o.innerHTML = h || '<div class="aim-kpi-s" style="color:#6b7280">Aucune donnée privée pour ce compte.</div>';
+  }
+  document.addEventListener('click', async (e) => {
+    const go = e.target.closest && e.target.closest('#recup-go');
+    if (go) { const i = document.getElementById('recup-uid'); if (i && i.value.trim()) constater(i.value.trim()); return; }
+    const b = e.target.closest && e.target.closest('.recup-do');
+    if (!b) return;
+    /* PAS DE BOÎTE NATIVE (règle du desk) : la confirmation se fait SUR le bouton, en deux temps. */
+    if (b.dataset.arme !== '1') { b.dataset.arme = '1'; b.dataset.libelle = b.textContent; b.textContent = 'Confirmer ?'; b.style.color = '#ffb300';
+      setTimeout(() => { if (b.isConnected && b.dataset.arme === '1') { b.dataset.arme = ''; b.textContent = b.dataset.libelle; b.style.color = '#e3b23a'; } }, 4000); return; }
+    b.dataset.arme = ''; b.textContent = 'Réalignement…';
+    let r = null;
+    try {
+      r = await (await fetch('/api/admin/recuperation/realigner', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: b.dataset.uid, cle: b.dataset.cle, noeud: b.dataset.noeud }) })).json();
+    } catch (err) {}
+    b.textContent = (r && r.ok) ? 'Réaligné' : ((r && r.erreur) ? 'Refusé' : 'Échec');
+    b.style.color = (r && r.ok) ? '#00e676' : '#ef4444';
+    b.title = (r && r.ok) ? ('depuis ' + r.depuis + ' · ' + r.resume) : ((r && r.erreur) || '');
+    if (r && r.ok) { const i = document.getElementById('recup-uid'); if (i && i.value.trim()) setTimeout(() => constater(i.value.trim()), 900); }
+  });
+})();

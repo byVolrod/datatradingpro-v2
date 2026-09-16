@@ -17723,12 +17723,42 @@ body.dtp-premium .view-panel > .panel > .panel-header {
 .wdgt-dispo .wdg-dispo-row { flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0; }
 .wdgt-dispo .wdg-dispo-card { width: 88px; padding: 8px 6px; gap: 5px; }
 .wdgt-dispo .wdg-dispo-card .wdg-thumb { grid-auto-rows: 6px; }
+/* ⚠️ CE CONTENEUR N'EXISTAIT PAS, ET LA RÈGLE QUI LE VISE N'A DONC JAMAIS RIEN FAIT (16/09,
+   retour user : « corrige on voit pas le texte »). La règle ci-dessous interroge `dtpwdg`, mais
+   AUCUN élément de la feuille ne portait `container-name: dtpwdg` : une requête de conteneur dont
+   le conteneur n'est déclaré nulle part ne s'applique jamais, et elle ne prévient pas. Le sélecteur
+   de disposition ne s'est donc jamais adapté à la taille de la carte, et dans un onglet court ses
+   libellés étaient rognés en bas.
+   ⚠️ ET C'EST LA HAUTEUR QUI MANQUAIT, PAS LA LARGEUR. Le seul réglage prévu portait sur la largeur ;
+   le défaut visible venait d'une carte trop COURTE. Une requête de hauteur exige `container-type: size`
+   (et non `inline-size`), ce que font déjà les widgets qui s'adaptent en hauteur dans cette feuille. */
+.wdgt-body:has(.wdgt-dispo) { container-type: size; container-name: dtpwdg; }
 /* Panneau étroit (carte de 3-4 colonnes) : les vignettes passent en deux rangées plutôt que de
    déborder — la carte ne doit jamais avoir de scroll horizontal. */
 @container dtpwdg (max-width: 340px) {
   .wdgt-dispo .wdg-dispo-card { width: 74px; }
   .wdgt-dispo { padding: 10px; }
 }
+/* Carte COURTE : on resserre au lieu de rogner. Un libellé coupé en deux ne s'explique pas au
+   lecteur — il croit à un défaut d'affichage, et il a raison. */
+@container dtpwdg (max-height: 230px) {
+  .wdgt-dispo { padding: 8px 10px; gap: 6px; justify-content: flex-start; }
+  .wdgt-dispo-t { font-size: 10px; letter-spacing: .03em; }
+  .wdgt-dispo .wdg-dispo-row { gap: 6px; }
+  .wdgt-dispo .wdg-dispo-card { width: 66px; padding: 5px 4px; gap: 3px; }
+  .wdgt-dispo .wdg-dispo-card .wdg-thumb { grid-auto-rows: 4px; }
+  .wdgt-dispo .wdg-dispo-name { font-size: 10px; }
+}
+@container dtpwdg (max-height: 150px) {
+  /* Très courte : le titre cède la place aux vignettes, qui portent déjà leur nom. */
+  .wdgt-dispo-t { display: none; }
+  .wdgt-dispo .wdg-dispo-card { width: 58px; }
+  .wdgt-dispo .wdg-dispo-card .wdg-thumb { grid-auto-rows: 3px; }
+}
+/* Et quelle que soit la place, un nom de disposition ne se coupe JAMAIS en hauteur : il passe à la
+   ligne, la vignette grandit, la carte défile. Rogner du texte est le seul résultat interdit. */
+.wdgt-dispo .wdg-dispo-name { line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
+.wdgt-dispo .wdg-dispo-card { height: auto; align-self: start; }
 
 /* ══ « Par défaut » : une pastille lisible à la place de l'étoile muette (06/08) ═══════════════════
    L'ancien contrôle était un ★ seul dans une rangée de trois icônes de 22 px : rien ne disait ce
