@@ -11061,6 +11061,16 @@ function _renderFXDailyRecap(item) {
      TEXTE. Le drapeau `_ai:false` voyageait pourtant jusqu'ici depuis le serveur, sans que rien ne
      le lise. */
   const _provisoire = !!(item && item._fxr && item._fxr._ai === false);
+  /* ⚠️ LA VERSION COURTE N'EST PAS UNE VERSION PROVISOIRE, ET LES CONFONDRE SERAIT MENTIR DANS LES
+     DEUX SENS (16/09). Depuis aujourd'hui, quand la rédaction complète échoue, le desk retente
+     AVANT de recycler les dépêches : un rapport plus resserré, mais rédigé, et en français. Le
+     présenter comme « provisoire » le déprécierait à tort ; ne rien dire ferait passer un rapport
+     amputé de ses rubriques fines pour le rapport complet. Une ligne, sobre, qui dit l'exact état. */
+  const _courte = !!(item && item._fxr && item._fxr._ai !== false && item._fxr._court);
+  if (_courte) {
+    body += '<div class="fxdr-provisoire fxdr-provisoire--courte">Version courte : le rapport complet n\'a pas pu être produit, celui-ci est rédigé mais plus resserré. '
+      + 'Les chiffres du jour et les échéances à surveiller sont les mêmes : ils ne dépendent pas de la rédaction.</div>';
+  }
   if (_provisoire) {
     body += '<div class="fxdr-provisoire">Version provisoire : la synthèse rédigée n\'a pas pu être produite '
       + '(chaîne d\'analyse momentanément indisponible). Les faits ci-dessous sont réels et datés ; '

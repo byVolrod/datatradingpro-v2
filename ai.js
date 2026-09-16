@@ -443,6 +443,90 @@ function setFallbackOrder(arr) {
   const ok = arr.filter(x => x === 'github' || x === 'openrouter');
   _fallbackOrder = ok.length ? [...new Set(ok)] : null;
 }
+/* ══ PLAFOND PAR REQUÊTE, APPRIS SUR L'HISTORIQUE (16/09) ══════════════════════════
+
+   POURQUOI. Le Récap Quotidien est resté bloqué des jours sur son repli anglais. Mesuré : son
+   appel demande environ 19 400 jetons (12 400 de prompt + 7 000 de sortie), quand l'appel suivant
+   du desk en demande 13 300 et le troisième 9 000. Les fournisseurs gratuits, eux, plafonnent PAR
+   REQUÊTE bien en dessous. Un appel trop gros n'est pas lent : il est REFUSÉ, à tous les coups, et
+   la cascade brûlait donc un aller-retour garanti perdant chez chaque fournisseur, toutes les
+   quinze minutes, indéfiniment.
+
+   ⚠️ ET UNE CONSTANTE EN DUR AURAIT REFAIT LE MÊME MUR. Les plafonds des offres gratuites changent
+   sans prévenir, diffèrent d'un modèle à l'autre, et une valeur écrite ici serait fausse le jour où
+   elle bouge, sans que rien ne le dise. Le desk APPREND déjà sa demande horaire et l'ordre de ses
+   replis : il apprend désormais aussi, par fournisseur, la plus grosse requête RÉELLEMENT acceptée
+   et la plus petite RÉELLEMENT refusée pour cause de taille. Le plafond vit entre les deux.
+
+   TROIS PROPRIÉTÉS QUI COMPTENT, ET QUI SONT ÉPROUVÉES AU BANC :
+   1. UN 429 N'EST PAS UN PLAFOND. « Trop de requêtes » est une minute chargée, pas une limite de
+      taille. Le confondre ferait rétrécir le plafond appris à chaque pic, DEFINITIVEMENT, et le
+      desk finirait par n'envoyer que des requêtes minuscules. Seul un refus qui parle de TAILLE
+      compte (413, ou un message qui nomme le contexte, la longueur ou les jetons demandés).
+   2. L'APPRENTISSAGE SE CORRIGE. Si une requête PLUS GROSSE que le refus mémorisé passe ensuite,
+      c'est que le refus n'était pas un plafond : on l'efface. Sans cela, un incident d'un jour
+      brimerait le desk pour toujours, et on ne saurait même pas pourquoi.
+   3. INCONNU ≠ ZÉRO. Tant qu'un fournisseur n'a rien appris, il n'est jamais écarté : on essaie,
+      c'est ainsi qu'on apprend. Un système qui refuse d'essayer n'apprend plus rien. */
+const _PLAF = new Map();                       // "fournisseur" → { okMax, koMin, refus, maj }
+const _PLAF_MARGE = 0.92;                      // on vise sous le refus connu, jamais pile dessus
+// Budget d'un appel, en jetons : le prompt (français, ~3,2 caractères par jeton) plus la sortie
+// demandée, parce que c'est la SOMME que les fournisseurs plafonnent, pas l'un ou l'autre.
+function budgetAppel(prompt, maxTokens) { return Math.ceil(String(prompt == null ? '' : prompt).length / 3.2) + (Number(maxTokens) || 0); }
+// Un refus de TAILLE, et rien d'autre. La liste des formulations vient des messages réels des
+// fournisseurs de la cascade ; un 429 nu n'en fait volontairement PAS partie (cf. propriété 1).
+function estRefusTaille(e) {
+  if (!e) return false;
+  const st = e.status || (e.response && e.response.status) || 0;
+  const m = String(e.message || '');
+  if (st === 413) return true;
+  if (!/too large|context length|context_length|maximum context|too long|reduce the length|prompt is too long|max_tokens|tokens per minute|Requested \d/i.test(m)) return false;
+  return st === 400 || st === 413 || st === 422 || st === 429;   // 429 UNIQUEMENT s'il nomme la taille
+}
+function _plafDe(prov) { let p = _PLAF.get(prov); if (!p) { p = { okMax: 0, koMin: 0, refus: 0, maj: 0 }; _PLAF.set(prov, p); } return p; }
+function notePlafondOk(prov, budget) {
+  if (!prov || !(budget > 0)) return;
+  const p = _plafDe(prov);
+  if (budget > p.okMax) { p.okMax = budget; p.maj = Date.now(); }
+  // Propriété 2 : une réussite AU-DESSUS du refus mémorisé prouve que ce refus n'était pas un plafond.
+  if (p.koMin && budget >= p.koMin) { p.koMin = 0; p.refus = 0; p.maj = Date.now(); }
+}
+function notePlafondKo(prov, budget) {
+  if (!prov || !(budget > 0)) return;
+  const p = _plafDe(prov);
+  if (!p.koMin || budget < p.koMin) { p.koMin = budget; p.maj = Date.now(); }
+  p.refus++;
+}
+// Le plafond retenu pour un fournisseur : juste sous le plus petit refus connu. null = rien d'appris.
+function plafondDe(prov) { const p = _PLAF.get(prov); return (p && p.koMin) ? Math.floor(p.koMin * _PLAF_MARGE) : null; }
+function _plafAutorise(prov, budget) { const pl = plafondDe(prov); return pl == null || budget <= pl; }
+/* Le plus grand budget qu'au moins UN fournisseur configuré est connu pour accepter. C'est ce que
+   l'appelant interroge AVANT de fabriquer son prompt : anticiper coûte zéro appel, se faire refuser
+   en coûte un par fournisseur. null = rien d'appris encore, donc aucune contrainte à s'imposer. */
+function budgetSur() {
+  const dispo = [];
+  if (GROQ_KEYS.length) dispo.push('groq');
+  if (GEMINI_KEYS.length) dispo.push('gemini');
+  if (GITHUB_TOKENS.length) dispo.push('github');
+  if (OPENROUTER_KEYS.length) dispo.push('openrouter');
+  if (COHERE_KEYS.length) dispo.push('cohere');
+  if (ANTHROPIC_KEYS.length) dispo.push('claude');
+  let best = null, inconnu = false;
+  for (const p of dispo) { const pl = plafondDe(p); if (pl == null) inconnu = true; else if (best == null || pl > best) best = pl; }
+  return inconnu ? null : best;   // un seul fournisseur non encore éprouvé → on ne s'interdit rien
+}
+function plafonds() { const o = {}; for (const [k, v] of _PLAF) o[k] = { okMax: v.okMax, koMin: v.koMin, refus: v.refus, maj: v.maj, plafond: plafondDe(k) }; return o; }
+// Restauration au démarrage (server.js persiste dans le cache durable) : SANS elle, tout est
+// réappris de zéro à chaque déploiement, et ce dépôt déploie plusieurs fois par jour.
+function setPlafonds(o) {
+  if (!o || typeof o !== 'object') return;
+  for (const [k, v] of Object.entries(o)) {
+    if (!v || typeof v !== 'object') continue;
+    const okMax = Number(v.okMax) || 0, koMin = Number(v.koMin) || 0;
+    if (okMax < 0 || koMin < 0) continue;
+    _PLAF.set(String(k).slice(0, 24), { okMax, koMin, refus: Number(v.refus) || 0, maj: Number(v.maj) || 0 });
+  }
+}
 let _gemBucket = _GEM_RPM, _gemBucketTs = Date.now();
 function _gemBucketRefill() { const now = Date.now(); _gemBucket = Math.min(_GEM_RPM, _gemBucket + ((now - _gemBucketTs) / 1000) * (_effRpm() / 60)); _gemBucketTs = now; }
 function _gemBucketTake() { _gemBucketRefill(); if (_gemBucket >= 1) { _gemBucket -= 1; return true; } return false; }
@@ -916,13 +1000,18 @@ async function generateText(prompt, maxTokens = 1500, opts = {}) {
 
 async function _generateTextInner(prompt, maxTokens, opts = {}) {
   const claudeOff = !!opts.noClaude || !ANTHROPIC_KEYS.length;
+  /* Le budget de CET appel, confronté au plafond APPRIS de chaque fournisseur. Un fournisseur dont
+     on SAIT qu'il refusera est sauté : c'est un aller-retour réseau économisé et, surtout, une
+     seconde gagnée pour celui qui peut répondre. Rien n'est sauté tant que rien n'est appris. */
+  const _bud = budgetAppel(prompt, maxTokens);
+  const _saute = (prov) => { if (_plafAutorise(prov, _bud)) return false; console.warn(`[AI] ${prov} saut\u00e9 : ${_bud} jetons demand\u00e9s > plafond appris ${plafondDe(prov)}`); return true; };
   // ── PRINCIPAL : Groq (gratuit, latence minimale) ─────────────────────────────
   // Tenté AVANT Gemini : capacité free la plus fiable du moment, et on évite le gate anti-rafale
   // Gemini (_gemBucketGate, jusqu'à 6 s d'attente) sur le chemin nominal. _groq gère en interne
   // multi-clés + multi-modèles + cooldowns (_groqCool) — un échec ici bascule sur Gemini.
-  if (GROQ_KEYS.length) {
-    try { const out = await _groq(prompt, maxTokens); _aiStat('groq'); return out; }
-    catch (e) { console.warn(`[AI] Groq (principal) échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → Gemini`); _aiStat('groqFail'); }
+  if (GROQ_KEYS.length && !_saute('groq')) {
+    try { const out = await _groq(prompt, maxTokens); notePlafondOk('groq', _bud); _aiStat('groq'); return out; }
+    catch (e) { if (estRefusTaille(e)) notePlafondKo('groq', _bud); console.warn(`[AI] Groq (principal) échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → Gemini`); _aiStat('groqFail'); }
   }
 
   // ── Repli n°1 : Google Gemini (gratuit) — multi-clés + multi-modèles ─────────
@@ -932,7 +1021,7 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
   // noGemini : l'enveloppe de budget qui pace le quota gratuit GEMINI est epuisee, mais les AUTRES
   // fournisseurs gratuits (GitHub Models, OpenRouter, Cohere) ont leur propre quota, intact. On saute
   // donc Gemini et on continue la cascade — au lieu d'abandonner toute la chaine gratuite.
-  if (GEMINI_KEYS.length && !opts.noGemini) {
+  if (GEMINI_KEYS.length && !opts.noGemini && !_saute('gemini')) {
     let lastErr;
     const n = GEMINI_KEYS.length;
     _geminiCursor = (_geminiCursor + 1) % n;
@@ -948,9 +1037,10 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
       cand.sort((a, b) => _hScore(model, b) - _hScore(model, a));   // meilleure santé d'abord
       for (const idx of cand) {
         const t0 = Date.now();
-        try { const out = await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens); _hOk(model, idx, Date.now() - t0); _aiStat('gemini'); return out; }
+        try { const out = await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens); notePlafondOk('gemini', _bud); _hOk(model, idx, Date.now() - t0); _aiStat('gemini'); return out; }
         catch (e) {
           lastErr = e; const is429 = e.status === 429;
+          if (estRefusTaille(e)) notePlafondKo('gemini', _bud);
           _hFail(model, idx, is429);
           if (is429) { _gemCool(model, idx, 429, e.retryDelayMs, e.quotaDaily); _aiStat('gemini429'); }
           else if (e.status === 404 || e.status === 503 || e.status === 500) _gemCool(model, idx, e.status);
@@ -969,18 +1059,18 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
   const _mid = (_fallbackOrder && _fallbackOrder.length) ? _fallbackOrder : ['github', 'openrouter'];
   const _order = [..._mid, 'cohere', 'xai'];
   for (const prov of _order) {
-    if (prov === 'github' && GITHUB_TOKENS.length) {
-      try { const out = await _githubModels(prompt, maxTokens); _aiStat('github'); return out; }
-      catch (e) { console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('githubFail'); }
-    } else if (prov === 'openrouter' && OPENROUTER_KEYS.length) {
-      try { const out = await _openrouter(prompt, maxTokens); _aiStat('openrouter'); return out; }
-      catch (e) { console.warn(`[AI] OpenRouter échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('openrouterFail'); }
-    } else if (prov === 'cohere' && COHERE_KEYS.length) {
-      try { const out = await _cohere(prompt, maxTokens); _aiStat('cohere'); return out; }
-      catch (e) { console.warn(`[AI] Cohere échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('cohereFail'); }
-    } else if (prov === 'xai' && XAI_KEYS.length && !claudeOff) {   // xAI = PAYANT → JAMAIS sur un flux de fond « noClaude » (protège le budget)
-      try { const out = await _xai(prompt, maxTokens); _aiStat('xai'); return out; }
-      catch (e) { console.warn(`[AI] xAI échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)}${claudeOff ? '' : ' → Claude'}`); _aiStat('xaiFail'); }
+    if (prov === 'github' && GITHUB_TOKENS.length && !_saute('github')) {
+      try { const out = await _githubModels(prompt, maxTokens); notePlafondOk('github', _bud); _aiStat('github'); return out; }
+      catch (e) { if (estRefusTaille(e)) notePlafondKo('github', _bud); console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('githubFail'); }
+    } else if (prov === 'openrouter' && OPENROUTER_KEYS.length && !_saute('openrouter')) {
+      try { const out = await _openrouter(prompt, maxTokens); notePlafondOk('openrouter', _bud); _aiStat('openrouter'); return out; }
+      catch (e) { if (estRefusTaille(e)) notePlafondKo('openrouter', _bud); console.warn(`[AI] OpenRouter échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('openrouterFail'); }
+    } else if (prov === 'cohere' && COHERE_KEYS.length && !_saute('cohere')) {
+      try { const out = await _cohere(prompt, maxTokens); notePlafondOk('cohere', _bud); _aiStat('cohere'); return out; }
+      catch (e) { if (estRefusTaille(e)) notePlafondKo('cohere', _bud); console.warn(`[AI] Cohere échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('cohereFail'); }
+    } else if (prov === 'xai' && XAI_KEYS.length && !claudeOff && !_saute('xai')) {   // xAI = PAYANT → JAMAIS sur un flux de fond « noClaude » (protège le budget)
+      try { const out = await _xai(prompt, maxTokens); notePlafondOk('xai', _bud); _aiStat('xai'); return out; }
+      catch (e) { if (estRefusTaille(e)) notePlafondKo('xai', _bud); console.warn(`[AI] xAI échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)}${claudeOff ? '' : ' → Claude'}`); _aiStat('xaiFail'); }
     }
   }
 
@@ -989,8 +1079,8 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
   // crédits payants, même quand Gemini+GitHub échouent en budget (l'appelant a son fallback local).
   if (!claudeOff) {
     _aiStat('fallback');
-    try { return await _anthropic(prompt, maxTokens); }
-    catch (e) { e.claudeTried = true; throw e; }   // l'appelant (aiSmart) sait : pas de 2e passe Claude
+    try { const out = await _anthropic(prompt, maxTokens); notePlafondOk('claude', _bud); return out; }
+    catch (e) { if (estRefusTaille(e)) notePlafondKo('claude', _bud); e.claudeTried = true; throw e; }   // l'appelant (aiSmart) sait : pas de 2e passe Claude
   }
 
   const _tentes = ['Groq', opts.noGemini ? null : 'Gemini', 'GitHub', 'OpenRouter', 'Cohere', opts.noClaude ? null : 'xAI', opts.noClaude ? null : 'Claude'].filter(Boolean).join('/');
@@ -1060,6 +1150,7 @@ module.exports = {
   shouldThrottle,
   underPressure,
   setFallbackOrder,
+  budgetAppel, estRefusTaille, notePlafondOk, notePlafondKo, plafondDe, budgetSur, plafonds, setPlafonds,
   setLiveContext,
   hasAnthropic,
   claudeUsable,

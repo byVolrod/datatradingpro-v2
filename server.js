@@ -1557,6 +1557,7 @@ const DTP_UPDATES = [
   { id: 'dtpu-20260911-taux-derniere-reunion', ts: Date.UTC(2026, 8, 11, 11, 15), title: 'Onglet Taux : la carte dit maintenant aussi QUAND la dernière décision a été prise', desc: 'Demande d’un client : « on a les dates des réunions futures, ajoute aussi la dernière qui est passée, ce serait bien pour toutes les banques ». La carte d’une banque centrale portait une ligne « Date de réunion », et c’était la PROCHAINE. On savait donc quand la question serait reposée, jamais quand elle avait été tranchée. OR LE TAUX AFFICHÉ JUSTE AU DESSUS SORT PRÉCISÉMENT DE CETTE RÉUNION PASSÉE. Sans sa date, impossible de savoir s’il date d’une semaine ou de quatre mois, et donc à quel point la prochaine décision est chargée : une banque qui n’a pas bougé depuis quatre mois et une banque qui vient de trancher ne se lisent pas de la même façon, même avec le même chiffre à l’écran. Les deux dates se lisent ensemble ou ne se lisent pas. LES DEUX INTITULÉS DEVIENNENT EXPLICITES : « Prochaine réunion » et « Dernière réunion ». Deux dates sur une même carte sans intitulé distinct se confondent, et c’était le défaut d’origine. L’ancienneté en jours s’affiche au survol de la date, pas sur la ligne : la carte est dense, et « il y a 83 jours » est un complément, pas la donnée. POUR LES HUIT BANQUES, sans exception, et c’était le point délicat. Le fournisseur de pricing ne transmet que des réunions À VENIR : y chercher une date passée n’aurait jamais rien donné, et la moitié des banques ne sont de toute façon pas servies par lui. La date vient donc du calendrier complet du desk, le même pour les huit et le même pour la prochaine réunion : les deux lignes ne peuvent pas se contredire. ON DIT QUAND, PAS CE QUI A ÉTÉ DÉCIDÉ. Accoler un verdict à cette date reviendrait à affirmer qu’on a lu le communiqué de cette réunion précise, ce qui n’est pas garanti pour les huit banques. La provenance du taux, elle, reste écrite en pied de carte comme avant. Un contrôle automatique exécute désormais le vrai calcul à chaque livraison et vérifie, pour les huit, que la date rendue est bien passée, qu’elle est bien la PLUS RÉCENTE des passées, et qu’une banque hors calendrier n’en reçoit aucune plutôt qu’une date inventée.' },
   { id: 'dtpu-20260911-journal-jour', ts: Date.UTC(2026, 8, 11, 15, 0), title: 'Journal : la colonne Jour se choisit enfin, et elle déplace la date avec elle', desc: 'Signalé par un client : « je dois avoir les jours de la semaine en cliquant ». C’était exact, et le silence était le pire du défaut : on cliquait sur une cellule de la colonne Jour, il ne se passait rien, et rien ne disait pourquoi. LA RAISON DE CE BLOCAGE ÉTAIT POURTANT BONNE, et c’est ce qui rend la réparation intéressante. Le jour n’est pas une donnée que vous saisissez : il est DÉDUIT de la date du trade. Le rendre librement modifiable produirait une ligne qui se contredit toute seule, un trade daté du mercredi 9 septembre étiqueté « Lundi ». Nous ne stockons donc pas un jour à côté de la date. CE QUE FAIT LE CLIC MAINTENANT : les sept jours vous sont proposés, et en choisir un DÉPLACE la date du trade sur ce jour, dans la même semaine. Les deux colonnes restent d’accord parce qu’elles restent le même fait, et vous obtenez exactement ce que vous demandiez. Le sélecteur le dit en toutes lettres sous les options, parce que déplacer la date n’est pas ce qu’on attend d’un choix de jour tant qu’on ne l’a pas lu une fois. Un trade sans date prend la semaine en cours comme repère : c’est le seul dont on dispose, et refuser le clic serait revenir au défaut qu’on répare. LE DIMANCHE EST TRAITÉ COMME IL SE DOIT : dans la numérotation interne des jours il porte le zéro et passerait pour le début de semaine, ce qui aurait renvoyé un trade du dimanche à la semaine précédente. Le calcul passe par le lundi, comme une semaine se lit en France.' },
   { id: 'dtpu-20260911-panne-ia-silencieuse', ts: Date.UTC(2026, 8, 11, 18, 40), title: 'Une panne d\'analyse ne peut plus passer inaperçue, ni laisser un rond tourner', desc: 'Retour d’un client sur une même journée : des titres du fil restés en anglais, une courbe de Force des devises en chargement infini dans le Récap Quotidien, et une synthèse qui alignait des dépêches brutes au lieu d’un texte rédigé. Un seul incident derrière les trois, et trois défauts qui l’attendaient. CE QUI S’EST PASSÉ. La chaîne d’analyse s’appuie sur sept fournisseurs, essayés l’un après l’autre. Ils ont vacillé ensemble quelques minutes, ce qui arrive. Le desk a fait exactement ce qu’il devait : il a basculé sur ses solutions de repli, personne n’a vu de page vide. Mais les replis sont restés en place bien plus longtemps que la panne. PREMIER DÉFAUT : LE DESK PUNISSAIT SA PROPRE REPRISE. Après une série d’échecs, il s’impose une pause avant de réessayer, ce qui est sain : marteler des serveurs à terre ne les ressuscite pas. Sauf que cette pause grandissait avec le NOMBRE d’échecs passés, jusqu’à SIX HEURES. Une avarie de quelques minutes gelait donc la rédaction pour la demi-journée, longtemps après le retour des fournisseurs. Le compteur d’échecs mesure ce qui s’est passé, jamais ce qui se passe MAINTENANT. Le desk re-teste désormais la chaîne à intervalle court et BORNÉ : au pire dix à trente minutes, jamais six heures. Dès qu’un fournisseur répond, tout repart d’un coup. DEUXIÈME DÉFAUT : LA SURVEILLANCE AFFIRMAIT « utilisateur non impacté ». Littéralement, dans le code. Elle vérifiait deux choses, que le fil se charge et que la mémoire répond, et concluait que tout allait bien. Ces deux voyants étaient au vert pendant que le client lisait de l’anglais. Une panne d’analyse qui dure déclenche maintenant une vraie alerte, parce qu’à ce stade du contenu dégradé est DÉJÀ sous les yeux des lecteurs. Une avarie courte, elle, ne réveille personne : une alerte qui sonne pour rien est une alerte qu’on finit par ne plus ouvrir. TROISIÈME DÉFAUT : LE FILET DE SECOURS AVAIT DISPARU EN SILENCE. Le dernier recours de la chaîne est un service payant, et son compte était à sec depuis un moment. C’était traité comme une situation connue, donc sans alarme, ce qui était juste pour ne pas crier à la panne. Mais ça ne prévenait personne non plus, et c’est précisément l’absence de ce dernier recours qui a transformé une avarie ordinaire en interruption complète. Ne pas s’alarmer et ne rien dire sont deux décisions différentes : elles sont désormais séparées. LA COURBE QUI TOURNAIT SANS FIN. Le traceur de courbes vit dans un fichier chargé à part. Quand le rapport s’affichait avant lui, le code sortait sans un mot : aucune requête, donc aucune erreur possible, donc un rond qui tourne pour toujours. Et la requête n’avait aucun délai maximal, si bien qu’un serveur ralenti suffisait à produire le même écran. Les deux sont fermés, sur les quatre courbes concernées : le traceur est attendu un temps borné, la requête a le droit d’échouer, et un message honnête remplace le rond. Un rapport doit dire ce qui lui manque. ET LE RAPPORT DE SECOURS DIT MAINTENANT QU’IL EN EST UN. Quand la rédaction ne peut pas être produite, le desk assemble un rapport à partir des dépêches réelles plutôt que de ne rien publier. C’est utile et ça se remplace tout seul en un quart d’heure. Mais rien ne le distinguait à l’écran du vrai rapport : vous croyiez lire le produit fini. Un bandeau l’annonce désormais, et précise que la version rédigée arrive automatiquement, sans rien faire de votre côté.' },
+  { id: 'dtpu-20260916-plafond-appris', ts: Date.UTC(2026, 8, 16, 8, 2), title: 'Le desk apprend ce que sa chaîne d’analyse encaisse, et arrête de se cogner au même mur', desc: 'Suite du Récap Quotidien bloqué en anglais. LA MESURE QUI A TOUT CHANGÉ : en classant les quinze demandes d’analyse du desk par taille, celle du Récap Quotidien demande environ 19 400 unités de texte quand la deuxième en demande 13 300 et la troisième 9 000. Or nos fournisseurs d’analyse limitent la taille de CHAQUE demande, et bien en dessous. Une demande trop grosse n’est pas lente : elle est REFUSÉE, à tous les coups. Le desk réessayait donc toutes les quinze minutes, chez chaque fournisseur, une demande dont l’échec était acquis d’avance, avant de retomber sur sa version de secours. CE QUE J’AURAIS PU FAIRE ET QUI AURAIT MAL VIEILLI : écrire la limite en dur dans le code. Ces limites changent sans prévenir, et une valeur figée serait fausse un jour sans que rien ne le signale. CE QUI EST FAIT À LA PLACE, et c’est le système autonome que vous demandiez : le desk APPREND. Il retient, fournisseur par fournisseur, la plus grosse demande réellement acceptée et la plus petite réellement refusée pour cause de taille. Avant chaque analyse, il sait donc ce que la chaîne encaisse, et il n’envoie plus ce qu’il sait refusé : il produit directement une version courte, RÉDIGÉE ET EN FRANÇAIS, plutôt qu’une salve d’allers-retours perdants suivie d’un rapport en anglais. C’est le même principe que la demande horaire qu’il apprend déjà. TROIS GARDE-FOUS, parce qu’un apprentissage mal fait est pire que pas d’apprentissage. Un simple « trop de demandes à la minute » n’est PAS une limite de taille : les confondre aurait fait rétrécir la limite apprise à chaque pic de trafic, définitivement, jusqu’à ce que le desk ne demande plus que des analyses minuscules. L’apprentissage SE CORRIGE : si une demande plus grosse passe plus tard, c’est que le refus n’était pas une limite, et il est effacé. Et « je ne sais pas encore » ne vaut pas « zéro » : tant qu’un fournisseur n’a jamais refusé, on tente, parce que c’est en tentant qu’on apprend. Ce qui est appris survit aux mises à jour et s’affiche dans le tableau de bord, sous la demande horaire : un apprentissage qu’on ne montre pas ne se vérifie jamais. Enfin, quand un rapport sort en version courte, il vous le DIT : il est rédigé et français, simplement plus resserré, et les chiffres du jour comme les échéances à surveiller restent identiques, puisqu’ils ne dépendent pas de la rédaction.' },
   { id: 'dtpu-20260916-connexions-lisibles', ts: Date.UTC(2026, 8, 16, 7, 40), title: 'Panneau d’administration : la colonne des connexions se lit sans enquêter', desc: 'Vous nous avez demandé d’améliorer la lisibilité de la colonne « Dernière connexion » de la liste des comptes. TROIS CHOIX QUI GÊNENT LA LECTURE se cumulaient dans la même cellule, celle qu’on regarde pourtant en premier : un corps de onze pixels, une police à chasse fixe, et le gris le plus éteint de la palette. La chasse fixe n’y servait d’ailleurs à rien : elle sert à aligner des chiffres en colonne, or « il y a 3 j » et « à l’instant » n’ont pas un chiffre à la même place. Surtout, AUCUNE COULEUR NE SÉPARAIT LES ÉTATS : un compte connecté il y a cinq minutes et un compte qui ne s’est JAMAIS connecté s’écrivaient dans le même gris, alors que c’est exactement l’information qu’on cherche en balayant une liste. Enfin la date exacte n’existait qu’au SURVOL, c’est-à-dire nulle part sur un écran tactile. CE QUI CHANGE : la mention relative passe en gras et prend la couleur de son état, dans le vocabulaire déjà utilisé partout sur le desk. Vert vif : connecté aujourd’hui, le compte est vivant. Blanc : moins de trente jours, le cas ordinaire, aucun signal. Ambre : au-delà, le compte décroche. Rouge : jamais connecté, qui est un état en soi et non une donnée manquante. Et la date complète s’écrit juste en dessous, en plus petit : on lit « quand » d’un coup d’œil et « quel jour » sans bouger la souris, le survol gardant la seconde près. Un contrôle automatique joue désormais la vraie cellule sur chaque état à chaque livraison, seuils compris des deux côtés, et vérifie qu’aucune de ses couleurs n’est orpheline : une couleur écrite sans règle correspondante ne casserait rien et laisserait simplement la colonne revenir à son gris, en silence.' },
   { id: 'dtpu-20260916-rapport-provisoire', ts: Date.UTC(2026, 8, 16, 7, 25), title: 'Récap Quotidien en anglais : la panne dit enfin son nom', desc: 'Vous nous avez resignalé le Récap Quotidien affiché en « Version provisoire », avec du contenu en anglais. CE QUE CE BANDEAU VEUT DIRE, et il dit vrai : la rédaction du rapport n’a pas abouti, et le desk publie alors un repli qui recycle les dépêches brutes plutôt que de vous laisser une page vide. Ce repli se rejoue tout seul toutes les quinze minutes et se remplace dès que la rédaction repart. CE QUI N’ALLAIT PAS, ET QUI EST CORRIGÉ AUJOURD’HUI : la cause de l’échec n’était ÉCRITE NULLE PART. Le desk savait vous prévenir depuis le 11 septembre, il ne savait le dire à personne d’autre. Sur les quatre façons dont la rédaction peut échouer, TROIS ne laissaient aucune trace : la chaîne d’analyse mise en pause après des échecs répétés, une réponse qui arrive mais sans le format attendu, et une réponse bien formée mais vide de ce qu’on lui demandait. Seule la quatrième écrivait quelque chose. Autant dire qu’on cherchait la panne à l’aveugle, et qu’elle est revenue à l’identique. DÉSORMAIS chaque repli enregistre POURQUOI il a eu lieu, en français, avec l’heure et de quoi trancher entre les causes qui se ressemblent : une réponse coupée en plein milieu par un plafond de longueur ne se soigne pas au même endroit qu’un fournisseur en panne, et les deux se présentaient jusqu’ici de la même façon. La même correction est posée sur les TROIS rapports concernés : le Récap Quotidien, le Point Marché de l’ouverture US, et le rapport hebdomadaire, dont un contrôle automatique a révélé qu’il souffrait du même silence. Rien ne change pour vous à l’écran : le bandeau reste, il est honnête. Ce qui change, c’est que la prochaine fois la cause sera lisible d’un coup d’œil au lieu d’être devinée pendant des jours.' },
   { id: 'dtpu-20260916-mail-pricing', ts: Date.UTC(2026, 8, 16, 7, 5), title: 'Leçon du mardi : « déjà pricé ou pas » rejoint le catalogue', desc: 'La leçon du mardi, celle qui arrive dans votre boîte sous le titre Comprendre le marché, gagne une notion qui lui manquait et qui commande toutes les autres : le PRICING. Vous pouviez connaître le CPI, le NFP et la courbe des taux et rester devant votre graphique à vous demander pourquoi la Fed baisse ses taux et le dollar monte, ou pourquoi une inflation plus chaude que prévu fait reculer le billet vert. Il ne manquait qu’une donnée pour lire ces séances : ce que le marché avait DÉJÀ anticipé avant l’annonce. CE QUE LE MAIL EXPLIQUE. Ce que veut dire « une information pricée », et pourquoi une décision donnée à 95% de probabilité a déjà fait bouger les taux courts, l’obligataire et la devise plusieurs séances avant la réunion. Comment on reconstitue ce qui est pricé, faute d’indicateur qui l’annonce, en croisant quatre lectures que le desk affiche en continu : les anticipations de taux de l’onglet Taux, les rendements obligataires, ce que la devise a déjà fait, et pourquoi. Pourquoi le consensus du calendrier est un repère et non la vérité du jour, puisqu’il est établi des séances à l’avance et ne bouge plus. Et pourquoi un même chiffre raconte deux histoires opposées : un CPI à 3,4% est une mauvaise surprise face à 3,0% attendus, une bonne face à 3,6%. LE CONTRÔLE QUI VA AVEC. Jusqu’ici notre banc n’éprouvait que le concept servi par défaut, toujours le même : une leçon ajoutée en fin de catalogue pouvait être mal formée, ou n’être JAMAIS servie par la rotation, sans que rien ne le signale. Les quinze leçons sont désormais rendues une par une à chaque livraison, et le banc vérifie aussi que chacune finit par être servie quand les autres leçons de son thème ont été couvertes.' },
@@ -7425,8 +7426,12 @@ function _etatRapportsQuotidiens() {
       const it = allNews.find(i => i && i._reportType === type && i[champ] && i[champ].day === jour);
       if (!it) return { jour, present: false };
       const r = it[champ];
-      return { jour, present: true, ia: r._ai !== false, titre: String(it.headline || '').slice(0, 120),
-        raison: r._ai === false ? (r._raison || 'cause non enregistr\u00e9e (repli ant\u00e9rieur au 16/09)') : null,
+      return { jour, present: true, ia: r._ai !== false, court: !!r._court, titre: String(it.headline || '').slice(0, 120),
+        /* ⚠️ LA RAISON COMPTE AUSSI EN VERSION COURTE, et c'est même là qu'elle est la plus utile :
+           le rapport est lisible, donc personne ne le signalera, donc la panne de la passe complète
+           passerait inaperçue indéfiniment. Un repli réussi qui cache sa cause est la version douce
+           du faux vert. */
+        raison: (r._ai === false || r._court) ? (r._raison || (r._court ? 'passe compl\u00e8te inexploitable' : 'cause non enregistr\u00e9e (repli ant\u00e9rieur au 16/09)')) : null,
         raisonTs: r._raisonTs || null, promptLen: r._promptLen || null };
     } catch (e) { return { jour, present: false, erreur: e.message }; }
   };
@@ -7497,6 +7502,10 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
          lui seul porte la cause : le message exact du fournisseur, l'heure, et la taille du prompt
          envoyé (une réponse tronquée et un prompt au plafond se lisent ensemble, jamais séparément). */
       rapports: _etatRapportsQuotidiens(),
+      /* CE QUE LE DESK A APPRIS DES PLAFONDS PAR REQUÊTE. Même raison que la demande horaire
+         apprise, déjà affichée plus haut : un apprentissage qu'on ne montre pas ne se vérifie
+         jamais, et on découvre qu'il a dérapé par un rapport en anglais. */
+      plafonds: (() => { try { return { parFournisseur: ai.plafonds(), budgetSur: ai.budgetSur() }; } catch (e) { return null; } })(),
       whop: _whopReconLast || null,
       whopBans: _whopBanLast || null,
       alerts: { log: _aiAlertLog.slice(0, 40), incidents: _aiAlertSent },   // journal INFO/incidents (le monitoring voit TOUT ; l'email est calibré sur l'impact réel)
@@ -7509,6 +7518,33 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
 // État d'alerte PERSISTÉ (Supabase KV) → survit aux rebuilds Docker (sinon chaque deploy renvoie tout).
 // Modèle INCIDENT (pas par-état) : par type { since, lastSent, active } → 1 mail à l'ouverture, rappel espacé
 // tant que ça dure, 1 mail « résolu » à la fermeture. Rien n'est masqué au panel (cf. _aiAlertLog exposé).
+/* ══ LES PLAFONDS APPRIS SURVIVENT AU DÉPLOIEMENT ═══════════════════════════════
+   `ai.js` apprend par fournisseur la plus grosse requête acceptée et la plus petite refusée pour
+   cause de taille. Cette mémoire vit en RAM : sans persistance elle repart de zéro à chaque
+   redémarrage, et ce dépôt déploie plusieurs fois par jour. Le desk réapprendrait donc le même
+   mur toutes les quelques heures, en brûlant le même aller-retour perdant à chaque fois : un
+   apprentissage qu'on efface n'est pas un apprentissage, c'est une statistique.
+   Même magasin durable que le reste (ai_cache, donc quatre copies), même idiome que l'état
+   d'alerte juste en dessous. Écriture PARESSEUSE : seulement quand la connaissance a changé. */
+let _plafHydrated = false, _plafSignature = '';
+async function _plafHydrate() {
+  if (_plafHydrated) return;
+  _plafHydrated = true;
+  try {
+    const o = await auth.aiCacheGet('ai:plafonds');
+    if (o && typeof o === 'object') { ai.setPlafonds(o); _plafSignature = JSON.stringify(ai.plafonds()); console.log('[AI] plafonds appris restaur\u00e9s :', JSON.stringify(ai.plafonds())); }
+  } catch (e) { console.warn('[AI] plafonds : restauration impossible,', e.message); }
+}
+function _plafPersist() {
+  try {
+    const cur = ai.plafonds(); const sig = JSON.stringify(cur);
+    if (sig === _plafSignature) return;          // rien de nouveau → aucune écriture
+    _plafSignature = sig;
+    auth.aiCacheSet('ai:plafonds', cur).catch(() => {});
+    console.log('[AI] plafonds appris mis \u00e0 jour :', sig);
+  } catch {}
+}
+
 let _aiAlertSent = {};
 let _aiAlertHydrated = false;
 async function _aiAlertHydrate() {
@@ -14616,14 +14652,103 @@ ${csLine || '(n/d)'}
 === ÉVÉNEMENTS À VENIR À FORT/MOYEN IMPACT (jours suivants) ===
 ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
       _fxrTailleP = prompt.length;
-      try {
-        _aiReset();
-        const text = await ai.generateText(prompt, 7000);
-        aiNote('fxrecap');
-        const r = _aiJsonOuRaison(text, p => !!(p && (p.summary || p.title)));
-        if (r.parsed) fxr = _fxrSanitize(r.parsed, dayKey, dateLabel);
-        else _fxrRaison = r.raison;
-      } catch (e) { _fxrRaison = 'aucun fournisseur n\'a r\u00e9pondu : ' + e.message; console.warn('[FX Recap] IA échec → repli déterministe:', e.message); }
+      const _utile = p => !!(p && (p.summary || p.title));
+      /* ══ ON N'ENVOIE PLUS UN APPEL QU'ON SAIT REFUSÉ (16/09) ══════════════════════════
+         `ai.budgetSur()` rend le plus gros budget qu'un fournisseur de la chaîne est CONNU pour
+         accepter, appris sur les refus réels, pas sur une constante écrite ici qui serait fausse le
+         jour où une offre gratuite bouge. Si la passe complète dépasse ce que la chaîne encaisse, on
+         ne la tente même pas : on va droit à la passe courte, qui donne un rapport FRANÇAIS au lieu
+         d'une salve d'allers-retours perdants suivie d'un repli anglais.
+         ⚠️ `null` veut dire « rien d'appris », PAS « zéro » : dans ce cas on tente le complet, parce
+         que c'est en tentant qu'on apprend. Un système qui s'interdit d'essayer cesse d'apprendre,
+         et resterait bloqué sur la version courte à vie. */
+      const _budPlein = ai.budgetAppel ? ai.budgetAppel(prompt, 7000) : null;
+      const _sur = ai.budgetSur ? ai.budgetSur() : null;
+      const _tenterPlein = !(_budPlein && _sur != null && _budPlein > _sur);
+      if (!_tenterPlein) {
+        _fxrRaison = `passe compl\u00e8te non tent\u00e9e : ${_budPlein} jetons demand\u00e9s, la cha\u00eene n'encaisse que ${_sur} (plafond appris)`;
+        console.warn('[FX Recap] ' + _fxrRaison);
+      } else {
+        try {
+          _aiReset();
+          const text = await ai.generateText(prompt, 7000);
+          aiNote('fxrecap');
+          const r = _aiJsonOuRaison(text, _utile);
+          if (r.parsed) fxr = _fxrSanitize(r.parsed, dayKey, dateLabel);
+          else _fxrRaison = r.raison;
+        } catch (e) { _fxrRaison = 'aucun fournisseur n\'a r\u00e9pondu : ' + e.message; console.warn('[FX Recap] IA échec → 1re passe:', e.message); }
+      }
+
+      /* ══ SECONDE PASSE, RESSERRÉE : UN RAPPORT COURT EN FRANÇAIS VAUT MIEUX QUE LE COMPLET EN
+         ANGLAIS (16/09) ═══════════════════════════════════════════════════════════════════
+
+         MESURÉ, pas supposé : la passe complète ci-dessus est DE LOIN le plus gros appel du desk.
+         39 793 caractères de prompt au maximum, soit environ 12 400 jetons, plus 7 000 jetons de
+         sortie demandés : près de 19 500 jetons par appel, quand l'appel suivant du desk en demande
+         13 300 et le troisième 9 000. Or la chaîne gratuite plafonne PAR REQUÊTE bien en dessous
+         (Groq, le fournisseur principal, à 12 000 jetons par minute en gratuit ; GitHub Models à
+         8 000 jetons en entrée). C'est le SEUL appel du desk dans ce cas, et c'est le seul rapport
+         qui reste bloqué sur son repli : la coïncidence mérite d'être traitée.
+
+         ⚠️ JE N'AI PAS PU CONFIRMER LA CAUSE EN PRODUCTION (pas d'accès aux journaux du VPS depuis
+         l'environnement de développement), et c'est précisément pourquoi cette passe ne PARIE PAS
+         sur elle : elle se déclenche sur N'IMPORTE QUEL échec de la première, plafond dépassé,
+         fournisseur en panne, réponse inexploitable ou tronquée. Elle répare donc le symptôme quelle
+         que soit la cause réelle, au lieu de corriger une hypothèse.
+
+         CE QU'ELLE SACRIFIE, ET POURQUOI C'EST LE BON ARBITRAGE. Le schéma complet porte onze
+         rubriques et des consignes rédactionnelles longuement affinées : on n'y touche pas, c'est le
+         produit. La passe courte demande un schéma RÉDUIT (titre, synthèse, géopolitique, macro, les
+         trois séances, perspectives, thèmes) sur un corpus divisé par trois : environ 5 200 jetons
+         par appel, ce qui passe dans TOUS les plafonds gratuits de la chaîne. L'alternative n'est pas
+         « complet ou court », elle est « court en français ou complet en anglais » : le repli
+         déterministe recycle des dépêches brutes, donc anglaises, et c'est exactement ce que le
+         client a signalé deux fois.
+
+         Ce qui ne se perd PAS : « À surveiller », les chiffres par pays et par séance sont
+         déterministes, calculés depuis le calendrier après coup, identiques dans les deux cas. */
+      if (!fxr) {
+        const _court = `Tu es le stratège FX & macro senior de DataTradingPro. Rédige le « FX Daily Recap » du ${dateLabel} : une note de desk COURTE, en français, à partir des SEULES données ci-dessous.
+RÈGLES : chaque puce donne sa CAUSE chiffrée reliée à son effet par la flèche « → » ; n'invente AUCUN chiffre ; une seule institution par puce ; jamais de tiret long (deux-points quand une idée en explique une autre, virgule pour une incise) ; une rubrique sans matière est OMISE plutôt que remplie.
+Réponds UNIQUEMENT en JSON valide (aucun préambule, aucun markdown). Clés en anglais, valeurs en français :
+{
+  "title": "<titre d'une ligne, ex. 'Le dollar recule sur un CPI plus faible que prévu'>",
+  "summary": "<2 phrases : le fait dominant du jour avec son chiffre et son effet devise, puis ce qu'ont fait les autres majeures>",
+  "geopolitics": ["<0 à 4 puces : le dossier géopolitique du jour, fait attribué à sa source puis effet marché>"],
+  "macro": ["<3 à 5 puces : les moteurs de la séance hors géopolitique. Commence par l'acteur ou le sujet, déroule la cause, puis → la réaction de marché>"],
+  "regions": [
+    { "name": "Session Asie", "code": "JPY · AUD · NZD · CNY", "summary": "<UNE phrase courte : quelle devise a bougé, dans quel sens, et le fait précis qui l'explique>" },
+    { "name": "Session Londres", "code": "EUR · GBP · CHF", "summary": "<idem>" },
+    { "name": "Session New York", "code": "USD · CAD", "summary": "<idem>" }
+  ],
+  "insights": ["<3 puces prospectives, une phrase courte chacune>"],
+  "tags": ["<5 thèmes courts, ex. 'Réserve fédérale','Prix du pétrole'>"]
+}
+
+=== RÉCAPS DE SÉANCE DU JOUR ===
+${wrapLines.join('\n').slice(0, 1500) || '(aucun)'}
+
+=== TITRES DU JOUR ===
+${newsLines.join('\n').slice(0, 3000) || '(flux limité)'}
+
+=== DONNÉES PUBLIÉES (réel / attendu / précédent) ===
+${dataLines.join('\n').slice(0, 2000) || '(aucune)'}
+
+=== FORCE DES DEVISES (intraday) ===
+${csLine || '(n/d)'}`;
+        try {
+          const t2 = await ai.generateText(_court, 2500);
+          aiNote('fxrecap');
+          const r2 = _aiJsonOuRaison(t2, _utile);
+          if (r2.parsed) {
+            fxr = _fxrSanitize(r2.parsed, dayKey, dateLabel);
+            fxr._court = true;                 // rédigé ET français, mais resserré : le desk le DIT
+            fxr._raison = _fxrRaison;          // pourquoi la passe complète a échoué, on la garde
+            fxr._promptLen = _fxrTailleP;
+            console.warn(`[FX Recap] VERSION COURTE ${dayKey} (passe complète : ${_fxrRaison || 'inexploitable'})`);
+          } else _fxrRaison = (_fxrRaison ? _fxrRaison + ' ; ' : '') + 'passe courte : ' + r2.raison;
+        } catch (e) { _fxrRaison = (_fxrRaison ? _fxrRaison + ' ; ' : '') + 'passe courte : ' + e.message; }
+      }
     }
 
     // ── Repli déterministe : TOUJOURS un rapport exploitable (sans Gemini) ──
@@ -14922,7 +15047,49 @@ ${ratesLines || '(n/d)'}`;
           const eco = _buildEcoDataSection(dataRows);
           if (eco) { dtpd.sections = (dtpd.sections || []).filter(s => s.kind !== 'data'); dtpd.sections.push(eco); }
         } else _dtpdRaison = r.raison;
-      } catch (e) { _dtpdRaison = 'aucun fournisseur n\'a r\u00e9pondu : ' + e.message; console.warn('[DTP Daily] IA échec → repli déterministe:', e.message); }
+      } catch (e) { _dtpdRaison = 'aucun fournisseur n\'a r\u00e9pondu : ' + e.message; console.warn('[DTP Daily] IA échec → 1re passe:', e.message); }
+
+      /* SECONDE PASSE RESSERRÉE, MÊME RAISON QUE POUR LE RÉCAP QUOTIDIEN. Mesuré : cet appel demande
+         environ 13 300 jetons (6 300 de prompt + 7 000 de sortie), soit le DEUXIÈME plus gros du
+         desk et déjà au-dessus du plafond par minute de la chaîne gratuite principale. La passe
+         courte tombe à environ 4 500. Corriger le jumeau signalé seul aurait décalé le prochain
+         signalement d'une semaine, comme d'habitude ici. */
+      if (!dtpd || !dtpd.sections || !dtpd.sections.length) {
+        const _court = `Tu es le stratège macro & FX senior de DataTradingPro. Rédige le « Point Marché : Ouverture US » du ${dateLabel} : une note COURTE, en français, sur la nuit asiatique et la matinée européenne, à partir des SEULES données ci-dessous.
+RÈGLES : chaque puce donne sa CAUSE chiffrée puis son effet ; n'invente AUCUN chiffre ; une seule banque centrale par puce ; jamais de tiret long ; une section sans matière est OMISE.
+Réponds UNIQUEMENT en JSON valide (aucun préambule, aucun markdown), valeurs en français :
+{ "sections": [
+  { "title": "L'ESSENTIEL", "kind": "paras", "paras": ["<2 à 3 phrases : ce qui a dominé la nuit et la matinée, avec les chiffres et leur effet devise>"] },
+  { "title": "BANQUES CENTRALES", "kind": "bullets", "items": ["<1 à 4 puces, UNE banque par puce : décision ou intervenant, ton, effet sur SA devise>"] },
+  { "title": "DEVISES", "kind": "bullets", "items": ["<2 à 5 puces : ce qu'ont fait les majeures et POURQUOI>"] },
+  { "title": "À SURVEILLER À L'OUVERTURE US", "kind": "bullets", "items": ["<2 à 4 puces : ce qui attend la séance américaine>"] }
+] }
+
+=== TITRES (nuit + matinée) ===
+${newsLines.join('\n').slice(0, 3000) || '(flux limité)'}
+
+=== DONNÉES PUBLIÉES (réel / attendu / précédent) ===
+${dataLines.join('\n').slice(0, 2000) || '(aucune)'}
+
+=== FORCE DES DEVISES (intraday) ===
+${csLine || '(n/d)'}`;
+        try {
+          const t2 = await ai.generateText(_court, 2200);
+          aiNote('dtpdaily');
+          const r2 = _aiJsonOuRaison(t2, p => !!(p && Array.isArray(p.sections) && p.sections.length));
+          if (r2.parsed) {
+            dtpd = _dtpdSanitize(r2.parsed, dayKey, dateLabel);
+            // Les chiffres du calendrier restent DÉTERMINISTES dans les deux passes : ils ne se
+            // perdent pas en mode court, c'est justement ce qui rend l'arbitrage acceptable.
+            const eco = _buildEcoDataSection(dataRows);
+            if (eco) { dtpd.sections = (dtpd.sections || []).filter(x => x.kind !== 'data'); dtpd.sections.push(eco); }
+            if (dtpd && dtpd.sections && dtpd.sections.length) {
+              dtpd._court = true; dtpd._raison = _dtpdRaison; dtpd._promptLen = _dtpdTailleP;
+              console.warn(`[DTP Daily] VERSION COURTE ${dayKey} (passe compl\u00e8te : ${_dtpdRaison || 'inexploitable'})`);
+            }
+          } else _dtpdRaison = (_dtpdRaison ? _dtpdRaison + ' ; ' : '') + 'passe courte : ' + r2.raison;
+        } catch (e) { _dtpdRaison = (_dtpdRaison ? _dtpdRaison + ' ; ' : '') + 'passe courte : ' + e.message; }
+      }
     }
     if (!dtpd || !dtpd.sections || !dtpd.sections.length) {
       dtpd = _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows });
@@ -28810,6 +28977,12 @@ server.listen(PORT, async () => {
   setInterval(() => { _telFlush().catch(() => {}); }, 120 * 1000);            // flush KV /2min
   // Alertes e-mail admin (provider en rouge / quota proche épuisement / panne totale) — /5min, après chauffe
   setInterval(() => { _aiAlertCheck().catch(() => {}); }, 5 * 60 * 1000);
+  /* PLAFONDS PAR REQUÊTE APPRIS : on les restaure AVANT toute génération (sinon le premier Récap
+     Quotidien du redémarrage rejoue le mur qu'on connaissait déjà), et on les repose périodiquement,
+     sans écrire quand rien n'a changé. Les deux minutes du flux de télémétrie suffisent : un plafond
+     n'est appris qu'une fois, pas à chaque appel. */
+  _plafHydrate().catch(() => {});
+  setInterval(() => { _plafPersist(); }, 120 * 1000);
 });
 
 // ─── Graceful shutdown (Railway/Render envoient SIGTERM avant de tuer le process) ─

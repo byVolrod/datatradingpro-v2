@@ -23153,4 +23153,15 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
    redemande la feuille. Placée EN FIN DE FICHIER à dessein : en tête, elle serait présente même sur
    une feuille tronquée et la sentinelle mentirait — c'est tout ce qu'elle a à prouver.
    ⚠️ NE RIEN AJOUTER APRÈS. Le banc `scripts/coquille-verif.js` refuse toute règle qui la suivrait. */
+/* ── VERSION COURTE : LE MÊME BANDEAU, MAIS OR, PAS AMBRE (16/09) ────────────────────
+   Une version courte n'est PAS une version provisoire : elle est rédigée, en français, simplement
+   plus resserrée. L'ambre de la charte dit « à surveiller », ce qui la déprécierait à tort ; l'or
+   de la maison dit « information de contexte », ce qu'elle est. Même gabarit, même place, même
+   discrétion : seule la couleur porte la nuance, parce que c'est la seule différence. */
+.fxdr-provisoire--courte {
+  border-color: rgba(227, 178, 58, .34);
+  border-left-color: var(--or, #e3b23a);
+  background: rgba(227, 178, 58, .06);
+}
+
 :root { --dtp-coquille: 1; }

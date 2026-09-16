@@ -1908,7 +1908,35 @@
       + `<div class="aim-fc-row"><span>Pré-pic appris</span><b>${b.prePeak === true ? 'OUI (on prépare)' : b.prePeak === false ? 'non (creux)' : 'apprentissage (' + (b.learnedSlots || 0) + '/24)'}</b></div>`
       + cacheRows
       + fondRows
-      + `<div class="aim-sec-title">Demande attendue (apprise)</div>` + nh;
+      + `<div class="aim-sec-title">Demande attendue (apprise)</div>` + nh
+      /* ══ PLAFOND PAR REQUÊTE, APPRIS (16/09) ═════════════════════════════════
+         Le Récap Quotidien est resté des jours en anglais parce que son appel dépassait ce que la
+         chaîne gratuite accepte PAR REQUÊTE. Le desk l'apprend maintenant sur ses propres refus,
+         comme il apprend la demande horaire juste au-dessus. Et il l'AFFICHE, pour la même raison
+         qu'on affiche la demande apprise : un apprentissage qu'on ne montre pas ne se vérifie
+         jamais, et on découvre qu'il a dérapé par un rapport en anglais. */
+      + (() => {
+        const P = d.plafonds; if (!P) return '';
+        const par = P.parFournisseur || {};
+        const noms = Object.keys(par).filter(k => par[k] && (par[k].plafond || par[k].okMax));
+        const tete = `<div class="aim-sec-title">Plafond par requ\u00eate (appris)</div>`;
+        if (!noms.length) return tete + `<div class="aim-kpi-s" style="color:#6b7280;line-height:1.5">Aucun refus de taille rencontr\u00e9 : le desk n'a encore rien \u00e0 \u00e9viter, et tente donc tout. Un plafond n'appara\u00eet ici qu'apr\u00e8s un vrai refus.</div>`;
+        const j = n => Number(n).toLocaleString('fr-FR');
+        const lignes = noms.sort().map(k => {
+          const e = par[k];
+          const val = e.plafond ? j(e.plafond) + ' jetons' : '\u2265 ' + j(e.okMax);
+          const col = e.plafond ? '#ffb300' : '#22c55e';
+          const det = e.plafond ? `refus\u00e9 \u00e0 ${j(e.koMin)}` : `accept\u00e9 jusqu'\u00e0 ${j(e.okMax)}`;
+          return `<div class="aim-fc-row"><span>${_esc2(k)} <span style="color:#6b7280">${_esc2(det)}</span></span><b style="color:${col}">${val}</b></div>`;
+        }).join('');
+        const sur = P.budgetSur;
+        const pied = `<div class="aim-kpi-s" style="margin-top:4px;color:#6b7280;line-height:1.5">`
+          + (sur == null
+            ? `Au moins un fournisseur n'a pas encore \u00e9t\u00e9 \u00e9prouv\u00e9 : rien n'est interdit, on tente (c'est ainsi qu'on apprend).`
+            : `La cha\u00eene encaisse ${j(sur)} jetons par appel. Au-del\u00e0, le desk n'envoie plus la requ\u00eate : il produit directement une version courte plut\u00f4t qu'une salve d'allers-retours perdants.`)
+          + `</div>`;
+        return tete + lignes + pied;
+      })();
   }
   function aimRenderInfra(d) {
     /* ══ POURQUOI UN RAPPORT QUOTIDIEN EST PROVISOIRE (16/09) ════════════════════════
@@ -1924,9 +1952,12 @@
       const ligne = (r) => {
         if (!r) return '';
         if (!r.present) return `<div class="aim-kv"><span>${_esc2(r.nom || '')}</span><b style="color:#6b7280">pas encore g\u00e9n\u00e9r\u00e9 (${_esc2(r.jour || '')})</b></div>`;
-        const col = r.ia ? '#22c55e' : '#ffb300';
-        let h = `<div class="aim-kv"><span>${_esc2(r.nom || '')} <span style="color:#6b7280">${_esc2(r.jour || '')}</span></span><b style="color:${col}">${r.ia ? 'r\u00e9dig\u00e9 ✓' : 'PROVISOIRE'}</b></div>`;
-        if (!r.ia) {
+        /* TROIS ÉTATS, PAS DEUX. Une version courte est rédigée et française : la peindre en rouge
+           la déprécierait, la peindre en vert cacherait que la passe complète est en panne. */
+        const col = r.court ? '#e3b23a' : r.ia ? '#22c55e' : '#ffb300';
+        const etat = r.court ? 'VERSION COURTE' : r.ia ? 'r\u00e9dig\u00e9 ✓' : 'PROVISOIRE';
+        let h = `<div class="aim-kv"><span>${_esc2(r.nom || '')} <span style="color:#6b7280">${_esc2(r.jour || '')}</span></span><b style="color:${col}">${etat}</b></div>`;
+        if (!r.ia || r.court) {
           h += `<div class="aim-kpi-s" style="margin:-2px 0 8px;color:#c8ccd4;line-height:1.45">${_esc2(String(r.raison || '').slice(0, 220))}</div>`;
           const bas = [];
           if (r.raisonTs) bas.push(new Date(r.raisonTs).toLocaleString('fr-FR'));
