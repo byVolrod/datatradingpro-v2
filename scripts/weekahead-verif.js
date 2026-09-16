@@ -187,6 +187,84 @@ verif('l\'agrégat de la zone euro reste sans mention de pays',
 console.log('\n── 7e. TITRES = LES TERMES DU CALENDRIER, courts (demande user 25/08) ──');
 // « Moral des entreprises allemandes » ne dit rien à un lecteur de calendrier : il cherche « Ifo ».
 // Le titre SITUE avec le terme du calendrier, la description EXPLIQUE en français.
+/* ══ UNE BANQUE NE DÉCIDE QU'UNE FOIS PAR SEMAINE (16/09, SECOND PASSAGE) ═══════════════
+
+   « Il n'y a pas de FOMC demain ». La première correction rendait la décision de taux inéligible à
+   une « suite » : juste, mais INSUFFISANT. Mesuré ensuite : privée de son étiquette, la ligne
+   fantôme du jeudi n'était plus masquée par le mécanisme de suite et le titre devenait
+   « BoE taux + FOMC ». La forme du défaut avait changé, pas le défaut : le rendez-vous inventé
+   passait d'une parenthèse à une affirmation nue. Il faut retirer L'ÉVÉNEMENT.
+   Ce bloc joue le VRAI dédoublonnage extrait de server.js, sur la semaine de la capture. */
+console.log('\n── 7x. Le dédoublonnage des décisions de taux, extrait et exécuté ──');
+{
+  const SRC2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+  const BLOC2 = (/  \{\n    const _cleDec = e => String[\s\S]*?\n  \}\n/.exec(SRC2) || [])[0] || null;
+  verif('le dédoublonnage est extractible de server.js', !!BLOC2);
+  if (BLOC2) {
+    const dedup = new Function('_prep', '_WA', BLOC2 + '\nreturn _prep.map(b => b._affiches.slice());');
+    const ev = (c, t, ts, f, p) => ({ currency: c, title: t, timestamp: ts, forecast: f, previous: p, impact: 'High' });
+    const noms = j => j.map(e => e.currency + ' ' + e.title);
+
+    // LA SEMAINE DE LA CAPTURE : décision Fed mercredi (étayée), ligne fantôme jeudi (nue).
+    const sem = [
+      { _affiches: [ev('CAD', 'CPI y/y', 1, '3%', '3%')] },
+      { _affiches: [ev('CNY', 'Retail Sales YoY', 2, '0.8%', '0.6%')] },
+      { _affiches: [ev('USD', 'Federal Funds Rate', 3, '4%', '3.75%')] },
+      { _affiches: [ev('GBP', 'Official Bank Rate', 4, '3.75%', '3.75%'), ev('USD', 'Federal Funds Rate', 5)] },
+      { _affiches: [ev('JPY', 'BOJ Policy Rate', 6, '1.25%', '1%')] },
+    ];
+    const out = dedup(sem, W);
+    verif('le FOMC reste au mercredi, où il a lieu', noms(out[2]).join() === 'USD Federal Funds Rate', noms(out[2]).join(' · '));
+    verif('… et DISPARAÎT du jeudi, où il n\'a pas lieu', !noms(out[3]).some(n => /Federal Funds/.test(n)), noms(out[3]).join(' · '));
+    verif('… sans emporter la vraie décision de la BoE du jeudi', noms(out[3]).join() === 'GBP Official Bank Rate', noms(out[3]).join(' · '));
+    verif('… ni celle de la BoJ du vendredi (une autre banque, une autre réunion)', noms(out[4]).join() === 'JPY BOJ Policy Rate', noms(out[4]).join(' · '));
+    verif('… ni aucune publication ordinaire', noms(out[0]).join() === 'CAD CPI y/y' && noms(out[1]).join() === 'CNY Retail Sales YoY');
+    // Et le titre du jeudi, au bout de la chaîne, ne nomme plus le FOMC.
+    verif('le titre du jeudi ne nomme plus le FOMC', W.titreJour(out[3], 'jeudi', {}) === 'BoE taux', W.titreJour(out[3], 'jeudi', {}));
+    verif('… et celui du mercredi le nomme toujours', W.titreJour(out[2], 'mercredi', {}) === 'FOMC', W.titreJour(out[2], 'mercredi', {}));
+
+    /* ⚠️ L'ORDRE NE DOIT PAS DÉCIDER : c'est l'ÉTAYAGE. Si le fantôme arrive EN PREMIER, garder
+       « le premier vu » supprimerait la vraie décision — on aurait déplacé l'erreur d'un jour au
+       lieu de la corriger, et personne ne le verrait puisque la semaine resterait « propre ». */
+    const inverse = dedup([
+      { _affiches: [ev('USD', 'Federal Funds Rate', 1)] },
+      { _affiches: [ev('USD', 'Federal Funds Rate', 2, '4%', '3.75%')] },
+      { _affiches: [] }, { _affiches: [] }, { _affiches: [] },
+    ], W);
+    verif('c\'est l\'ÉTAYAGE qui tranche, pas l\'ordre : la ligne nue tombe même si elle est première',
+      inverse[0].length === 0 && inverse[1].length === 1, JSON.stringify([noms(inverse[0]), noms(inverse[1])]));
+    // À étayage ÉGAL, la première l'emporte : il faut une règle, et une règle stable.
+    const egal = dedup([
+      { _affiches: [ev('USD', 'Federal Funds Rate', 10, '4%', '3.75%')] },
+      { _affiches: [ev('USD', 'Federal Funds Rate', 20, '4%', '3.75%')] },
+      { _affiches: [] }, { _affiches: [] }, { _affiches: [] },
+    ], W);
+    verif('… et à étayage égal, la plus ancienne est gardée', egal[0].length === 1 && egal[1].length === 0, JSON.stringify([noms(egal[0]), noms(egal[1])]));
+
+    /* ⚠️ PORTÉE ÉTROITE, ÉPROUVÉE. Une publication qui sort légitimement deux fois dans la semaine
+       ne doit RIEN perdre : étendre ce dédoublonnage à tout le calendrier supprimerait un jour une
+       vraie publication pour réparer un faux positif. */
+    const ordinaire = dedup([
+      { _affiches: [ev('USD', 'Unemployment Claims', 1, '220K', '218K')] },
+      { _affiches: [ev('USD', 'Unemployment Claims', 2, '222K', '220K')] },
+      { _affiches: [] }, { _affiches: [] }, { _affiches: [] },
+    ], W);
+    verif('une publication ordinaire répétée n\'est JAMAIS dédoublonnée',
+      ordinaire[0].length === 1 && ordinaire[1].length === 1, JSON.stringify([noms(ordinaire[0]), noms(ordinaire[1])]));
+
+    /* ── TÉMOIN ── Sans lui, tout ce bloc serait vert même si le dédoublonnage ne faisait rien. */
+    const sansDedup = new Function('_prep', '_WA', 'return _prep.map(b => b._affiches.slice());');
+    const avant = sansDedup([
+      { _affiches: [] }, { _affiches: [] },
+      { _affiches: [ev('USD', 'Federal Funds Rate', 3, '4%', '3.75%')] },
+      { _affiches: [ev('GBP', 'Official Bank Rate', 4, '3.75%', '3.75%'), ev('USD', 'Federal Funds Rate', 5)] },
+      { _affiches: [] },
+    ], W);
+    verif('(témoin) sans dédoublonnage, le jeudi titre « BoE taux + FOMC » → le contrôle mord',
+      W.titreJour(avant[3], 'jeudi', {}) === 'BoE taux + FOMC', W.titreJour(avant[3], 'jeudi', {}));
+  }
+}
+
 /* ══ LA DÉTECTION DES RENDEZ-VOUS QUI S'ÉTALENT, JOUÉE POUR DE VRAI (16/09) ═══════════════
 
    SIGNALEMENT : « pourquoi il y a 2 fois FOMC ? ». Mercredi titrait « FOMC », jeudi « BoE taux +

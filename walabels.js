@@ -580,13 +580,19 @@ function _titreCourt(t, max) {
    OPEP, audition semestrielle). Les vrais rendez-vous multi-jours portent tous l'un de ces mots ;
    « meetings » tout seul n'en distingue aucun. */
 const ETALABLE_RX = /jackson hole|symposium|sintra|forum|summit|sommet|\bg7\b|\bg20\b|\bopec\b|\bopep\b|\bjmmc\b|\bday\s*[123]\b|jour\s*[123]\b|congress|testimony|hearing|semi[- ]?annual|humphrey/i;
+/* UNE DÉCISION DE TAUX, reconnue par son intitulé. Extrait en fonction nommée (16/09) parce que
+   DEUX règles en dépendent désormais : l'inéligibilité à une suite, et le dédoublonnage de la semaine.
+   Deux copies de cette expression auraient dérivé : c'est exactement ce qui a coûté cher ici le
+   25/08, quand le renommage de la décision de taux vivait à deux endroits. */
+const DECISION_RX = /rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/i;
+function estDecisionTaux(e) { const t = titresDe(e); return !!t && DECISION_RX.test(t); }
 function peutSEtaler(e) {
   const t = titresDe(e);
   if (!t) return false;
   /* ⚠️ UNE DÉCISION DE TAUX N'EST JAMAIS ÉTALABLE, même si son intitulé contient par accident un mot
      de la liste ci-dessus (« FOMC Meetings » chez certains fournisseurs). Le veto passe donc EN
      PREMIER : sans lui, la liste ferme aurait laissé rentrer précisément le cas signalé. */
-  if (/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/i.test(t)) return false;
+  if (DECISION_RX.test(t)) return false;
   return ETALABLE_RX.test(t);
 }
 
@@ -769,7 +775,7 @@ function jourParis(ts) {
 }
 
 module.exports = {
-  GLOSES, SIGLES, sigleEv, codeEv, peutSEtaler, ETALABLE_RX, FAMILLES, FAMILLES_CLES, familleValide, themeDeFamille, titreEstRepli, ADJ_PAYS, PAYS_COURT, CCY2PAYS, BANQUE, REVISION_RX, SECONDE_EST_RX,
+  GLOSES, SIGLES, sigleEv, codeEv, peutSEtaler, ETALABLE_RX, estDecisionTaux, DECISION_RX, FAMILLES, FAMILLES_CLES, familleValide, themeDeFamille, titreEstRepli, ADJ_PAYS, PAYS_COURT, CCY2PAYS, BANQUE, REVISION_RX, SECONDE_EST_RX,
   paysDe, paysCourt, adjectif, gloseFr, MAJEURS, poidsMajeur, themeJour, themesDuJour,
   titresDe, gloseEv, heureParis, nomEv, intituleAffiche, libelleCourt, chiffresEv, titreJour, enjeuFr, descriptionJour, jourParis,
 };
