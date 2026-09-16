@@ -1769,7 +1769,16 @@ async function dbHealth(maxAgeMs = 60000) {
 }
 setTimeout(() => { dbHealth().catch(() => {}); }, 15000);   // préchauffe au boot → même la 1re ouverture du panel est instantanée
 
+/* ⚠️ LA SUPPRESSION D’UN COMPTE SE PROUVE, ELLE NE SE DÉDUIT PAS (16/09, retour user : « pourquoi
+   c’est marqué compte supprimé ? »). Le journal des envois affichait « (compte supprimé) » dès
+   qu’il ne résolvait pas un identifiant — ce qui arrive aussi quand la liste des comptes est
+   incomplète à cet instant, ou quand la clé ne porte tout simplement aucun identifiant. Les
+   pierres tombales, elles, SAVENT : elles sont écrites à la suppression et republiées en base.
+   On les expose donc, plutôt que de laisser un écran conclure à notre place. */
+function estSupprime(id) { return _isTombstoned(id); }
+
 module.exports = {
+  estSupprime,
   isStaff,
   seedAdmin,
   verifyLogin,

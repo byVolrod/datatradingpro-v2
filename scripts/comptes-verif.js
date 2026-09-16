@@ -165,7 +165,40 @@ if (srcCaps) {
 }
 t('la route de lecture renvoie comptes ET capitaux', /comptes: \(v && _jrCleanComptes\(v\.comptes\)\) \|\| null/.test(SRV)
   && /startCaps: \(v && _jrCleanCaps\(v\.startCaps\)\) \|\| null/.test(SRV));
-t('la route d\'écriture les enregistre', /stored\.comptes = comptes/.test(SRV) && /stored\.startCaps = caps/.test(SRV));
+/* ⚠️ RECÂBLÉ SUR LA PROPRIÉTÉ, PAS SUR L’ORTHOGRAPHE (16/09). Ce contrôle récitait deux lignes
+   (`stored.comptes = comptes`, `stored.startCaps = caps`) : il a rougi sur du code sain le jour où
+   l’enregistrement du journal est passé d’un REMPLACEMENT à une FUSION, pour empêcher un client
+   qui n’a rien chargé d’effacer un journal. La propriété n’avait pas changé d’un iota, seule la
+   manière de l’écrire. C’est la cinquième fois de la journée que ce piège se referme dans ce
+   dépôt, et la réponse est toujours la même : on EXÉCUTE le vrai code au lieu de le relire. */
+{
+  const i = SRV.indexOf('function _jrFusionSure(');
+  let src = null;
+  if (i >= 0) {
+    let prof = 0;
+    for (let k = SRV.indexOf('{', i); k < SRV.length; k++) {
+      if (SRV[k] === '{') prof++;
+      else if (SRV[k] === '}') { prof--; if (prof === 0) { src = SRV.slice(i, k + 1); break; } }
+    }
+  }
+  if (!src) t('la route d’écriture enregistre comptes et capitaux', false, '`_jrFusionSure` introuvable : contrôle à recâbler');
+  else {
+    const fusion = new Function(src + '\nreturn _jrFusionSure;')();
+    const r = fusion(null, { entries: [{ id: 'a' }], cols: null,
+      comptes: [{ id: 'c1', nom: 'Démo' }], startCaps: { c1: 10000 },
+      startCap: 5000, custom: false, customFourni: true });
+    t('la route d’écriture enregistre comptes et capitaux',
+      !r.refuse && !!(r.stored.comptes && r.stored.comptes.length) && !!(r.stored.startCaps && r.stored.startCaps.c1 === 10000),
+      JSON.stringify(r.stored));
+    /* Et l’autre moitié, celle qui a motivé la réécriture : ce qui n’est pas fourni est PRÉSERVÉ. */
+    const r2 = fusion({ entries: [{ id: 'z' }], comptes: [{ id: 'c1', nom: 'Démo' }], startCaps: { c1: 10000 }, custom: true },
+      { entries: [{ id: 'z' }, { id: 'y' }], cols: null, comptes: null, startCaps: null,
+        startCap: undefined, custom: false, customFourni: false });
+    t('… et un enregistrement qui ne les renvoie pas ne les efface pas',
+      !r2.refuse && !!(r2.stored.comptes && r2.stored.comptes.length) && !!r2.stored.startCaps,
+      JSON.stringify(r2.stored));
+  }
+}
 
 /* ══ 5. L'ERGONOMIE QUI SE VÉRIFIE À LA LECTURE ════════════════════════════════════════════ */
 console.log('\n[5] Les pièges d\'interface déjà rencontrés');

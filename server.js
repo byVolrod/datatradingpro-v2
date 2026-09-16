@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260916-coffre-donnees', ts: Date.UTC(2026, 8, 16, 19, 34), title: 'Vos données privées ne peuvent plus être effacées par un enregistrement qui arrive vide', desc: 'Un client nous a signalé son modèle de journal introuvable, puis une de ses dispositions disparue. Vérification faite en base : SES DONNÉES ÉTAIENT INTACTES, trente sept trades, vingt et une colonnes, son modèle personnalisé. Rien n’était perdu. Mais en cherchant pourquoi le desk ne les montrait plus, nous avons trouvé DEUX chemins par lesquels elles auraient pu l’être, et nous les avons fermés tous les deux. PREMIER CHEMIN, LE JOURNAL. L’enregistrement reconstruisait l’objet ENTIÈREMENT à partir de ce que le navigateur envoyait. Un client qui enregistre avant d’avoir reçu ses données, parce que la page a été rouverte pendant un redémarrage, parce que le réseau est lent ou parce que le navigateur a restauré un onglet, écrivait donc un journal VIDE par dessus le vôtre. Et comme le champ qui mémorise que votre journal est personnalisé repassait lui aussi à zéro, le desk reproposait le gabarit standard : votre modèle semblait avoir disparu. Désormais l’enregistrement FUSIONNE au lieu de remplacer. Ce qui n’est pas envoyé garde sa valeur, jamais effacé par omission. Ce qui reste possible, à dessein : supprimer vos trades un par un jusqu’au dernier, ou réimporter un journal. Ce qui est refusé, c’est l’enregistrement qui n’apporte rien face à un journal qui a tout : ce n’est pas une modification, c’est un navigateur qui n’a rien chargé. SECOND CHEMIN, LES DISPOSITIONS. Le filet existait déjà, trois sauvegardes espacées d’au moins vingt quatre heures. Règle juste pour une séance de mise en page ordinaire : une dizaine d’enregistrements ne doit pas chasser trois jours de sauvegardes. Sauf qu’il en découlait ceci : le premier enregistrement de la journée fige l’état, et tous les suivants écrasent sans plus rien sauvegarder. Si ce premier enregistrement est DÉJÀ celui qui perd des dispositions, la sauvegarde conserve l’état appauvri et le filet certifie la perte au lieu de la rattraper. C’est exactement ce que nous avons mesuré. Une sauvegarde se prend maintenant AUSSI, hors quota, au moment précis où un enregistrement RÉTRÉCIT ce qui est en place : c’est le seul instant où elle vaut vraiment quelque chose, et c’était le seul que la règle écartait. Avec une garde de plus : une sauvegarde riche ne peut pas être chassée par une sauvegarde pauvre, sinon trois enregistrements malheureux d’affilée videraient le filet de ce qu’il protège. ET UNE PRÉCISION SUR LE JOURNAL DES ENVOIS. La mention compte supprimé s’affichait dès qu’un identifiant n’était pas résolu, ce qui arrive aussi quand la liste des comptes est momentanément incomplète, ou quand la ligne ne porte aucun identifiant. Trois situations, une seule était une suppression. Elles portent maintenant trois mentions distinctes, et la suppression n’est affirmée que lorsque le registre des comptes supprimés le confirme. Vingt huit contrôles automatiques rejouent ces deux scénarios à chaque livraison, chacun avec son témoin.' },
   { id: 'dtpu-20260916-caches-deploiement', ts: Date.UTC(2026, 8, 16, 15, 53), title: 'Le desk ne repart plus de zéro à chaque mise à jour', desc: 'Une réparation invisible à l’écran, et pourtant vous la sentiez. CE QUI SE PASSAIT. Le desk garde des réserves sur disque : le calendrier économique de secours, le positionnement des particuliers, les rapports d’institutions déjà récupérés, les sessions de navigation ouvertes sur les sources. Ces réserves servent exactement quand une source tombe ou répond lentement. Or la plupart étaient rangées à un endroit que CHAQUE mise à jour du desk efface. Elles survivaient à un redémarrage, et à rien d’autre. Résultat : après chaque livraison, le desk repartait sans aucune réserve, devait tout redemander aux sources en même temps, et si l’une d’elles était indisponible à ce moment précis, il n’avait plus rien à servir. C’est ce qui explique certains chargements qui n’en finissent pas juste après une mise à jour. UN DÉFAUT DÉJÀ TROUVÉ, ET DÉCLARÉ CLOS TROP VITE. Nous avions repéré ce mécanisme le 10 septembre sur le widget de positionnement, nous l’avions corrigé, et nous avions considéré le sujet réglé. Le contrôle automatique posé ce jour là surveillait UN SEUL fichier, écrit à la main dans une liste. Six jours plus tard, un balayage automatique en a trouvé HUIT AUTRES, dont la réserve du calendrier économique. La liste tenue à la main était elle même le défaut. CE QUI CHANGE. Toutes les réserves vivent désormais dans l’espace de stockage permanent du serveur, celui qui traverse les mises à jour. Rien n’est perdu au passage : les anciens fichiers sont recopiés une fois, automatiquement. Les sessions de navigation ouvertes sur les sources suivent le même chemin, y compris celles des sources que nous ajouterons plus tard. ET LE CONTRÔLE NE PEUT PLUS DEVENIR AVEUGLE. Il ne lit plus une liste : il balaie le code, sous deux angles différents, et un cliquet refuse qu’il se mette à surveiller moins de fichiers qu’aujourd’hui. Nous avons d’ailleurs vu ce piège se refermer pendant la réparation elle même : en déplaçant les fichiers, leur écriture a changé de forme, et le contrôle a cessé de les voir tout en passant au vert. Un garde fou qui cesse de regarder est pire qu’un garde fou absent, parce qu’il rassure.' },
   { id: 'dtpu-20260916-rendements-10-ans', ts: Date.UTC(2026, 8, 16, 15, 45), title: 'Nouvelle carte : les rendements souverains à 10 ans', desc: 'Le desk savait dire ce qu’une banque centrale DÉCIDE, dans l’onglet Taux, et ce que le marché price pour sa PROCHAINE réunion. Il ne disait rien de ce que le marché price au delà. C’est ce qui manquait, et c’est ce que cette carte apporte : le rendement de l’emprunt d’État à dix ans des huit pays majeurs, c’est à dire le prix de l’argent long. LA BARRE MONTRE L’ÉCART AU DIX ANS AMÉRICAIN, PAS LE NIVEAU, et c’est un choix. Un rendement de 4,3 pour cent ne dit rien tout seul : c’est élevé pour l’Allemagne, bas pour la Nouvelle Zélande. Le dollar étant la jambe commune de sept des huit majeures, c’est le DIFFÉRENTIEL qui explique le portage d’une paire, pas le chiffre isolé. Les États Unis sont donc la référence, et leur barre reste vide plutôt que d’afficher un zéro qu’on lirait comme une mesure. LA COLONNE DE DROITE EST EN POINTS DE BASE. Un point de base vaut un centième de point : plus douze points de base se compare d’un pays à l’autre, là où plus zéro virgule douze se confond avec un pourcentage. Et au survol, la prime de terme : l’écart entre ce dix ans et le taux directeur du pays. Négative, le marché price des baisses ; fortement positive, il price de la croissance ou un risque budgétaire. AUCUNE SOURCE NOUVELLE, ET C’EST VOULU. Ces rendements sont lus sur la page que le Radar de Biais consulte DÉJÀ toutes les huit heures pour ses fondamentaux : pas une requête de plus, pas un chemin réseau de plus à surveiller. CE QUE LA CARTE N’AFFICHE PAS : ni le deux ans ni le trente ans, donc pas de pente de courbe. Ils demanderaient une vraie seconde source, et nous n’affichons pas un chiffre venu d’un chemin que nous n’avons pas encore vu répondre en production. La pente viendra avec sa source et sa vérification, pas avant. ENFIN, UNE VALEUR ABSENTE RESTE ABSENTE : si la source ne publie pas un pays, sa ligne est vide et la carte le dit. Resservir le dernier rendement connu sous la date du jour se lirait exactement comme un rendement frais, et c’est le défaut que ce desk a déjà payé deux fois. Vingt trois contrôles automatiques tiennent l’ensemble à chaque livraison, dont un qui rejoue la page de la source avec ses pièges d’intitulés voisins.' },
   { id: 'dtpu-20260916-calendrier-heure', ts: Date.UTC(2026, 8, 16, 14, 30), title: 'Calendrier économique : la bonne heure, une seule ligne, le bon chiffre', desc: 'Vous nous avez signalé, capture de ForexFactory à l’appui, trois choses en même temps sur le calendrier : un IPC britannique en double, un chiffre différent du leur sur la seconde ligne, et des rendez vous absents. Ce ne sont pas trois défauts, c’est UN SEUL, et il est réparé. L’HORLOGE DE NOTRE SECONDE SOURCE ÉTAIT MAL LUE. Le calendrier croise deux fournisseurs : l’un donne les NOMS que vous connaissez, l’autre donne les CHIFFRES en temps réel. Le premier publie ses horaires en temps universel, et nous les lisions comme de l’heure de New York. Chaque rendez vous de cette source atterrissait donc QUATRE HEURES TROP TARD l’été, cinq l’hiver. Mesuré sur huit publications réelles, quatre devises, du matin au soir : toutes décalées d’exactement quatre heures. CE QUE CE SEUL DÉCALAGE PROVOQUAIT. Les deux sources se reconnaissent quand elles annoncent le même rendez vous à moins de quatre vingt dix minutes d’écart. À quatre heures, elles ne se reconnaissaient JAMAIS : la ligne arrivait en double au lieu de fusionner. Et n’ayant pas trouvé sa jumelle, elle allait chercher son résultat chez le voisin le plus proche, d’où le 3,4 pour cent affiché à la place du 3,1 pour cent. Le même mécanisme expliquait un niveau d’indice affiché sur une variation mensuelle, ou un pourcentage posé sur une conférence de presse. Enfin, l’heure annoncée était fausse de quatre heures, ce qui suffit à faire rater une publication. CE QUI CHANGE POUR VOUS. Les horaires sont ceux de la publication réelle, chaque rendez vous tient sur une ligne, et les chiffres sont ceux de la source qui les publie. Trente contrôles automatiques rejouent désormais les huit publications mesurées à chaque livraison, dont deux qui remettent l’ancien comportement pour vérifier qu’il échoue bien : un contrôle incapable d’échouer ne prouve rien.' },
@@ -2538,12 +2539,48 @@ async function _wdgHistLire(uid) {
   }
   return v.sort((a, b) => b.at - a.at).slice(0, _WDG_HIST_MAX);
 }
-async function _wdgHistPush(uid) {
+/* ⚠️ UN JALON SERT PRÉCISÉMENT QUAND LES DONNÉES RÉTRÉCISSENT — ET LA RÈGLE DES 24 H LE SAUTAIT
+   À CE MOMENT-LÀ (16/09, retour user : « mon layout JOT a disparu »). Le filet prend un jalon par
+   jour, ce qui est juste pour une session de mise en page ordinaire : une dizaine d'enregistrements
+   ne doit pas chasser trois jours de sauvegardes. Mais il en découlait ceci : le PREMIER
+   enregistrement de la journée fige l'état, et tout ce qui suit écrase `wdg:<uid>` SANS nouveau
+   jalon. Si le premier enregistrement du jour est déjà celui qui perd des layouts — un client qui
+   enregistre avant d'avoir reçu ses données, après un redémarrage par exemple — alors le jalon
+   CONSERVE L'ÉTAT APPAUVRI, et le filet certifie la perte au lieu de la rattraper. Mesuré sur le
+   compte concerné : le jalon du jour ne portait déjà plus qu'une disposition.
+   LA RÈGLE QUI EN SORT : un jalon se prend AUSSI, hors quota, quand l'état qu'on s'apprête à écrire
+   RÉTRÉCIT celui qui est en place. C'est le seul instant où une sauvegarde vaut vraiment quelque
+   chose, et c'était le seul que le quota écartait. */
+function _wdgRetrecit(avant, apres) {
+  const a = (avant && Array.isArray(avant.layouts)) ? avant.layouts : null;
+  const b = (apres && Array.isArray(apres.layouts)) ? apres.layouts : [];
+  if (!a || !a.length) return false;                       // rien en place : rien à protéger
+  if (b.length < a.length) return true;                    // des dispositions disparaissent
+  // Même nombre, mais des widgets en moins au total : le cockpit se vide sans perdre de ligne.
+  const compte = arr => arr.reduce((n, l) => n + ((l && Array.isArray(l.items)) ? l.items.length : 0), 0);
+  return compte(b) < compte(a);
+}
+async function _wdgHistPush(uid, forcer) {
   const cur = await auth.aiCacheGet('wdg:' + uid, _WDG_KV_TTL);
   if (!cur || !Array.isArray(cur.layouts) || !cur.layouts.length) return;   // rien à sauvegarder
   const v = await _wdgHistLire(uid);
-  if (v.length && Date.now() - v[0].at < _WDG_HIST_MS) return;              // jalon du jour déjà pris
-  const neuf = [{ at: Date.now(), cfg: cur }, ...v].slice(0, _WDG_HIST_MAX);
+  // `forcer` = l'enregistrement en cours RÉTRÉCIT : on prend le jalon même si celui du jour est pris.
+  if (!forcer && v.length && Date.now() - v[0].at < _WDG_HIST_MS) return;   // jalon du jour déjà pris
+  /* ET ON NE CHASSE PAS UN JALON PLUS RICHE POUR EN POSER UN PLUS PAUVRE. Sans cette garde, trois
+     enregistrements qui rétrécissent à la suite videraient l'historique de ce qu'il protégeait —
+     le filet se serait retourné contre lui-même en une minute. Le plus ANCIEN jalon riche est
+     conservé, et c'est le plus récent des pauvres qui saute. */
+  const entrant = { at: Date.now(), cfg: cur };
+  let neuf = [entrant, ...v];
+  if (neuf.length > _WDG_HIST_MAX) {
+    const poids = x => (x.cfg.layouts || []).reduce((n, l) => n + 1 + ((l && Array.isArray(l.items)) ? l.items.length : 0), 0);
+    const max = Math.max(...neuf.map(poids));
+    // On retire le plus récent parmi les NON-maximaux ; à défaut, le plus ancien.
+    let i = neuf.findIndex(x => poids(x) < max);
+    if (i < 0) i = neuf.length - 1;
+    neuf.splice(i, 1);
+  }
+  neuf = neuf.slice(0, _WDG_HIST_MAX);
   await auth.aiCacheSet('wdg:' + uid + ':hist', { v: neuf });
   await auth.aiCacheSet('wdg:' + uid + ':bak', { at: neuf[0].at, cfg: neuf[0].cfg });   // compat descendante
 }
@@ -2636,9 +2673,15 @@ app.post('/api/widgets', async (req, res) => {
     // rafraîchi toutes les 6 h : après un bug resté quelques heures invisible, la seule sauvegarde
     // disponible portait déjà l'état cassé. Trois jalons espacés d'au moins 24 h donnent une vraie
     // fenêtre de récupération — jusqu'à trois jours en arrière.
-    try { await _wdgHistPush(uid); } catch {}
+    /* On compare AVANT d'écrire : c'est la seule fenêtre où l'on sait encore ce qu'on remplace. */
+    let avant = null;
+    try { avant = await auth.aiCacheGet('wdg:' + uid, _WDG_KV_TTL); } catch {}
+    const retrecit = _wdgRetrecit(avant, cfg);
+    if (retrecit) console.warn('[Widgets] ' + uid + ' : enregistrement qui RÉTRÉCIT (' +
+      ((avant && avant.layouts || []).length) + ' → ' + (cfg.layouts || []).length + ' disposition(s)) → jalon forcé');
+    try { await _wdgHistPush(uid, retrecit); } catch {}
     await auth.aiCacheSet('wdg:' + uid, cfg);
-    res.json({ ok: true, cfg });
+    res.json({ ok: true, cfg, retrecit: retrecit || undefined });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 // État des sauvegardes — `at` = la plus récente (compat avec l'affichage « Restaurer la sauvegarde
@@ -2783,19 +2826,87 @@ app.get('/api/journal', async (req, res) => {
     });
   } catch { res.json({ entries: [], custom: false, cols: null }); }
 });
+/* FUSION SÛRE D'UN ENREGISTREMENT DE JOURNAL (16/09). Module PUR : aucune entrée/sortie, il
+   prend l'état stocké et ce que le corps apporte, et rend l'état à écrire — ou un refus motivé.
+   Pur À DESSEIN : c'est ce qui permet au banc de le JOUER sur les cas réels au lieu de le relire. */
+function _jrFusionSure(avant, apporte) {
+  const a = avant && typeof avant === 'object' ? avant : null;
+  const avaitEntrees = !!(a && Array.isArray(a.entries) && a.entries.length);
+  const avaitCols    = !!(a && a.cols);
+  const avaitCustom  = !!(a && a.custom);
+  const n = apporte || {};
+  const apporteRien = (!n.entries || !n.entries.length) && !n.cols && !n.comptes && !n.startCaps && n.startCap === undefined;
+
+  /* LE REFUS, ÉTROIT. Un corps qui n'apporte RIEN face à un journal qui a des entrées, des colonnes
+     ou une personnalisation n'est pas une modification : c'est un client qui n'a rien chargé. */
+  if (apporteRien && (avaitEntrees || avaitCols || avaitCustom)) {
+    return { refuse: true, raison: 'corps vide face à un journal existant (' + ((a.entries || []).length) + ' entrée(s))' };
+  }
+
+  const stored = {};
+  const preserve = [];
+  stored.entries = Array.isArray(n.entries) ? n.entries : ((a && a.entries) || []);
+  /* `custom` NE REDESCEND JAMAIS DE true À false PAR OMISSION : c'est lui qui décide si le desk
+     affiche le modèle de l'utilisateur ou re-propose le gabarit DTP. Un client qui ne le renvoie
+     pas ne demande pas à revenir au gabarit standard, il n'en parle pas. */
+  if (n.customFourni && n.custom) stored.custom = true;
+  else if (avaitCustom) { stored.custom = true; if (!n.customFourni || !n.custom) preserve.push('custom'); }
+  else stored.custom = !!(n.customFourni && n.custom);
+
+  const garder = (cle, valeur) => {
+    if (valeur) { stored[cle] = valeur; return; }
+    if (a && a[cle]) { stored[cle] = a[cle]; preserve.push(cle); }
+  };
+  garder('cols', n.cols);
+  garder('comptes', n.comptes);
+  garder('startCaps', n.startCaps);
+  if (n.startCap !== undefined) stored.startCap = n.startCap;
+  else if (a && isFinite(a.startCap) && a.startCap > 0) { stored.startCap = a.startCap; preserve.push('startCap'); }
+
+  return { refuse: false, stored, preserve };
+}
 app.post('/api/journal', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
   // OUVERT à tous les comptes connectés depuis le 03/07/2026 (fin de la phase « en développement »).
   try {
+    /* ⚠️ UN ENREGISTREMENT REMPLAÇAIT TOUT L'OBJET, Y COMPRIS CE QU'IL N'APPORTAIT PAS (16/09,
+       retour user : « je ne trouve plus mon template JOT »). L'objet stocké était reconstruit
+       INTÉGRALEMENT depuis le corps de la requête : un client qui enregistre avant d'avoir reçu ses
+       données — page rouverte pendant un redémarrage, réseau lent, onglet restauré par le
+       navigateur — écrivait `{ entries: [], custom: false }` par-dessus le journal réel, sur les
+       QUATRE bases d'un coup, puisque `ai_cache` est dual-écrite.
+       ET `custom` EST LE CHAMP QUI FAIT DISPARAÎTRE LE MODÈLE : il vaut `true` pour un journal
+       personnalisé, et le passer à `false` fait re-proposer le gabarit DTP standard à la place.
+       Le symptôme décrit est exactement celui-là.
+       LA RÈGLE EST CELLE QUE CE FICHIER APPLIQUE DÉJÀ AUX COMPTES (cf. `_mirrorPut`, 03/09) : on
+       laisse passer ce qui ÉTEND, on refuse ce qui RETIRE en silence, et on le TRACE. Concrètement,
+       l'enregistrement FUSIONNE au lieu de remplacer : un champ absent du corps garde sa valeur
+       stockée, il n'est jamais effacé par omission. Seul `entries` fait autorité, parce que le
+       journal l'envoie toujours en entier — et même lui a sa garde ci-dessous.
+       CE QUI RESTE POSSIBLE, À DESSEIN : supprimer ses trades un par un jusqu'au dernier reste un
+       geste légitime, et il passe (le corps porte alors `cols` et `custom`). Ce qu'on refuse, c'est
+       le corps QUI NE PORTE RIEN : ni colonnes, ni personnalisation, ni entrées, face à un journal
+       qui a les trois. Ce n'est pas une modification, c'est un client qui n'a jamais rien chargé. */
     const entries = _jrCleanEntries(req.body && req.body.entries);
-    const custom = !!(req.body && req.body.custom);   // mémorise si le compte a personnalisé son journal (import) → ne jamais re-proposer le gabarit DTP
     const cols = _jrCleanCols(req.body && req.body.cols);   // colonnes du compte (ordre/masquage/renommage/custom)
-    const stored = { entries, custom }; if (cols) stored.cols = cols;
-    const comptes = _jrCleanComptes(req.body && req.body.comptes); if (comptes) stored.comptes = comptes;
-    const caps = _jrCleanCaps(req.body && req.body.startCaps); if (caps) stored.startCaps = caps;
+    const comptes = _jrCleanComptes(req.body && req.body.comptes);
+    const caps = _jrCleanCaps(req.body && req.body.startCaps);
     const startCap = parseFloat(req.body && req.body.startCap);   // capital de départ (courbe $ Capital auto)
-    if (isFinite(startCap) && startCap > 0 && startCap < 1e9) stored.startCap = startCap;
-    await auth.aiCacheSet('journal:' + req.session.userId, stored);
+
+    let avant = null;
+    try { avant = await auth.aiCacheGet('journal:' + req.session.userId, 0); } catch {}
+    const g = _jrFusionSure(avant, {
+      entries, cols, comptes, startCaps: caps,
+      startCap: (isFinite(startCap) && startCap > 0 && startCap < 1e9) ? startCap : undefined,
+      custom: !!(req.body && req.body.custom),
+      customFourni: !!(req.body && Object.prototype.hasOwnProperty.call(req.body, 'custom')),
+    });
+    if (g.refuse) {
+      console.warn('[Journal] enregistrement REFUSÉ pour ' + req.session.userId + ' : ' + g.raison);
+      return res.json({ ok: false, refuse: true, raison: g.raison, count: (avant && avant.entries || []).length });
+    }
+    if (g.preserve.length) console.warn('[Journal] ' + req.session.userId + ' : champs préservés faute d\'être fournis : ' + g.preserve.join(', '));
+    await auth.aiCacheSet('journal:' + req.session.userId, g.stored);
     res.json({ ok: true, count: entries.length });
   } catch { res.status(500).json({ ok: false }); }
 });
@@ -27619,8 +27730,14 @@ app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
   try {
     const _dur = await auth.emailLogAllDurable();
     const all = (_dur && _dur.all) || auth.emailLogAll();
-    const users = await auth.getAllUsers().catch(() => []);
-    const byId = new Map(users.map(u => [String(u.id), u.email]));
+    /* ⚠️ SI LA LISTE DES COMPTES NE RÉPOND PAS, ON NE DIT PAS « SUPPRIMÉ » POUR TOUT LE MONDE.
+       Le repli silencieux rendait une liste VIDE sur la moindre erreur de lecture : chaque ligne du
+       journal devenait alors « (compte supprimé) », sur l’écran dont c’est justement le rôle de dire
+       la vérité. Une panne de lecture se transformait en accusation. */
+    let users = null;
+    try { users = await auth.getAllUsers(); } catch {}
+    const listeOk = Array.isArray(users) && users.length > 0;
+    const byId = new Map((users || []).map(u => [String(u.id), u.email]));
     const q = String(req.query.q || '').toLowerCase().trim();
     const ft = String(req.query.type || '').trim();              // filtre TYPE exact (menu du panel)
     const typesVus = new Set();
@@ -27633,10 +27750,30 @@ app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
       // destinataire : soit l'e-mail est dans la clé, soit c'est un id de compte à résoudre
       const parts = key.split(':');
       let dest = parts.find(p => p.includes('@')) || '';
-      if (!dest) { for (const p of parts) if (byId.has(p)) { dest = byId.get(p) || ''; break; } }
+      /* TROIS SITUATIONS DIFFÉRENTES, ET UNE SEULE EST UNE SUPPRESSION.
+         1. L’identifiant est connu : on affiche l’adresse, point.
+         2. Il figure dans la clé mais nous est inconnu : SUPPRIMÉ si les pierres tombales le disent,
+            INTROUVABLE sinon. La nuance n’est pas cosmétique — « introuvable » invite à chercher,
+            « supprimé » clôt le sujet, et se tromper de mot fait croire à une perte de données là où
+            il n’y en a pas. C’est exactement la question que cet écran a fait poser.
+         3. La clé ne porte aucun identifiant : il n’y a jamais eu de destinataire à résoudre. */
+      let etat = '';
+      if (!dest) {
+        let idVu = '';
+        for (const p of parts) {
+          if (byId.has(p)) { dest = byId.get(p) || ''; break; }
+          if (!idVu && /^[0-9a-f-]{6,}$/i.test(p)) idVu = p;   // ressemble à un identifiant de compte
+        }
+        if (!dest) {
+          if (!idVu) etat = 'destinataire non consigné';
+          else if (!listeOk) etat = 'liste des comptes indisponible';
+          else if (typeof auth.estSupprime === 'function' && auth.estSupprime(idVu)) etat = 'compte supprimé';
+          else etat = 'compte introuvable · ' + idVu.slice(0, 8);
+        }
+      }
       const ts = Date.parse(at) || 0;
       if (q && !(String(dest).toLowerCase().includes(q) || type.toLowerCase().includes(q))) continue;
-      rows.push({ ts, at, type, dest: dest || '(compte supprimé)', key });
+      rows.push({ ts, at, type, dest: dest || ('(' + etat + ')'), key });
     }
     rows.sort((a, b) => b.ts - a.ts);
     res.json({ ok: true, total: rows.length, rows: rows.slice(0, 400), types: [...typesVus].sort(),
