@@ -187,6 +187,78 @@ verif('l\'agrégat de la zone euro reste sans mention de pays',
 console.log('\n── 7e. TITRES = LES TERMES DU CALENDRIER, courts (demande user 25/08) ──');
 // « Moral des entreprises allemandes » ne dit rien à un lecteur de calendrier : il cherche « Ifo ».
 // Le titre SITUE avec le terme du calendrier, la description EXPLIQUE en français.
+/* ══ LA DÉTECTION DES RENDEZ-VOUS QUI S'ÉTALENT, JOUÉE POUR DE VRAI (16/09) ═══════════════
+
+   SIGNALEMENT : « pourquoi il y a 2 fois FOMC ? ». Mercredi titrait « FOMC », jeudi « BoE taux +
+   FOMC (dernier jour) ». Le FOMC décide le mercredi à 20h00 : il n'y a pas de « dernier jour » le
+   lendemain. Le défaut préexistait au renommage FOMC sous une forme plus discrète (« BoE + Fed
+   (dernier jour) ») ; nommer la réunion l'a rendu criant.
+
+   ⚠️ POURQUOI AUCUN BANC NE L'AVAIT VU, et c'est la leçon de ce bloc : les contrôles existants
+   passent un objet `suite` TOUT FAIT à `titreJour` et vérifient le rendu. Ils éprouvent donc
+   l'AFFICHAGE d'une continuité, jamais sa DÉTECTION — or c'est la détection qui se trompait. Un
+   banc qui part du résultat ne peut pas trouver une erreur commise avant lui.
+   On EXTRAIT donc le vrai bloc de détection de server.js et on l'EXÉCUTE sur une semaine
+   reconstituant la capture : décision Fed mercredi, décision BoE jeudi, décision BoJ vendredi. */
+console.log('\n── 7y. La détection des suites, extraite de server.js et exécutée ──');
+{
+  const SRVSRC = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+  const BLOC = (/  const _cleEv = e => String\(e\.currency[\s\S]*?\n  \}\n/.exec(SRVSRC) || [])[0] || null;
+  verif('le bloc de détection est extractible de server.js', !!BLOC);
+  if (BLOC) {
+    const detecter = new Function('_prep', '_WA', BLOC + '\nreturn _prep.map(b => b._suite || null);');
+    const jour = (...evs) => ({ _affiches: evs });
+    const e = (c, t) => ({ currency: c, title: t, impact: 'High' });
+
+    // LA SEMAINE DE LA CAPTURE.
+    const semaine = [
+      jour(e('CAD', 'CPI y/y')),
+      jour(e('CNY', 'Retail Sales YoY'), e('GBP', 'Unemployment Rate')),
+      jour(e('USD', 'Federal Funds Rate')),
+      jour(e('GBP', 'Official Bank Rate')),
+      jour(e('JPY', 'BOJ Policy Rate')),
+    ];
+    const su = detecter(semaine, W);
+    verif('mercredi (FOMC) ne porte AUCUNE suite', !su[2], JSON.stringify(su[2]));
+    verif('jeudi non plus : pas de « FOMC dernier jour » le lendemain de la décision', !su[3], JSON.stringify(su[3]));
+    verif('aucun jour de la semaine ne porte de suite', su.every(x => !x), JSON.stringify(su));
+
+    /* LE CAS QUI A RÉELLEMENT DÉCLENCHÉ LE BUG : le même intitulé de décision présent deux jours de
+       suite au calendrier (doublon du flux, horaire provisoire, ligne de rappel). Avant, cela
+       fabriquait une continuité ; désormais une décision reste un instant, quoi qu'en dise le flux. */
+    const doublon = detecter([
+      jour(e('EUR', 'CPI y/y')),
+      jour(e('EUR', 'PPI m/m')),
+      jour(e('USD', 'Federal Funds Rate')),
+      jour(e('USD', 'Federal Funds Rate'), e('GBP', 'Official Bank Rate')),
+      jour(e('JPY', 'BOJ Policy Rate')),
+    ], W);
+    verif('même décision deux jours de suite au flux → toujours aucune suite', doublon.every(x => !x), JSON.stringify(doublon));
+
+    // … ET CE QUI DURE VRAIMENT CONTINUE D'ÊTRE SUIVI. Sans ce contrôle, tout couper serait « vert ».
+    const jh = t => e('USD', 'Jackson Hole Symposium');
+    const sym = detecter([jour(e('EUR', 'CPI y/y')), jour(e('USD', 'CPI m/m')), jour(jh()), jour(jh()), jour(e('USD', 'Non-Farm Employment Change'))], W);
+    verif('un symposium sur deux jours est toujours repéré', !!sym[2] && !!sym[3], JSON.stringify([sym[2], sym[3]]));
+    verif('… avec son rang de journée', sym[2] && sym[2].jour === 1 && sym[3] && sym[3].jour === 2, JSON.stringify([sym[2], sym[3]]));
+    verif('… et son dernier jour, puisqu\'il s\'arrête avant vendredi', sym[3] && sym[3].fin === true, JSON.stringify(sym[3]));
+
+    /* ── TÉMOIN ── Sans lui, « aucune suite » serait vert même si la détection était entièrement
+       morte. On rejoue la semaine de la capture avec l'ANCIENNE règle (aucun filtre d'éligibilité)
+       et on vérifie que le « FOMC dernier jour » revient bien. */
+    const ancien = new Function('_prep', '_WA', BLOC.replace('.filter(e => _WA.peutSEtaler(e))', '') + '\nreturn _prep.map(b => b._suite || null);');
+    const avant = ancien([
+      jour(e('USD', 'Federal Funds Rate')),
+      jour(e('USD', 'Federal Funds Rate'), e('GBP', 'Official Bank Rate')),
+      jour(e('JPY', 'BOJ Policy Rate')),
+      jour(e('EUR', 'CPI y/y')),
+      jour(e('USD', 'Non-Farm Employment Change')),
+    ], W);
+    verif('(témoin) le filtre d\'éligibilité est bien retirable du source', true);
+    verif('(témoin) sans lui, la fausse continuité revient → le contrôle mord',
+      !!avant[0] && !!avant[1] && avant[1].sigle === 'FOMC', JSON.stringify([avant[0], avant[1]]));
+  }
+}
+
 /* ══ LE TITRE NOMME LA RÉUNION, LA GLOSE NOMME LA BANQUE (16/09) ══════════════════════
    Demande utilisateur, capture à l'appui : « améliore les titres pour que ce soit plus parlant, par
    exemple aujourd'hui on a le FOMC mais c'est indiqué Fed uniquement », et « les descriptions aussi,

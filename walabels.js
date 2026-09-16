@@ -550,6 +550,46 @@ function _titreCourt(t, max) {
   const coupe = s.slice(0, n).lastIndexOf(' ');
   return (coupe > 12 ? s.slice(0, coupe) : s.slice(0, n)).trim();
 }
+/* ══ QUELS ÉVÉNEMENTS PEUVENT RÉELLEMENT S'ÉTALER SUR PLUSIEURS JOURS (16/09) ═══════════════
+
+   SIGNALEMENT : « pourquoi il y a 2 fois FOMC ? ». La carte du mercredi titrait « FOMC » et celle du
+   jeudi « BoE taux + FOMC (dernier jour) ». Or le FOMC décide le mercredi à 20h00 : il n'y a pas de
+   « dernier jour » le lendemain. Le défaut préexistait au renommage FOMC, sous une forme plus discrète
+   (« BoE + Fed (dernier jour) ») : il est devenu criant une fois la réunion nommée, ce qui est
+   exactement ce qu'un bon titre doit faire.
+
+   LA CAUSE EST STRUCTURELLE, et c'est pourquoi on ne la corrige pas au cas par cas. Le repérage des
+   rendez-vous qui s'étalent cherche le même couple (devise, intitulé) sur deux jours CONSÉCUTIFS.
+   La règle est bonne pour un symposium ou un G20, qui reviennent à l'identique plusieurs jours de
+   suite. Elle est FAUSSE PAR NATURE pour une décision de taux ou une publication : ces événements
+   ont lieu UNE FOIS, à un instant précis. Si leur intitulé apparaît deux jours de suite au
+   calendrier, ce n'est pas une continuité — c'est un doublon du flux, un horaire provisoire, ou une
+   ligne de rappel. Les traiter comme une suite fabrique un rendez-vous qui n'existe pas, ce que la
+   v24 avait déjà interdit au TITRE et que la détection de suite rouvrait par une autre porte.
+
+   ON INVERSE DONC LA CHARGE DE LA PREUVE : rien ne s'étale, SAUF ce qui est reconnu comme pouvant
+   durer. La liste est courte et ferme, et se lit d'un coup d'œil. Une liste fermee vaut mieux qu'une
+   heuristique : un symposium inconnu perdra sa numérotation (il gardera son titre et sa glose, rien
+   n'est caché), là où une heuristique trop large ferait réapparaître un « dernier jour » inventé sur
+   une décision de taux — et c'est cette erreur-là qui coûte, pas l'autre. */
+/* ⚠️ NI « meetings » NU, NI « conference » NU. Mesuré en jouant la liste : « FOMC Meetings », que
+   certains fournisseurs écrivent ainsi, passait pour étalable alors que c'est LA réunion qui décide
+   — le cas même qu'on vient de fermer. Et « conference » aurait un jour attrapé « FOMC Press
+   Conference », qui dure une heure. Une réunion ne s'étale donc que si elle le DIT (« Day 1 »,
+   « Day 2 ») ou si elle est nommée par un format qui dure par nature (symposium, forum, sommet,
+   OPEP, audition semestrielle). Les vrais rendez-vous multi-jours portent tous l'un de ces mots ;
+   « meetings » tout seul n'en distingue aucun. */
+const ETALABLE_RX = /jackson hole|symposium|sintra|forum|summit|sommet|\bg7\b|\bg20\b|\bopec\b|\bopep\b|\bjmmc\b|\bday\s*[123]\b|jour\s*[123]\b|congress|testimony|hearing|semi[- ]?annual|humphrey/i;
+function peutSEtaler(e) {
+  const t = titresDe(e);
+  if (!t) return false;
+  /* ⚠️ UNE DÉCISION DE TAUX N'EST JAMAIS ÉTALABLE, même si son intitulé contient par accident un mot
+     de la liste ci-dessus (« FOMC Meetings » chez certains fournisseurs). Le veto passe donc EN
+     PREMIER : sans lui, la liste ferme aurait laissé rentrer précisément le cas signalé. */
+  if (/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/i.test(t)) return false;
+  return ETALABLE_RX.test(t);
+}
+
 // Libellé court d'un événement, quand aucun thème ne le reconnaît (repli de la détection de suite).
 function libelleCourt(e) { return _titreCourt(intituleAffiche(e), 40); }
 function titreJour(events, dowFr, opts) {
@@ -729,7 +769,7 @@ function jourParis(ts) {
 }
 
 module.exports = {
-  GLOSES, SIGLES, sigleEv, codeEv, FAMILLES, FAMILLES_CLES, familleValide, themeDeFamille, titreEstRepli, ADJ_PAYS, PAYS_COURT, CCY2PAYS, BANQUE, REVISION_RX, SECONDE_EST_RX,
+  GLOSES, SIGLES, sigleEv, codeEv, peutSEtaler, ETALABLE_RX, FAMILLES, FAMILLES_CLES, familleValide, themeDeFamille, titreEstRepli, ADJ_PAYS, PAYS_COURT, CCY2PAYS, BANQUE, REVISION_RX, SECONDE_EST_RX,
   paysDe, paysCourt, adjectif, gloseFr, MAJEURS, poidsMajeur, themeJour, themesDuJour,
   titresDe, gloseEv, heureParis, nomEv, intituleAffiche, libelleCourt, chiffresEv, titreJour, enjeuFr, descriptionJour, jourParis,
 };
