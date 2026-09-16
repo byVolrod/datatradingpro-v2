@@ -70,6 +70,7 @@ function _markDown(node, err) {
      lecture rend NODESDOWN — cas déjà géré partout, qui bascule sur le miroir, c'est-à-dire sur le
      superset à jour. Le pire cas de cette garde est donc l'état le plus sûr. */
   node.quarLect = true;
+  node.quarDemarrage = false;   // une base qui TOMBE n'est pas une base qui vient de démarrer : le panneau doit les distinguer
 }
 function _applyOps(client, table, ops) { let qb = client.from(table); for (const [m, a] of ops) qb = qb[m](...a); return qb; }
 
@@ -548,7 +549,17 @@ try {
    jamais levée — et comme le repli est ce miroir vide, PLUS PERSONNE ne pourrait se connecter. Sans
    miroir, la base est la seule source de vérité : la quarantaine n'a aucun sens et ne se pose pas. */
 if (_usersMirror.size) {
-  _dbNodes.forEach(n => { n.quarLect = true; });
+  /* ⚠️ MARQUÉE COMME TELLE (16/09, retour user : « pourquoi tout est en resynchro ? alors que bdd 2
+     était ok »). La quarantaine de DÉMARRAGE et celle d'une base réellement absente sont deux
+     situations différentes que le panneau affichait sous le même mot. Or POUSSER SUR MAIN DÉPLOIE,
+     et un déploiement redémarre le conteneur : les quatre bases repassent donc en quarantaine À
+     CHAQUE LIVRAISON, pendant que le panneau explique qu'elles « ont raté des écritures pendant
+     leur absence ». C'est faux, et inquiétant à lire pour rien : aucune n'a rien raté, c'est le
+     processus qui vient de naître et qui ne sait pas encore. Un message qui se trompe de cause use
+     la confiance qu'on met dans les autres.
+     `quarDemarrage` porte cette nuance jusqu'à l'écran. Il ne change RIEN à la prudence : la base ne
+     sert toujours aucune lecture de comptes avant sa première convergence. */
+  _dbNodes.forEach(n => { n.quarLect = true; n.quarDemarrage = true; });
   console.log(`[Auth] démarrage : ${_dbNodes.length} base(s) en quarantaine de lecture jusqu'à la première convergence (le miroir, à jour, sert les comptes d'ici là)`);
 }
 
@@ -863,7 +874,7 @@ async function _usersConverge(reason = '') {
       /* ⚠️ SORTIR ICI SANS LEVER LA QUARANTAINE L'AURAIT RENDUE ÉTERNELLE. Un miroir dont aucun
          compte ne porte d'empreinte (cas d'une reconstruction partielle) n'a rien à propager — mais
          cela ne veut pas dire que les bases sont en retard. On lève, et on le dit. */
-      _dbNodes.forEach(n => { if (n.quarLect) { n.quarLect = false; console.log(`[Auth] ${n.name} : rien à propager (miroir sans compte complet) → quarantaine levée`); } });
+      _dbNodes.forEach(n => { if (n.quarLect) { n.quarLect = false; n.quarDemarrage = false; console.log(`[Auth] ${n.name} : rien à propager (miroir sans compte complet) → quarantaine levée`); } });
       return;
     }
     /* ÉCRITURE TOLÉRANTE AUX DIVERGENCES DE SCHÉMA (16/09). L'ancienne version ne savait retirer
@@ -977,7 +988,7 @@ async function _usersConverge(reason = '') {
              donc reprendre les lectures. Lever la quarantaine ailleurs — au retour du keep-alive,
              par exemple — rouvrirait précisément la fenêtre que cette garde ferme. */
           node.quarRaison = '';                                   // réussite : la cause précédente n'a plus lieu d'être affichée
-          if (node.quarLect) { node.quarLect = false; leves++; console.log(`[Auth] ${node.name} resynchronisée (${all.length} compte(s)) → quarantaine de lecture LEVÉE`); }
+          if (node.quarLect) { node.quarLect = false; node.quarDemarrage = false; leves++; console.log(`[Auth] ${node.name} resynchronisée (${all.length} compte(s)) → quarantaine de lecture LEVÉE`); }
         }
       }
       catch (e) { _markDown(node, e); }
@@ -1723,7 +1734,7 @@ async function _dbHealthProbe() {
        « RESYNCHRO… » sans que rien, nulle part, ne dise pourquoi : l'échec d'écriture était avalé et
        la convergence le rejouait toutes les 20 minutes. Un état dégradé muet se diagnostique par
        hypothèses, et on y passe des jours — c'est la leçon du rapport provisoire de ce matin. */
-    return { name: n.name, host, state, status, ms: Date.now() - t0, downUntil: n.downUntil > Date.now() ? n.downUntil : 0, quarLect: !!n.quarLect, quarRaison: n.quarRaison || '', err };
+    return { name: n.name, host, state, status, ms: Date.now() - t0, downUntil: n.downUntil > Date.now() ? n.downUntil : 0, quarLect: !!n.quarLect, quarDemarrage: !!n.quarDemarrage, quarRaison: n.quarRaison || '', err };
   }));
   const data = { count: nodes.length, okCount: nodes.filter(n => n.state === 'ok').length, nodes, keepalive: { last: _kaLast, ok: _kaOk } };
   _dbHealthCache = { at: Date.now(), data };

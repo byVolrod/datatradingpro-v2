@@ -216,11 +216,23 @@ console.log('\n── 3 bis. Le redémarrage ne remet pas une base périmée en 
      par CE processus ; un déploiement redémarre le conteneur, et une base restée en retard des
      semaines repart alors « saine ». C est le scénario exact du 02/09 : le projet principal sorti de
      pause à la main répondait parfaitement, avec 29 comptes là où le desk en a 50. */
-  const boot = (/if \(_usersMirror\.size\) \{[\s\S]{0,400}?\n\}/.exec(AUTH) || [''])[0];
-  v('toutes les bases démarrent en quarantaine', /_dbNodes\.forEach\(n => \{ n\.quarLect = true; \}\)/.test(boot),
+  /* ⚠️ CES TROIS CONTRÔLES ÉTAIENT ÉPINGLÉS SUR L'ORTHOGRAPHE EXACTE DE LA LIGNE, PAS SUR SA
+     PROPRIÉTÉ (recâblés le 16/09). Ajouter `n.quarDemarrage = true` à côté de `n.quarLect = true`
+     — un marqueur qui ne change RIEN à la prudence — les a fait rougir tous les trois sur du code
+     strictement équivalent. Et la fenêtre d'extraction de 400 caractères s'est refermée au milieu du
+     commentaire qui explique la règle, si bien que `boot` sortait VIDE : le garde-fou du miroir vide
+     n'était plus éprouvé du tout, silencieusement. C'est la même leçon que le 10/09 sur
+     `tactile-verif` : une borne d'extraction est un contrat, et un contrôle qui récite une ligne au
+     lieu de vérifier ce qu'elle fait casse au premier ajout légitime. On borne donc par POSITION, et
+     on vérifie la propriété. */
+  const iBoot = AUTH.indexOf('if (_usersMirror.size) {');
+  const boot = iBoot < 0 ? '' : AUTH.slice(iBoot, AUTH.indexOf('\n}', iBoot) + 2);
+  v('toutes les bases démarrent en quarantaine',
+    /_dbNodes\.forEach\(n => \{[^}]*n\.quarLect = true;/.test(boot),
     'sinon une base périmée mais joignable est relue dès le premier redémarrage');
+  const iPose = AUTH.search(/_dbNodes\.forEach\(n => \{[^}]*n\.quarLect = true;/);
   v('… et cette pose est APRÈS le chargement du miroir',
-    AUTH.indexOf('miroir local :') < AUTH.indexOf('_dbNodes.forEach(n => { n.quarLect = true; })'),
+    iPose > 0 && AUTH.indexOf('miroir local :') < iPose,
     'posée avant, elle testerait un miroir encore vide et ne se déclencherait jamais');
   /* L EXCEPTION QUI ÉVITE DE TOUT BLOQUER. Sans miroir (installation neuve), rien à propager :
      `_usersConverge` sort aussitôt, la quarantaine ne serait JAMAIS levée, et le repli étant ce
@@ -427,6 +439,56 @@ console.log('\n── Le même e-mail sous deux identifiants ne bloque plus la b
       const m = /if \(false && _conflitEmailDoublon\(r\.error\)\) \{([\s\S]{0,200}?)\}/.exec(mutant);
       return !!m && /return _upLegacy\(node, rows\);/.test(m[1]) && false;
     })() && /if \(false && _conflitEmailDoublon/.test(mutant));
+}
+
+
+/* ══ LA QUARANTAINE DE DÉMARRAGE N'EST PAS UNE RESYNCHRO (16/09) ══════════════════════════════════
+   Retour user, capture à l'appui : « pourquoi tout est en resynchro ? alors que bdd 2 était ok ».
+   Elle l'était. POUSSER SUR MAIN DÉPLOIE, un déploiement redémarre le conteneur, et un processus
+   neuf quarantaine les quatre bases par prudence — elles n'ont rien raté, c'est LUI qui ne sait pas
+   encore. Le panneau affichait pourtant, pour ce cas-là aussi, « a raté des écritures pendant son
+   absence » : une explication FAUSSE, servie à chaque livraison. Un message qui se trompe de cause
+   use la confiance qu'on met dans tous les autres.
+   Ces contrôles tiennent la distinction des deux côtés : le marqueur côté serveur, les deux
+   libellés côté écran. */
+{
+  const AUTH2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'auth.js'), 'utf8');
+  const ADM2  = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'js', 'admin.js'), 'utf8');
+
+  v('au démarrage, les bases sont marquées « démarrage », pas seulement quarantainées',
+    /_dbNodes\.forEach\(n => \{ n\.quarLect = true; n\.quarDemarrage = true; \}\);/.test(AUTH2));
+
+  /* Une base qui TOMBE en cours de route n'est pas une base qui vient de naître : sans cette remise
+     à zéro, une vraie panne postérieure au boot hériterait du libellé « DÉMARRAGE… » et on
+     chercherait un incident là où il n'y en a pas — le défaut exactement symétrique. */
+  const iMark = AUTH2.indexOf('function _markDown');
+  const finMark = AUTH2.indexOf('\n}', iMark);
+  v('une base qui tombe APRÈS le démarrage perd le marqueur (sinon les deux états se confondent)',
+    iMark > 0 && /node\.quarDemarrage = false;/.test(AUTH2.slice(iMark, finMark)));
+
+  v('la levée de quarantaine efface le marqueur, sur les DEUX chemins de levée',
+    (AUTH2.match(/quarLect = false; n(?:ode)?\.quarDemarrage = false;/g) || []).length === 2);
+
+  v('dbHealth expose le marqueur (sans quoi l\'écran ne peut pas distinguer)',
+    /quarDemarrage: !!n\.quarDemarrage/.test(AUTH2));
+
+  v('le panneau affiche DEUX libellés, pas un seul',
+    /quarDemarrage \? 'DÉMARRAGE…' : 'RESYNCHRO…'/.test(ADM2));
+
+  v('… et DEUX explications, chacune comptée sur les bases concernées',
+    /n\.quarLect && n\.quarDemarrage\)\.length/.test(ADM2) && /n\.quarLect && !n\.quarDemarrage\)\.length/.test(ADM2));
+
+  /* L'explication du démarrage ne doit surtout pas reprendre la phrase de l'absence : c'est elle,
+     le mensonge qu'on retire. */
+  const iDem = ADM2.indexOf("if (dem) t +=");
+  const phraseDem = iDem > 0 ? ADM2.slice(iDem, ADM2.indexOf('\n', iDem)) : '';
+  v('l\'explication du démarrage ne parle plus d\'écritures ratées',
+    !!phraseDem && !/raté des écritures/.test(phraseDem));
+
+  /* ── TÉMOIN ── on remet la forme d'avant : un libellé unique pour les deux états. */
+  const mutQ = ADM2.replace("quarDemarrage ? 'DÉMARRAGE…' : 'RESYNCHRO…'", "'RESYNCHRO…'");
+  v('(témoin) revenir à un libellé unique est bien détecté',
+    mutQ !== ADM2 && !/quarDemarrage \? 'DÉMARRAGE…'/.test(mutQ));
 }
 
 console.log(`✅ bases-verif : ${ok} contrôle(s) au vert.`);

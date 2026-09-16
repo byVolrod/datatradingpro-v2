@@ -2004,7 +2004,7 @@
          toutes les 20 minutes et personne ne pouvait savoir pourquoi. La cause s'affiche donc sous
          la ligne, en clair. Un état dégradé muet se diagnostique par hypothèses, et on y passe des
          jours — le rapport provisoire de ce matin l'a coûté deux fois. */
-      const rows = DB.nodes.map(n => `<div class="aim-kv"><span title="${_esc2(n.host)}">${_esc2(n.name)}</span><b style="color:${n.quarLect ? '#ffb300' : col(n.state)}">${n.quarLect ? 'RESYNCHRO…' : lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.ms} ms</span></b></div>`
+      const rows = DB.nodes.map(n => `<div class="aim-kv"><span title="${_esc2(n.host)}">${_esc2(n.name)}</span><b style="color:${n.quarLect ? '#ffb300' : col(n.state)}">${n.quarLect ? (n.quarDemarrage ? 'DÉMARRAGE…' : 'RESYNCHRO…') : lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.ms} ms</span></b></div>`
         + (n.quarLect && n.quarRaison ? `<div class="aim-kpi-s" style="margin:-3px 0 7px;color:#ffb300;line-height:1.45">↳ ${_esc2(String(n.quarRaison).slice(0, 150))}</div>` : '')).join('');
       const KA = DB.keepalive;   // anti-pause free-tier : WRITE sur chaque base /12 h (ingress → marche même en 402)
       const kaLine = (KA && KA.last) ? `<div class="aim-kv"><span>Keep-alive</span><b style="color:${KA.ok >= DB.count ? '#22c55e' : '#ffb300'}">${KA.ok}/${DB.count} <span style="color:#6b7280;font-weight:400">il y a ${(() => { const m = Math.round((Date.now() - KA.last) / 60000); return m < 1 ? '<1 min' : m < 60 ? m + ' min' : Math.round(m / 60) + ' h'; })()}</span></b></div>` : '';
@@ -2024,7 +2024,21 @@
       })() : '<div class="aim-kv"><span>Synchro Whop</span><b style="color:#6b7280">pas encore passée</b></div>';
       return `<div class="aim-kv"><span>Projets joignables</span><b style="color:${DB.okCount >= DB.count ? '#22c55e' : '#ffb300'}">${DB.okCount}/${DB.count}</b></div>` + rows + kaLine + wLine
         + (DB.nodes.some(n => n.state === 'restreint') ? '<div style="font-size:10.5px;color:#ef4444;margin-top:6px;line-height:1.5">⚠ Restreint = quota/égress mensuel dépassé → revient au rollover (le keep-alive ne lève pas un 402).</div>' : '')
-        + (DB.nodes.some(n => n.quarLect) ? '<div style="font-size:10.5px;color:#ffb300;margin-top:6px;line-height:1.5">⏳ Resynchro = la base est joignable mais a raté des écritures pendant son absence. Elle reçoit les écritures et se recomplète, mais ne sert AUCUNE lecture de comptes tant que le rattrapage n\'a pas réussi : sans ça, elle rendrait des mots de passe et des échéances périmés. Levée automatique (≤ 20 min).</div>' : '');
+        + (() => {
+          /* ⚠️ DEUX SITUATIONS, DEUX PHRASES (16/09, retour user « pourquoi tout est en resynchro ?
+             alors que bdd 2 était ok »). Pousser sur main déploie, un déploiement redémarre le
+             conteneur, et un processus neuf ne peut pas savoir ce qu'une base a manqué pendant
+             qu'il n'existait pas : les quatre repartent quarantainées, par prudence. Les annoncer
+             comme ayant « raté des écritures pendant leur absence » était FAUX, et alarmant pour
+             rien — à chaque livraison. Un message qui se trompe de cause use la confiance qu'on
+             met dans tous les autres. */
+          const dem = DB.nodes.filter(n => n.quarLect && n.quarDemarrage).length;
+          const res = DB.nodes.filter(n => n.quarLect && !n.quarDemarrage).length;
+          let t = '';
+          if (dem) t += '⏳ Démarrage = le desk vient de redémarrer, et toute livraison le redémarre. Un processus neuf ne peut pas savoir ce qu’une base a manqué pendant qu’il n’existait pas : elles repartent donc toutes prudemment en quarantaine de lecture, le temps de la première convergence. Aucune n’a rien raté. Levée automatique (~30 s).';
+          if (res) t += (t ? '<br>' : '') + '⏳ Resynchro = la base est joignable mais a raté des écritures pendant son absence. Elle reçoit les écritures et se recomplète, mais ne sert AUCUNE lecture de comptes tant que le rattrapage n’a pas réussi : sans ça, elle rendrait des mots de passe et des échéances périmés. Levée automatique (≤ 20 min).';
+          return t ? '<div style="font-size:10.5px;color:#ffb300;margin-top:6px;line-height:1.5">' + t + '</div>' : '';
+        })();
     })();
   }
   /* ══ LA MACHINE, SON DISQUE, ET LE SCHÉMA QUI LES RELIE (11/09, demande user) ═════════════════
