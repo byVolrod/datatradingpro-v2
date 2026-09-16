@@ -332,10 +332,20 @@ console.log('\n── 11. L\'archive ne ressuscite jamais un résultat encore à
     Date.now = () => NOW;
     let arch;
     try {
-      // Doublures : `_calHistDirty` (drapeau de persistance, sans effet ici) et un `setInterval`
-      // neutralisé — le vrai code en pose un pour la sauvegarde Supabase toutes les 5 min.
+      /* Doublures : `_calHistDirty` (drapeau de persistance, sans effet ici) et un `setInterval`
+         neutralisé — le vrai code en pose un pour la sauvegarde Supabase toutes les 5 min.
+         ⚠️ 16/09 — `_ffDisplayTitle` et `_CAL_SPEECH_RX` SONT DES DOUBLURES AJOUTÉES CE JOUR-LÀ, et
+         leur absence a fait rougir ce banc sur du code parfaitement sain. `_calHistMerge` s'est mis
+         à reconnaître une publication par son nom AFFICHÉ (une même sortie porte deux noms selon le
+         fournisseur, d'où le doublon « CPI y/y » de la capture client) : deux dépendances de plus,
+         qui ne sont pas dans la tranche extraite ici. C'est la leçon du 10/09, mot pour mot : UNE
+         BORNE D'EXTRACTION EST UN CONTRAT, et ajouter une dépendance à une fonction extraite
+         ailleurs est DEUX gestes. La doublure de renommage est neutre (elle rend le titre tel quel),
+         ce qui suffit à cette section : elle éprouve les VERROUS de l'archive, pas le renommage,
+         qui a ses propres contrôles dans calendrier-verif.js. */
       // eslint-disable-next-line no-eval
       arch = eval('(function(){ let _calHist = new Map(); let _calHistDirty = false;' +
+        'const _ffDisplayTitle = e => (e && e.title) || ""; const _CAL_SPEECH_RX = /speaks|speech|testimony|testifies|press conf|discours|audition/i;' +
         blocH + '\nreturn { _calHistAbsorb, _calHistMerge, _calHistKey, hist: () => _calHist, poser: m => { _calHist = m; } };})()');
     } catch (e) { verif('il s\'évalue sans erreur', false, e.message); }
     if (arch) {

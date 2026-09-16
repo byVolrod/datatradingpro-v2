@@ -75,9 +75,33 @@ function detectCBFromTitle(title) {
   return null;
 }
 
+/* ⚠️ L'HORLOGE DE CE FLUX EST EN UTC, PAS EN HEURE DE NEW YORK (16/09, capture user comparant notre
+   calendrier à forexfactory.com). La ligne de commentaire disait « ForexFactory uses Eastern Time »
+   et le code retranchait donc l'offset américain : chaque rendez-vous du flux atterrissait
+   QUATRE HEURES TROP TARD l'été (cinq l'hiver). Mesuré sur l'archive servie, huit publications,
+   quatre devises, réparties sur toute la journée, TOUTES décalées d'exactement +4 h :
+     IPC britannique 08h00 Paris servi à 12h00 · IPC américain 14h30 servi à 18h30 · ISM 16h00 servi
+     à 20h00 · BCE 14h15 servie à 18h15 · SNB 08h30 servie à 12h30 · RBNZ 04h00 servie à 08h00 ·
+     PIB australien 03h30 servi à 07h30 · conférence de presse BCE 14h45 servie à 18h45.
+   Lire l'horloge du flux comme de l'UTC replace les huit à la seconde près.
+   CE DÉCALAGE EST LA CAUSE RACINE DE TROIS DÉFAUTS VISIBLES, pas d'un seul :
+   1. LE DOUBLON. `_calFusionFF` (server.js) apparie une ligne FF à sa jumelle TradingView dans une
+      fenêtre de ±90 min. À 240 min d'écart elles ne se reconnaissaient JAMAIS : la ligne FF entrait
+      comme un événement de plus, et l'archive `_calHist` rejouait la ligne TradingView retirée.
+      Deux « CPI y/y » le même jour, à quatre heures l'un de l'autre.
+   2. LE RÉSULTAT FAUX. Faute d'appariement, le résultat de la ligne FF venait du rattrapage large de
+      `_refreshTVActuals` (UN seul mot-clé commun suffit) : sur l'IPC britannique il a pris le chiffre
+      du RPI publié à la même heure — « CPI y/y 3,4 % » au lieu de 3,1 %. Même mécanisme pour
+      « CPI m/m 334.98 » (le NIVEAU de l'indice), « Official Cash Rate 25b » ou un pourcentage posé
+      sur une conférence de presse.
+   3. L'HEURE AFFICHÉE. Le desk annonçait 12h00 un rendez-vous de 08h00 — un client qui s'y fie rate
+      la publication.
+   NE PAS « CORRIGER » EN REMETTANT UN OFFSET : le rattrapage de fuseau de `_refreshTVActuals`
+   (médiane des écarts, liste d'essais contenant -4 h et -5 h) est né de ce défaut, pas l'inverse.
+   Banc : scripts/calendrier-verif.js — il JOUE cette fonction sur les huit publications mesurées. */
 function parseEventTime(dateStr, timeStr) {
   try {
-    // dateStr: "MM-DD-YYYY", timeStr: "6:29am" — ForexFactory uses Eastern Time (ET)
+    // dateStr: "MM-DD-YYYY", timeStr: "6:29am" — horloge UTC (mesuré, cf. bloc ci-dessus)
     const [mm, dd, yyyy] = (dateStr || '').split('-').map(Number);
     if (!mm || !dd || !yyyy) return Date.now();
 
@@ -91,13 +115,7 @@ function parseEventTime(dateStr, timeStr) {
       }
     }
 
-    // Determine EDT (-04:00) vs EST (-05:00)
-    const base   = new Date(yyyy, mm - 1, dd);
-    const edtStart = new Date(yyyy, 2, 8);  while (edtStart.getDay() !== 0) edtStart.setDate(edtStart.getDate() + 1);
-    const edtEnd   = new Date(yyyy, 10, 1); while (edtEnd.getDay()   !== 0)   edtEnd.setDate(edtEnd.getDate() + 1);
-    const offset = (base >= edtStart && base < edtEnd) ? '-04:00' : '-05:00';
-
-    const iso = `${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}T${String(hh).padStart(2,'0')}:${String(min).padStart(2,'0')}:00${offset}`;
+    const iso = `${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}T${String(hh).padStart(2,'0')}:${String(min).padStart(2,'0')}:00Z`;
     const ts  = new Date(iso).getTime();
     return isNaN(ts) ? Date.now() : ts;
   } catch { return Date.now(); }
@@ -235,4 +253,7 @@ async function scrapeForexFactory() {
 }
 
 function getCalendarRaw() { return _rawCalEvents; }
-module.exports = { scrapeForexFactory, getCalendarRaw };
+// `parseEventTime` est exporté POUR LE BANC (scripts/calendrier-verif.js). On l'expose plutôt que de
+// le laisser extraire du source : une borne d'extraction est un contrat qu'un simple déplacement
+// casse (leçon du 10/09 sur `tactile-verif`), alors qu'un export suit la fonction où qu'elle aille.
+module.exports = { scrapeForexFactory, getCalendarRaw, parseEventTime };

@@ -1359,6 +1359,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260916-calendrier-heure', ts: Date.UTC(2026, 8, 16, 14, 30), title: 'Calendrier économique : la bonne heure, une seule ligne, le bon chiffre', desc: 'Vous nous avez signalé, capture de ForexFactory à l’appui, trois choses en même temps sur le calendrier : un IPC britannique en double, un chiffre différent du leur sur la seconde ligne, et des rendez vous absents. Ce ne sont pas trois défauts, c’est UN SEUL, et il est réparé. L’HORLOGE DE NOTRE SECONDE SOURCE ÉTAIT MAL LUE. Le calendrier croise deux fournisseurs : l’un donne les NOMS que vous connaissez, l’autre donne les CHIFFRES en temps réel. Le premier publie ses horaires en temps universel, et nous les lisions comme de l’heure de New York. Chaque rendez vous de cette source atterrissait donc QUATRE HEURES TROP TARD l’été, cinq l’hiver. Mesuré sur huit publications réelles, quatre devises, du matin au soir : toutes décalées d’exactement quatre heures. CE QUE CE SEUL DÉCALAGE PROVOQUAIT. Les deux sources se reconnaissent quand elles annoncent le même rendez vous à moins de quatre vingt dix minutes d’écart. À quatre heures, elles ne se reconnaissaient JAMAIS : la ligne arrivait en double au lieu de fusionner. Et n’ayant pas trouvé sa jumelle, elle allait chercher son résultat chez le voisin le plus proche, d’où le 3,4 pour cent affiché à la place du 3,1 pour cent. Le même mécanisme expliquait un niveau d’indice affiché sur une variation mensuelle, ou un pourcentage posé sur une conférence de presse. Enfin, l’heure annoncée était fausse de quatre heures, ce qui suffit à faire rater une publication. CE QUI CHANGE POUR VOUS. Les horaires sont ceux de la publication réelle, chaque rendez vous tient sur une ligne, et les chiffres sont ceux de la source qui les publie. Trente contrôles automatiques rejouent désormais les huit publications mesurées à chaque livraison, dont deux qui remettent l’ancien comportement pour vérifier qu’il échoue bien : un contrôle incapable d’échouer ne prouve rien.' },
+  { id: 'dtpu-20260916-eclairages-rapports', ts: Date.UTC(2026, 8, 16, 14, 45), title: 'Rapports d’institutions : les Éclairages ne sèchent plus sur un rapport affiché', desc: 'Vous nous avez signalé un rapport KBC ouvert normalement, avec juste au dessus le message Éclairages desk indisponibles pour ce rapport. Le desk affichait donc le document dont il disait ne pas pouvoir extraire le texte. LA CAUSE, MESURÉE. Le document que vous lisez et le texte que nous analysons venaient de DEUX CHEMINS DIFFÉRENTS, et un seul était solide. Celui de l’affichage commence par regarder si le rapport est déjà stocké chez nous, puis retente trois fois avec un délai large. Celui de l’analyse repartait vers la banque, un seul essai, délai court, sans jamais regarder le fichier posé juste à côté. Or plusieurs banques refusent les demandes venues d’un serveur : un refus, une coupure passagère ou un rapport un peu lourd suffisait, et le panneau restait muet sous un document parfaitement lisible. Ce défaut ne se voit pas en relisant le code, les deux morceaux sont justes séparément. Il ne se voit qu’en les COMPARANT. CE QUI CHANGE. Les octets d’un rapport ont maintenant une source unique, partagée par qui l’affiche et par qui l’analyse. L’analyse lit d’abord le document déjà stocké, donc sans rien redemander à la banque, et bénéficie des mêmes reprises que l’affichage. ET SI L’EXTRACTION ÉCHOUE QUAND MÊME, un second chemin prend le relais au lieu de renvoyer une page vide : le bouton Réessayer rejouait auparavant le chemin qui venait d’échouer, ce qui ne pouvait produire que le même silence. Seize contrôles automatiques tiennent l’ensemble à chaque livraison, dont un qui prive le code de sa lecture disque pour vérifier que le défaut revient bien.' },
   { id: 'dtpu-20260911-journal-couleurs', ts: Date.UTC(2026, 8, 11, 8, 59), title: 'Journal de trading : des couleurs choisies, et les jours en français', desc: 'Le tableau du journal retrouve ses couleurs, mais choisies cette fois. AVANT, LA TEINTE ÉTAIT TIRÉE AU HASARD du nom de la valeur : Mercredi sortait rose, Londres bleu, sans aucune logique. Deux valeurs proches se retrouvaient aux deux bouts du spectre. Chaque valeur reçoit maintenant une couleur DÉCIDÉE : Continuation et Continuation plus Reversal sont bleues toutes les deux, les mises en place d’atténuation sont violettes, les rejets sont rouges. La couleur devient une information qu’on balaie du regard, au lieu d’un bruit joli. LA PALETTE EST ADAPTÉE AU FOND SOMBRE. Les références sont en thème clair, avec un fond pastel et un texte foncé : recopiées telles quelles sur le noir du desk, elles donneraient des pavés laiteux illisibles. Nous gardons la teinte et le rapport, nous inversons la clarté. Les neuf couleurs ont été mesurées sur le fond réel du desk : la moins contrastée tient dix pour un, très au-dessus du seuil de lisibilité. RÉSULTAT ET DIRECTION NE SUIVENT PAS CES RÉFÉRENCES, et c’est voulu : un gain reste VERT et une perte reste ROUGE, comme partout ailleurs sur le terminal. Une valeur que nous ne connaissons pas reste neutre, plutôt que de recevoir une couleur inventée. ET LES JOURS D’UN JOURNAL IMPORTÉ S’AFFICHENT EN FRANÇAIS. La colonne Jour du modèle DTP était déjà traduite, mais un journal importé apporte ses propres valeurs : Monday, Thursday, London restaient tels quels. Ils s’affichent désormais traduits. La valeur enregistrée, elle, ne change pas : un export vous rend exactement ce que vous aviez importé. Le vocabulaire de trading reste en anglais, parce que le traduire rendrait le journal moins lisible, pas plus.' },
   { id: 'dtpu-20260911-plaque-onglets', ts: Date.UTC(2026, 8, 11, 7, 43), title: 'Mobile : plus de titre coupé sous les onglets d’une carte', desc: 'Vous nous aviez signalé, capture de téléphone à l’appui, un titre coupé en deux juste sous les onglets d’une carte. LA CAUSE, MESURÉE. Dans une carte à onglets, la petite plaque de commandes en haut à droite ne fait pas partie du flux de la page : elle FLOTTE au-dessus du contenu. La barre d’onglets est censée occuper exactement la bande qu’elle survole, et les deux étaient réglées sur la même hauteur à la main. Sauf que la plaque DÉPASSE sa valeur, parce que ses boutons la poussent, pendant que la barre reste pile dessus : trente-trois pixels contre vingt-sept. Les six pixels d’écart débordaient sur ce qui suit, c’est-à-dire sur le titre de la vue affichée dans l’onglet. POURQUOI CELA NE SE VOYAIT QUE SUR TÉLÉPHONE. Sur un grand écran il restait assez de marge pour que le titre passe quand même. Sur un écran étroit cette marge tombait à moins de deux pixels, et la moindre différence de police ou de zone sûre la mangeait. Un défaut qui n’apparaît qu’à une largeur ne se trouve qu’en mesurant à cette largeur. CE QUI CHANGE. La hauteur de la plaque n’est plus écrite à la main en deux endroits qui finissaient par diverger : elle est MESURÉE sur la plaque réelle, et la barre d’onglets s’y accroche. Une icône plus haute un jour, et la réserve suivra toute seule. C’est exactement la mécanique déjà en place pour la largeur de cette même plaque. Cinq contrôles automatiques mesurent désormais les deux largeurs à chaque livraison, dont un qui vérifie qu’en retirant la réserve le défaut revient bien : un contrôle qui ne sait pas échouer ne prouve rien.' },
   { id: 'dtpu-20260910-taux-mesure', ts: Date.UTC(2026, 8, 10, 22, 31), title: 'Onglet TAUX : chaque carte dit désormais QUEL taux elle affiche', desc: 'Une précision qui évite une confusion légitime sur l’onglet TAUX. LA BCE PUBLIE DEUX TAUX LE MÊME JOUR : la facilité de dépôt et le taux de refinancement principal, séparés de quinze centièmes de point depuis la réforme de son corridor en septembre 2024. La carte affiche délibérément la FACILITÉ DE DÉPÔT, parce que c’est le taux directeur effectif que le marché price, et donc celui qui commande les probabilités affichées juste à côté. Mais l’intitulé disait seulement Taux actuel : quelqu’un qui a le refinancement en tête voyait une erreur là où il n’y en avait pas. CHAQUE CARTE NOMME MAINTENANT SA MESURE. La BCE annonce Taux de dépôt, la Fed annonce Fed funds haut de fourchette, puisqu’elle publie une fourchette et non un taux unique. Les autres banques n’en publient qu’un seul : leur intitulé reste inchangé. Six contrôles automatiques tiennent désormais l’ensemble à chaque livraison, y compris la règle serveur qui choisit le dépôt quand les deux chiffres tombent ensemble : nommer la mesure ne servirait à rien si le code cessait de choisir celle-là, le libellé deviendrait un mensonge signé, ce qui serait pire que l’ambiguïté de départ. ET LE SURVOL DIT L’AUTRE CHIFFRE. Les sites grand public titrent le taux de la zone euro sur le refinancement principal, pas sur le dépôt : en comparant, vous verriez deux valeurs différentes sans savoir pourquoi. Le survol de l’intitulé nomme désormais les deux et explique lequel est affiché, et pour quelle raison.' },
@@ -5983,17 +5985,46 @@ function _calHistMerge(items) {
   // entrée future n'apporte rien (l'événement est déjà dans la fenêtre fraîche, correctement vide) et
   // c'est exactement par là que « 53.9 » revenait sur la ligne de 20h. Noter que la ligne d'archive est
   // ÉCARTÉE, pas vidée : la réinjecter sans résultat ne ferait que doubler la ligne déjà présente.
+  /* ⚠️ 16/09 — L'ARCHIVE NE REJOUE PLUS UNE PUBLICATION DÉJÀ À L'ÉCRAN SOUS UN AUTRE NOM.
+     La clé `_calHistKey` porte le TITRE DE LA SOURCE et l'horodatage à la minute. Or le calendrier
+     croise DEUX fournisseurs qui nomment le même indicateur autrement (« Inflation Rate YoY » chez
+     l'un, « CPI y/y » chez l'autre) : deux clés d'archive pour une seule publication. Tant que les
+     deux lignes tombaient à la même heure, `_calFusionFF` les fusionnait avant d'arriver ici et
+     personne ne le voyait. Le jour où l'horloge d'une source a dérivé (cf. parseEventTime dans
+     scrapers/forexfactory.js), la fusion n'a plus reconnu la paire, et l'archive a rejoué SOUS SON
+     NOM DE SOURCE la ligne que la fusion venait justement de retirer : deux « CPI y/y » le même
+     jour, à quatre heures l'un de l'autre. `_calDropHomonyms`, en aval, ne pouvait pas les réunir,
+     sa clé contenant l'horodatage.
+     On ajoute donc une seconde reconnaissance, sur ce que le LECTEUR voit : même devise, même nom
+     AFFICHÉ, même jour. La fenêtre fraîche gagne toujours, c'est elle qui porte les valeurs du
+     fournisseur qui les publie. Les PRISES DE PAROLE en sont exclues, comme dans `_calDropHomonyms`
+     et pour la même raison : plusieurs officiels parlent réellement le même jour sous un libellé
+     générique, et ce sont de vrais événements distincts.
+     CE N'EST PAS LA RÉPARATION DU DÉCALAGE, c'est la ceinture : l'archive garde ses lignes (on ne
+     supprime rien), elle cesse seulement de les remettre à l'écran quand la publication y est déjà.
+     Sans quoi les entrées écrites sous l'ancienne horloge se rejoueraient encore six mois. */
   const now = Date.now();
+  const jourDe = ts => new Date(ts || 0).toISOString().slice(0, 10);
   const publie = new Set();
+  const vus = new Set();
   for (const e of (items || [])) {
-    if (e && e.currency && e.title && e.actual != null && e.actual !== '') publie.add(_calHistKey(e) + '@' + Math.round((e.timestamp || 0) / 60000));
+    if (!e || !e.currency || !e.title || e.actual == null || e.actual === '') continue;
+    publie.add(_calHistKey(e) + '@' + Math.round((e.timestamp || 0) / 60000));
+    if (!_CAL_SPEECH_RX.test(e.title)) { try { vus.add(e.currency + '|' + _ffDisplayTitle(e) + '|' + jourDe(e.timestamp)); } catch {} }
   }
+  const dejaVu = (e, ts) => {
+    if (!e.title || _CAL_SPEECH_RX.test(e.title)) return false;
+    try { return vus.has(e.currency + '|' + _ffDisplayTitle({ ...e, timestamp: ts }) + '|' + jourDe(ts)); } catch { return false; }
+  };
   const out = (items || []).slice();
   for (const e of _calHist.values()) {
     if (!e || !e.currency || !e.title) continue;
-    if (e.actual != null && e.actual !== '' && (e.timestamp || 0) <= now && !publie.has(e._k + '@' + Math.round((e.timestamp || 0) / 60000))) out.push(e);
+    if (e.actual != null && e.actual !== '' && (e.timestamp || 0) <= now
+      && !publie.has(e._k + '@' + Math.round((e.timestamp || 0) / 60000))
+      && !dejaVu(e, e.timestamp || 0)) out.push(e);
     for (const h of (e._h || [])) {
       if (h.a == null || h.a === '' || (h.t || 0) > now || publie.has(e._k + '@' + Math.round((h.t || 0) / 60000))) continue;
+      if (dejaVu(e, h.t || 0)) continue;
       out.push({ currency: e.currency, ctry: e.ctry, title: e.title, impact: e.impact, timestamp: h.t, actual: h.a, forecast: h.f, previous: h.p });
     }
   }
@@ -10327,27 +10358,48 @@ function _brContentAllowed(url) {
 // Caché durablement (Supabase) → 1 seule extraction par URL, jamais de re-spawn.
 const _pdfTextCache = new Map();
 let _pdfSeq = 0;
+/* ⚠️ LE LECTEUR AVAIT LE PDF SOUS LA MAIN, L'EXTRACTEUR LE RETÉLÉCHARGEAIT (16/09, capture user sur
+   « KBC Sunset » : le rapport s'affiche, et juste au-dessus « Éclairages desk indisponibles pour ce
+   rapport »). Le document affiché et le texte analysé venaient de DEUX CHEMINS DIFFÉRENTS, et seul
+   celui de l'affichage était robuste :
+     · `/api/pdf-proxy` lit d'abord `_pdfCacheFile(u)` SUR DISQUE (le PDF que `_pdfWarmDisk` a déjà
+       téléchargé), puis retente 3 fois, 25 s, 30 Mo, et accepte la signature `%PDF-` ;
+     · `_pdfText`, lui, repartait vers la banque : UN seul essai, 12 s, 6 Mo, sans jamais regarder le
+       fichier posé à côté. Un 403 (le CDN de KBC refuse l'adresse du centre de données — le dépôt le
+       sait déjà, c'est pour ça que la LISTE passe par le lecteur jina), un hoquet d'egress ou un PDF
+       de plus de 6 Mo suffisait à rendre '' — et la route `/api/bank-research-content` retombait
+       alors sur une réponse VIDE, sans repli.
+   Le défaut est invisible en relecture : les deux fonctions sont justes séparément. Il n'apparaît
+   qu'en les COMPARANT — le desk affichait le document dont il jurait ne pas pouvoir extraire le
+   texte. La règle qui en sort : les octets d'un rapport ont UNE source, partagée par qui l'affiche
+   et par qui l'analyse. Banc : scripts/eclairages-verif.js. */
+async function _pdfOctets(url) {
+  const cf = _pdfCacheFile(url);
+  try { const st = fs.statSync(cf); if (st && st.size > 1200) { const b = fs.readFileSync(cf); if (b.slice(0, 5).toString('latin1') === '%PDF-') return b; } } catch {}
+  for (let essai = 0; essai < 3; essai++) {
+    try {
+      const r = await axios.get(url, {
+        responseType: 'arraybuffer', timeout: 25000, maxContentLength: 30 * 1024 * 1024, maxRedirects: 3,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/pdf,*/*' },
+        validateStatus: s => s >= 200 && s < 400,
+      });
+      const buf = r.data ? Buffer.from(r.data) : null;
+      if (buf && buf.length > 1200 && buf.slice(0, 5).toString('latin1') === '%PDF-') {
+        if (!_disqueFreinActif()) { try { fs.writeFileSync(cf, buf); } catch {} }   // frein disque ≥95% : on analyse quand même, on saute seulement la mise en cache
+        return buf;
+      }
+    } catch (e) { if (essai === 2) console.warn('[pdftext]', (e && e.message) || e); }
+    if (essai < 2) await new Promise(s => setTimeout(s, 900));
+  }
+  return null;
+}
 async function _pdfText(url) {
   if (!url || typeof url !== 'string') return '';
   if (_pdfTextCache.has(url)) return _pdfTextCache.get(url);
   try { const dur = await auth.aiCacheGet('pdftxt:' + url); if (typeof dur === 'string') { _pdfTextCache.set(url, dur); return dur; } } catch {}
-  let out = '', tmp = '';
-  try {
-    const resp = await axios.get(url, {
-      responseType: 'arraybuffer', timeout: 12000, maxContentLength: 6 * 1024 * 1024,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      validateStatus: s => s >= 200 && s < 400,
-    });
-    tmp = path.join(os.tmpdir(), 'dtp-pdf-' + process.pid + '-' + Date.now() + '-' + (_pdfSeq++) + '.pdf');
-    fs.writeFileSync(tmp, Buffer.from(resp.data));
-    out = await new Promise(resolve => {
-      execFile('pdftotext', ['-layout', '-f', '1', '-l', '3', tmp, '-'],
-        { timeout: 8000, maxBuffer: 4 * 1024 * 1024 },
-        (err, stdout) => resolve(err ? '' : (stdout || '')));
-    });
-    out = String(out).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 5000);
-  } catch (e) { console.warn('[pdftext]', (e && e.message) || e); out = ''; }
-  finally { if (tmp) { try { fs.unlinkSync(tmp); } catch {} } }
+  let out = '';
+  const buf = await _pdfOctets(url);
+  if (buf) out = await _pdfTextFromBuffer(buf);
   if (out && out.length > 80) { _pdfTextCache.set(url, out); auth.aiCacheSet('pdftxt:' + url, out).catch(() => {}); }
   return out;
 }
@@ -10437,6 +10489,16 @@ app.get('/api/bank-research-content', async (req, res) => {
         const _html = _txt.split(/\n{2,}/).map(p => '<p>' + _esc(p.trim()) + '</p>').join('');
         return res.json({ html: _html, source: 'pdftext', pdfUrl: url, renderUrl: '', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
       }
+      /* UNE ADRESSE DE PDF NE SORT PLUS D'ICI LES MAINS VIDES. Quand l'extraction échouait, on
+         tombait dans la suite de la route, qui passe un PDF BINAIRE à cheerio : réponse `html: ''`,
+         zéro éclairage, et le client n'avait qu'un bouton « Réessayer » qui rejouait le MÊME chemin.
+         `_thinInsightsText` est le repli déjà écrit pour les pages maigres — il rejoue le PDF natif,
+         puis le rendu serveur, puis le LECTEUR jina, celui-là même que la liste emploie pour KBC
+         parce que son CDN refuse l'adresse du VPS. Il n'y avait aucune raison de le réserver aux
+         pages HTML : le besoin est le même, et la source du silence était justement ce chemin-là. */
+      const _repli = await _thinInsightsText(url, '', _brPrintMap.get(url));   // pdfUrl vidé : `_pdfText` vient d'échouer sur CETTE adresse, le rejouer ne ferait que redemander trois fois la même chose
+      if (_repli) return res.json({ html: '', insightsText: _repli, source: 'pdftext-repli', pdfUrl: url, renderUrl: '', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
+      return res.json({ html: '', insightsText: '', source: 'pdftext-vide', pdfUrl: url, renderUrl: '', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
     }
   }
   if (!_brContentAllowed(url)) return res.json({ html: '' });
