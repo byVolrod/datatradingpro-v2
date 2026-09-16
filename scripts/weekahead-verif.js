@@ -97,7 +97,10 @@ const jeudi = [
 ];
 const tj = W.titreJour(jeudi, 'jeudi');
 console.log('  titre  : ' + tj);
-verif('décision BCE → titre unique, non dilué', tj === 'BCE', tj);
+/* « BCE » devient « BCE taux » (16/09) : le titre nomme la RÉUNION, pas l'institution. Ce que ce
+   contrôle prouve ne change pas d'un iota — une décision de taux tient le titre SEULE, sans être
+   diluée par un second thème — seule l'orthographe attendue suit la nouvelle règle. */
+verif('décision BCE → titre unique, non dilué', tj === 'BCE taux', tj);
 
 console.log('\n── 7c. DEUX décisions de taux le même jour : les deux têtes d\'affiche parlent ──');
 /* 30/08, capture user (semaine du 31/08) : le mercredi 2 septembre portait la décision de la BoC ET
@@ -114,16 +117,21 @@ const dCB = W.descriptionJour(mercrediCB, 'mercredi');
 console.log('  titre  : ' + tCB);
 console.log('  desc   : ' + dCB);
 verif('le titre nomme LES DEUX banques', /RBNZ/.test(tCB) && /BoC/.test(tCB), tCB);
-verif('… dans l\'ordre de la journée (RBNZ à 04h, BoC à 15h45)', tCB === 'RBNZ + BoC', tCB);
+verif('… dans l\'ordre de la journée (RBNZ à 04h, BoC à 15h45)', tCB === 'RBNZ taux + BoC taux', tCB);
 verif('la description annonce les deux décisions', /Décision de la RBNZ/.test(dCB) && /Décision de la BoC/.test(dCB), dCB);
 verif('… chacune avec ses chiffres', /2\.75%/.test(dCB) && /2\.25%/.test(dCB), dCB);
 verif('… en UNE clause courte par tête (l\'heure devant chaque décision)', /\d{2}h\d{2}, Décision de la RBNZ/.test(dCB) && /\d{2}h\d{2}, Décision de la BoC/.test(dCB), dCB);
-verif('UN seul enjeu, pas un pavé par décision', (dCB.match(/L'essentiel n'est pas le taux annoncé/g) || []).length === 1, dCB);
+/* ⚠️ LE MOTIF CHERCHÉ A CHANGÉ AVEC LA PHRASE. L'ancienne clause était servie mot pour mot trois
+   jours de suite quand la semaine portait trois décisions : elle est réécrite, plus courte et
+   NOMMÉE (la banque apparaît dedans), donc les trois jours se lisent différemment. Ce que le
+   contrôle prouve est intact : une journée à deux décisions porte UN enjeu, pas un pavé par
+   décision. On compte donc la nouvelle amorce, qui est invariante d'une banque à l'autre. */
+verif('UN seul enjeu, pas un pavé par décision', (dCB.match(/Le taux annoncé est déjà connu du marché/g) || []).length === 1, dCB);
 verif('le reste du programme est listé en noms nus (pas de glose : court)', /Également au programme : /.test(dCB) && /ISM Services/.test(dCB), dCB);
 verif('la description multi-têtes reste COURTE (la demande : « simplifier et raccourcir »)', dCB.length < 520, String(dCB.length));
 // Mutation : un jour à UNE seule décision garde le comportement d'avant, au mot près.
 const tSolo = W.titreJour(jeudi, 'jeudi');
-verif('un jour à UNE décision garde son titre unique (rien ne bouge pour lui)', tSolo === 'BCE', tSolo);
+verif('un jour à UNE décision garde son titre unique (rien ne bouge pour lui)', tSolo === 'BCE taux', tSolo);
 
 console.log('\n── 7b. VOCABULAIRE FOREXFACTORY (notre calendrier sert ses noms, pas ceux du flux) ──');
 // La Semaine à Venir lit desormais « notre calendrier », c est-a-dire des lignes RENOMMEES en
@@ -179,6 +187,48 @@ verif('l\'agrégat de la zone euro reste sans mention de pays',
 console.log('\n── 7e. TITRES = LES TERMES DU CALENDRIER, courts (demande user 25/08) ──');
 // « Moral des entreprises allemandes » ne dit rien à un lecteur de calendrier : il cherche « Ifo ».
 // Le titre SITUE avec le terme du calendrier, la description EXPLIQUE en français.
+/* ══ LE TITRE NOMME LA RÉUNION, LA GLOSE NOMME LA BANQUE (16/09) ══════════════════════
+   Demande utilisateur, capture à l'appui : « améliore les titres pour que ce soit plus parlant, par
+   exemple aujourd'hui on a le FOMC mais c'est indiqué Fed uniquement », et « les descriptions aussi,
+   plus simples à comprendre ». La capture montrait trois jours de décision à la suite dont les
+   descriptions étaient IDENTIQUES mot pour mot, et des titres qui ne disaient pas ce qui se passe. */
+console.log('\n── 7z. Le titre dit la réunion, la description nomme la banque ──');
+{
+  const ev = (c, t) => ({ currency: c, ctry: 'XX', title: t });
+  verif('la décision de la Fed titre FOMC', W.sigleEv(ev('USD', 'Federal Funds Rate')) === 'FOMC', W.sigleEv(ev('USD', 'Federal Funds Rate')));
+  verif('… et plus « Fed » tout court, qui ne dit pas ce qui se passe', W.sigleEv(ev('USD', 'Federal Funds Rate')) !== 'Fed');
+  for (const [c, t, att] of [['USD', 'FOMC Meeting Minutes', 'FOMC Minutes'], ['USD', 'FOMC Press Conference', 'FOMC Conf.'], ['USD', 'FOMC Economic Projections', 'FOMC Projections']])
+    verif('… et tout ce qui gravite autour suit (' + att + ')', W.sigleEv(ev(c, t)) === att, W.sigleEv(ev(c, t)));
+  /* ⚠️ ON N'INVENTE PAS UN SIGLE PAR BANQUE. « Le FOMC » se dit ; « le MPC » hors du Royaume-Uni et
+     « le Conseil des gouverneurs » pour la BCE, non. Une table qui en fabriquerait un par banque
+     serait plus régulière et moins juste : elle apprendrait au lecteur des noms que personne
+     n'emploie. Les autres prennent donc « <Banque> taux », qui dit l'événement sans jargon inventé. */
+  for (const [c, t, att] of [['GBP', 'Official Bank Rate', 'BoE taux'], ['JPY', 'BOJ Policy Rate', 'BoJ taux'], ['EUR', 'Main Refinancing Rate', 'BCE taux'], ['CAD', 'Overnight Rate', 'BoC taux']])
+    verif('les autres banques disent l\'événement sans jargon inventé (' + att + ')', W.sigleEv(ev(c, t)) === att, W.sigleEv(ev(c, t)));
+
+  // La glose nomme la banque, avec son article, et trois banques donnent trois phrases distinctes.
+  const g = c => W.gloseEv(ev(c, 'Federal Funds Rate'));
+  verif('la glose nomme la banque, pas « la banque centrale »', /la Fed annonce son taux/.test(g('USD')), g('USD'));
+  verif('… et trois banques donnent trois gloses différentes', new Set([g('USD'), g('GBP'), g('JPY')]).size === 3, [g('USD'), g('GBP'), g('JPY')].join(' | '));
+  /* ⚠️ LE CONTRÔLE LE PLUS IMPORTANT DE CE BLOC. La glose porte un marqueur « {banque} » remplacé à
+     la résolution. La variante qui ne reçoit QUE le titre n'a pas la devise : si elle rendait le
+     marqueur tel quel, l'écran afficherait « {banque} annonce son taux directeur », et personne ne
+     le verrait avant un client. Aucun autre banc ne regarde cette variante. */
+  verif('aucun marqueur « {banque} » ne fuit à l\'écran, même sans devise',
+    !/\{banque\}/.test(W.gloseFr('Federal Funds Rate')) && /la banque centrale/.test(W.gloseFr('Federal Funds Rate')), W.gloseFr('Federal Funds Rate'));
+  verif('… ni dans aucune glose résolue avec devise', !/\{banque\}/.test([g('USD'), g('GBP'), W.gloseEv(ev('EUR', 'Monetary Policy Statement'))].join(' ')));
+
+  // L'enjeu : phrases courtes, banque nommée AVEC son article, et trois jours qui se lisent différemment.
+  const e = (b, d) => W.enjeuFr({ lbl: 'Décision de la ' + b }, d);
+  verif('l\'enjeu nomme la banque avec son article (« la Fed », pas « Fed »)', /Si la Fed laisse entendre/.test(e('Fed', 'USD')), e('Fed', 'USD'));
+  verif('… trois décisions dans la semaine = trois textes distincts', new Set([e('Fed', 'USD'), e('BoE', 'GBP'), e('BoJ', 'JPY')]).size === 3);
+  /* « Plus simple à comprendre » se mesure : l'ancienne clause ouvrait sur une négation suivie de
+     deux subordonnées, trente-deux mots avant le verbe utile. On borne la plus longue phrase. */
+  const phrases = e('Fed', 'USD').split(/(?<=[.:;])\s+/).map(x => x.trim().split(/\s+/).length);
+  verif('… et aucune phrase ne dépasse 25 mots', Math.max(...phrases) <= 25, 'la plus longue : ' + Math.max(...phrases) + ' mots');
+  verif('… l\'ancienne formulation a bien disparu', !/L'essentiel n'est pas le taux annoncé/.test(e('Fed', 'USD')));
+}
+
 const SG = [
   [{ currency: 'USD', ctry: 'US', title: 'Core PCE Price Index m/m' }, 'Core PCE USD'],
   [{ currency: 'USD', ctry: 'US', title: 'CPI m/m' }, 'CPI USD'],
@@ -186,9 +236,17 @@ const SG = [
   [{ currency: 'USD', ctry: 'US', title: 'Prelim GDP q/q' }, 'GDP USD'],
   [{ currency: 'USD', ctry: 'US', title: 'Non-Farm Employment Change' }, 'NFP'],
   [{ currency: 'USD', ctry: 'US', title: 'Non Farm Payrolls Annual Revision Prel' }, 'NFP (rév.)'],
-  [{ currency: 'USD', ctry: 'US', title: 'Federal Funds Rate' }, 'Fed'],
-  [{ currency: 'GBP', ctry: 'GB', title: 'Official Bank Rate' }, 'BoE'],
-  [{ currency: 'JPY', ctry: 'JP', title: 'BOJ Policy Rate' }, 'BoJ'],
+  /* ⚠️ CES TROIS ATTENTES ONT CHANGÉ LE 16/09, sur demande utilisateur : « aujourd'hui on a le
+     FOMC mais c'est indiqué Fed uniquement ». Un titre « Fed » ne distingue pas un jour de
+     décision d'un jour de discours ou de minutes : il nomme l'institution, pas la réunion. Le
+     nouveau titre nomme l'ÉVÉNEMENT — FOMC pour la Fed, « <Banque> taux » pour les comités sans
+     sigle d'usage courant. La règle v29 (« le titre est le sigle du calendrier ») n'est pas
+     défaite : elle veut un titre qui SITUE en un coup d'œil, et « FOMC » situe mieux que « Fed ».
+     Ce banc épinglait donc l'ancienne attente, et c'est normal qu'il ait rougi : une attente qui
+     ne bouge pas quand la règle bouge finit par interdire ce que l'utilisateur demande. */
+  [{ currency: 'USD', ctry: 'US', title: 'Federal Funds Rate' }, 'FOMC'],
+  [{ currency: 'GBP', ctry: 'GB', title: 'Official Bank Rate' }, 'BoE taux'],
+  [{ currency: 'JPY', ctry: 'JP', title: 'BOJ Policy Rate' }, 'BoJ taux'],
   [{ currency: 'AUD', ctry: 'AU', title: 'RBA Meeting Minutes' }, 'RBA Minutes'],
   [{ currency: 'EUR', ctry: 'DE', title: 'German Ifo Business Climate' }, 'Ifo'],
   [{ currency: 'EUR', ctry: 'FR', title: 'French Prelim CPI m/m' }, 'CPI FR'],

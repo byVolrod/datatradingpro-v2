@@ -64,6 +64,12 @@ const PAYS_COURT = {
   PT: 'Portugal', GR: 'Grèce', IE: 'Irlande', BE: 'Belgique', AT: 'Autriche', FI: 'Finlande',
 };
 const BANQUE = { USD: 'Fed', EUR: 'BCE', GBP: 'BoE', JPY: 'BoJ', AUD: 'RBA', NZD: 'RBNZ', CAD: 'BoC', CHF: 'BNS', CNY: 'PBoC', CNH: 'PBoC' };
+/* LE COMITÉ QUI DÉCIDE, quand son sigle est d'usage courant chez les traders. Seul le FOMC l'est
+   vraiment : on dit « le FOMC », jamais « le Conseil des gouverneurs » pour la BCE ni « le MPC »
+   hors du Royaume-Uni. Une table qui inventerait un sigle par banque serait plus régulière et moins
+   juste : elle apprendrait au lecteur des noms que personne n'emploie. Les autres banques prennent
+   donc « <Banque> taux », qui dit l'événement sans prétendre à un jargon qui n'existe pas. */
+const COMITE = { USD: 'FOMC' };
 
 /* RÉVISIONS ET SECONDES ESTIMATIONS. Une « Annual Revision », un « Benchmark », une « 2nd Est » ne
    sont PAS la publication d'origine : ils corrigent un chiffre que le marché a déjà digéré. Les
@@ -95,8 +101,13 @@ const GLOSES = [
   [/\bg7\b|\bg20\b|\bsummit\b|sommet/i, "un sommet de chefs d'État : commerce, sanctions et énergie s'y décident"],
   [/\bopec\b|\bopep\b|\bjmmc\b/i, "l'OPEP fixe les quotas de production : c'est le prix du baril qui s'y joue"],
   [/bank holiday/i, "marché fermé : les volumes sont réduits, et de petits ordres suffisent à exagérer les mouvements"],
-  [/monetary policy (?:report|statement|summary)/i, "le rapport dans lequel la banque centrale expose sa feuille de route"],
-  [/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/i, "la banque centrale annonce son taux directeur"],
+  [/monetary policy (?:report|statement|summary)/i, "le rapport dans lequel {banque} expose sa feuille de route"],
+  /* ⚠️ « {banque} » EST REMPLACÉ PAR LE VRAI NOM À LA RÉSOLUTION (16/09). Trois jours de suite, trois
+     banques différentes, et la carte disait « la banque centrale » à chaque fois : le lecteur ne
+     pouvait pas distinguer le mercredi de la Fed du jeudi de la BoE sans ouvrir. Nommer la banque
+     coûte trois caractères et supprime l'ambiguïté. La substitution se fait dans `_placeBanque`,
+     qui retombe sur « la banque centrale » quand la devise est inconnue : on ne devine jamais. */
+  [/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/i, "{banque} annonce son taux directeur"],
   [/non[-\s]?farm|nonfarm|\bnfp\b/i, "les créations d'emplois du mois aux États-Unis, le chiffre le plus suivi du dollar"],
   [/core pce/i, "l'inflation que la Fed regarde en priorité"],
   [/\bpce\b/i, "la mesure d'inflation privilégiée par la Fed"],
@@ -148,10 +159,20 @@ function titresDe(e) {
 /* Entre les deux noms, on garde la glose la PLUS SPÉCIFIQUE (GLOSES est ordonné du plus précis au
    plus général) : « Fed Chair Powell Speaks » donne « un discours de banquier central », son nom
    d'origine donne « le rendez-vous annuel des banquiers centraux » — c'est celle-là qui informe. */
+/* Le marqueur « {banque} » des gloses devient le nom réel (Fed, BCE, BoE…). Sans devise connue on
+   retombe sur « la banque centrale » : on écrit ce qu'on sait, jamais ce qu'on suppose. Et l'article
+   suit le nom — « la Fed », « la BCE », mais « la BoE » aussi : toutes ces institutions sont des
+   banques, le féminin vaut partout ici, ce qui évite une table d'articles pour rien. */
+function _placeBanque(txt, e) {
+  const s = String(txt == null ? '' : txt);
+  if (s.indexOf('{banque}') < 0) return s;
+  const b = BANQUE[String((e && e.currency) || '').toUpperCase()];
+  return s.split('{banque}').join(b ? 'la ' + b : 'la banque centrale');
+}
 function gloseEv(e) {
   const a = _gloseRang(e && e.title), b = _gloseRang(e && e._tvTitle);
-  if (a[0] && b[0]) return a[1] <= b[1] ? a[0] : b[0];
-  return a[0] || b[0] || '';
+  const out = (a[0] && b[0]) ? (a[1] <= b[1] ? a[0] : b[0]) : (a[0] || b[0] || '');
+  return _placeBanque(out, e);
 }
 function _gloseRang(titre) {
   const t = String(titre || '');
@@ -172,7 +193,10 @@ function gloseFr(titre) {
     if (/non[-\s]?farm|nonfarm|\bnfp\b/i.test(t)) return "une correction annuelle des créations d'emplois DÉJÀ publiées, pas le rapport mensuel";
     return "une correction de chiffres déjà publiés";
   }
-  for (const [rx, g] of GLOSES) if (rx.test(t)) return g;
+  /* ⚠️ CETTE VARIANTE NE REÇOIT QUE LE TITRE, donc pas la devise : elle ne peut pas nommer la
+     banque. Rendre le marqueur tel quel afficherait « {banque} annonce son taux » à l'écran, et
+     personne ne le verrait avant un client. On retombe donc sur la formule générique. */
+  for (const [rx, g] of GLOSES) if (rx.test(t)) return _placeBanque(g, null);
   return '';
 }
 
@@ -294,10 +318,21 @@ function sigleEv(e) {
   // Banques centrales : le nom de la banque porte déjà le pays et se lit plus vite que « Federal Funds Rate ».
   const b = BANQUE[c];
   if (!sigle && b) {
-    if (/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/i.test(t)) { sigle = b; propre = true; }
-    else if (/meeting minutes|monetary policy meeting accounts/i.test(t)) { sigle = b + ' Minutes'; propre = true; }
-    else if (/press conference|conf[ée]rence de presse/i.test(t)) { sigle = b + ' Conf.'; propre = true; }
-    else if (/economic projections|dot plot|staff projections/i.test(t)) { sigle = b + ' Projections'; propre = true; }
+    /* ⚠️ LE TITRE DIT CE QUI SE PASSE, PAS SEULEMENT QUI (16/09, capture utilisateur : « aujourd'hui
+       on a le FOMC mais c'est indiqué Fed uniquement »). Une carte qui titre « Fed » un jour de
+       décision, « Fed » un jour de discours et « Fed » un jour de minutes ne distingue rien : le
+       lecteur doit ouvrir pour savoir ce qui l'attend. Un jour de décision porte donc le nom que le
+       marché emploie réellement — FOMC pour la Fed — et, pour les banques dont le comité n'a pas de
+       sigle courant, le mot qui dit l'événement : « BoE taux », « BoJ taux ».
+       ⚠️ LA RÈGLE v29 N'EST PAS DÉFAITE, elle est servie : elle veut un titre qui SITUE en un coup
+       d'œil et se retrouve dans le calendrier. « FOMC » se retrouve mieux que « Fed », qui désigne
+       l'institution et non la réunion. On ajoute de la précision, on ne revient pas au français
+       thématique que l'utilisateur avait refusé le 25/08. */
+    const comite = COMITE[c] || null;                       // FOMC pour l'USD ; null ailleurs
+    if (/rate decision|interest rate decision|rate statement|cash rate|\bocr\b|bank rate|refinancing rate|deposit facility|federal funds rate|policy rate|overnight rate|loan prime rate|fomc statement|monetary policy statement|rate announcement/i.test(t)) { sigle = comite || (b + ' taux'); propre = true; }
+    else if (/meeting minutes|monetary policy meeting accounts/i.test(t)) { sigle = (comite || b) + ' Minutes'; propre = true; }
+    else if (/press conference|conf[ée]rence de presse/i.test(t)) { sigle = (comite || b) + ' Conf.'; propre = true; }
+    else if (/economic projections|dot plot|staff projections/i.test(t)) { sigle = (comite || b) + ' Projections'; propre = true; }
   }
   if (!sigle && /\bpowell\b/i.test(t)) { sigle = 'Powell'; propre = true; }
   if (!sigle && /\blagarde\b/i.test(t)) { sigle = 'Lagarde'; propre = true; }
@@ -570,7 +605,20 @@ function enjeuFr(theme, dev) {
   const l = (theme && theme.lbl) || '';
   const d = dev || 'la devise';
   if (/^Jackson Hole|^Symposium/.test(l)) return `C'est le rendez-vous où les banques centrales annoncent la couleur pour les mois qui viennent : une phrase sur le rythme des baisses de taux suffit à faire bouger ${d} et les marchés actions.`;
-  if (/^Décision de la /.test(l)) return `L'essentiel n'est pas le taux annoncé, qui est déjà anticipé, mais le communiqué : s'il laisse entendre que d'autres mouvements suivront, ${d} réagit tout de suite.`;
+  /* ⚠️ TROIS JOURS DE SUITE, LE MÊME PARAGRAPHE MOT POUR MOT (16/09, capture utilisateur). Une
+     semaine à trois décisions de taux — Fed mercredi, BoE jeudi, BoJ vendredi — servait la même
+     phrase trois fois : le lecteur apprend à la sauter dès le deuxième jour, et il a raison. Et
+     elle était lourde : une négation, deux subordonnées, trente-deux mots avant le verbe utile.
+     Réécrite en phrases courtes, à la voix active, et NOMMÉE : la banque apparaît dans le texte,
+     donc les trois jours se lisent différemment sans qu'on ait à inventer trois explications. */
+  if (/^Décision de la /.test(l)) {
+    /* ⚠️ ON GARDE L'ARTICLE. Retirer « Décision de la » en entier rendait « Si Fed laisse entendre »,
+       qui n'est pas du français. On ne coupe donc qu'à « Décision de » : « la Fed », « la BoE »
+       arrivent avec leur déterminant. Faute introduite et vue à la relecture de la SORTIE, pas du
+       code : les deux lignes étaient justes séparément. */
+    const bq = l.replace(/^Décision de\s+/, '').trim() || 'la banque centrale';
+    return `Le taux annoncé est déjà connu du marché : ce n'est pas lui qui fait bouger les cours. Ce qui compte, c'est la suite. Si ${bq} laisse entendre qu'elle n'a pas fini, ${d} monte ; si elle ouvre la porte à une baisse, ${d} recule.`;
+  }
   if (/^Conférence de presse de la /.test(l)) return `La décision est déjà connue à ce moment-là : c'est la conférence qui la commente, et c'est souvent elle qui fait bouger ${d}, pas le taux lui-même.`;
   if (/^Projections de la /.test(l)) return `Les projections chiffrent ce que le comité envisage pour les mois à venir : un seul cran déplacé, et le marché révise toute sa trajectoire de taux.`;
   if (/^Réunion de l'OPEP/.test(l)) return `L'OPEP décide combien de barils arrivent sur le marché : le prix du pétrole qui en sort se retrouve dans l'inflation quelques semaines plus tard.`;
