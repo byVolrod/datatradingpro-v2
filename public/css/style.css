@@ -22798,7 +22798,31 @@ html[data-theme="light"] .wdg-seawrap .season-td--na { background: repeating-lin
   .topbar-symbol-search:focus-within {
     position: fixed;
     left: 10px; right: 10px;
-    top: calc((var(--topbar-h, 54px) - 36px) / 2);
+    /* ⚠️ UNE CORRECTION EN AVAIT ANNULÉ UNE AUTRE (12/09, capture user : le champ déplié à cheval
+       sous la barre d'état d'un iPhone à encoche, son haut tranché).
+       Le bloc « RECHERCHE DE SYMBOLE SUR MOBILE » plus haut dans cette feuille avait DÉJÀ réparé
+       exactement ce défaut, et son commentaire le décrit mot pour mot : « sur un iPhone récent, le
+       champ déplié se posait à 58 % de hauteur, à cheval sous la barre d'état. On recentre sur la
+       bande de CONTENU. » Ce bloc-ci, écrit le 31/08 et donc VAINQUEUR de la cascade, l'a remplacé
+       par un positionnement `fixed` qui repart du haut de l'ÉCRAN — et a rouvert le défaut sans
+       que personne ne relise la règle qu'il écrasait.
+       LE CALCUL, EXPLICITEMENT : `--topbar-h` CONTIENT le retrait d'encoche (cf. le bloc
+       `@supports (padding-top: env(safe-area-inset-top))`), et la topbar pose ce même retrait en
+       `padding-top`. Sa rangée d'icônes commence donc à `inset`, pas à 0. Centrer 36 px dans
+       `--topbar-h` depuis le haut de l'écran plaçait la barre DANS l'encoche : avec un retrait de
+       59 px, top valait 33 px pour une rangée qui commence à 59. On repart donc de `inset`, et on
+       ne centre que dans la bande de CONTENU (`--topbar-h - inset`).
+       Hors iOS, `env` vaut 0 et l'expression retombe AU PIXEL sur l'ancienne : aucun effet ailleurs,
+       ce qui est la condition pour corriger une plateforme sans en toucher une autre. */
+    top: calc(env(safe-area-inset-top, 0px) + (var(--topbar-h, 54px) - env(safe-area-inset-top, 0px) - 36px) / 2);
+    /* ⚠️ ET IL FAUT ANNULER LE `transform` DE LA RÈGLE ÉCRASÉE, sans quoi les deux se composent.
+       Le bloc précédent centrait par `top: 50%` + `translateY(-50%)` ; celui-ci calcule un `top`
+       ABSOLU et n'a donc rien à recentrer. Mais il ne redéclarait pas `transform`, qui survivait de
+       l'autre règle et remontait le champ d'une demi-hauteur : MESURÉ à 430 px SANS AUCUNE ENCOCHE,
+       le haut du champ tombait à -13,5 px, c'est-à-dire déjà hors de l'écran. Écraser une règle,
+       c'est reprendre TOUTES les propriétés qu'elle posait — celles qu'on oublie ne disparaissent
+       pas, elles se combinent en silence avec le nouveau calcul. */
+    transform: none;
     height: 36px;
     width: auto; max-width: none;
     z-index: 300;                                 /* au-dessus du contenu de la topbar (z-100) */
