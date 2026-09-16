@@ -256,12 +256,20 @@ setTimeout(() => {
   v('la convergence n\'envoie plus de compte hérité SANS son id',
     SRC_CONV2 && !/const \{ id, \.\.\.rest \} = pick\(r\); return rest;/.test(SRC_CONV2),
     'un upsert sans id viole NOT NULL avant même d\'atteindre la branche ON CONFLICT');
+  /* ⚠️ CES TROIS CONTRÔLES ÉPINGLAIENT UNE ORTHOGRAPHE (réécrits le 16/09). Ils cherchaient
+     `.update(maj)`, `data.length` et `insert(manquants)` mot pour mot. Le jour où ces écritures sont
+     passées par l'enveloppe tolérante aux colonnes absentes, les trois ont rougi sur du code sain,
+     alors que les PROPRIÉTÉS qu'ils défendent n'avaient pas bougé d'un pouce. C'est le piège déjà
+     payé ici avec une borne d'extraction le 10/09 : un banc qui épingle la forme finit par interdire
+     une correction juste. On épingle donc ce qui compte — mise à jour PAR EMAIL, confirmation ligne
+     à ligne, création des seuls absents — sans imposer comment c'est écrit. */
   v('les comptes hérités passent par un UPDATE par email, pas par un upsert',
-    SRC_CONV2 && /_upLegacy/.test(SRC_CONV2) && /\.update\(maj\)\.eq\('email', r\.email\)/.test(SRC_CONV2),
+    SRC_CONV2 && /_upLegacy/.test(SRC_CONV2) && /\.update\([^)]*\)\.eq\('email', r\.email\)/.test(SRC_CONV2),
     'l\'UPDATE ne construit aucune ligne, donc aucune contrainte sur id — et l\'id distant est préservé');
   v('… et l\'écriture est CONFIRMÉE ligne par ligne (0 ligne ≠ succès)',
-    SRC_CONV2 && /\.select\('email'\)/.test(SRC_CONV2) && /!Array\.isArray\(data\) \|\| !data\.length/.test(SRC_CONV2));
-  v('… les emails absents sont INSÉRÉS, avec leur id', SRC_CONV2 && /from\(TABLE\)\.insert\(manquants\)/.test(SRC_CONV2));
+    SRC_CONV2 && /\.select\('email'\)/.test(SRC_CONV2) && /!Array\.isArray\((?:data|vues)\) \|\| !(?:data|vues)\.length/.test(SRC_CONV2));
+  v('… les emails absents sont INSÉRÉS, avec leur id',
+    SRC_CONV2 && /manquants\.push\(r\)/.test(SRC_CONV2) && /insert\((?:manquants|c)\)/.test(SRC_CONV2));
   v('un miroir sans compte complet LÈVE la quarantaine au lieu de la figer',
     SRC_CONV2 && /rien à propager \(miroir sans compte complet\)/.test(SRC_CONV2),
     'sortir sans lever aurait rendu la quarantaine éternelle : plus AUCUNE lecture de comptes en base');
@@ -296,5 +304,68 @@ console.log('\n── 7. Un compte SANS empreinte au miroir converge quand même
 
 console.log('\n──────────────────────────────────────────────────────────────────────');
   if (ko) { console.log(`❌ bases-verif : ${ko} échec(s) sur ${ok + ko}.`); process.exit(1); }
-  console.log(`✅ bases-verif : ${ok} contrôle(s) au vert.`);
+  /* ══ UNE BASE NE PEUT PLUS RESTER « RESYNCHRO… » POUR TOUJOURS (16/09) ══════════════════
+
+   SIGNALÉ : trois bases sur quatre bloquées en « RESYNCHRO… », joignables, alors que le panneau
+   promet une levée en moins de 20 minutes. LA CHAÎNE : la quarantaine ne se lève qu'après une
+   propagation RÉUSSIE ; une erreur de SCHÉMA rend « échec » sans marquer la base indisponible (c'est
+   voulu : elle répond) ; la convergence rejoue donc le même échec toutes les 20 minutes, sans fin et
+   sans trace. Ce n'est pas une base en retard, c'est une base que le desk ne sait pas écrire.
+   DEUX INCOMPATIBILITÉS, une seule était traitée : une colonne absente (le code ne savait retirer
+   qu'`expires_at`, en dur) et un upsert `onConflict` sans contrainte unique (42P10), qui n'avait
+   AUCUN repli. On éprouve ici les deux, sur le VRAI code extrait d'auth.js. */
+console.log('\n── La resynchronisation ne peut plus se bloquer sur un écart de schéma ──');
+{
+  const SRC_A = AUTH;
+  const D = new Function(
+    (/function _colonneAbsente\(err\) \{[\s\S]*?\n\}/.exec(SRC_A) || [''])[0] + '\n'
+    + (/function _conflitImpossible\(err\) \{[\s\S]*?\n\}/.exec(SRC_A) || [''])[0]
+    + '\nreturn { _colonneAbsente, _conflitImpossible };')();
+
+  /* LES FORMES RÉELLES DES MESSAGES. PostgREST et Postgres n'écrivent pas la même phrase selon la
+     version et le chemin : une seule forme reconnue et la réparation ne part jamais. */
+  for (const [msg, att] of [
+    ['column "plan" of relation "users" does not exist', 'plan'],
+    ['column users.expires_at does not exist', 'expires_at'],
+    ["Could not find the 'plancad' column of 'users' in the schema cache", 'plancad'],
+    ['duplicate key value violates unique constraint', null],
+  ]) v('colonne absente reconnue : ' + (att || '(aucune)'), D._colonneAbsente({ message: msg }) === att, String(D._colonneAbsente({ message: msg })));
+  v('un upsert sans contrainte unique est reconnu (42P10)',
+    D._conflitImpossible({ message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification', code: '42P10' }));
+  v('… et ne se confond pas avec une violation de clé (qui, elle, est normale)',
+    !D._conflitImpossible({ message: 'duplicate key value violates unique constraint "users_pkey"' }));
+
+  /* ⚠️ TROIS COLONNES NE SE RETIRENT JAMAIS. Sans `email` on ne sait plus de qui on parle ; sans
+     `id` un INSERT perd son identité ; sans `password_hash` on créerait un compte sans mot de passe.
+     Retirer sans limite « pour que ça passe » ferait réussir une écriture qui n'écrit plus rien
+     d'utile : le faux vert, dans sa forme la plus coûteuse pour des comptes clients. */
+  const SRC_CONV3 = (/async function _usersConverge[\s\S]*?\n\}/.exec(SRC_A) || [''])[0];
+  v('les colonnes intouchables sont déclarées', /_COL_INTOUCHABLES = new Set\(\['email', 'id', 'password_hash'\]\)/.test(SRC_A));
+  v('… et l\'enveloppe refuse de les retirer', /!_COL_INTOUCHABLES\.has\(col\)/.test(SRC_CONV3));
+  v('le retrait de colonne est BORNÉ (au-delà, c\'est une autre table, et on le dit)', /i < 6/.test(SRC_CONV3) && /sch\\u00e9ma incompatible|schéma incompatible/.test(SRC_CONV3));
+  v('le retrait en dur d\'`expires_at` a disparu au profit de la règle générale',
+    !/\/expires_at\/\.test\(error\.message/.test(SRC_CONV3));
+  v('un upsert impossible se replie sur la mise à jour par email', /_conflitImpossible\(r\.error\)/.test(SRC_CONV3) && /return _upLegacy\(node, rows\)/.test(SRC_CONV3));
+
+  /* ⚠️ ZÉRO OPÉRATION DESTRUCTIVE. La consigne est explicite et la propriété se vérifie : la
+     convergence ne doit contenir NI suppression, NI vidage, NI réinitialisation. Elle n'écrit que
+     par UPDATE et INSERT, et la source reste le MIROIR — pas une base, et surtout pas une base
+     revenue d'absence, ce qui est le geste qui a détruit un abonnement payé le 02/09. */
+  v('⚠️ la convergence ne SUPPRIME rien', !/\.delete\(\)/.test(SRC_CONV3), 'un delete est apparu dans la convergence');
+  v('⚠️ … ne vide ni ne réinitialise aucune table', !/truncate|drop\s+table/i.test(SRC_CONV3));
+  v('⚠️ … et propage le MIROIR, jamais une base vers les autres', /_usersMirror\.values\(\)/.test(SRC_CONV3));
+
+  /* La cause d'un blocage atteint enfin un écran : sans cela on la diagnostique par hypothèses,
+     ce qui a coûté des jours ce matin même sur le rapport provisoire. */
+  v('la raison d\'une quarantaine est enregistrée', /node\.quarRaison = /.test(SRC_CONV3));
+  v('… effacée dès que la base repasse au vert', /node\.quarRaison = '';/.test(SRC_CONV3));
+  v('… et remontée jusqu\'au panneau', /quarRaison: n\.quarRaison \|\| ''/.test(SRC_A));
+
+  /* ── TÉMOINS ── Sans eux, tout ce bloc serait vert en ne mesurant rien. */
+  v('(témoin) une colonne inconnue du message n\'est pas inventée', D._colonneAbsente({ message: 'permission denied for table users' }) === null);
+  v('(témoin) une erreur vide ne rend pas de colonne', D._colonneAbsente(null) === null && D._colonneAbsente({}) === null);
+  v('(témoin) un message sans conflit ne déclenche pas le repli', !D._conflitImpossible({ message: 'timeout' }));
+}
+
+console.log(`✅ bases-verif : ${ok} contrôle(s) au vert.`);
 }, 200);

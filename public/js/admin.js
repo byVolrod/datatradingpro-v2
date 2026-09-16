@@ -1998,7 +1998,14 @@
          que la convergence l ait resynchronisée (cf. la quarantaine de lecture dans auth.js). La
          sonde, elle, ne teste que la joignabilité — elle dirait « OK ✓ » pendant ce temps, et on
          croirait l incident clos alors que le rattrapage court encore. On l affiche donc. */
-      const rows = DB.nodes.map(n => `<div class="aim-kv"><span title="${_esc2(n.host)}">${_esc2(n.name)}</span><b style="color:${n.quarLect ? '#ffb300' : col(n.state)}">${n.quarLect ? 'RESYNCHRO…' : lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.ms} ms</span></b></div>`).join('');
+      /* ⚠️ « RESYNCHRO… » SANS CAUSE EST UNE IMPASSE (16/09). Trois bases sont restées bloquées
+         dans cet état, joignables, sous une étiquette qui promet une levée en moins de 20 minutes.
+         L'échec d'écriture qui les y maintenait était avalé sans trace : la convergence le rejouait
+         toutes les 20 minutes et personne ne pouvait savoir pourquoi. La cause s'affiche donc sous
+         la ligne, en clair. Un état dégradé muet se diagnostique par hypothèses, et on y passe des
+         jours — le rapport provisoire de ce matin l'a coûté deux fois. */
+      const rows = DB.nodes.map(n => `<div class="aim-kv"><span title="${_esc2(n.host)}">${_esc2(n.name)}</span><b style="color:${n.quarLect ? '#ffb300' : col(n.state)}">${n.quarLect ? 'RESYNCHRO…' : lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.ms} ms</span></b></div>`
+        + (n.quarLect && n.quarRaison ? `<div class="aim-kpi-s" style="margin:-3px 0 7px;color:#ffb300;line-height:1.45">↳ ${_esc2(String(n.quarRaison).slice(0, 150))}</div>` : '')).join('');
       const KA = DB.keepalive;   // anti-pause free-tier : WRITE sur chaque base /12 h (ingress → marche même en 402)
       const kaLine = (KA && KA.last) ? `<div class="aim-kv"><span>Keep-alive</span><b style="color:${KA.ok >= DB.count ? '#22c55e' : '#ffb300'}">${KA.ok}/${DB.count} <span style="color:#6b7280;font-weight:400">il y a ${(() => { const m = Math.round((Date.now() - KA.last) / 60000); return m < 1 ? '<1 min' : m < 60 ? m + ' min' : Math.round(m / 60) + ' h'; })()}</span></b></div>` : '';
       /* SYNCHRO WHOP — elle tournait toutes les 10 min sans qu'aucun écran ne la montre (03/09).

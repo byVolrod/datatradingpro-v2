@@ -443,6 +443,53 @@ function _supaDown(err) { return !!err && !_isNoRows(err); }
 // texte/entier comme « 1 ») : le nœud n'est PAS en panne — il sert parfaitement ai_cache/weekly. On saute juste
 // CE nœud pour CETTE requête, SANS le marquer indisponible 10 min (sinon on priverait le round-robin d'un
 // secondaire sain → surcharge de la primaire). Le repli miroir (verifyLogin/getUserById) reste, lui, déclenché.
+/* ══ POURQUOI UNE BASE RESTAIT « RESYNCHRO… » POUR TOUJOURS (16/09) ═══════════════════
+
+   SIGNALÉ : trois bases sur quatre bloquées en « RESYNCHRO… », joignables, alors que le panneau
+   promet une « levée automatique en moins de 20 minutes ».
+
+   LA CHAÎNE, lue de bout en bout. La quarantaine de lecture ne se lève QU'à un seul endroit :
+   `_usersConverge`, et seulement si les deux écritures de propagation ont réussi (`a && b`). Or
+   quand l'écriture échoue pour une raison de SCHÉMA, le code rend `false` SANS marquer le nœud
+   indisponible — volontairement, puisqu'une base joignable ne doit pas être déclarée en panne.
+   Conséquence non voulue : la convergence rejoue exactement le même échec toutes les 20 minutes,
+   la quarantaine ne se lève jamais, et la promesse du panneau devient fausse. Ce n'est pas une
+   base « en retard » : c'est une base que le desk ne sait pas écrire.
+
+   ET PERSONNE NE POUVAIT LE SAVOIR : l'erreur était avalée sans trace. Même maladie que le rapport
+   provisoire de ce matin — un état dégradé qui ne dit pas sa cause se diagnostique par hypothèses.
+
+   DEUX INCOMPATIBILITÉS CONNUES, et une seule était traitée :
+     1. UNE COLONNE ABSENTE sur un nœud. Le code ne savait retirer QUE `expires_at`, en dur. Toute
+        autre divergence (`plan`, `role`, `active`… selon l'âge du projet) bloquait définitivement.
+     2. UPSERT `onConflict: 'id'` SANS CONTRAINTE UNIQUE sur la colonne. Postgres répond alors
+        « no unique or exclusion constraint matching » (42P10) : l'écriture est impossible sous
+        cette forme, quelle que soit la charge. Aucun repli n'existait.
+
+   ⚠️ CE QU'ON NE FAIT PAS, ET POURQUOI. On ne SUPPRIME rien, on ne vide rien, on ne réinitialise
+   rien : la réparation n'emploie que des UPDATE et des INSERT. Et on ne pousse PAS la base primaire
+   vers les autres — c'est précisément le geste qui a détruit un abonnement payé le 02/09, quand
+   une primaire revenue d'une pause a propagé ses lignes de juin. La source reste le MIROIR, qui est
+   le superset à jour par construction, et dont `_mirrorPut` refuse déjà tout raccourcissement
+   d'échéance. Zéro perte de données est une propriété de cette direction-là, pas d'une précaution. */
+function _colonneAbsente(err) {
+  const m = String((err && err.message) || '');
+  const r = /column\s+"?([\w.]+)"?\s+(?:of relation\s+"?[\w.]+"?\s+)?does not exist/i.exec(m)
+         || /could not find the '([\w.]+)' column/i.exec(m)
+         || /'([\w.]+)' column of '[\w.]+' in the schema cache/i.exec(m);
+  return r ? String(r[1]).split('.').pop() : null;
+}
+function _conflitImpossible(err) {
+  const m = String(((err && err.message) || '') + ' ' + ((err && err.code) || ''));
+  return /no unique or exclusion constraint|42P10/i.test(m);
+}
+/* ⚠️ TROIS COLONNES NE SE RETIRENT JAMAIS. Sans `email` on ne sait plus DE QUI on parle ; sans
+   `id` un INSERT perd son identité ; sans `password_hash` un INSERT viole une colonne NOT NULL ou,
+   pire, crée un compte sans mot de passe. Si l'une d'elles manque sur un nœud, ce n'est pas une
+   divergence à contourner, c'est une incompatibilité à SIGNALER. Retirer sans limite « pour que ça
+   passe » serait la pire réponse possible : l'écriture réussirait en n'écrivant plus rien d'utile. */
+const _COL_INTOUCHABLES = new Set(['email', 'id', 'password_hash']);
+
 function _isSchemaErr(err) {
   const m = ((err && (err.message || '')) + ' ' + ((err && err.code) || '')).toLowerCase();
   return /invalid input syntax|type uuid|does not exist|undefined column|schema cache|cannot cast|out of range|22p02|42703|42p01/.test(m);
@@ -784,12 +831,45 @@ async function _usersConverge(reason = '') {
       _dbNodes.forEach(n => { if (n.quarLect) { n.quarLect = false; console.log(`[Auth] ${n.name} : rien à propager (miroir sans compte complet) → quarantaine levée`); } });
       return;
     }
+    /* ÉCRITURE TOLÉRANTE AUX DIVERGENCES DE SCHÉMA (16/09). L'ancienne version ne savait retirer
+       QUE `expires_at`, en dur : toute autre colonne absente d'un nœud bloquait sa resynchronisation
+       POUR TOUJOURS, puisqu'une erreur de schéma ne marque pas la base indisponible et que la
+       convergence rejouait donc le même échec toutes les 20 minutes. On retire la colonne que la
+       base NOMME, et on recommence. Borné à six passes : au-delà ce n'est plus une divergence, c'est
+       une autre table, et il faut le dire plutôt que d'user la charge jusqu'à ce qu'elle passe. */
+    const _sansCol = (rows, col) => rows.map(r => { const c = Object.assign({}, r); delete c[col]; return c; });
+    const _ecrire = async (node, rows, faire) => {
+      let charge = rows; const retires = [];
+      for (let i = 0; i < 6; i++) {
+        const { error } = await faire(charge);
+        if (!error) {
+          if (retires.length) console.warn(`[Auth] ${node.name} : colonne(s) absente(s) de cette base, écrites sans elles : ${retires.join(', ')}`);
+          return { ok: true };
+        }
+        const col = _colonneAbsente(error);
+        /* ⚠️ Une colonne INTOUCHABLE manquante n'est pas à contourner : sans email on ne sait plus de
+           qui on parle, sans empreinte on créerait un compte sans mot de passe. On s'arrête et on dit. */
+        if (col && !_COL_INTOUCHABLES.has(col) && !retires.includes(col)) { retires.push(col); charge = _sansCol(charge, col); continue; }
+        return { ok: false, error };
+      }
+      return { ok: false, error: new Error('trop de colonnes absentes : schéma incompatible') };
+    };
     const _up = async (node, rows, conflict) => {
       if (!rows.length) return true;
-      let { error } = await node.client.from(TABLE).upsert(rows, { onConflict: conflict });
-      if (error && /expires_at/.test(error.message || '')) { ({ error } = await node.client.from(TABLE).upsert(rows.map(({ expires_at, ...x }) => x), { onConflict: conflict })); }   // colonne absente sur ce nœud → sans expires_at
-      if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); return false; }
-      return true;
+      const r = await _ecrire(node, rows, c => node.client.from(TABLE).upsert(c, { onConflict: conflict }));
+      if (r.ok) return true;
+      /* ⚠️ UPSERT SANS CONTRAINTE UNIQUE : Postgres refuse un `onConflict` sur une colonne qui n'a ni
+         clé primaire ni index unique (42P10). L'écriture est alors impossible SOUS CETTE FORME, quelle
+         que soit la charge — aucune retenue de colonne n'y changera rien, et la base restait donc
+         quarantainée à vie. Le repli fait le même travail sans contrainte : mise à jour par email,
+         puis création de ce qu'aucune ligne ne portait. Toujours zéro suppression. */
+      if (_conflitImpossible(r.error)) {
+        console.warn(`[Auth] ${node.name} : pas de contrainte unique sur « ${conflict} » → repli par email (aucune suppression).`);
+        return _upLegacy(node, rows);
+      }
+      if (_supaDown(r.error) && !_isSchemaErr(r.error)) _markDown(node, r.error);
+      node.quarRaison = String((r.error && r.error.message) || r.error || '').slice(0, 180);
+      return false;
     };
     /* Comptes à id hérité : UPDATE par email, puis INSERT de ceux qu'aucune ligne ne portait.
        L'update ne touche jamais `id` — la ligne distante garde le sien, uuid ou entier. `.select('email')`
@@ -804,13 +884,13 @@ async function _usersConverge(reason = '') {
       let orphelins = 0;
       for (const r of rows) {
         const { id, ...maj } = r;
-        let { data, error } = await node.client.from(TABLE).update(maj).eq('email', r.email).select('email');
-        if (error && /expires_at/.test(error.message || '')) {
-          const { expires_at, ...m2 } = maj;
-          ({ data, error } = await node.client.from(TABLE).update(m2).eq('email', r.email).select('email'));
-        }
-        if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); return false; }
-        if (!Array.isArray(data) || !data.length) orphelins++;
+        let vues = null;
+        const rr = await _ecrire(node, [maj], async c => {
+          const { data, error } = await node.client.from(TABLE).update(c[0]).eq('email', r.email).select('email');
+          vues = data; return { error };
+        });
+        if (!rr.ok) { if (_supaDown(rr.error) && !_isSchemaErr(rr.error)) _markDown(node, rr.error); return false; }
+        if (!Array.isArray(vues) || !vues.length) orphelins++;
       }
       if (orphelins) console.warn(`[Auth] ${node.name} : ${orphelins} compte(s) sans empreinte absent(s) de cette base — création impossible sans mot de passe.`);
       return true;
@@ -820,18 +900,20 @@ async function _usersConverge(reason = '') {
       const manquants = [];
       for (const r of rows) {
         const { id, ...maj } = r;
-        let { data, error } = await node.client.from(TABLE).update(maj).eq('email', r.email).select('email');
-        if (error && /expires_at/.test(error.message || '')) {
-          const { expires_at, ...m2 } = maj;
-          ({ data, error } = await node.client.from(TABLE).update(m2).eq('email', r.email).select('email'));
-        }
-        if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); return false; }
-        if (!Array.isArray(data) || !data.length) manquants.push(r);   // aucune ligne à cet email → à créer, avec son id
+        /* MÊME TOLÉRANCE QU'AILLEURS : le retrait en dur d'`expires_at` ne couvrait qu'UNE divergence.
+           `.select('email')` reste indispensable : sans lui, une mise à jour partie sur zéro ligne
+           passerait pour un succès, et le compte ne serait jamais créé. */
+        let vues = null;
+        const rr = await _ecrire(node, [maj], async c => {
+          const { data, error } = await node.client.from(TABLE).update(c[0]).eq('email', r.email).select('email');
+          vues = data; return { error };
+        });
+        if (!rr.ok) { if (_supaDown(rr.error) && !_isSchemaErr(rr.error)) _markDown(node, rr.error); node.quarRaison = String((rr.error && rr.error.message) || '').slice(0, 180); return false; }
+        if (!Array.isArray(vues) || !vues.length) manquants.push(r);   // aucune ligne à cet email → à créer, avec son id
       }
       if (!manquants.length) return true;
-      let { error } = await node.client.from(TABLE).insert(manquants);
-      if (error && /expires_at/.test(error.message || '')) { ({ error } = await node.client.from(TABLE).insert(manquants.map(({ expires_at, ...x }) => x))); }
-      if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); return false; }
+      const ri = await _ecrire(node, manquants, c => node.client.from(TABLE).insert(c));
+      if (!ri.ok) { if (_supaDown(ri.error) && !_isSchemaErr(ri.error)) _markDown(node, ri.error); node.quarRaison = String((ri.error && ri.error.message) || '').slice(0, 180); return false; }
       return true;
     };
     let okNodes = 0, leves = 0;
@@ -849,6 +931,7 @@ async function _usersConverge(reason = '') {
              TOUS les comptes complets du miroir : sa table `users` n'est plus en retard, il peut
              donc reprendre les lectures. Lever la quarantaine ailleurs — au retour du keep-alive,
              par exemple — rouvrirait précisément la fenêtre que cette garde ferme. */
+          node.quarRaison = '';                                   // réussite : la cause précédente n'a plus lieu d'être affichée
           if (node.quarLect) { node.quarLect = false; leves++; console.log(`[Auth] ${node.name} resynchronisée (${all.length} compte(s)) → quarantaine de lecture LEVÉE`); }
         }
       }
@@ -1591,7 +1674,11 @@ async function _dbHealthProbe() {
        tout en etant ecartee des lectures de `users` parce qu elle est en retard — c est meme l etat
        normal des premieres minutes apres son retour. Sans ce champ, le panneau afficherait « OK » et
        laisserait croire que tout est rentre dans l ordre alors que la resynchronisation court encore. */
-    return { name: n.name, host, state, status, ms: Date.now() - t0, downUntil: n.downUntil > Date.now() ? n.downUntil : 0, quarLect: !!n.quarLect, err };
+    /* ⚠️ LA RAISON DE LA QUARANTAINE REMONTE AUSSI (16/09). Trois bases sont restées bloquées en
+       « RESYNCHRO… » sans que rien, nulle part, ne dise pourquoi : l'échec d'écriture était avalé et
+       la convergence le rejouait toutes les 20 minutes. Un état dégradé muet se diagnostique par
+       hypothèses, et on y passe des jours — c'est la leçon du rapport provisoire de ce matin. */
+    return { name: n.name, host, state, status, ms: Date.now() - t0, downUntil: n.downUntil > Date.now() ? n.downUntil : 0, quarLect: !!n.quarLect, quarRaison: n.quarRaison || '', err };
   }));
   const data = { count: nodes.length, okCount: nodes.filter(n => n.state === 'ok').length, nodes, keepalive: { last: _kaLast, ok: _kaOk } };
   _dbHealthCache = { at: Date.now(), data };
