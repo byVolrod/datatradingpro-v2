@@ -203,6 +203,61 @@ if (bash) {
 }
 
 
+/* ══ COMBIEN CHAQUE BOUTON PEUT RENDRE (16/09) ═════════════════════════════════
+   Demande utilisateur : « précise le nombre d'espace qu'on peut nettoyer manuellement ». Le panneau
+   disait « le gain sera faible » : une phrase là où il faut un chiffre.
+   Le conteneur n'a AUCUNE socket Docker : c'est la sentinelle qui mesure et dépose son relevé sur
+   le volume partagé. Deux moitiés, donc, et les deux s'éprouvent : le relevé est bien produit, et
+   le serveur sait le lire quelle que soit la façon dont Docker écrit ses tailles. */
+console.log('\n── L\'espace récupérable, annoncé avant le clic ──');
+{
+  const SRVJ = lire('server.js');
+  const _P0 = new Function(/function _octetsDepuisDocker\(txt\) \{[\s\S]*?\n\}/.exec(SRVJ)[0] + '\nreturn _octetsDepuisDocker;')();
+  /* ⚠️ UN ANALYSEUR CASSÉ JETTE, IL NE REND PAS UN MAUVAIS CHIFFRE. Mesuré en remettant le défaut :
+     une expression qui ne capture plus l'unité fait planter le banc sur `m[2].toUpperCase()`, pile
+     de trace à l'appui. Le garde-fou marchait, mais il disait « TypeError » là où il doit dire
+     QUELLE écriture de Docker n'est plus comprise. On enveloppe donc : une exception devient un
+     rouge nommé, comme n'importe quel autre écart. */
+  const P = (t) => { try { return _P0(t); } catch (e) { return 'l\'analyseur a jet\u00e9 : ' + e.message; } };
+  /* LES SIX ÉCRITURES DE DOCKER. Elles changent d'une version à l'autre et d'un poste à l'autre ;
+     un analyseur qui n'en connaîtrait qu'une rendrait 0 en silence, et le panneau annoncerait
+     « rien à libérer » sur un disque plein. C'est le défaut le plus coûteux possible ici. */
+  v('« 2.5GB » est lu', P('2.5GB') === Math.round(2.5 * 1073741824), String(P('2.5GB')));
+  v('« 1.5 GB » (avec espace) aussi', P('1.5 GB') === Math.round(1.5 * 1073741824));
+  v('« 970.4MB (75%) » aussi, suffixe compris', P('970.4MB (75%)') === Math.round(970.4 * 1048576));
+  v('« 4.2GiB » aussi', P('4.2GiB') === Math.round(4.2 * 1073741824));
+  v('« 1,5 GB » (virgule décimale) aussi', P('1,5 GB') === Math.round(1.5 * 1073741824));
+  v('« 0B » vaut zéro', P('0B') === 0);
+  /* ⚠️ ET CE QU'ON NE COMPREND PAS REND 0, JAMAIS NaN : un NaN contaminerait la somme entière et
+     le bouton afficherait « NaN Go », ce qu'aucun banc de calcul n'aurait vu venir. */
+  for (const t of ['', null, undefined, 'n/a', 'inconnu'])
+    v('une valeur illisible (' + JSON.stringify(t) + ') rend 0, pas NaN', P(t) === 0, String(P(t)));
+
+  v('le serveur calcule l\'espace récupérable', /function _disqueRecuperable\(\)/.test(SRVJ));
+  /* ⚠️ « JE NE SAIS PAS » N'EST PAS « IL N'Y A RIEN ». Sans relevé de la sentinelle, les postes de
+     l'hôte valent null et le bouton ne porte AUCUN montant. Annoncer 0 Go serait plus court, et
+     faux — et c'est exactement le genre de raccourci qui fait croire à un bouton en panne. */
+  v('… et distingue « inconnu » de « zéro »', /hote = null;/.test(SRVJ) && /complet: !!hote/.test(SRVJ));
+  v('… le relevé est daté (un chiffre d\'il y a une heure n\'est pas un chiffre)', /releveTs: hote \? hote\.ts : null/.test(SRVJ));
+  v('la sentinelle produit bien ce relevé', /docker system df --format '\{\{\.Type\}\}\|\{\{\.Reclaimable\}\}'/.test(SH));
+  v('… sur le volume PARTAGÉ avec le conteneur', /disque_recuperable\.txt/.test(SH) && /PARTAGE_DIR/.test(SH));
+  v('… et il y porte l\'état du ballast', /ballast=\$\(\[ -f "\$BALLAST" \]/.test(SH));
+  /* Écriture ATOMIQUE : le conteneur lit ce fichier à chaque ouverture du panneau. Sans le passage
+     par un temporaire, il tomberait un jour sur un fichier à moitié écrit et afficherait un total
+     amputé, une fois sur cent, sans jamais lever d'erreur. */
+  v('… écrit de façon atomique (temporaire puis renommage)', /disque_recuperable\.txt\.tmp/.test(SH) && /mv "\$PARTAGE_DIR\/disque_recuperable\.txt\.tmp"/.test(SH));
+
+  const ADMJ = lire('public/js/admin.js');
+  v('les deux boutons portent leur montant', /chiffre\(R && R\.surGo\)/.test(ADMJ) && /chiffre\(R && R\.forceGo\)/.test(ADMJ));
+  v('… et rien n\'est affiché tant que la mesure manque', /v == null \|\| v <= 0\.05\) \? ''/.test(ADMJ));
+  /* ⚠️ LE RÉARMEMENT DU BOUTON « FORCER » RÉÉCRIVAIT SON LIBELLÉ EN DUR. Depuis qu'il porte un
+     chiffre, cela l'EFFACERAIT — et seulement après un clic suivi de quatre secondes, donc dans un
+     cas qu'aucune relecture ne croise. Défaut introduit ET refermé le même jour. */
+  v('le libellé survit au réarmement du forçage', !/textContent = 'Forcer';/.test(ADMJ) && /dataset\.libelle/.test(ADMJ));
+  /* La description tenait en six lignes et se terminait par une phrase à la place d'un chiffre. */
+  v('la description est raccourcie', !/l\'exécute sous 15 min\. <b>Forcer<\/b> ajoute ce que la sentinelle/.test(ADMJ));
+}
+
 /* ══ LIBÉRER LE DISQUE DEPUIS LE PANNEAU ADMIN — ON JOUE LA DEMANDE (11/09) ══════════════════════
    Demande utilisateur : des boutons pour libérer la place, au besoin en forçant.
    ⚠️ LE DESK NE PEUT PAS PURGER DOCKER : aucune socket n'est montée dans le conteneur (vérifié

@@ -2075,7 +2075,7 @@
        veut pouvoir faire de la place : une mesure qui échoue n'est pas une raison de retirer les
        commandes, c'en est une de les garder sous la main. */
     if (!D || D.pct == null) {
-      el.innerHTML = '<div class="aim-j-empty">première mesure en cours (30 s après le démarrage)…</div>' + _aimDisqueActions();
+      el.innerHTML = '<div class="aim-j-empty">première mesure en cours (30 s après le démarrage)…</div>' + _aimDisqueActions(D);
       _aimBrancherDisque();
       return;
     }
@@ -2104,19 +2104,42 @@
          mécanisme même censé nous sauver : on annonce donc ce qui est fait ET ce qui est demandé.
          ⚠️ PAS DE `confirm()` : la charte du desk interdit les fenêtres natives. Le forçage
          demande une seconde frappe sur le même bouton, qui se réarme tout seul après 4 s. */
-      + _aimDisqueActions();
+      + _aimDisqueActions(D);
     _aimBrancherDisque();
   }
   /* Un seul HTML pour les deux chemins (avec et sans mesure) : deux copies divergeraient au
      premier changement de libellé, et c'est celle qu'on regarde le moins qui se périmerait. */
-  function _aimDisqueActions() {
+  /* ══ CHAQUE BOUTON ANNONCE CE QU'IL REND (16/09, demande utilisateur : « raccourcis la description
+     et précise le nombre d'espace qu'on peut nettoyer manuellement ») ══════════════════════
+     Le pavé précédent faisait six lignes et se terminait par « le gain sera faible » : une phrase
+     là où il faut un chiffre, et qui obligeait à cliquer pour savoir. Le détail des commandes
+     n'apprenait rien à personne : ce qu'on veut savoir avant de cliquer, c'est COMBIEN.
+     ⚠️ ET ON N'ÉCRIT PAS « 0 Go » QUAND ON N'A PAS REGARDÉ. Tant que la sentinelle n'a pas déposé
+     son relevé, le chiffre de l'hôte est inconnu, pas nul : le bouton ne porte alors aucun montant
+     et la ligne du dessous dit pourquoi. Annoncer zéro serait plus court, et faux. */
+  function _aimDisqueActions(D) {
+    const R = (D && D.recuperable) || null;
+    const go = n => Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+    const chiffre = v => (v == null || v <= 0.05) ? '' : ' \u00b7 ~' + go(v) + ' Go';
+    const age = (() => {
+      if (!R || !R.releveTs) return '';
+      const m = Math.round((Date.now() - R.releveTs) / 60000);
+      return m < 1 ? 'mesur\u00e9 \u00e0 l\'instant' : 'mesur\u00e9 il y a ' + m + ' min';
+    })();
+    const pied = !R ? 'Mesure en cours.'
+      : !R.complet ? 'Caches du desk uniquement : la sentinelle n\'a pas encore d\u00e9pos\u00e9 sa mesure du serveur, le total sera plus \u00e9lev\u00e9.'
+      : (R.surGo != null && R.surGo <= 0.05 && R.forceGo != null && R.forceGo <= 0.05)
+        ? 'Rien \u00e0 lib\u00e9rer pour l\'instant : le disque est d\u00e9j\u00e0 propre (' + age + ').'
+        : 'Ce qui reste \u00e0 rendre, ' + age + '. Le d\u00e9tail s\'ex\u00e9cute sous 15 min.';
     return '<div class="aim-disk-act">'
-      + '<button class="aim-btn" data-disk="sur">Libérer la place</button>'
-      + '<button class="aim-btn aim-btn--warn" data-disk="agressif">Forcer</button>'
+      + '<button class="aim-btn" data-disk="sur">Lib\u00e9rer la place' + chiffre(R && R.surGo) + '</button>'
+      + '<button class="aim-btn aim-btn--warn" data-disk="agressif">Forcer' + chiffre(R && R.forceGo) + '</button>'
       + '<span class="aim-disk-msg" id="aim-disk-msg"></span>'
       + '</div>'
-      + '<div class="aim-kpi-s" style="margin-top:6px;line-height:1.5">Le desk supprime ses propres caches tout de suite ; le ménage du serveur (conteneurs arrêtés, images, cache de construction, journaux) est demandé à la sentinelle, qui l\'exécute sous 15 min. <b>Forcer</b> ajoute ce que la sentinelle ne fait d\'elle-même qu\'à 98% : libération du ballast d\'1 Go, purge des images hors fenêtre de rétention et vidage du cache des PDF. Le premier rapport ouvert ensuite sera plus lent, et un retour arrière demandera une reconstruction.<br><span style="color:#6b7280">Ce qui se libère dépend de ce qu\'il y a à libérer : après un ou deux déploiements récents, les images ont déjà été retirées et le gain sera faible.</span></div>';
+      + '<div class="aim-kpi-s" style="margin-top:6px;line-height:1.5">Caches du desk, puis images et cache de construction c\u00f4t\u00e9 serveur. <b>Forcer</b> ajoute le ballast d\'1 Go et les PDF : premier rapport plus lent, retour arri\u00e8re \u00e0 reconstruire.'
+      + '<br><span style="color:#6b7280">' + pied + '</span></div>';
   }
+
   /* Un seul branchement, délégué sur le conteneur : le bloc est réécrit à chaque rafraîchissement,
      donc un écouteur posé sur les boutons eux-mêmes disparaîtrait au passage suivant. */
   let _aimDiskArme = '';
@@ -2136,9 +2159,14 @@
          partir sur un clic distrait trois minutes plus tard. */
       if (mode === 'agressif' && _aimDiskArme !== 'agressif') {
         _aimDiskArme = 'agressif';
+        /* ⚠️ LE LIBELLÉ D'ORIGINE EST MÉMORISÉ, PAS RÉÉCRIT EN DUR (16/09). Depuis que le bouton
+           porte le nombre de gigaoctets récupérables, une remise à « Forcer » en dur EFFACERAIT ce
+           chiffre — et seulement après un clic suivi de quatre secondes, donc dans un cas qu'aucune
+           relecture ne croise. On range l'original sur l'élément et on le restaure. */
+        b.dataset.libelle = b.dataset.libelle || b.textContent;
         b.textContent = 'Confirmer le forçage';
         clearTimeout(_aimDiskT);
-        _aimDiskT = setTimeout(() => { _aimDiskArme = ''; const x = document.querySelector('[data-disk="agressif"]'); if (x) x.textContent = 'Forcer'; }, 4000);
+        _aimDiskT = setTimeout(() => { _aimDiskArme = ''; const x = document.querySelector('[data-disk="agressif"]'); if (x) x.textContent = x.dataset.libelle || 'Forcer'; }, 4000);
         dire('Vide aussi le cache des PDF et les images hors rétention. Cliquez à nouveau pour confirmer.', '#ffb300');
         return;
       }
@@ -2165,7 +2193,7 @@
         dire('Échec : ' + (e && e.message ? e.message : 'erreur inconnue'), '#ef4444');
       } finally {
         const x = document.querySelector('[data-disk="' + mode + '"]');
-        if (x) { x.disabled = false; if (mode === 'agressif') x.textContent = 'Forcer'; }
+        if (x) { x.disabled = false; if (mode === 'agressif') x.textContent = x.dataset.libelle || 'Forcer'; }
       }
     });
   }

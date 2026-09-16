@@ -273,6 +273,26 @@ awk -v l=$((NOW - 30*86400)) '$1 >= l' "$HISTORIQUE" > "$HISTORIQUE.tmp" 2>/dev/
 # Battement de la sentinelle (en ms, pour coïncider avec Date.now() de l'app), sur le volume partagé.
 [ -d "$PARTAGE_DIR" ] && date +%s%3N > "$HB_SENT" 2>/dev/null
 
+# ── CE QUE LE MENAGE PEUT ENCORE RENDRE (16/09, demande utilisateur : « precise le nombre d'espace
+#    qu'on peut nettoyer manuellement ») ──────────────────────────────────────────────
+#    Le panneau annonçait au mieux « le gain sera faible » : une phrase, là où il faut un chiffre.
+#    ⚠️ LE CONTENEUR NE PEUT PAS LE MESURER LUI-MEME : il n'a AUCUNE socket Docker (verifie dans
+#    docker-compose.yml), c'est d'ailleurs la raison d'etre de tout ce mecanisme de demande. C'est
+#    donc la sentinelle qui mesure, a chaque passage, et depose le resultat sur le volume partage.
+#    Le shell ne fait que RELEVER : il ecrit les lignes brutes de `docker system df` telles quelles.
+#    La conversion en octets se fait cote Node, ou un vrai analyseur peut traiter les unites et les
+#    formats qui changent d'une version de Docker a l'autre. Un parseur d'unites ecrit en shell
+#    serait faux le jour ou Docker ecrit « 1.5GB » au lieu de « 1.5 GB », et se tairait en le faisant.
+#    Best-effort integral : aucune de ces lignes ne doit faire echouer un passage de surveillance.
+if [ -d "$PARTAGE_DIR" ]; then
+  {
+    echo "ts=$(date +%s%3N)"
+    echo "ballast=$([ -f "$BALLAST" ] && echo "$BALLAST_MO" || echo 0)"
+    docker system df --format '{{.Type}}|{{.Reclaimable}}' 2>/dev/null | sed 's/^/df|/'
+  } > "$PARTAGE_DIR/disque_recuperable.txt.tmp" 2>/dev/null \
+    && mv "$PARTAGE_DIR/disque_recuperable.txt.tmp" "$PARTAGE_DIR/disque_recuperable.txt" 2>/dev/null
+fi
+
 H_COURT=$(_projection_courte_h "$PCT")
 J_LONG=$(_projection_jours "$PCT")
 _decider "$PCT" "$LIBRE_GO" "$H_COURT" "$J_LONG"
