@@ -23099,6 +23099,52 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
 .wr-chiffre-att { color: var(--text3, #6b7280); font-size: .95em; }
 .wr-chiffre b { font-variant-numeric: tabular-nums; }
 
+/* ══ LE TABLEAU DU JOURNAL DÉFILE, MAIS RIEN NE LE DISAIT (16/09, demande user : « ajoute un
+   scroller pour scroller vers la droite et voir les autres colonnes ») ═══════════════════════════
+   ⚠️ LE DÉFILEMENT EXISTAIT DÉJÀ : `.jr-grid-wrap` porte `overflow: auto` depuis toujours, et la
+   capture montre bien un tableau tronqué, pas figé. Ce qui manquait n'est donc pas la mécanique,
+   c'est l'AFFORDANCE — rien à l'écran n'annonçait qu'il y avait une suite à droite. Deux causes
+   cumulées, l'une et l'autre invisibles en relecture de code :
+     · la barre globale du desk fait 8 px avec un pouce sombre sur fond sombre : à l'horizontale,
+       sous un tableau dense, elle se confond avec la bordure de la dernière ligne ;
+     · en mode « overlay » (macOS, et Windows 11 par défaut), une barre `auto` n'est PEINTE QUE
+       PENDANT le défilement. Elle ne peut donc pas servir d'indice : elle n'apparaît qu'une fois
+       qu'on a deviné qu'elle existait.
+   ⚠️ `overflow-x: scroll` ET NON `auto`, c'est le cœur du correctif : `scroll` RÉSERVE la piste et
+   la peint en permanence, y compris en mode overlay. C'est ce qui transforme une barre qu'il faut
+   deviner en un contrôle qu'on voit. La verticale reste en `auto` : réserver une piste verticale
+   volerait de la largeur à un tableau qui en manque déjà.
+   Le fondu de bord reprend EXACTEMENT la grammaire de la rangée d'onglets (`.wdgt-bar::before/
+   ::after`, avec ses classes `au-debut` / `au-bout`) : un dégradé vers la couleur de fond dit « ça
+   continue », et il s'efface quand on est au bout. Deux façons différentes de dire la même chose
+   dans un même produit, c'est la duplication que ce dépôt paie déjà ailleurs. */
+.jr-grid-wrap { overflow-x: scroll; overflow-y: auto; }
+/* Piste visible et pouce contrasté, RÉSERVÉS à ce conteneur : la barre globale reste discrète
+   partout ailleurs, où elle n'a pas à se faire remarquer. */
+.jr-grid-wrap::-webkit-scrollbar { height: 11px; width: 8px; }
+.jr-grid-wrap::-webkit-scrollbar-track {
+  background: var(--bg2, #101014); border-top: 1px solid var(--hud-line, var(--border));
+}
+.jr-grid-wrap::-webkit-scrollbar-thumb {
+  background: rgba(227, 178, 58, .38); border-radius: 6px;
+  border: 2px solid transparent; background-clip: padding-box;
+}
+.jr-grid-wrap::-webkit-scrollbar-thumb:hover { background: rgba(227, 178, 58, .72); background-clip: padding-box; }
+/* Firefox n'expose pas les pseudo-éléments : on lui donne la même intention avec ses deux
+   propriétés standard, sinon la correction ne vaudrait que pour un moteur sur deux. */
+.jr-grid-wrap { scrollbar-width: thin; scrollbar-color: rgba(227, 178, 58, .45) var(--bg2, #101014); }
+
+/* Le fondu : posé sur l'ENVELOPPE, pas sur la boîte qui défile — un pseudo-élément à l'intérieur
+   d'un conteneur scrollé se déplacerait avec le contenu et quitterait le bord. */
+.jr-grid-fx { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.jr-grid-fx::after {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 11px; width: 26px;
+  pointer-events: none; z-index: 2; opacity: 1; transition: opacity .18s ease;
+  background: linear-gradient(90deg, rgba(0,0,0,0) 0%, var(--bg1, #0c0c0e) 78%, var(--bg1, #0c0c0e) 100%);
+}
+.jr-grid-fx.jr-au-bout::after { opacity: 0; }
+.jr-grid-fx:not(.jr-deborde)::after { opacity: 0; }   /* rien à annoncer quand tout tient */
+
 /* ══ SENTINELLE D'ARRIVÉE — DOIT RESTER LA DERNIÈRE RÈGLE DU FICHIER (09/09) ═════════════════════
    Elle ne peint rien. Elle PROUVE que la feuille est arrivée jusqu'au bout : un transfert coupé en
    route ne donne pas une erreur franche, il donne un fichier tronqué que le navigateur applique

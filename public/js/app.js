@@ -15168,7 +15168,36 @@ document.addEventListener('DOMContentLoaded', ()=>{
     rd.onerror = () => cb(null); rd.readAsDataURL(file);
   }
 
-  function _jrRender() { _jrRenderComptes(); _jrRenderStats(); _jrRenderToolbar(); _jrRenderFilters(); _jrRenderGrid(); if (_jrTab === 'dash') _jrRenderDashboard(); }
+  /* ══ LE FONDU DE BORD DU TABLEAU (16/09, demande user : « ajoute un scroller pour scroller vers
+     la droite et voir les autres colonnes ») ═══════════════════════════════════════════════════
+     La barre de défilement devient visible par le CSS (`overflow-x: scroll` + piste peinte) ; ce
+     bout de code ne pilote que le dégradé de droite, qui dit « ça continue » et s'efface au bout.
+     ⚠️ C'EST LE MÊME VOCABULAIRE QUE LA RANGÉE D'ONGLETS (`wdgt-au-bout` dans widgets.js), et c'est
+     délibéré : deux façons de dire « la suite est par là » dans un même produit finiraient par
+     diverger. Seuls les préfixes changent, parce que les deux composants ne partagent pas de
+     feuille commune.
+     `jr-deborde` distingue « il y a une suite » de « tout tient » : sans cette classe, un tableau
+     entièrement visible porterait un dégradé qui ne promet rien. */
+  function _jrMajFondu() {
+    try {
+      const box = document.getElementById('jr-grid-wrap');
+      const fx = document.getElementById('jr-grid-fx');
+      if (!box || !fx) return;
+      const deborde = box.scrollWidth - box.clientWidth;
+      fx.classList.toggle('jr-deborde', deborde > 2);
+      /* Tolérance de 2 px : une largeur fractionnaire (zoom, colonne en pourcentage) laisse un
+         reliquat qui n'est pas un débordement, et le fondu resterait allumé au bout de la course. */
+      fx.classList.toggle('jr-au-bout', box.scrollLeft >= deborde - 2);
+    } catch (e) {}
+  }
+  /* Posé UNE fois : le tableau est reconstruit à chaque rendu, jamais son enveloppe. Rattacher
+     l'écouteur à chaque rendu en empilerait un par passage. */
+  (function () {
+    const box = document.getElementById('jr-grid-wrap');
+    if (box) box.addEventListener('scroll', _jrMajFondu, { passive: true });
+    window.addEventListener('resize', _jrMajFondu);
+  })();
+  function _jrRender() { _jrRenderComptes(); _jrRenderStats(); _jrRenderToolbar(); _jrRenderFilters(); _jrRenderGrid(); _jrMajFondu(); if (_jrTab === 'dash') _jrRenderDashboard(); }
 
   // Délégation grille : clic cellule → édition inline ; bouton suppression de ligne (confirm INLINE).
   document.addEventListener('click', ev => {
