@@ -1272,3 +1272,34 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
   /* Occupe la place du selecteur des autres lignes, pour que les colonnes restent alignees. */
   flex: 0 0 auto; min-width: 172px; font-size: var(--fs-label); color: var(--text3); text-align: center;
 }
+
+/* ══ DERNIÈRE CONNEXION : LISIBLE D'UN COUP D'ŒIL (16/09, demande utilisateur : « améliore la
+   lisibilité/visibilité des connexions ici ») ═════════════════════════════════════════════════
+
+   CE QUI N'ALLAIT PAS, et c'était trois choses à la fois dans une seule cellule :
+   1. 11 px, en CHASSE FIXE, en `--text3` (le gris le plus éteint de la palette). Trois choix qui
+      réduisent la lisibilité se cumulaient sur la colonne qu'on vient lire en premier quand on
+      ouvre la liste des comptes. La chasse fixe ne servait d'ailleurs à rien ici : elle aligne
+      des CHIFFRES en colonne, or « il y a 3 j » et « à l'instant » n'ont pas un chiffre à la
+      même place.
+   2. AUCUNE couleur ne distinguait les états. Un compte connecté il y a cinq minutes et un compte
+      qui ne s'est JAMAIS connecté s'écrivaient dans le même gris : il fallait lire les mots pour
+      voir la différence, alors que c'est exactement l'information qu'on cherche en balayant.
+   3. La date exacte n'existait qu'au SURVOL. Sur une liste, un survol par ligne n'est pas une
+      lecture, c'est une enquête ; et au doigt il n'y a pas de survol du tout.
+
+   La correction reprend le vocabulaire déjà en place sur le desk (vert = vivant, ambre = à
+   surveiller, rouge éteint = absent) et pose la date sous la mention relative, en plus petit :
+   on lit « quand » d'un coup d'œil, et « quel jour » sans bouger la souris. */
+.u-conx { font-family: inherit; font-size: 12px; line-height: 1.25; white-space: nowrap; }
+.u-conx-rel { display: block; font-weight: 600; letter-spacing: -.01em; color: var(--text2, #9aa3b2); }
+.u-conx-abs { display: block; margin-top: 1px; font-size: 10.5px; font-weight: 400; color: var(--text3, #6b7280); }
+/* Connecté aujourd'hui : le compte est VIVANT. */
+.u-conx--vif   .u-conx-rel { color: #00e676; }
+/* Cette semaine : lecture normale, aucun signal, c'est le cas ordinaire. */
+.u-conx--frais .u-conx-rel { color: #e6e6ea; }
+/* Plus de 30 jours : le compte décroche. Ambre, la couleur « neutre / à surveiller » du desk. */
+.u-conx--tiede .u-conx-rel { color: #ffb300; }
+/* Jamais connecté : un état, pas une absence de donnée. Il se voit, sans crier. */
+.u-conx--jamais .u-conx-rel { color: #ef4444; font-weight: 700; }
+.u-conx--jamais .u-conx-abs { color: #6b7280; }

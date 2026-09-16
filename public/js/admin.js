@@ -2593,8 +2593,11 @@
       : '<span class="badge badge-active">Actif</span>';
     return base + marq;
   }
-  // Dernière connexion en RELATIF (la date exacte reste au survol) : « il y a 3 j » se lit
-  // d'un coup d'œil, là où « 24/07/2026 23:51:51 » force à calculer de tête.
+  // Dernière connexion en RELATIF : « il y a 3 j » se lit d'un coup d'œil, là où
+  // « 24/07/2026 23:51:51 » force à calculer de tête.
+  // ⚠️ LA DATE EXACTE N'EST PLUS AU SEUL SURVOL (16/09) : sur une liste, un survol par ligne n'est
+  // pas une lecture, c'est une enquête — et au doigt il n'y a pas de survol du tout. Elle s'écrit
+  // donc SOUS la mention relative, en plus petit. Le `title` reste pour la seconde près.
   function relTime(ts) {
     if (!ts) return 'jamais';
     const ms = Date.now() - new Date(ts).getTime();
@@ -2609,6 +2612,23 @@
     const mo = Math.floor(j / 30);
     if (mo < 12)  return 'il y a ' + mo + ' mois';
     return 'il y a ' + Math.floor(mo / 12) + ' an' + (mo >= 24 ? 's' : '');
+  }
+  /* La cellule « Dernière connexion » : la mention relative COLORÉE par ancienneté, la date
+     absolue dessous. Les seuils reprennent ceux qu'un exploitant utilise vraiment : aujourd'hui
+     (le compte est vivant), moins de 30 jours (cas ordinaire), au-delà (il décroche), jamais.
+     Le vocabulaire de couleur est celui du desk, pas un nouveau : vert vif = vivant, ambre =
+     à surveiller, rouge = absent. En inventer un second ici finirait par le contredire. */
+  function conxCell(ts) {
+    if (!ts) return '<div class="u-conx u-conx--jamais"><span class="u-conx-rel">jamais connect\u00e9</span></div>';
+    const d = new Date(ts), t = d.getTime();
+    if (!Number.isFinite(t)) return '<div class="u-conx"><span class="u-conx-rel">-</span></div>';
+    const j = Math.floor((Date.now() - t) / 86400000);
+    const cls = j < 1 ? 'u-conx--vif' : j < 30 ? 'u-conx--frais' : 'u-conx--tiede';
+    const abs = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+      + ' \u00e0 ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return `<div class="u-conx ${cls}" title="${esc(d.toLocaleString('fr-FR'))}">`
+      + `<span class="u-conx-rel">${esc(relTime(ts))}</span>`
+      + `<span class="u-conx-abs">${esc(abs)}</span></div>`;
   }
 
   const _ICON = {
@@ -2752,7 +2772,7 @@
         <td>${typeBadge(u)}</td>
         <td class="u-statut">${statusBadge(u)}</td>
         <td>${subInfo(u)}</td>
-        <td style="color:var(--text3);font-family:var(--font-mono);font-size:11px" title="${u.last_login ? esc(new Date(u.last_login).toLocaleString('fr-FR')) : ''}">${relTime(u.last_login)}</td>
+        <td>${conxCell(u.last_login)}</td>
         <td class="actions">
           ${icBtn('edit', 'Modifier', `openEdit('${esc(String(u.id))}','${esc(u.name)}','${u.role}','${u.plan}',${u.active},'${esc(u.plancad || '')}')`)}
           ${icBtn('pwd', 'Mot de passe', `openPwd('${esc(String(u.id))}')`)}
