@@ -34,8 +34,25 @@ const VALID_TYPES = Object.keys(TYPE_CONFIG);
 
 let _cache = {}; // { [type]: { data, ts } }
 
+/* ⚠️ UN CACHE QUI DOIT SURVIVRE À UN DÉPLOIEMENT VIT DANS UN VOLUME MONTÉ (16/09).
+   `docker-compose.yml` ne monte que `/app/.chrome_profile_*` et `/app/data` : un fichier écrit à
+   la racine du conteneur survit à un redémarrage, et à RIEN d'autre — or pousser sur main déploie,
+   donc reconstruit. Ce cache-ci est PLUS qu'un confort : `fetchCOTData` s'en sert de REPLI quand la
+   CFTC ne répond pas (`return loadDisk(type) || []`). À la racine, ce repli était vide après chaque
+   livraison : une panne de la source juste après un déploiement rendait le positionnement
+   entièrement muet, au lieu de servir le dernier rapport connu.
+   Ce chemin est FABRIQUÉ PAR UNE FONCTION, et c'est par là qu'il avait échappé au balayage du banc
+   pendant six jours : celui-ci ne regardait que les constantes. Il regarde désormais les deux. */
+const _DOSSIER_DONNEES = path.join(__dirname, '..', 'data');
+try { fs.mkdirSync(_DOSSIER_DONNEES, { recursive: true }); } catch {}
 function getCacheFile(type) {
-  return path.join(__dirname, '..', `cache_cot_${type}.json`);
+  const neuf = path.join(_DOSSIER_DONNEES, `cache_cot_${type}.json`);
+  // Migration sans perte : l'ancien fichier, s'il existe encore, est recopié UNE fois.
+  try {
+    const ancien = path.join(__dirname, '..', `cache_cot_${type}.json`);
+    if (!fs.existsSync(neuf) && fs.existsSync(ancien)) fs.copyFileSync(ancien, neuf);
+  } catch {}
+  return neuf;
 }
 
 function saveDisk(type, data) {

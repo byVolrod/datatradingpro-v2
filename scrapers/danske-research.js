@@ -13,6 +13,22 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const path = require('path');
+
+/* ⚠️ UN PROFIL DE NAVIGATEUR NON MONTÉ REPART À FROID À CHAQUE LIVRAISON (16/09).
+   `docker-compose.yml` monte trois profils nommés (`ff`, `fj`, `myfxbook`) et `/app/data`. Tous
+   les autres vivent à la racine du conteneur, que `docker compose build` reconstruit : leurs
+   cookies et leur cache disparaissent à chaque poussée sur main. C'est le mécanisme exact du
+   « chargement infini » du DMX diagnostiqué le 10/09, sur un autre composant.
+   On les place donc SOUS `/app/data`, déjà monté : aucun volume à ajouter, et la couverture vaut
+   aussi pour les profils qu'on n'a pas encore créés. Les trois profils nommés, eux, NE BOUGENT PAS :
+   ils fonctionnent, ils portent des sessions authentifiées, et les déplacer coûterait une
+   reconnexion pour un gain nul. */
+const _PROFILS_DIR = path.join(__dirname, '..', 'data', 'chrome');
+function _profilNavigateur(nom) {
+  const p = path.join(_PROFILS_DIR, nom);
+  try { require('fs').mkdirSync(p, { recursive: true }); } catch {}
+  return p;
+}
 const { existsSync } = require('fs');
 puppeteer.use(StealthPlugin());
 
@@ -48,7 +64,7 @@ async function fetchDanskeResearch() {
   try {
     browser = await puppeteer.launch({
       executablePath: _chrome(), headless: true,
-      userDataDir: path.join(__dirname, '..', '.chrome_profile_danske'),
+      userDataDir: _profilNavigateur('danske'),
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled', '--disable-dev-shm-usage',
         '--no-first-run', '--no-default-browser-check', /* --single-process/--no-zygote RETIRÉS (10/08) : cassés par les Chrome récents — « Attempted to use
        detached Frame » sur CHAQUE page, prouvé au banc (avec = échec, sans = 20 liens sur la même cible).

@@ -1329,7 +1329,22 @@ async function deleteUser(id) {
 // Table Supabase `chat_messages` ; fallback fichier local si la table n'existe pas encore.
 // (fs/path requis en tête de fichier — réutilisés par le miroir des comptes.)
 const CHAT_TABLE = 'chat_messages';
-const CHAT_FILE  = path.join(__dirname, 'cache_chat.json');
+/* ⚠️ UN CACHE QUI DOIT SURVIVRE À UN DÉPLOIEMENT VIT DANS UN VOLUME MONTÉ (16/09).
+   `docker-compose.yml` ne monte que `/app/.chrome_profile_*` et `/app/data` ; tout le reste
+   appartient à la couche d'image, que `docker compose build` détruit et reconstruit. Un fichier
+   écrit à la RACINE du conteneur survit donc à un redémarrage, et à RIEN d'autre — or pousser sur
+   main déploie, donc reconstruit. Le défaut avait été trouvé le 10/09 sur le cache du DMX, corrigé
+   là, et déclaré clos : six jours plus tard le balayage automatique de `volume-verif` en a trouvé
+   HUIT AUTRES, parce que le banc tenait une liste écrite à la main. La liste était le défaut.
+   MIGRATION SANS PERTE : si l'ancien fichier existe encore et que le nouveau n'existe pas, on le
+   recopie UNE fois. Idempotent, et tous les lecteurs existants continuent de marcher sans changer. */
+const _DOSSIER_DONNEES = path.join(__dirname, 'data');
+try { fs.mkdirSync(_DOSSIER_DONNEES, { recursive: true }); } catch {}
+function _migrerCache(neuf, ancien) {
+  try { if (!fs.existsSync(neuf) && fs.existsSync(ancien)) fs.copyFileSync(ancien, neuf); } catch {}
+  return neuf;
+}
+const CHAT_FILE  = _migrerCache(path.join(_DOSSIER_DONNEES, 'cache_chat.json'), path.join(__dirname, 'cache_chat.json'));
 let _chatDb = true;            // bascule sur fichier si la table manque
 let _chatFile = [];
 try { _chatFile = JSON.parse(fs.readFileSync(CHAT_FILE, 'utf8')) || []; } catch {}
@@ -1337,7 +1352,7 @@ function _chatSaveFile() { try { fs.writeFileSync(CHAT_FILE, JSON.stringify(_cha
 
 // Réactions emoji stockées À PART (indépendant du schéma chat_messages → marche toujours, sans
 // migration). Forme : { "<msgId>": { "👍": ["userId", …], "❤️": […], "🔥": […] } }
-const REACT_FILE = path.join(__dirname, 'cache_reactions.json');
+const REACT_FILE = _migrerCache(path.join(_DOSSIER_DONNEES, 'cache_reactions.json'), path.join(__dirname, 'cache_reactions.json'));
 let _reactStore = {};
 try { _reactStore = JSON.parse(fs.readFileSync(REACT_FILE, 'utf8')) || {}; } catch {}
 // Persistance DURABLE : le fichier disque est wipé à chaque rebuild conteneur (disque éphémère) →
@@ -1803,7 +1818,7 @@ module.exports = {
 // redémarrage Render (disque éphémère), on le RECHARGE au lieu de le RÉGÉNÉRER.
 // Même pattern que le chat : Supabase `weekly_reports` + fallback fichier + auto-récupération.
 const WEEKLY_TABLE = 'weekly_reports';
-const WEEKLY_FILE  = path.join(__dirname, 'cache_weekly.json');
+const WEEKLY_FILE  = _migrerCache(path.join(_DOSSIER_DONNEES, 'cache_weekly.json'), path.join(__dirname, 'cache_weekly.json'));
 let _weeklyDb = true;
 let _weeklyFile = [];
 try { _weeklyFile = JSON.parse(fs.readFileSync(WEEKLY_FILE, 'utf8')) || []; } catch {}
@@ -2063,7 +2078,7 @@ setTimeout(() => { _ensurePermanentUnsub().catch(() => {}); }, 20 * 1000);   // 
 // après un redémarrage Render (disque éphémère) on le RECHARGE au lieu de rappeler l'IA.
 // Même pattern que weekly/email_log : table `ai_cache` (key PK + value jsonb) + fallback fichier.
 const AICACHE_TABLE = 'ai_cache';
-const AICACHE_FILE  = path.join(__dirname, 'cache_ai_store.json');
+const AICACHE_FILE  = _migrerCache(path.join(_DOSSIER_DONNEES, 'cache_ai_store.json'), path.join(__dirname, 'cache_ai_store.json'));
 let _aiCacheDb = true;
 let _aiCacheFile = {};   // { key: value } (repli disque)
 try { _aiCacheFile = JSON.parse(fs.readFileSync(AICACHE_FILE, 'utf8')) || {}; } catch {}

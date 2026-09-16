@@ -41,8 +41,34 @@ function _resolveChromeExec() {
 }
 
 const CHROME_PATH = _resolveChromeExec();
-const USER_DATA   = path.join(__dirname, '..', '.chrome_profile_blackrock');
-const CACHE_FILE  = path.join(__dirname, '..', 'cache_blackrock.json');
+/* ⚠️ UN PROFIL DE NAVIGATEUR NON MONTÉ REPART À FROID À CHAQUE LIVRAISON (16/09).
+   `docker-compose.yml` monte trois profils nommés (`ff`, `fj`, `myfxbook`) et `/app/data`. Tous
+   les autres vivent à la racine du conteneur, que `docker compose build` reconstruit : leurs
+   cookies et leur cache disparaissent à chaque poussée sur main. C'est le mécanisme exact du
+   « chargement infini » du DMX diagnostiqué le 10/09, sur un autre composant.
+   On les place donc SOUS `/app/data`, déjà monté : aucun volume à ajouter, et la couverture vaut
+   aussi pour les profils qu'on n'a pas encore créés. Les trois profils nommés, eux, NE BOUGENT PAS :
+   ils fonctionnent, ils portent des sessions authentifiées, et les déplacer coûterait une
+   reconnexion pour un gain nul. */
+const USER_DATA   = (() => { const p = path.join(__dirname, '..', 'data', 'chrome', 'blackrock');
+  try { fs.mkdirSync(p, { recursive: true }); } catch {}
+  return p; })();
+/* ⚠️ UN CACHE QUI DOIT SURVIVRE À UN DÉPLOIEMENT VIT DANS UN VOLUME MONTÉ (16/09).
+   `docker-compose.yml` ne monte que `/app/.chrome_profile_*` et `/app/data` ; tout le reste
+   appartient à la couche d'image, que `docker compose build` détruit et reconstruit. Un fichier
+   écrit à la RACINE du conteneur survit donc à un redémarrage, et à RIEN d'autre — or pousser sur
+   main déploie, donc reconstruit. Le défaut avait été trouvé le 10/09 sur le cache du DMX, corrigé
+   là, et déclaré clos : six jours plus tard le balayage automatique de `volume-verif` en a trouvé
+   HUIT AUTRES, parce que le banc tenait une liste écrite à la main. La liste était le défaut.
+   MIGRATION SANS PERTE : si l'ancien fichier existe encore et que le nouveau n'existe pas, on le
+   recopie UNE fois. Idempotent, et tous les lecteurs existants continuent de marcher sans changer. */
+const _DOSSIER_DONNEES = path.join(__dirname, '..', 'data');
+try { fs.mkdirSync(_DOSSIER_DONNEES, { recursive: true }); } catch {}
+function _migrerCache(neuf, ancien) {
+  try { if (!fs.existsSync(neuf) && fs.existsSync(ancien)) fs.copyFileSync(ancien, neuf); } catch {}
+  return neuf;
+}
+const CACHE_FILE  = _migrerCache(path.join(_DOSSIER_DONNEES, 'cache_blackrock.json'), path.join(__dirname, '..', 'cache_blackrock.json'));
 const CACHE_TTL   = 3 * 60 * 60 * 1000;   // 3 h — contenu hebdomadaire, inutile de scraper souvent
 const UA          = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 

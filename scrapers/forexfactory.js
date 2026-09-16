@@ -10,8 +10,23 @@ const path    = require('path');
 
 const CALENDAR_URL      = 'https://nfs.faireconomy.media/ff_calendar_thisweek.xml';
 const CALENDAR_URL_NEXT = 'https://nfs.faireconomy.media/ff_calendar_nextweek.xml';
-const CACHE_FILE        = path.join(__dirname, '..', 'cache_ff.json');
-const RAW_CACHE_FILE    = path.join(__dirname, '..', 'cache_ff_raw.json');
+/* ⚠️ UN CACHE QUI DOIT SURVIVRE À UN DÉPLOIEMENT VIT DANS UN VOLUME MONTÉ (16/09).
+   `docker-compose.yml` ne monte que `/app/.chrome_profile_*` et `/app/data` ; tout le reste
+   appartient à la couche d'image, que `docker compose build` détruit et reconstruit. Un fichier
+   écrit à la RACINE du conteneur survit donc à un redémarrage, et à RIEN d'autre — or pousser sur
+   main déploie, donc reconstruit. Le défaut avait été trouvé le 10/09 sur le cache du DMX, corrigé
+   là, et déclaré clos : six jours plus tard le balayage automatique de `volume-verif` en a trouvé
+   HUIT AUTRES, parce que le banc tenait une liste écrite à la main. La liste était le défaut.
+   MIGRATION SANS PERTE : si l'ancien fichier existe encore et que le nouveau n'existe pas, on le
+   recopie UNE fois. Idempotent, et tous les lecteurs existants continuent de marcher sans changer. */
+const _DOSSIER_DONNEES = path.join(__dirname, '..', 'data');
+try { fs.mkdirSync(_DOSSIER_DONNEES, { recursive: true }); } catch {}
+function _migrerCache(neuf, ancien) {
+  try { if (!fs.existsSync(neuf) && fs.existsSync(ancien)) fs.copyFileSync(ancien, neuf); } catch {}
+  return neuf;
+}
+const CACHE_FILE        = _migrerCache(path.join(_DOSSIER_DONNEES, 'cache_ff.json'), path.join(__dirname, '..', 'cache_ff.json'));
+const RAW_CACHE_FILE    = _migrerCache(path.join(_DOSSIER_DONNEES, 'cache_ff_raw.json'), path.join(__dirname, '..', 'cache_ff_raw.json'));
 const CACHE_TTL         = 15 * 60 * 1000;   // 15 min in-memory
 const DISK_TTL          = 60 * 60 * 1000;   // 1 h disk cache (on 429)
 

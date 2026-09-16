@@ -14,6 +14,21 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const path = require('path');
+
+/* ⚠️ UN PROFIL DE NAVIGATEUR NON MONTÉ REPART À FROID À CHAQUE LIVRAISON (16/09).
+   `docker-compose.yml` monte trois profils nommés (`ff`, `fj`, `myfxbook`) et `/app/data`. Tous
+   les autres vivent à la racine du conteneur, que `docker compose build` reconstruit : leurs
+   cookies et leur cache disparaissent à chaque poussée sur main. C'est le mécanisme exact du
+   « chargement infini » du DMX diagnostiqué le 10/09, sur un autre composant.
+   On les place donc SOUS `/app/data`, déjà monté : aucun volume à ajouter, et la couverture vaut
+   aussi pour les profils qu'on n'a pas encore créés. Les trois profils nommés, eux, NE BOUGENT PAS :
+   ils fonctionnent, ils portent des sessions authentifiées, et les déplacer coûterait une
+   reconnexion pour un gain nul. */
+function _profilNavigateur(nom) {
+  const p = path.join(__dirname, '..', 'data', 'chrome', String(nom || 'defaut').replace(/[^a-z0-9_-]/gi, ''));
+  try { require('fs').mkdirSync(p, { recursive: true }); } catch {}
+  return p;
+}
 puppeteer.use(StealthPlugin());
 
 function _resolveChromeExec() {
@@ -88,7 +103,7 @@ function _dateFromUrl(url) {
 async function _scrapeSite(cfg) {
   let browser = null;
   try {
-    browser = await _launch(path.join(__dirname, '..', '.chrome_profile_' + cfg.source), !!cfg.proxy);
+    browser = await _launch(_profilNavigateur(cfg.source), !!cfg.proxy);
     const page = await browser.newPage();
     await page.setUserAgent(UA);
     // Auth proxy résidentiel (si proxy actif sur ce site) → Chromium s'authentifie avant la requête
