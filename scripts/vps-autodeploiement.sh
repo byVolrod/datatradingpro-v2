@@ -58,6 +58,10 @@ ESSAI="$DOSSIER/data/.version-essayee"
 #   `|| true` : un ménage qui échoue ne doit JAMAIS faire échouer un déploiement réussi.
 # ══════════════════════════════════════════════════════════════════════════════════════════════
 _menage_docker() {
+  # Les conteneurs arretes retiennent leur image : sans ce premier geste, `image prune` ne peut
+  # pas la retirer et le menage rend moins de place qu'il n'en annonce. Ajoute le 16/09, en meme
+  # temps que dans la sentinelle : les deux nettoient le meme disque, ils doivent nettoyer pareil.
+  docker container prune -f >/dev/null 2>&1 || true
   docker image prune -a -f --filter until=168h >/dev/null 2>&1 || true
   docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
   echo "[autodeploiement] ménage : images et cache de plus de 7 jours retirés — $(df -P / | tail -1 | awk '{print $(NF-1)}') utilisé"

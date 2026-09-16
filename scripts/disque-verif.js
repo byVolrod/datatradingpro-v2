@@ -273,6 +273,33 @@ if (bash) {
       /image prune -a -f\s*$/m.test(fort.dock),
       'docker: ' + fort.dock.trim().replace(/\n/g, ' | '));
 
+    /* (3b) LE BOUTON DOIT FAIRE CE QUE LE SYSTÈME FAIT, PAS MOINS (16/09) ────────────────
+       Demande utilisateur : « vérifie comment on est passé de 90 à ce %, et si c'est le système qui
+       a fait ça, alors applique-le dans les boutons ». La comparaison, faite ligne à ligne, a
+       montré DEUX écarts, et aucun n'était visible en lisant l'un des deux côtés seul :
+         · le forçage du panneau ne libérait PAS le ballast, alors que le niveau 5 en fait son
+           PREMIER geste. C'est pourtant le seul qui rende de la place instantanément, donc
+           exactement ce qu'on vient chercher en cliquant ;
+         · PERSONNE ne retirait les conteneurs arrêtés, ni ici ni au déploiement. Un conteneur
+           arrêté RETIENT son image : `image prune` ne peut alors pas la retirer, et le ménage rend
+           moins de place qu'il n'en annonce, sans que rien ne le dise. */
+    v('[exécuté] le forçage libère le ballast, comme le DERNIER RECOURS',
+      /ballast supprime \(forcage panneau\)/.test(fort.sortie),
+      'sortie: ' + fort.sortie.trim().split('\n').slice(-4).join(' | '));
+    v('… et le ballast part AVANT la purge (près de 100 %, il n\'y a plus la place pour nettoyer)',
+      fort.sortie.indexOf('ballast supprime') >= 0 && fort.sortie.indexOf('ballast supprime') < fort.sortie.indexOf('images sans conteneur'),
+      'ordre: ' + fort.sortie.trim().split('\n').join(' | '));
+    v('[témoin] le mode sûr, lui, NE touche PAS au ballast (sinon la distinction ne sert à rien)',
+      !/ballast supprime/.test(sur.sortie), 'sortie: ' + sur.sortie.trim().split('\n').slice(-3).join(' | '));
+    for (const [nom, r] of [['mode sûr', sur], ['forçage', fort]])
+      v(`[exécuté] ${nom} : les conteneurs arrêtés sont retirés AVANT les images`,
+        /container prune -f/.test(r.dock) && r.dock.indexOf('container prune') < r.dock.indexOf('image prune'),
+        'docker: ' + r.dock.trim().replace(/\n/g, ' | '));
+    /* Et le déploiement nettoie le MÊME disque : les deux doivent nettoyer pareil, sinon on
+       réapprend l'écart un jour de saturation. */
+    v('le ménage de déploiement retire lui aussi les conteneurs arrêtés',
+      /docker container prune -f/.test(lire('scripts/vps-autodeploiement.sh')));
+
     /* (4) UNE DEMANDE PÉRIMÉE NE DÉCLENCHE RIEN. Sans expiration, une demande oubliée (volume
        restauré, minuteur en panne) purgerait agressivement des jours plus tard, sans personne
        pour l'attendre. */

@@ -2115,7 +2115,7 @@
       + '<button class="aim-btn aim-btn--warn" data-disk="agressif">Forcer</button>'
       + '<span class="aim-disk-msg" id="aim-disk-msg"></span>'
       + '</div>'
-      + '<div class="aim-kpi-s" style="margin-top:6px;line-height:1.5">Le desk supprime ses propres caches tout de suite ; la purge des images Docker est demandée à la sentinelle du serveur, qui l\'exécute sous 15 min. <b>Forcer</b> vide en plus le cache des PDF et les images hors fenêtre de rétention : le premier rapport ouvert ensuite sera plus lent, et un retour arrière demandera une reconstruction.</div>';
+      + '<div class="aim-kpi-s" style="margin-top:6px;line-height:1.5">Le desk supprime ses propres caches tout de suite ; le ménage du serveur (conteneurs arrêtés, images, cache de construction, journaux) est demandé à la sentinelle, qui l\'exécute sous 15 min. <b>Forcer</b> ajoute ce que la sentinelle ne fait d\'elle-même qu\'à 98% : libération du ballast d\'1 Go, purge des images hors fenêtre de rétention et vidage du cache des PDF. Le premier rapport ouvert ensuite sera plus lent, et un retour arrière demandera une reconstruction.<br><span style="color:#6b7280">Ce qui se libère dépend de ce qu\'il y a à libérer : après un ou deux déploiements récents, les images ont déjà été retirées et le gain sera faible.</span></div>';
   }
   /* Un seul branchement, délégué sur le conteneur : le bloc est réécrit à chaque rafraîchissement,
      donc un écouteur posé sur les boutons eux-mêmes disparaîtrait au passage suivant. */

@@ -237,6 +237,12 @@ _menage() {
   if [ -e "$VERROU_DEPLOIEMENT" ] && ! flock -n 9 9>"$VERROU_DEPLOIEMENT" 2>/dev/null; then
     deploiement="oui"; _log_menage "-> deploiement en cours : purges Docker sautees (on ne coupe pas un build)"
   else
+    # ⚠️ LES CONTENEURS ARRÊTÉS N'ÉTAIENT RETIRÉS NULLE PART (trouvé le 16/09 en comparant ce que
+    # fait le système et ce que font les boutons du panneau). Ni ici, ni au déploiement. Un
+    # conteneur arrêté garde sa couche inscriptible ET retient son image, que `image prune` ne peut
+    # donc pas retirer : le ménage semblait tourner et laissait la place derrière lui. Sans risque :
+    # `container prune` ne touche QUE ce qui est déjà arrêté, jamais un conteneur en marche.
+    _log_menage "-> conteneurs arretes : $(docker container prune -f 2>&1 | tail -1)"
     _log_menage "-> images sans conteneur : $(docker image prune -a -f --filter until=168h 2>&1 | tail -1)"
     _log_menage "-> cache de construction : $(docker builder prune -f 2>&1 | tail -1)"
     if [ "$agressif" = "agressif" ]; then
@@ -343,7 +349,20 @@ if [ -f "$DEMANDE_F" ]; then
   rm -f "$DEMANDE_F" 2>/dev/null                     # consommee, quoi qu'il arrive
   if [ "$D_TS" -gt 0 ] && [ $((NOW - D_TS)) -le 3600 ]; then
     echo "[disque] demande du panneau admin (${D_MODE:-sur}) — menage immediat, hors seuil"
-    if [ "$D_MODE" = "agressif" ]; then _menage agressif; else _menage normal; fi
+    if [ "$D_MODE" = "agressif" ]; then
+      # ⚠️ LE FORÇAGE DOIT VALOIR LE DERNIER RECOURS, BALLAST COMPRIS (16/09, demande utilisateur :
+      # « si c'est le systeme qui a fait ca, alors applique-le dans les boutons »). Le bouton
+      # faisait deja les memes purges que la sentinelle, mais PAS le premier geste du niveau 5 :
+      # liberer le gigaoctet inerte. Or c'est le seul qui rende de la place INSTANTANEMENT, et
+      # c'est justement ce qu'on vient chercher en cliquant. Meme sequence exacte qu'au niveau 5 :
+      # ballast d'abord (pres de 100 %, il n'y a plus la place pour que le menage s'execute), puis
+      # purge agressive, puis on le repose SI la crise est passee.
+      if _ballast_retire; then BALLAST_LIBERE="oui"; _mesurer; echo "[disque] ballast supprime (forcage panneau), disque a ${PCT}%"; fi
+      _menage agressif
+      if [ -n "$SORTIE_MENAGE_APRES" ] && [ "${SORTIE_MENAGE_APRES:-100}" -lt "$SEUIL_CRITIQUE" ]; then _ballast_pose && echo "[disque] ballast recree"; fi
+    else
+      _menage normal
+    fi
     MENAGE="$MENAGE_TXT"; DEMANDE_FAITE="${D_MODE:-sur}"
   else
     echo "[disque] demande du panneau admin IGNOREE (deposee il y a plus d'une heure)"
