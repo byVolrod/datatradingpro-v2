@@ -30,6 +30,24 @@ const CATS = [
   { key: 'PMI Services',       re: /Services PMI/i,                                  mode: 'pmi'   },
 ];
 
+/* ── MARCHÉS : le rendement souverain, lu SUR LA PAGE DÉJÀ CHARGÉE (16/09) ──────────────────────
+   La page /<pays>/indicators porte, dans son bloc « Markets », le rendement de l'emprunt d'État à
+   10 ans et le taux directeur. `_fetchCountry` INDEXAIT DÉJÀ ces lignes (son index couvre tous les
+   `<tr>` à trois cellules) puis les jetait, faute de quelqu'un pour les demander. On les lève donc
+   SANS UN SEUL APPEL RÉSEAU DE PLUS : même page, même cache de 8 h, même chemin éprouvé en
+   production depuis que le Radar de Biais s'en nourrit.
+   POURQUOI CETTE SOURCE ET PAS UNE AUTRE : les flux de rendements gratuits (Stooq, FRED, portail
+   BCE) demandent chacun un nouveau chemin réseau qu'il faudrait éprouver en production avant d'y
+   confier un chiffre affiché. Ici le chemin est déjà éprouvé. Le jour où l'on voudra le 2 ans et le
+   30 ans, ce sera une vraie source à ajouter, avec sa vérification.
+   ⚠️ ABSENCE ASSUMÉE : si TradingEconomics cesse de publier la ligne, la valeur vaut `null` et le
+   desk le DIT. On n'invente jamais un rendement, et on ne ressert pas le dernier connu sous une
+   date d'aujourd'hui : un taux périmé se lit exactement comme un taux frais. */
+const MARCHES = [
+  { key: 'oblig10', re: /^Government Bond 10Y$/i, re2: /government bond 10/i },
+  { key: 'directeur', re: /^Interest Rate$/i, re2: /^central bank rate$/i },
+];
+
 const _num = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[, ]/g, '').replace(/[^0-9.\-]/g, '')); return isNaN(x) ? null : x; };
 function _rate(mode, last, prev) {
   const L = _num(last), P = _num(prev);
@@ -65,12 +83,28 @@ async function _fetchCountry(slug) {
   });
   if (!idx.size) return null;
   const names = [...idx.keys()];
-  return CATS.map(c => {
+  // Les lignes « Markets » de la MÊME page (cf. MARCHES ci-dessus) : aucune requête de plus.
+  const marches = {};
+  for (const m of MARCHES) {
+    const nm = names.find(n => m.re.test(n)) || names.find(n => m.re2.test(n));
+    const v = nm ? _num(idx.get(nm).last) : null;
+    const p = nm ? _num(idx.get(nm).prev) : null;
+    marches[m.key] = (v == null) ? null : { valeur: v, precedent: p, nom: nm };
+  }
+  /* ⚠️ L'EXTRACTION SE DÉCLARE (16/09). Je ne peux pas, depuis une session distante, ouvrir la page
+     de TradingEconomics pour confirmer qu'elle nomme bien sa ligne « Government Bond 10Y ». Livrer
+     un intitulé supposé, c'est risquer un widget vide en production sans que rien ne dise pourquoi.
+     On emporte donc les noms de lignes CANDIDATS lus sur la vraie page : si la correspondance rate,
+     le diagnostic administrateur montre comment TradingEconomics appelle réellement la ligne, et la
+     correction tient en une expression régulière au lieu d'une enquête. */
+  marches._candidats = names.filter(n => /bond|yield|interest rate/i.test(n)).slice(0, 12);
+  const subs = CATS.map(c => {
     const nm = names.find(n => c.re.test(n));
     if (!nm) return { label: c.key, value: 'Neutral', last: null, prev: null, name: '' };
     const { last, prev } = idx.get(nm);
     return { label: c.key, value: (_rate(c.mode, last, prev) || 'Neutral'), last, prev, name: nm };
   });
+  return { subs, marches };
 }
 
 // Renvoie { subs:[{label,value,last,prev,name}], parent } pour UNE devise (caché 8 h, best-effort).
@@ -80,9 +114,12 @@ async function fetchTEFundamental(cc) {
   _busy[cc] = true;
   try {
     const slug = COUNTRY[cc]; if (!slug) return null;
-    const subs = await _fetchCountry(slug);
-    if (!subs) return _cache[cc] || null;
-    _cache[cc] = { subs, parent: _parent(subs), ts: Date.now() };
+    const lu = await _fetchCountry(slug);
+    if (!lu || !lu.subs) return _cache[cc] || null;
+    const { subs, marches } = lu;
+    // `subs` et `parent` gardent EXACTEMENT leur forme : le Radar de Biais lit cet objet depuis le
+    // 11/08 et ne doit rien voir changer. `marches` s'ajoute à côté.
+    _cache[cc] = { subs, parent: _parent(subs), marches: marches || {}, ts: Date.now() };
     return _cache[cc];
   } catch (e) { console.warn('[TE ' + cc + ']', e.message); return _cache[cc] || null; }
   finally { _busy[cc] = false; }

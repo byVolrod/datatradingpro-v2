@@ -3976,6 +3976,85 @@
       },
     },
     {
+      /* RENDEMENTS SOUVERAINS À 10 ANS (16/09). Premier jalon du chantier obligataire.
+         CE QUI MANQUAIT : le desk savait dire ce qu'une banque centrale DÉCIDE (onglet Taux) et ce
+         que le marché PRICE pour sa prochaine réunion. Il ne disait rien de ce que le marché price
+         AU-DELÀ. Le rendement à 10 ans est le prix de l'argent long, et son ÉCART d'un pays à
+         l'autre est le premier moteur d'une paire de devises sur l'horizon d'un swing.
+         LA BARRE PORTE L'ÉCART AU 10 ANS AMÉRICAIN, PAS LE NIVEAU. Un niveau de 4,3% ne dit rien
+         tout seul : c'est élevé pour l'Allemagne, bas pour la Nouvelle-Zélande. Le dollar étant la
+         jambe commune de sept des huit majeures, c'est ce différentiel qui explique le portage.
+         L'USD est la RÉFÉRENCE : sa barre est vide, et sa ligne le dit, plutôt que d'afficher un
+         zéro qu'on lirait comme une mesure.
+         AUCUNE SOURCE NOUVELLE : ces rendements sont lus sur la page que le Radar de Biais charge
+         déjà toutes les 8 h pour ses fondamentaux. Ni 2 ans ni 30 ans, donc PAS DE PENTE : elle
+         demanderait une vraie seconde source, et on n'affiche pas un chiffre venu d'un chemin qu'on
+         n'a pas encore vu répondre en production. */
+      id: 'oblig-10a', name: 'Rendements 10 ans', court: '10 ans', tag: 'TAUX LONGS', cat: 'Marchés', h: 300,
+      desc: 'Le prix de l’argent long, pays par pays, et l’écart qui fait bouger les paires.',
+      aide: "<p>Le rendement de l’emprunt d’État à <strong>10 ans</strong> des huit pays majeurs. La barre ne montre pas le niveau mais l’<strong>écart au 10 ans américain</strong> : vert vers la droite, le pays paie plus cher que les États-Unis ; rouge vers la gauche, il paie moins. Les États-Unis sont la référence, leur barre reste vide.</p><p>Pourquoi l’écart et pas le niveau : 4,3% n’a pas le même sens partout. C’est élevé pour l’Allemagne, bas pour la Nouvelle-Zélande. Le dollar étant la jambe commune de sept des huit majeures, c’est le <strong>différentiel</strong> qui explique le portage d’une paire, pas le chiffre isolé.</p><p>La colonne de droite donne la variation en <strong>points de base</strong> depuis la valeur précédente. Un point de base vaut un centième de point : « +12 bp » se compare d’un pays à l’autre, là où « +0,12 » se confond avec un pourcentage.</p><p>La prime de terme, affichée au survol, est l’écart entre ce 10 ans et le taux directeur du pays. Négative, le marché price des baisses ; fortement positive, il price de la croissance ou un risque budgétaire.</p>",
+      src: "Rendements souverains lus sur la page pays de TradingEconomics, la même que le Radar de Biais consulte déjà toutes les 8 heures pour ses fondamentaux : aucune requête supplémentaire. Une valeur que la source ne publie pas reste vide, jamais remplacée par la dernière connue.",
+      watch: "L’écart qui BOUGE plus que le niveau : c’est lui qui déplace une paire. Un pays dont le 10 ans grimpe de vingt points de base quand les autres ne bougent pas attire les capitaux, ou inquiète — la prime de terme dit lequel des deux.",
+      mount: function (host) {
+        var vivant = true;
+        skel(host, 9);
+        function fmtPc(v) { return v.toFixed(2).replace('.', ',') + '%'; }
+        function fmtBp(v) { return (v > 0 ? '+' : '') + v + ' bp'; }
+        function cls(v) { return v > 0 ? 'est-haut' : v < 0 ? 'est-bas' : ''; }
+        function dessiner() {
+          fetch('/api/obligataire').then(function (r) { return r.json(); }).then(function (d) {
+            if (!vivant || !host.isConnected) return;
+            var lignes = (d && d.lignes || []).filter(function (l) { return l.dix != null; });
+            if (!lignes.length) { fallback(host, 'Rendements indisponibles.'); return; }
+            // Du plus cher au moins cher : un desk lit une courbe de rendements par son sommet.
+            lignes.sort(function (a, b) { return b.dix - a.dix; });
+
+            /* ÉCHELLE COMMUNE, comme partout ailleurs sur le desk : une barre normalisée ligne par
+               ligne donnerait huit barres pleines et n'apprendrait rien. */
+            var max = 0;
+            lignes.forEach(function (l) { if (l.ecartUS != null && Math.abs(l.ecartUS) > max) max = Math.abs(l.ecartUS); });
+            if (!(max > 0)) max = 1;
+
+            var h = '<div class="wdg-xa"><div class="wdg-xa-liste">';
+            lignes.forEach(function (l) {
+              var ref = (l.ccy === 'USD');
+              var w = (l.ecartUS == null) ? 0 : Math.min(50, Math.abs(l.ecartUS) / max * 50);
+              var t = l.ccy + ' · 10 ans ' + fmtPc(l.dix)
+                + (l.prime != null ? ' · prime de terme ' + (l.prime > 0 ? '+' : '') + l.prime.toFixed(2).replace('.', ',') + ' pt' : '')
+                + (ref ? ' · référence de l’écart' : (l.ecartUS != null ? ' · écart au 10 ans US ' + (l.ecartUS > 0 ? '+' : '') + l.ecartUS.toFixed(2).replace('.', ',') + ' pt' : ''));
+              h += '<div class="wdg-xa-l" title="' + esc(t) + '">'
+                + '<span class="wdg-xa-n"><b>' + esc(l.ccy) + '</b>' + (ref ? ' <i style="font-style:normal;opacity:.55;font-size:10px">réf.</i>' : '') + '</span>'
+                + '<span class="wdg-xa-piste">' + (l.ecartUS == null || ref ? '' :
+                    '<u class="' + (l.ecartUS >= 0 ? 'est-haut' : 'est-bas') + '"'
+                    + ' style="' + (l.ecartUS >= 0 ? 'left:50%' : 'right:50%') + ';width:' + w.toFixed(1) + '%"></u>') + '</span>'
+                + '<span class="wdg-xa-v">' + fmtPc(l.dix) + '</span>'
+                + '<span class="wdg-xa-s ' + cls(l.dixBp) + '">' + (l.dixBp == null ? '—' : fmtBp(l.dixBp)) + '</span>'
+                + '</div>';
+            });
+            h += '</div>';
+
+            /* VERDICT : le sommet et le creux de la courbe, et l'écart qui les sépare. C'est la
+               lecture qu'un desk fait en premier, et elle tient en une phrase. */
+            var haut = lignes[0], bas = lignes[lignes.length - 1];
+            var vb = '<span class="est-haut">' + esc(haut.ccy) + '</span> paie le plus cher (' + fmtPc(haut.dix) + ')'
+              + (lignes.length > 1 ? ' · <span class="est-bas">' + esc(bas.ccy) + '</span> le moins (' + fmtPc(bas.dix) + ')' : '');
+            var vs = 'Écart haut-bas : ' + (haut.dix - bas.dix).toFixed(2).replace('.', ',') + ' point.'
+              + (d.etat === 'partiel' ? ' ' + lignes.length + ' pays sur 8 : les autres ne sont pas publiés.' : '');
+            h += '<div class="wdg-verdict" data-etat="live"><b class="wdg-verdict-txt wdg-maj-txt">' + vb + '</b>'
+              + '<span class="wdg-verdict-sous">' + esc(vs) + '</span></div>'
+              + '<div class="wdg-xa-pied">Barre : écart au 10 ans américain, la référence. Colonne de droite : '
+              + 'variation en points de base depuis la valeur précédente. ' + _vieSpan(d.majAt || 0) + '</div></div>';
+            host.innerHTML = h;
+          }).catch(function () { if (vivant && host.isConnected) fallback(host, 'Rendements indisponibles.'); });
+        }
+        dessiner();
+        /* Un rendement souverain ne bouge pas à la seconde, et la source est cachée 8 h en amont :
+           un rythme plus rapide ne ferait que consommer sans rien apprendre. */
+        var t = setInterval(function () { if (host.isConnected) dessiner(); }, 30 * 60 * 1000);
+        return function () { vivant = false; clearInterval(t); };
+      },
+    },
+    {
       /* PERFORMANCE DE LA SEMAINE (23/08). Les 8 devises classées par leur variation DEPUIS LE
          LUNDI 00h UTC de la semaine courante, calculée des bougies quotidiennes des 7 paires
          contre dollar (helpers _ps*, testés au banc). USD n'a pas de paire propre : son agrégat
@@ -9877,6 +9956,19 @@
         }
         return h;
       })()
+      + '</svg>',
+    // Rendements 10 ans : l'axe central est la référence américaine, les barres sont des ÉCARTS
+    // (vert = paie plus cher que les États-Unis, rouge = moins), et la colonne de droite la
+    // variation en points de base. Même grammaire que les autres cartes à barres du desk.
+    'oblig-10a': '<svg ' + _PV + '>'
+      + '<text x="8" y="9" font-size="5.5" font-weight="700" letter-spacing="1" fill="#6b7280">10 ANS</text>'
+      + '<line x1="64" y1="12" x2="64" y2="52" stroke="#2a2a30"/>'
+      + (function () { var v = [17, 9, 0, -7, -15], h = '';
+        for (var i = 0; i < 5; i++) { var y = 13 + i * 8, w = Math.abs(v[i]) * 1.8;
+          h += '<rect x="8" y="' + (y + 0.8) + '" width="16" height="2.6" rx="1.3" fill="#3a3d44" opacity=".85"/>';
+          if (v[i] === 0) h += '<circle cx="64" cy="' + (y + 2.1) + '" r="2" fill="#e3b23a" opacity=".9"/>';
+          else h += '<rect x="' + (v[i] > 0 ? 64 : 64 - w) + '" y="' + y + '" width="' + w + '" height="4.2" rx="1" fill="' + (v[i] > 0 ? '#00e676' : '#ff3d00') + '" opacity=".8"/>'; }
+        return h; })()
       + '</svg>',
     // Indices & Matières : SEULE carte du catalogue sans vignette (30/08, capture user « il manque
     // un aperçu ») — deux groupes étiquetés, barres bipolaires sur axe central, l'or en… or.

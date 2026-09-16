@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260916-rendements-10-ans', ts: Date.UTC(2026, 8, 16, 16, 20), title: 'Nouvelle carte : les rendements souverains à 10 ans', desc: 'Le desk savait dire ce qu’une banque centrale DÉCIDE, dans l’onglet Taux, et ce que le marché price pour sa PROCHAINE réunion. Il ne disait rien de ce que le marché price au delà. C’est ce qui manquait, et c’est ce que cette carte apporte : le rendement de l’emprunt d’État à dix ans des huit pays majeurs, c’est à dire le prix de l’argent long. LA BARRE MONTRE L’ÉCART AU DIX ANS AMÉRICAIN, PAS LE NIVEAU, et c’est un choix. Un rendement de 4,3 pour cent ne dit rien tout seul : c’est élevé pour l’Allemagne, bas pour la Nouvelle Zélande. Le dollar étant la jambe commune de sept des huit majeures, c’est le DIFFÉRENTIEL qui explique le portage d’une paire, pas le chiffre isolé. Les États Unis sont donc la référence, et leur barre reste vide plutôt que d’afficher un zéro qu’on lirait comme une mesure. LA COLONNE DE DROITE EST EN POINTS DE BASE. Un point de base vaut un centième de point : plus douze points de base se compare d’un pays à l’autre, là où plus zéro virgule douze se confond avec un pourcentage. Et au survol, la prime de terme : l’écart entre ce dix ans et le taux directeur du pays. Négative, le marché price des baisses ; fortement positive, il price de la croissance ou un risque budgétaire. AUCUNE SOURCE NOUVELLE, ET C’EST VOULU. Ces rendements sont lus sur la page que le Radar de Biais consulte DÉJÀ toutes les huit heures pour ses fondamentaux : pas une requête de plus, pas un chemin réseau de plus à surveiller. CE QUE LA CARTE N’AFFICHE PAS : ni le deux ans ni le trente ans, donc pas de pente de courbe. Ils demanderaient une vraie seconde source, et nous n’affichons pas un chiffre venu d’un chemin que nous n’avons pas encore vu répondre en production. La pente viendra avec sa source et sa vérification, pas avant. ENFIN, UNE VALEUR ABSENTE RESTE ABSENTE : si la source ne publie pas un pays, sa ligne est vide et la carte le dit. Resservir le dernier rendement connu sous la date du jour se lirait exactement comme un rendement frais, et c’est le défaut que ce desk a déjà payé deux fois. Vingt trois contrôles automatiques tiennent l’ensemble à chaque livraison, dont un qui rejoue la page de la source avec ses pièges d’intitulés voisins.' },
   { id: 'dtpu-20260916-calendrier-heure', ts: Date.UTC(2026, 8, 16, 14, 30), title: 'Calendrier économique : la bonne heure, une seule ligne, le bon chiffre', desc: 'Vous nous avez signalé, capture de ForexFactory à l’appui, trois choses en même temps sur le calendrier : un IPC britannique en double, un chiffre différent du leur sur la seconde ligne, et des rendez vous absents. Ce ne sont pas trois défauts, c’est UN SEUL, et il est réparé. L’HORLOGE DE NOTRE SECONDE SOURCE ÉTAIT MAL LUE. Le calendrier croise deux fournisseurs : l’un donne les NOMS que vous connaissez, l’autre donne les CHIFFRES en temps réel. Le premier publie ses horaires en temps universel, et nous les lisions comme de l’heure de New York. Chaque rendez vous de cette source atterrissait donc QUATRE HEURES TROP TARD l’été, cinq l’hiver. Mesuré sur huit publications réelles, quatre devises, du matin au soir : toutes décalées d’exactement quatre heures. CE QUE CE SEUL DÉCALAGE PROVOQUAIT. Les deux sources se reconnaissent quand elles annoncent le même rendez vous à moins de quatre vingt dix minutes d’écart. À quatre heures, elles ne se reconnaissaient JAMAIS : la ligne arrivait en double au lieu de fusionner. Et n’ayant pas trouvé sa jumelle, elle allait chercher son résultat chez le voisin le plus proche, d’où le 3,4 pour cent affiché à la place du 3,1 pour cent. Le même mécanisme expliquait un niveau d’indice affiché sur une variation mensuelle, ou un pourcentage posé sur une conférence de presse. Enfin, l’heure annoncée était fausse de quatre heures, ce qui suffit à faire rater une publication. CE QUI CHANGE POUR VOUS. Les horaires sont ceux de la publication réelle, chaque rendez vous tient sur une ligne, et les chiffres sont ceux de la source qui les publie. Trente contrôles automatiques rejouent désormais les huit publications mesurées à chaque livraison, dont deux qui remettent l’ancien comportement pour vérifier qu’il échoue bien : un contrôle incapable d’échouer ne prouve rien.' },
   { id: 'dtpu-20260916-eclairages-rapports', ts: Date.UTC(2026, 8, 16, 14, 45), title: 'Rapports d’institutions : les Éclairages ne sèchent plus sur un rapport affiché', desc: 'Vous nous avez signalé un rapport KBC ouvert normalement, avec juste au dessus le message Éclairages desk indisponibles pour ce rapport. Le desk affichait donc le document dont il disait ne pas pouvoir extraire le texte. LA CAUSE, MESURÉE. Le document que vous lisez et le texte que nous analysons venaient de DEUX CHEMINS DIFFÉRENTS, et un seul était solide. Celui de l’affichage commence par regarder si le rapport est déjà stocké chez nous, puis retente trois fois avec un délai large. Celui de l’analyse repartait vers la banque, un seul essai, délai court, sans jamais regarder le fichier posé juste à côté. Or plusieurs banques refusent les demandes venues d’un serveur : un refus, une coupure passagère ou un rapport un peu lourd suffisait, et le panneau restait muet sous un document parfaitement lisible. Ce défaut ne se voit pas en relisant le code, les deux morceaux sont justes séparément. Il ne se voit qu’en les COMPARANT. CE QUI CHANGE. Les octets d’un rapport ont maintenant une source unique, partagée par qui l’affiche et par qui l’analyse. L’analyse lit d’abord le document déjà stocké, donc sans rien redemander à la banque, et bénéficie des mêmes reprises que l’affichage. ET SI L’EXTRACTION ÉCHOUE QUAND MÊME, un second chemin prend le relais au lieu de renvoyer une page vide : le bouton Réessayer rejouait auparavant le chemin qui venait d’échouer, ce qui ne pouvait produire que le même silence. Seize contrôles automatiques tiennent l’ensemble à chaque livraison, dont un qui prive le code de sa lecture disque pour vérifier que le défaut revient bien.' },
   { id: 'dtpu-20260911-journal-couleurs', ts: Date.UTC(2026, 8, 11, 8, 59), title: 'Journal de trading : des couleurs choisies, et les jours en français', desc: 'Le tableau du journal retrouve ses couleurs, mais choisies cette fois. AVANT, LA TEINTE ÉTAIT TIRÉE AU HASARD du nom de la valeur : Mercredi sortait rose, Londres bleu, sans aucune logique. Deux valeurs proches se retrouvaient aux deux bouts du spectre. Chaque valeur reçoit maintenant une couleur DÉCIDÉE : Continuation et Continuation plus Reversal sont bleues toutes les deux, les mises en place d’atténuation sont violettes, les rejets sont rouges. La couleur devient une information qu’on balaie du regard, au lieu d’un bruit joli. LA PALETTE EST ADAPTÉE AU FOND SOMBRE. Les références sont en thème clair, avec un fond pastel et un texte foncé : recopiées telles quelles sur le noir du desk, elles donneraient des pavés laiteux illisibles. Nous gardons la teinte et le rapport, nous inversons la clarté. Les neuf couleurs ont été mesurées sur le fond réel du desk : la moins contrastée tient dix pour un, très au-dessus du seuil de lisibilité. RÉSULTAT ET DIRECTION NE SUIVENT PAS CES RÉFÉRENCES, et c’est voulu : un gain reste VERT et une perte reste ROUGE, comme partout ailleurs sur le terminal. Une valeur que nous ne connaissons pas reste neutre, plutôt que de recevoir une couleur inventée. ET LES JOURS D’UN JOURNAL IMPORTÉ S’AFFICHENT EN FRANÇAIS. La colonne Jour du modèle DTP était déjà traduite, mais un journal importé apporte ses propres valeurs : Monday, Thursday, London restaient tels quels. Ils s’affichent désormais traduits. La valeur enregistrée, elle, ne change pas : un export vous rend exactement ce que vous aviez importé. Le vocabulaire de trading reste en anglais, parce que le traduire rendrait le journal moins lisible, pas plus.' },
@@ -19223,6 +19224,89 @@ app.get('/api/us-yields', async (_req, res) => {
 });
 
 let _snapCache = { ts: 0, data: null };
+/* ══ OBLIGATAIRE : LE RENDEMENT SOUVERAIN À 10 ANS, PAR DEVISE (16/09) ════════════════════════════
+   Premier jalon du chantier obligataire. Le desk savait dire ce qu'une banque centrale DÉCIDE
+   (onglet Taux) et ce que le marché PRICE pour sa prochaine réunion (FedWatch, scénario maison).
+   Il ne savait pas dire ce que le marché price au-DELÀ : le rendement à 10 ans, qui est le prix de
+   l'argent long et le premier moteur d'une paire de devises sur l'horizon d'un swing.
+   AUCUNE SOURCE NOUVELLE. Les rendements sont lus sur la page TradingEconomics que le Radar de
+   Biais charge DÉJÀ toutes les 8 h pour ses fondamentaux (cf. MARCHES dans scrapers/tradingeconomics.js) :
+   `fetchTEAll` sert son cache, cette route ne déclenche aucune requête réseau de plus.
+   CE QU'ON N'AFFICHE PAS, ET POURQUOI : ni 2 ans ni 30 ans, donc pas de PENTE. Ils demanderaient une
+   vraie seconde source (Stooq, FRED, portail BCE), et on n'affiche pas un chiffre venu d'un chemin
+   qu'on n'a pas encore vu répondre en production. La pente viendra avec sa source et sa vérification.
+   ⚠️ UNE VALEUR ABSENTE RESTE ABSENTE. `null` traverse jusqu'à l'écran, qui le dit. Le dernier
+   rendement connu resservi sous la date du jour se lirait exactement comme un rendement frais :
+   c'est le défaut que ce dépôt a déjà payé deux fois (le 53.9 de l'ISM, le modèle JOT de juin). */
+let _obligCache = { ts: 0, data: null };
+async function _obligPayload() {
+  if (_obligCache.data && Date.now() - _obligCache.ts < 5 * 60 * 1000) return _obligCache.data;
+  let te = {};
+  try { te = await fetchTEAll(SB_CURRENCIES) || {}; } catch (e) { console.warn('[Oblig] TE indispo:', e.message); }
+  const lignes = SB_CURRENCIES.map(ccy => {
+    const m = (te[ccy] && te[ccy].marches) || {};
+    const o = m.oblig10 || null;
+    const d = m.directeur || null;
+    return {
+      ccy,
+      dix: o ? o.valeur : null,
+      dixPrec: o ? o.precedent : null,
+      // La variation se lit en POINTS DE BASE : c'est l'unité du marché obligataire, et « +12 bp »
+      // se compare d'une devise à l'autre là où « +0,12 » invite à le confondre avec un pourcentage.
+      dixBp: (o && o.valeur != null && o.precedent != null) ? Math.round((o.valeur - o.precedent) * 100) : null,
+      directeur: d ? d.valeur : null,
+      // PRIME DE TERME : ce que le marché exige au-delà du taux directeur. Négative = le marché
+      // price des baisses ; fortement positive = il price de la croissance ou du risque budgétaire.
+      prime: (o && d && o.valeur != null && d.valeur != null) ? +(o.valeur - d.valeur).toFixed(2) : null,
+    };
+  });
+  const usd = lignes.find(l => l.ccy === 'USD');
+  for (const l of lignes) {
+    /* L'ÉCART AU 10 ANS AMÉRICAIN est la lecture qui sert un desk de change : le dollar est la
+       jambe commune de sept des huit majeures, et c'est ce différentiel, pas le niveau absolu, qui
+       explique le portage d'une paire. On ne le calcule pas pour l'USD lui-même (il vaudrait zéro
+       et occuperait une colonne pour rien). */
+    l.ecartUS = (l.ccy !== 'USD' && usd && usd.dix != null && l.dix != null) ? +(l.dix - usd.dix).toFixed(2) : null;
+  }
+  const renseignees = lignes.filter(l => l.dix != null).length;
+  const data = {
+    majAt: Date.now(),
+    lignes,
+    renseignees,
+    // Honnêteté de l'état : le client doit pouvoir distinguer « pas encore chargé » de « la source
+    // ne publie plus cette ligne ». Les deux se ressemblent à l'écran, pas dans les faits.
+    etat: renseignees === 0 ? 'indisponible' : renseignees < lignes.length ? 'partiel' : 'complet',
+  };
+  _obligCache = { ts: Date.now(), data };
+  return data;
+}
+app.get('/api/obligataire', async (_req, res) => {
+  try { res.json(await _obligPayload()); }
+  catch (e) { res.json({ majAt: Date.now(), lignes: [], renseignees: 0, etat: 'indisponible', erreur: String(e && e.message || e).slice(0, 120) }); }
+});
+/* DIAGNOSTIC ADMINISTRATEUR — parce qu'un intitulé de source SE VÉRIFIE, il ne se suppose pas.
+   Si TradingEconomics nommait sa ligne autrement que « Government Bond 10Y », le widget serait vide
+   et rien ne dirait pourquoi. Cette route montre, par pays, ce qui a été trouvé ET les intitulés
+   CANDIDATS réellement lus sur la page : la correction tient alors en une expression régulière. */
+app.get('/api/admin/obligataire', requireAdmin, async (_req, res) => {
+  let te = {};
+  try { te = await fetchTEAll(SB_CURRENCIES) || {}; } catch (e) { return res.json({ ok: false, erreur: String(e && e.message || e) }); }
+  res.json({
+    ok: true,
+    pays: SB_CURRENCIES.map(ccy => {
+      const m = (te[ccy] && te[ccy].marches) || {};
+      return {
+        ccy,
+        trouve: !!m.oblig10,
+        nomLu: m.oblig10 ? m.oblig10.nom : '',
+        valeur: m.oblig10 ? m.oblig10.valeur : null,
+        directeur: m.directeur ? m.directeur.valeur : null,
+        candidats: m._candidats || [],   // comment la page nomme RÉELLEMENT ses lignes
+      };
+    }),
+  });
+});
+
 app.get('/api/market-snapshot', async (_req, res) => {
   if (_snapCache.data && Date.now() - _snapCache.ts < 60 * 1000) return res.json(_snapCache.data);
   try {
