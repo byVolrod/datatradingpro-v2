@@ -483,6 +483,41 @@ function _conflitImpossible(err) {
   const m = String(((err && err.message) || '') + ' ' + ((err && err.code) || ''));
   return /no unique or exclusion constraint|42P10/i.test(m);
 }
+/* ══ LA MÊME ADRESSE, DEUX IDENTIFIANTS DIFFÉRENTS (16/09, observé après la mise en écran de la
+   raison de quarantaine) ═══════════════════════════════════════════════════════════════════
+
+   CE QUE LA RAISON, DÉSORMAIS AFFICHÉE, A RÉVÉLÉ : « duplicate key value violates unique constraint
+   "users_email_key" » sur primary, db3 et db4 — db2 seule est à jour. Ce n'est PAS l'échec de
+   schéma traité plus haut : la table est identique partout, la colonne existe. C'est une VRAIE
+   divergence de données, et son origine se lit dans ce fichier même : primary est restée en pause
+   du 14/06 au 02/09 (§ plus haut, « une base revenue »). Pendant cette absence, le failover a
+   écrit les comptes actifs sur db2 sous un NOUVEL identifiant ; primary, à son retour, a gardé SA
+   PROPRE ligne pour ces mêmes adresses, sous l'identifiant qu'elle connaissait avant sa pause.
+   Le même e-mail existe donc, légitimement, sous deux identifiants différents selon la base.
+
+   POURQUOI ÇA BLOQUAIT LA CONVERGENCE ENTIÈRE. `_up` écrit les comptes à identifiant moderne par
+   UPSERT sur `id` : quand `id` ne correspond à aucune ligne existante, Postgres tente un INSERT —
+   qui percute alors la contrainte UNIQUE sur `email`, puisqu'une AUTRE ligne la porte déjà. Un seul
+   compte dans ce cas fait échouer TOUT le lot envoyé à cette base dans la même requête : c'est ce
+   qui a laissé primary, db3 et db4 bloquées en resynchro alors que la cause ne touchait qu'une
+   poignée de comptes.
+
+   LA RÉPARATION, ET POURQUOI ELLE N'EST NI DESTRUCTIVE NI UNE PERTE. On NE CHOISIT PAS quel
+   identifiant « gagne », et on n'efface RIEN : une ligne déjà présente sur la base, quel que soit
+   son identifiant, GARDE le sien — on la met à jour PAR E-MAIL, exactement comme pour un compte
+   hérité. Zéro DELETE, zéro TRUNCATE, zéro écrasement d'identifiant : seules les colonnes de
+   contenu (nom, offre, statut, échéance, empreinte) sont rafraîchies avec la version la plus à jour
+   connue du miroir — la même direction d'écriture que partout ailleurs dans ce fichier, jamais une
+   base vers une autre. Un compte dont l'e-mail n'existe encore NULLE PART sur la base est créé
+   normalement, avec son identifiant du miroir : aucun risque de collision, puisqu'aucune ligne ne
+   le porte. */
+function _conflitEmailDoublon(err) {
+  const m = String((err && err.message) || '');
+  const d = String((err && err.details) || '');
+  const code = String((err && err.code) || '');
+  if (code === '23505' && /email/i.test(m + ' ' + d)) return true;
+  return /duplicate key value violates unique constraint/i.test(m) && /email/i.test(m);
+}
 /* ⚠️ TROIS COLONNES NE SE RETIRENT JAMAIS. Sans `email` on ne sait plus DE QUI on parle ; sans
    `id` un INSERT perd son identité ; sans `password_hash` un INSERT viole une colonne NOT NULL ou,
    pire, crée un compte sans mot de passe. Si l'une d'elles manque sur un nœud, ce n'est pas une
@@ -865,6 +900,16 @@ async function _usersConverge(reason = '') {
          puis création de ce qu'aucune ligne ne portait. Toujours zéro suppression. */
       if (_conflitImpossible(r.error)) {
         console.warn(`[Auth] ${node.name} : pas de contrainte unique sur « ${conflict} » → repli par email (aucune suppression).`);
+        return _upLegacy(node, rows);
+      }
+      /* ⚠️ LE MÊME E-MAIL SOUS DEUX IDENTIFIANTS (16/09). L'upsert par `id` échoue parce qu'une
+         AUTRE ligne de cette base porte déjà cet e-mail sous un identifiant différent — séquelle de
+         la longue pause de primary (voir le commentaire de `_conflitEmailDoublon`). On ne choisit
+         aucun « gagnant » entre les deux identifiants : la ligne déjà présente GARDE le sien, et
+         reçoit seulement la mise à jour de ses colonnes, exactement comme un compte hérité. Aucune
+         suppression, aucun écrasement d'identifiant. */
+      if (_conflitEmailDoublon(r.error)) {
+        console.warn(`[Auth] ${node.name} : e-mail déjà présent sous un autre identifiant → repli par email (aucune suppression, l'identifiant existant est conservé).`);
         return _upLegacy(node, rows);
       }
       if (_supaDown(r.error) && !_isSchemaErr(r.error)) _markDown(node, r.error);

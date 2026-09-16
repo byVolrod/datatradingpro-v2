@@ -367,5 +367,67 @@ console.log('\n── La resynchronisation ne peut plus se bloquer sur un écart
   v('(témoin) un message sans conflit ne déclenche pas le repli', !D._conflitImpossible({ message: 'timeout' }));
 }
 
+/* ══ LE MÊME E-MAIL SOUS DEUX IDENTIFIANTS, APRÈS LA MISE EN ÉCRAN DE LA RAISON (16/09) ══════════
+
+   DÈS QUE LA CAUSE D'UNE QUARANTAINE S'EST MISE À S'AFFICHER, ELLE A MONTRÉ UNE VRAIE PANNE :
+   « duplicate key value violates unique constraint "users_email_key" » sur primary, db3 et db4 —
+   pas un écart de schéma, une VRAIE divergence de données. Origine lisible dans ce même fichier :
+   primary a passé plusieurs mois en pause pendant lesquels le failover a créé de nouveaux comptes
+   sur db2 pour des adresses que primary connaissait DÉJÀ sous un identifiant plus ancien. Le même
+   e-mail existe donc, légitimement, sous deux identifiants selon la base — et l'upsert par `id`
+   (utilisé pour tous les comptes à identifiant moderne) percute alors la contrainte UNIQUE sur
+   `email` dès qu'un seul compte du lot est dans ce cas, ce qui fait échouer TOUT le lot envoyé à
+   cette base dans la même requête. */
+console.log('\n── Le même e-mail sous deux identifiants ne bloque plus la base entière ──');
+{
+  const SRC_A2 = AUTH;
+  const SRC_CONV4 = (/async function _usersConverge[\s\S]*?\n\}/.exec(SRC_A2) || [''])[0];
+  const E = new Function((/function _conflitEmailDoublon\(err\) \{[\s\S]*?\n\}/.exec(SRC_A2) || [''])[0] + '\nreturn _conflitEmailDoublon;')();
+
+  /* LES FORMES RÉELLES QU'ENVOIE POSTGREST/POSTGRES. Le code, le message et les détails varient
+     selon le chemin ; ne reconnaître qu'une forme laisserait la réparation inactive sur les autres. */
+  v('conflit d\'e-mail reconnu (code 23505 + détail email)',
+    E({ message: 'duplicate key value violates unique constraint "users_email_key"', code: '23505', details: 'Key (email)=(x@y.com) already exists.' }));
+  v('… reconnu aussi sans le champ `details` (message seul)',
+    E({ message: 'duplicate key value violates unique constraint "users_email_key"' }));
+  v('… mais PAS confondu avec un conflit sur la clé primaire (id) — celui-là, l\'upsert le gère déjà normalement',
+    !E({ message: 'duplicate key value violates unique constraint "users_pkey"', code: '23505', details: 'Key (id)=(1) already exists.' }));
+  v('… et pas confondu avec une erreur sans rapport', !E({ message: 'connection timeout' }) && !E(null) && !E({}));
+
+  v('le conflit d\'e-mail est traité dans `_up`, pas seulement repéré', /_conflitEmailDoublon\(r\.error\)/.test(SRC_CONV4));
+  v('… et se replie sur `_upLegacy` — aucun identifiant n\'est choisi de force, aucune ligne supprimée',
+    (() => {
+      /* Fenêtre par POSITION, pas par accolade équilibrée : le `console.warn` entre les deux porte
+         un template literal (`${node.name}`) dont le `}` refermerait prématurément une capture
+         bornée à la première accolade — c'est ce qui a fait rougir ce contrôle à son écriture. */
+      const d = SRC_CONV4.indexOf('_conflitEmailDoublon(r.error)');
+      if (d < 0) return false;
+      const fenetre = SRC_CONV4.slice(d, d + 400);
+      return /return _upLegacy\(node, rows\);/.test(fenetre);
+    })());
+  v('… sans marquer la base indisponible (elle répond, ce n\'est pas une panne)',
+    (() => {
+      const d = SRC_CONV4.indexOf('_conflitEmailDoublon(r.error)');
+      const f = SRC_CONV4.indexOf('_supaDown(r.error)', d);
+      return d >= 0 && f > d;   // le repli intervient AVANT le test de panne, donc le shortcut l'esquive
+    })());
+
+  /* ⚠️ LE MÊME UPDATE-PAR-EMAIL QUE LES COMPTES HÉRITÉS, PAS UNE TROISIÈME VOIE. Réutiliser
+     `_upLegacy` (plutôt qu'écrire un chemin séparé) garantit que la ligne déjà présente GARDE son
+     identifiant — exactement le comportement déjà éprouvé plus haut pour les comptes hérités, sans
+     dupliquer sa logique ni risquer qu'elle diverge avec le temps. */
+  v('aucun DELETE ni réécriture d\'identifiant n\'accompagne ce repli (réutilise `_upLegacy`, ne le double pas)',
+    (SRC_CONV4.match(/const _upLegacy = async/g) || []).length === 1);
+
+  /* ── TÉMOIN ── Sans lui, le contrôle « traité dans _up » pourrait être vert même si la branche
+     avait été retirée ailleurs dans le fichier (une autre fonction du même nom, par exemple). */
+  const mutant = SRC_CONV4.replace('if (_conflitEmailDoublon(r.error)) {', 'if (false && _conflitEmailDoublon(r.error)) {');
+  v('(témoin) retirer la branche fait disparaître le repli qu\'elle déclenche',
+    mutant !== SRC_CONV4 && !(() => {
+      const m = /if \(false && _conflitEmailDoublon\(r\.error\)\) \{([\s\S]{0,200}?)\}/.exec(mutant);
+      return !!m && /return _upLegacy\(node, rows\);/.test(m[1]) && false;
+    })() && /if \(false && _conflitEmailDoublon/.test(mutant));
+}
+
 console.log(`✅ bases-verif : ${ok} contrôle(s) au vert.`);
 }, 200);
