@@ -237,4 +237,67 @@ ls -1t "$DEST"/dtp-*.tar.gz.gpg 2>/dev/null | tail -n +$((GARDER + 1)) | while r
   rm -f "$vieux" && msg "rotation : $vieux supprime"
 done
 
-msg "RAPPEL : cette archive est SUR LA MEME MACHINE. La rapatrier ailleurs (voir RESTAURATION.md)."
+# ── 7. COPIE HORS SITE (e-mail) ─────────────────────────────────────────────────────────────
+# ⚠️ POSÉ LE 17/09/2026. Jusqu'ici cette ligne se contentait de LE DIRE (« RAPPEL : ... ») — sans
+# rien faire. Une archive qui reste sur le serveur ne protège de rien : si la machine disparaît,
+# l'archive disparaît avec elle. On l'envoie donc en PIÈCE JOINTE à l'admin, par le mailer déjà
+# chargé dans le conteneur (le même canal, déjà éprouvé en production, que `_alerter_echec`
+# ci-dessus) : aucun nouveau compte, aucune nouvelle clé, aucun stockage tiers à payer — la boîte
+# mail EST le hors-site, et son quota (des Go) est sans commune mesure avec quelques Mo par nuit.
+#
+# ⚠️ ATTACHER UNE ARCHIVE DÉJÀ CHIFFRÉE NE RÉ-EXPOSE RIEN. Le fichier est déjà passé par le GPG
+# symétrique de la section ── 4. AVANT d'arriver ici ; la phrase secrète (DTP_BACKUP_PASS) ne
+# quitte JAMAIS le .env du VPS — elle n'entre dans aucune variable transmise au conteneur, ni dans
+# le corps de l'e-mail. Sans elle, la pièce jointe est un bloc opaque.
+#
+# ⚠️ POURQUOI LE BASE64 PART PAR L'ENTRÉE STANDARD, JAMAIS EN ARGUMENT. Même leçon que
+# `_alerter_echec` (voir plus haut) : un `docker exec ... node -e "$(cat …)"` mettrait plusieurs Mo
+# de texte dans l'argv d'un process, contre une limite système (ARG_MAX) largement atteignable, et
+# volerait dans le journal au premier `set -x`. Le flux est la seule voie sûre pour une charge de
+# cette taille.
+#
+# ⚠️ GARDE DE TAILLE. Gmail/OVH refusent au-delà d'environ 25 Mo, et le passage en base64 gonfle
+# le fichier d'un tiers avant l'envoi. Au-delà du plafond on n'attache plus — on PRÉVIENT
+# seulement : l'archive locale reste valide, ce n'est pas une perte silencieuse, juste un rappel
+# du chemin manuel existant (dtp-rapatrier.sh).
+_copie_hors_site() {
+  local dest="${DTP_ALERTE_EMAILS:-${DISK_ALERT_EMAILS:-muhammedatay@outlook.fr}}"
+  docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$CONTENEUR_ALERTE" || {
+    msg "copie hors-site : conteneur absent, sautee (l'archive locale reste valide)"; return 0; }
+
+  # Taille en octets, forme portable (le VPS est du GNU, mais un banc peut rejouer ceci ailleurs) —
+  # mémes deux lignes que dtp-rapatrier.sh/dtp-migrer.sh pour la même mesure.
+  local octets; octets=$(stat -c%s "$ARCHIVE" 2>/dev/null || stat -f%z "$ARCHIVE" 2>/dev/null || echo 0)
+  local plafond=$(( ${DTP_HORSSITE_MAX_MO:-18} * 1024 * 1024 ))
+
+  if [ "$octets" -gt "$plafond" ] 2>/dev/null; then
+    printf '%s' "<p>L'archive de cette nuit ($TAILLE) depasse la taille envoyable par e-mail.</p><p>Sauvegarde locale VALIDE : <code>$ARCHIVE</code> sur le VPS.</p><p>La rapatrier depuis une machine externe : <code>scripts/vps/dtp-rapatrier.sh</code>.</p>" \
+      | DEST_MAIL="$dest" docker exec -e DEST_MAIL -i "$CONTENEUR_ALERTE" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{require("/app/mailer").sendAdminAlert({subject:"DTP : sauvegarde trop volumineuse pour un envoi par e-mail",html:s,to:process.env.DEST_MAIL}).then(()=>process.exit(0)).catch(e=>{console.error(e.message);process.exit(1);});});' 2>&1 \
+      && msg "copie hors-site : archive trop lourde (> ${DTP_HORSSITE_MAX_MO:-18} Mo), notice envoyee a $dest sans piece jointe" \
+      || msg "copie hors-site : archive trop lourde, ET meme la notice a echoue"
+    return 0
+  fi
+
+  if base64 -w0 "$ARCHIVE" \
+       | DEST_MAIL="$dest" HORO="$HORO" TAILLE="$TAILLE" NOM_FICHIER="$NOM.tar.gz.gpg" \
+         docker exec -e DEST_MAIL -e HORO -e TAILLE -e NOM_FICHIER -i "$CONTENEUR_ALERTE" node -e '
+    let b64 = "";
+    process.stdin.on("data", d => b64 += d).on("end", () => {
+      const html = "<p>Sauvegarde quotidienne chiffree du " + process.env.HORO + " (" + process.env.TAILLE + "), en piece jointe.</p>"
+        + "<p>Phrase de dechiffrement : dans votre gestionnaire de mots de passe, jamais dans cet e-mail.</p>";
+      require("/app/mailer").sendAdminAlert({
+        subject: "DTP : sauvegarde hors-site (piece jointe)",
+        html,
+        to: process.env.DEST_MAIL,
+        attachments: [{ filename: process.env.NOM_FICHIER, contentType: "application/octet-stream", content: Buffer.from(b64, "base64") }],
+      }).then(() => process.exit(0)).catch(e => { console.error(e.message); process.exit(1); });
+    });' 2>&1; then
+    msg "copie hors-site : archive envoyee par e-mail a $dest ($TAILLE)"
+  else
+    printf '%s' "<p>La copie hors-site (piece jointe) a ECHOUE cette nuit.</p><p>Sauvegarde locale VALIDE : <code>$ARCHIVE</code> sur le VPS.</p>" \
+      | DEST_MAIL="$dest" docker exec -e DEST_MAIL -i "$CONTENEUR_ALERTE" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{require("/app/mailer").sendAdminAlert({subject:"DTP : la copie hors-site a ECHOUE (archive locale OK)",html:s,to:process.env.DEST_MAIL}).then(()=>process.exit(0)).catch(e=>{console.error(e.message);process.exit(1);});});' 2>&1 \
+      && msg "copie hors-site : envoi de la piece jointe echoue, notice envoyee a $dest" \
+      || msg "copie hors-site : envoi de la piece jointe echoue, ET la notice a aussi echoue"
+  fi
+}
+_copie_hors_site || msg "copie hors-site : erreur inattendue, ignoree (l'archive locale reste valide)"

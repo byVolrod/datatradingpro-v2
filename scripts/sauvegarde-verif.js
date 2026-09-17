@@ -30,24 +30,40 @@ const path = require('path');
 const RACINE = path.join(__dirname, '..');
 const EXP = fs.readFileSync(path.join(RACINE, 'scripts/vps/dtp-export-bdd.js'), 'utf8');
 const SH  = fs.readFileSync(path.join(RACINE, 'scripts/vps/dtp-sauvegarde.sh'), 'utf8');
+const MAILER = fs.readFileSync(path.join(RACINE, 'mailer.js'), 'utf8');
 let ok = 0, ko = 0;
 const v = (n, c, d) => { if (c) { ok++; console.log('  ✓ ' + n); } else { ko++; console.log('  ✗ ' + n + (d ? '\n      → ' + d : '')); } };
 
 /* Extrait une fonction (async ou non) par comptage d'accolades — même méthode que les autres
-   bancs du dépôt (journal-garde-verif.js, calendrier-verif.js). */
-function extraireFn(nom) {
+   bancs du dépôt (journal-garde-verif.js, calendrier-verif.js). Généralisée le 17/09 pour
+   pouvoir aussi extraire de mailer.js (§6, copie hors-site) sans dupliquer la mécanique. */
+function extraireDe(texte, nom) {
   const m = /(?:async\s+)?function\s+NOM\s*\(/.source.replace('NOM', nom);
   const rx = new RegExp(m);
-  const i = EXP.search(rx);
+  const i = texte.search(rx);
   if (i < 0) return null;
-  const debutAccolade = EXP.indexOf('{', i);
+  // ⚠️ LE CORPS COMMENCE APRÈS LA PARENTHÈSE FERMANTE, PAS AU PREMIER « { ». Une signature
+  // déstructurée (`sendAdminAlert({ subject, html, to, attachments } = {})`) contient ses PROPRES
+  // accolades avant même le corps : partir du tout premier « { » du fichier (comme le faisait ce
+  // compteur avant le 17/09) prend la destructuration pour le début du corps, referme dès sa
+  // propre accolade, et rend une fonction TRONQUÉE — invalide dès qu'on l'exécute. On compte donc
+  // d'abord les parenthèses jusqu'à leur fermeture, puis les accolades APRÈS ce point.
+  const debutParen = texte.indexOf('(', i);
+  let profParen = 0, finParen = -1;
+  for (let k = debutParen; k < texte.length; k++) {
+    if (texte[k] === '(') profParen++;
+    else if (texte[k] === ')') { profParen--; if (profParen === 0) { finParen = k; break; } }
+  }
+  if (finParen < 0) return null;
+  const debutAccolade = texte.indexOf('{', finParen);
   let prof = 0;
-  for (let k = debutAccolade; k < EXP.length; k++) {
-    if (EXP[k] === '{') prof++;
-    else if (EXP[k] === '}') { prof--; if (prof === 0) return EXP.slice(i, k + 1); }
+  for (let k = debutAccolade; k < texte.length; k++) {
+    if (texte[k] === '{') prof++;
+    else if (texte[k] === '}') { prof--; if (prof === 0) return texte.slice(i, k + 1); }
   }
   return null;
 }
+function extraireFn(nom) { return extraireDe(EXP, nom); }
 
 /* ⚠️ TOUT LE BANC VIT DANS CETTE FONCTION. Premier jet écrit avec un `return` au niveau du module
    pour enchaîner sur la suite après l'`await` : `return` hors fonction est une erreur de syntaxe,
@@ -273,6 +289,205 @@ async function suite() {
         v('(témoin) avec l\'ancien ordre, le défaut du 17/09 revient bien (dump à plat)',
           aPlatMute && !imbriqueMute,
           'imbriqué=' + imbriqueMute + ' à plat=' + aPlatMute + ' — si le témoin ne mord pas, il ne prouve plus rien');
+      }
+    }
+  }
+
+  console.log('\n── 6. LA COPIE HORS-SITE — l\'archive part-elle VRAIMENT ailleurs que le VPS ? (17/09) ──');
+  /* ⚠️ POURQUOI CE BANC. Jusqu'ici la dernière ligne du script se contentait de LE DIRE
+     (« RAPPEL : cette archive est SUR LA MEME MACHINE ») sans rien faire — exactement la forme
+     du keep-alive d'août et de la sauvegarde de la nuit dernière : une protection qui a l'air en
+     place. `_copie_hors_site` envoie maintenant l'archive en pièce jointe par le mailer déjà
+     chargé dans le conteneur. ON EXÉCUTE LE VRAI EXTRAIT du script (pas une copie), avec une
+     doublure `docker` qui capture ce qui part réellement sur l'entrée standard d'un `docker exec`
+     — même mécanique que `_alerter_echec` dans env-verif.js. */
+  {
+    const iDebut = SH.indexOf('_copie_hors_site() {');
+    const iFin = SH.indexOf('\n_copie_hors_site || msg', iDebut);
+    const fnSrc = (iDebut >= 0 && iFin > iDebut) ? SH.slice(iDebut, iFin) : null;
+    v('`_copie_hors_site` est extractible du script réel', !!fnSrc,
+      'les ancres ont changé de forme : ce contrôle ne voit plus rien');
+
+    if (fnSrc) {
+      const os = require('os');
+      const { spawnSync } = require('child_process');
+      const bac = fs.mkdtempSync(path.join(os.tmpdir(), 'dtp-horssite-'));
+
+      // Doublure docker « présent » : `ps` nomme le conteneur, `exec` capture l'entrée standard
+      // PUIS la ligne d'arguments — pour lire ce que le script envoie vraiment au mailer.
+      const binPresent = path.join(bac, 'bin-present');
+      fs.mkdirSync(binPresent, { recursive: true });
+      const traceP = path.join(bac, 'present.trace');
+      fs.writeFileSync(path.join(binPresent, 'docker'), [
+        '#!/usr/bin/env bash',
+        'if [ "$1" = "ps" ]; then echo datatradingpro; exit 0; fi',
+        // ⚠️ `$*` NE CONTIENT QUE LES ARGUMENTS, PAS LES VARIABLES D'ENVIRONNEMENT reçues par ce
+        // process (DEST_MAIL, HORO…) — `-e DEST_MAIL` ne fait que NOMMER la variable à transmettre
+        // au conteneur, sa VALEUR n'apparaît jamais dans $*. Sans cette ligne, un contrôle sur
+        // l'adresse de destination ne pourrait que mordre dans le vide.
+        'if [ "$1" = "exec" ]; then cat >> ' + JSON.stringify(traceP) + '; echo "ENV DEST_MAIL=$DEST_MAIL" >> ' + JSON.stringify(traceP) + '; echo "EXEC $*" >> ' + JSON.stringify(traceP) + '; exit 0; fi',
+        'exit 0',
+      ].join('\n') + '\n', { mode: 0o755 });
+
+      // Doublure docker « absent » : aucun conteneur nommé, ET un `docker exec` appelé quand même
+      // serait une vraie fuite d'un bug — on le fait échouer bruyamment plutôt que de le laisser
+      // passer en silence.
+      const binAbsent = path.join(bac, 'bin-absent');
+      fs.mkdirSync(binAbsent, { recursive: true });
+      fs.writeFileSync(path.join(binAbsent, 'docker'), [
+        '#!/usr/bin/env bash',
+        'if [ "$1" = "ps" ]; then exit 0; fi',
+        'echo "docker exec n\'aurait pas du etre appele" >&2; exit 9',
+      ].join('\n') + '\n', { mode: 0o755 });
+
+      // Une archive RÉELLE, sur disque : le round-trip base64 est vérifié OCTET POUR OCTET plus
+      // bas, pas seulement « quelque chose est parti ».
+      const archive = path.join(bac, 'dtp-20260917-0410.tar.gz.gpg');
+      const contenuArchive = Buffer.from('CONTENU-CHIFFRE-DE-TEST-' + 'x'.repeat(800), 'utf8');
+      fs.writeFileSync(archive, contenuArchive);
+
+      const jouer = (bin, fnSrcActif, envSupp) => {
+        fs.writeFileSync(traceP, '');
+        const script = `set -u
+export PATH=${JSON.stringify(bin)}:$PATH
+CONTENEUR_ALERTE=datatradingpro
+ARCHIVE=${JSON.stringify(archive)}
+TAILLE="1K"
+HORO="20260917-0410"
+NOM="dtp-20260917-0410"
+msg() { :; }
+${fnSrcActif}
+_copie_hors_site`;
+        const r = spawnSync('/bin/bash', ['-c', script], { encoding: 'utf8', env: { ...process.env, ...(envSupp || {}) } });
+        return { code: r.status, sortie: String(r.stdout || '') + String(r.stderr || ''), trace: fs.existsSync(traceP) ? fs.readFileSync(traceP, 'utf8') : '' };
+      };
+
+      // ── Cas A : archive dans le gabarit normal → PIÈCE JOINTE réelle, avec le bon contenu ──
+      const a = jouer(binPresent, fnSrc, { DTP_ALERTE_EMAILS: 'admin@exemple.fr' });
+      v('conteneur présent : `docker exec` est bien appelé', /EXEC exec/.test(a.trace), a.trace.slice(-200) || '(rien capté)');
+      v('… en PIÈCE JOINTE (attachments), pas en notice seule', /attachments/.test(a.trace) && /sendAdminAlert/.test(a.trace),
+        a.trace.slice(-300));
+      v('… à la bonne adresse', /admin@exemple\.fr/.test(a.trace));
+      // Le morceau AVANT « ENV DEST_MAIL=… » (ajouté par la doublure docker, voir plus haut) est
+      // exactement ce que le script a envoyé sur l'entrée standard : le base64 pur, rien d'autre.
+      const b64Recu = (a.trace.split(/\nENV DEST_MAIL=/)[0] || '').trim();
+      let octetsRecus = null;
+      try { octetsRecus = Buffer.from(b64Recu, 'base64'); } catch { /* laissé null : le contrôle suivant rougit */ }
+      v('le contenu reçu, une fois redécodé, est OCTET POUR OCTET celui de l\'archive',
+        !!octetsRecus && octetsRecus.equals(contenuArchive),
+        'le round-trip base64 ne redonne pas l\'archive : le mauvais fichier (ou la mauvaise variable) part en pièce jointe');
+
+      // ── Cas B : conteneur absent → aucun appel, sortie propre (pas de faux positif « envoyé ») ──
+      const b = jouer(binAbsent, fnSrc, {});
+      v('conteneur absent : la copie hors-site est sautée sans faire échouer le script', b.code === 0,
+        'code ' + b.code + ' · ' + b.sortie.slice(-200));
+      v('… et sans jamais appeler `docker exec`', b.trace === '',
+        'un `docker exec` est parti alors que le conteneur est absent : ' + b.trace.slice(0, 200));
+
+      // ── Cas C : plafond de taille abaissé à 0 Mo → NOTICE SEULE, jamais de pièce jointe ──
+      const c = jouer(binPresent, fnSrc, { DTP_ALERTE_EMAILS: 'admin@exemple.fr', DTP_HORSSITE_MAX_MO: '0' });
+      v('archive au-delà du plafond : une notice part (pas de silence)', /sendAdminAlert/.test(c.trace), c.trace.slice(-200));
+      v('… SANS pièce jointe (« attachments » absent de ce script-là)', !/attachments/.test(c.trace), c.trace.slice(-300));
+      v('… et elle mentionne le rapatriement manuel existant', /dtp-rapatrier\.sh/.test(c.trace));
+
+      // ── TÉMOIN : sans la garde de taille, une archive « trop grosse » repartirait quand même ──
+      const iIfDebut = fnSrc.indexOf('if [ "$octets" -gt "$plafond" ]');
+      const iIfFin = fnSrc.indexOf('\n  fi\n', iIfDebut);
+      const fnSansGarde = (iIfDebut >= 0 && iIfFin > iIfDebut)
+        ? fnSrc.slice(0, iIfDebut) + fnSrc.slice(iIfFin + '\n  fi\n'.length)
+        : fnSrc;
+      v('(témoin) la mutation retire bien la garde de taille', fnSansGarde !== fnSrc,
+        'la garde a changé de forme : ce témoin ne prouve plus rien');
+      if (fnSansGarde !== fnSrc) {
+        const d = jouer(binPresent, fnSansGarde, { DTP_ALERTE_EMAILS: 'admin@exemple.fr', DTP_HORSSITE_MAX_MO: '0' });
+        v('(témoin) sans la garde, une archive « trop grosse » repart bien en pièce jointe — la garde mord',
+          /attachments/.test(d.trace), 'la garde ne mord plus : ' + d.trace.slice(-200));
+      }
+
+      try { fs.rmSync(bac, { recursive: true, force: true }); } catch { /* dossier temporaire : sans conséquence */ }
+    }
+  }
+
+  console.log('\n  · le mailer transmet vraiment la pièce jointe, jusqu\'au MIME final');
+  /* ⚠️ SANS CE CONTRÔLE, LE BANC CI-DESSUS NE PROUVE QU\'À MOITIÉ. `_copie_hors_site` prouve que le
+     BON contenu part vers `sendAdminAlert` ; il ne dit rien de ce que `sendAdminAlert` en fait une
+     fois côté Node. Deux défauts vivaient là, tous deux invisibles à la lecture (chaque ligne est
+     juste séparément) : (1) le wrapper public `sendAdminAlert({subject,html,to})` n'exposait pas
+     `attachments` — silencieusement perdu avant d'atteindre `_send` ; (2) `_buildRaw` (chemin API
+     Gmail) forçait TOUTE pièce jointe en `Content-Disposition: inline` + `Content-Type: image/png`
+     + un `Content-ID: <undefined>` littéral, un habillage pensé pour les images cid: embarquées
+     dans un gabarit — jamais pour un fichier binaire quotidien. */
+  {
+    const srcAlert = extraireDe(MAILER, 'sendAdminAlert');
+    v('`sendAdminAlert` est extractible de mailer.js', !!srcAlert);
+    if (srcAlert) {
+      let appels = [];
+      const fauxSend = async (...args) => { appels.push(args); return 'test'; };
+      const fauxLayout = (titre, corps) => corps;
+      const fn = new Function('_send', '_layout', 'SUPPORT_EMAIL',
+        srcAlert + '\nreturn sendAdminAlert;')(fauxSend, fauxLayout, 'support@exemple.fr');
+
+      const piece = [{ filename: 'x.tar.gz.gpg', content: Buffer.from('abc') }];
+      await fn({ subject: 'sujet', html: '<p>x</p>', to: 'admin@exemple.fr', attachments: piece });
+      v('les pièces jointes passées à `sendAdminAlert` arrivent INTACTES jusqu\'à `_send`',
+        appels.length === 1 && appels[0][3] === piece,
+        appels.length ? JSON.stringify(appels[0][3]) : '(aucun appel à _send : le wrapper n\'a pas transmis)');
+
+      appels = [];
+      await fn({ subject: 's', html: 'h', to: 'a@exemple.fr' });
+      v('… et sans pièce jointe, `_send` ne reçoit ni erreur ni valeur inventée (undefined)',
+        appels.length === 1 && appels[0][3] === undefined,
+        appels.length ? JSON.stringify(appels[0][3]) : '(aucun appel à _send)');
+
+      // TÉMOIN : sans la transmission, _send ne recevrait jamais rien, même en fournissant une pièce.
+      const mutAlert = srcAlert.replace(', attachments);', ');');
+      v('(témoin) la mutation retire bien la transmission', mutAlert !== srcAlert,
+        'la ligne a changé de forme : ce témoin ne prouve plus rien');
+      if (mutAlert !== srcAlert) {
+        appels = [];
+        const fnMut = new Function('_send', '_layout', 'SUPPORT_EMAIL',
+          mutAlert + '\nreturn sendAdminAlert;')(fauxSend, fauxLayout, 'support@exemple.fr');
+        await fnMut({ subject: 's', html: 'h', to: 'a@exemple.fr', attachments: piece });
+        v('(témoin) sans la transmission, la pièce jointe fournie n\'atteint plus `_send` — la ligne mord',
+          appels.length === 1 && appels[0][3] === undefined,
+          appels.length ? JSON.stringify(appels[0][3]) : '(aucun appel à _send)');
+      }
+    }
+
+    const srcRaw = extraireDe(MAILER, '_buildRaw');
+    v('`_buildRaw` est extractible de mailer.js', !!srcRaw);
+    if (srcRaw) {
+      const construire = (source, att) => {
+        const fn = new Function('GMAIL_USER', 'SUPPORT_EMAIL', '_htmlToText', '_bccFor',
+          source + '\nreturn _buildRaw;')('bot@exemple.fr', 'support@exemple.fr', h => h, () => null);
+        const brut = fn('client@exemple.fr', 'sujet', '<p>corps</p>', att);
+        // `_buildRaw` rend du base64 « URL-safe » : on le redécode pour lire les en-têtes MIME.
+        return Buffer.from(brut.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+      };
+
+      const mimeSansCid = construire(srcRaw, [{ filename: 'dtp-20260917.tar.gz.gpg', content: Buffer.from('donnees') }]);
+      v('sans `cid` : `Content-Disposition` devient « attachment » (pas « inline »)',
+        /Content-Disposition: attachment; filename="dtp-20260917\.tar\.gz\.gpg"/.test(mimeSansCid), mimeSansCid.slice(0, 500));
+      v('sans `cid` : le type par défaut est `application/octet-stream` (pas `image/png`)',
+        /Content-Type: application\/octet-stream/.test(mimeSansCid), mimeSansCid.slice(0, 500));
+      v('sans `cid` : aucun en-tête `Content-ID: <undefined>` littéral n\'est écrit',
+        !/Content-ID: <undefined>/.test(mimeSansCid), mimeSansCid.slice(0, 500));
+
+      const mimeAvecCid = construire(srcRaw, [{ filename: 'logo.png', content: Buffer.from('img'), cid: 'logo@dtp' }]);
+      v('(non-régression) avec `cid` : le comportement image inline existant reste INCHANGÉ',
+        /Content-Disposition: inline; filename="logo\.png"/.test(mimeAvecCid)
+        && /Content-Type: image\/png/.test(mimeAvecCid)
+        && /Content-ID: <logo@dtp>/.test(mimeAvecCid), mimeAvecCid.slice(0, 500));
+
+      // TÉMOIN : sans la distinction cid/pas-cid, TOUTE pièce jointe reproduit le défaut d'origine.
+      const mutRaw = srcRaw.replace('const estInline = !!a.cid;', 'const estInline = true;');
+      v('(témoin) la mutation force bien `estInline` sans condition', mutRaw !== srcRaw,
+        'la ligne a changé de forme : ce témoin ne prouve plus rien');
+      if (mutRaw !== srcRaw) {
+        const mimeMute = construire(mutRaw, [{ filename: 'dtp-20260917.tar.gz.gpg', content: Buffer.from('donnees') }]);
+        v('(témoin) sans la distinction, une pièce jointe sans `cid` reproduit le défaut d\'origine (inline + image/png + Content-ID <undefined>)',
+          /Content-Disposition: inline/.test(mimeMute) && /Content-Type: image\/png/.test(mimeMute) && /Content-ID: <undefined>/.test(mimeMute),
+          mimeMute.slice(0, 500));
       }
     }
   }

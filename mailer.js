@@ -187,12 +187,20 @@ function _buildRaw(to, subject, html, att) {
       `--${rel}`, `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
       ...alt,
     ];
+    // ⚠️ JUSQU'AU 17/09, TOUT APPELANT N'ATTACHAIT QUE DES IMAGES INLINE (cid:) — d'où le
+    // `Content-Disposition: inline` et le `Content-ID` FORCÉS, sans condition. La copie hors-site
+    // de la sauvegarde (dtp-sauvegarde.sh) attache un fichier binaire QUOTIDIEN, jamais référencé
+    // par cid: dans le HTML : forcer `inline` + un `Content-ID: <undefined>` littéral l'aurait fait
+    // passer pour une image ratée plutôt qu'une pièce jointe. On distingue donc sur la présence de
+    // `a.cid` : avec cid → comportement inchangé (inline, image/png par défaut) ; sans cid →
+    // pièce jointe standard (attachment, application/octet-stream par défaut, pas de Content-ID).
     for (const a of att) {
+      const estInline = !!a.cid;
       lines.push('', `--${rel}`,
-        `Content-Type: ${a.contentType || 'image/png'}; name="${a.filename || 'image.png'}"`,
+        `Content-Type: ${a.contentType || (estInline ? 'image/png' : 'application/octet-stream')}; name="${a.filename || 'fichier'}"`,
         'Content-Transfer-Encoding: base64',
-        `Content-ID: <${a.cid}>`,
-        `Content-Disposition: inline; filename="${a.filename || 'image.png'}"`, '',
+        ...(estInline ? [`Content-ID: <${a.cid}>`] : []),
+        `Content-Disposition: ${estInline ? 'inline' : 'attachment'}; filename="${a.filename || 'fichier'}"`, '',
         _b64wrap(Buffer.isBuffer(a.content) ? a.content : Buffer.from(a.content)));
     }
     lines.push('', `--${rel}--`);
@@ -4505,11 +4513,15 @@ async function sendReferralInvite(d) { const m = buildReferralInvite(d); return 
 
 // Alerte ADMIN — monitoring IA (provider en rouge / quota proche épuisement). L'anti-spam (cooldown)
 // est géré côté serveur ; ici on se contente d'envoyer via la chaîne habituelle (OVH→Gmail).
-async function sendAdminAlert({ subject, html, to } = {}) {
+// `attachments` (17/09) : ajouté pour la copie hors-site de la sauvegarde nocturne
+// (scripts/vps/dtp-sauvegarde.sh), qui attache l'archive chiffrée au lieu de la laisser SEULE
+// sur le VPS. `_send` et les deux transports (Gmail/OVH) l'acceptaient déjà ; seul ce wrapper
+// public ne le transmettait pas encore.
+async function sendAdminAlert({ subject, html, to, attachments } = {}) {
   const dest = to || process.env.ADMIN_EMAIL || SUPPORT_EMAIL;
   const body = '<h2 style="color:#f3c344;margin:0 0 12px;">🚨 Alerte monitoring IA</h2>' + (html || '')
     + '<p style="color:#6b7280;font-size:12px;margin-top:16px;">Détails en direct : <a href="https://desk.datatradingpro.com/admin" style="color:#f3c344;">dashboard IA Monitor</a>.</p>';
-  return _send(dest, '[DTP Alerte IA] ' + (subject || 'Alerte'), _layout('Alerte monitoring IA', body));
+  return _send(dest, '[DTP Alerte IA] ' + (subject || 'Alerte'), _layout('Alerte monitoring IA', body), attachments);
 }
 
 module.exports = {
