@@ -129,6 +129,55 @@ v('le jeton se résout par nœud, avec repli sur le jeton global',
 v('sans jeton, il le DIT au lieu de ne rien faire', /reprise automatique INDISPONIBLE/.test(KA_JS));
 v('aucun jeton n\'est écrit dans le dépôt', !/sbp_[A-Za-z0-9]{10}/.test(KA_JS + INST + SAUV_S + KA_S));
 
+console.log('\n── 8. Tout script lancé SANS interprète explicite doit être exécutable ──');
+/* ⚠️ 17/09/2026 : `dtp-sauvegarde.sh` manquait de la ligne `chmod +x` de l'installateur, ET son
+   mode git était 100644 — DEUX trous qui se recouvraient, si bien que la sauvegarde a échoué en
+   PERMISSION DENIED à CHAQUE passage depuis la pose de l'installateur, sans qu'aucune archive
+   n'existe jamais dans /root/sauvegardes. Découvert seulement en cherchant à restaurer les
+   données perdues de deux comptes — c'est-à-dire au pire moment possible.
+   LA RÈGLE : un `ExecStart=` qui invoque un script SANS le faire précéder d'un interprète
+   explicite (`bash …`, `/usr/bin/bash …`, `node …`) compte sur le bit +x et le shebang du
+   fichier. `dtp-keepalive` y échappe (`exec /usr/bin/node …js`) ; `dtp-autodeploiement` y échappe
+   aussi (`bash /opt/.../vps-autodeploiement.sh`, interprète explicite). Ce banc généralise plutôt
+   que de ne nommer qu'un seul script : tout NOUVEAU service ajouté à `scripts/dtp-*.service` qui
+   exec un `.sh` sans interprète devant tombe automatiquement sous ce contrôle. */
+{
+  const SERVICES_DIR = path.join(RACINE, 'scripts');
+  const fichiersService = fs.readdirSync(SERVICES_DIR).filter(f => /^dtp-.*\.service$/.test(f));
+  const sansInterprete = new Set();
+  for (const f of fichiersService) {
+    const txt = lire('scripts/' + f);
+    for (const m of txt.matchAll(/ExecStart=([^\n]+)/g)) {
+      const ligne = m[1];
+      // On retire un éventuel `exec ` en tête (dans un `bash -lc '...'`), puis on regarde le
+      // PREMIER mot : s'il vaut bash/sh (avec ou sans chemin absolu), l'interprète est explicite.
+      const sansExec = ligne.replace(/^exec\s+/, '');
+      const premierMot = (sansExec.match(/^\S+/) || [''])[0];
+      const interpreteExplicite = ['bash', 'sh', 'node'].includes(premierMot.split('/').pop() || '');
+      if (!interpreteExplicite) {
+        // Le premier mot est alors le script lui-même : ne garder que ceux sous scripts/vps/.
+        const mCible = premierMot.match(/scripts\/vps\/([\w.-]+\.sh)/);
+        if (mCible) sansInterprete.add(mCible[1]);
+      }
+      // Cas `bash -lc '... exec /chemin/vers/script.sh'` : un `exec` interne, TOUJOURS recherché
+      // même quand l'interprète de tête (bash) est explicite — c'est justement le cas qui a
+      // échoué le 17/09 (dtp-sauvegarde.service). `exec` suivi directement d'un `.sh` (pas d'un
+      // `node`/`bash` entre les deux) compte encore sur le bit +x du fichier cible.
+      for (const m2 of sansExec.matchAll(/exec\s+(?:\/\S*\/)?([\w.-]+\.sh)\b/g)) sansInterprete.add(m2[1]);
+    }
+  }
+  v('au moins un script sans interprète explicite repéré (le banc voit quelque chose)',
+    sansInterprete.size > 0, [...sansInterprete].join(', ') || '(aucun trouvé — le banc a peut-être perdu la trace du format)');
+  for (const script of [...sansInterprete].sort()) {
+    v(`l'installateur rend « ${script} » exécutable`, new RegExp('chmod \\+x[^\\n]*' + script.replace(/\./g, '\\.')).test(INST),
+      'sans ce chmod, `exec` échoue en Permission denied à CHAQUE passage — silencieusement, puisque le timer relance le lendemain sans jamais crier plus fort');
+    let mode = null;
+    try { mode = execFileSync('git', ['ls-files', '-s', 'scripts/vps/' + script], { cwd: RACINE, encoding: 'utf8' }).trim(); } catch {}
+    v(`« ${script} » est exécutable dans git (100755)`, /^100755\s/.test(mode || ''),
+      (mode || '(introuvable dans git)') + ' — un `git reset --hard` sur une machine qui n\'a jamais eu +x localement ne le redonne pas tout seul');
+  }
+}
+
 console.log('\n──────────────────────────────────────────────────────────────────────');
 if (ko) { console.log(`❌ resilience-verif : ${ko} échec(s) sur ${ok + ko}.`); process.exit(1); }
 console.log(`✅ resilience-verif : ${ok} contrôle(s) au vert.`);

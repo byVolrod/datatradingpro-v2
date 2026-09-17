@@ -76,7 +76,19 @@ for u in dtp-sauvegarde dtp-keepalive dtp-disque dtp-redemarrage dtp-redemarrage
   cp "scripts/$u.service" "/etc/systemd/system/$u.service"
   cp "scripts/$u.timer"   "/etc/systemd/system/$u.timer"
 done
-chmod +x scripts/vps/dtp-disque.sh scripts/vps/dtp-redemarrage.sh 2>/dev/null || true
+# ⚠️ `dtp-sauvegarde.sh` MANQUAIT DE CETTE LISTE (trouvé le 17/09/2026, sur une sauvegarde qui
+# n'avait JAMAIS produit une seule archive depuis la pose de ce même installateur). Les trois
+# scripts que systemd EXÉCUTE DIRECTEMENT (`ExecStart=.../script.sh`, sans `bash` devant) ont
+# besoin du bit +x ; `dtp-keepalive` y échappe car il est lancé via `node ...js`. Git ne préserve
+# le mode exécutable que s'il a été committé ainsi — un `git reset --hard` sur une machine qui
+# n'a jamais eu +x localement ne le redonne pas tout seul. On le pose ICI, sur la copie du dépôt,
+# à CHAQUE passage (idempotent), plutôt que de compter sur le mode git une fois pour toutes.
+chmod +x scripts/vps/dtp-sauvegarde.sh scripts/vps/dtp-disque.sh scripts/vps/dtp-redemarrage.sh 2>/dev/null || true
+# On le VÉRIFIE, on ne le suppose pas : un `chmod` qui échoue silencieusement (permissions du
+# dossier, disque en lecture seule) laisserait la sauvegarde repartir cassée sans qu'on le sache.
+for s in dtp-sauvegarde.sh dtp-disque.sh dtp-redemarrage.sh; do
+  [ -x "scripts/vps/$s" ] || { echo "✗ scripts/vps/$s n'est TOUJOURS PAS exécutable après chmod. Abandon."; exit 1; }
+done
 systemctl daemon-reload
 systemctl enable --now dtp-sauvegarde.timer dtp-keepalive.timer dtp-disque.timer \
   dtp-redemarrage.timer dtp-redemarrage-controle.timer
