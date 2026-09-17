@@ -10787,20 +10787,11 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .rtc { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--panel-depth); display: flex; flex-direction: column; overflow: hidden; min-height: 0; transition: border-color var(--t-fast) ease; }
 .rtc:hover { border-color: rgba(227,178,58,0.20); }
 .rtc-head { display: flex; align-items: center; gap: 8px; min-height: 31px; padding: 0 10px; background: var(--head-bg); border-bottom: 1px solid var(--border); flex: 0 0 auto; }
-/* Badge de SOURCE sur la carte de taux (29/08, incident client) : « pricing marché » discret,
-   « estimation DTP » en ambre — l'œil doit accrocher l'exception, pas la règle. Charte : le
-   jaune-orange est la couleur du neutre/attention, jamais du baissier. */
-.rtc-src { margin-left: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; color: #6f7480; border: 1px solid #26262c; border-radius: 999px; padding: 1px 7px; white-space: nowrap; flex: 0 0 auto; }
-.rtc-src--est { color: #ffb300; border-color: rgba(255,179,0,.35); background: rgba(255,179,0,.07); }
-/* Pied de carte : la source du TAUX et celle du PRICING, en clair (01/09, « donne des sources qu'on
-   a »). Discret par construction — c'est une mention de provenance, pas une donnée : il ne doit ni
-   concurrencer les métriques, ni pousser le tableau des réunions hors de la carte (flex: 0 0 auto).
-   Il s'enroule sur deux lignes plutôt que de rogner une source : une source coupée ne sert à rien. */
-/* ⚠️ `.rtc-srcs` (le pied de carte qui citait les sources) RETIRÉ le 02/09 avec son appelant :
-   il déversait du diagnostic interne — un code HTTP, le nom d'un paywall fournisseur — sur la carte
-   d'un client payant. Le badge « pricing modélisé » en tête de carte, lui, reste : c'est le vrai
-   garde-fou de l'incident du 29/08, le pied n'en était que la version longue. Rien ne porte plus
-   cette classe (charts.js). */
+/* ⚠️ `.rtc-srcs` (pied de carte, retiré le 02/09) ET `.rtc-src`/`.rtc-src--est` (badge de tête,
+   retiré le 17/09, demande explicite utilisateur après avoir été informé de l'incident du 29/08
+   qu'il rouvre — cf. le pavé « LE BADGE DE TÊTE… » dans public/js/charts.js pour le détail) : les
+   TROIS classes de ce paragraphe de provenance ont disparu de charts.js. Rien n'en porte plus
+   aucune ; ces règles n'existent donc plus. */
 .rtc-flag { width: 17px; height: 17px; object-fit: cover; border-radius: 50%; border: 1px solid var(--border); flex: 0 0 auto; }
 .rtc-bank { font-size: 12px; font-weight: var(--fw-bold); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ── Bandeau 5 métriques (Next Move · Probability · Expected Δ · Current Rate · Meeting Date)

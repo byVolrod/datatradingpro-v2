@@ -4203,44 +4203,27 @@ const _RTC_MESURE_AIDE = {
         + '<td><span class="rtc-pill ' + ib + '">' + bps(m.impliedBps) + '</span></td>'
         + '<td><span class="rtc-base ' + bc + '">' + m.baseCase + '</span></td></tr>';
     }).join('');
-    /* ⚠️ LE PIED DE CARTE A ÉTÉ RETIRÉ LE 02/09 (demande utilisateur, la phrase citée mot pour mot :
-       « Taux directeur 2,50 % — décision du 08/07/2026 (RBNZ Interest Rate Decision, calendrier
-       ForexFactory) · Pricing : modèle DTP (pas de pricing de marché chez notre fournisseur :
-       abonnement Pro requis chez le fournisseur (HTTP 401)) »).
-       Posé la veille pour citer les sources, il s'était mis à déverser du diagnostic interne sur la
-       carte d'un client payant — un code HTTP et le nom d'un paywall fournisseur n'ont rien à faire
-       dans un produit. Et sur deux lignes de 9,5 px, il pesait plus lourd que les chiffres.
-       ⚠️ CE QUI RESTE, ET POURQUOI CE N'EST PAS NÉGOCIABLE : le badge « pricing modélisé » en tête
-       de carte. C'est LUI le garde-fou né de l'incident du 29/08 (un client a comparé notre modèle à
-       un pricing OIS réel en croyant comparer deux pricings) ; le pied n'en était que la version
-       longue. Retirer le pied ne fait donc perdre aucune garantie : une carte sans pricing de marché
-       continue de le dire, en trois mots au lieu de deux lignes.
-       La provenance elle-même n'est pas perdue non plus : `rateSrc` reste calculé et servi dans
-       /api/rates (server.js, `_origineTaux`) — c'est la donnée qui a permis de répondre « d'où vient
-       ce taux ». Seul son AFFICHAGE sur la carte disparaît. */
+    /* ⚠️ LE PIED DE CARTE A ÉTÉ RETIRÉ LE 02/09, PUIS LE BADGE DE TÊTE LE 17/09 — DEUX DÉCISIONS
+       DIFFÉRENTES, À NE PAS CONFONDRE SI ON REVIENT LIRE CECI PLUS TARD.
+       Le badge « pricing modélisé »/« pricing marché » avait été posé le 29/08 après qu'un client a
+       comparé l'estimation maison du desk à un pricing OIS réel en croyant comparer deux pricings —
+       et longtemps qualifié ici de « non négociable ». Le 17/09, l'utilisateur a demandé
+       explicitement son retrait (« enlève et met à jour en temps réel l'onglet taux »), APRÈS avoir
+       été prévenu en clair de cette histoire et du risque qu'un retrait rouvre. Il a maintenu sa
+       demande : c'est donc son appel, assumé, pas un oubli de vigilance de notre part.
+       ⚠️ CE QUI N'A PAS CHANGÉ POUR AUTANT, ET QUE ÇA VAUT LA PEINE DE SAVOIR : SNB (CHF) et RBNZ
+       (NZD) restent sur l'ESTIMATION maison, pas sur un pricing de marché réel — le fournisseur
+       rateprobability.com réserve ces deux banques à son offre payante (HTTP 401 mesuré le 30/08).
+       Retirer le badge ne change rien à CE FAIT, seulement à sa mention sur la carte. La provenance
+       reste calculée et servie sans filtre dans /api/rates (`_origineTaux`, champs `source`/`panne`/
+       `srcAt`) pour quiconque irait la lire côté API ou dans les rapports rédigés (Hebdo, Point
+       Marché, Radar de Biais — ceux-là citent toujours « estimation DTP » en toutes lettres, ce
+       n'est pas concerné par ce retrait). */
     // data-bank : identifiant stable de la carte (FED/ECB/…) — le widget « Onglet Taux » filtre dessus
     // (réglage « Banque » : une seule banque ou toutes). Sans effet sur l'onglet du desk.
     return '<div class="rtc" data-bank="' + (b.code || '') + '">'
       + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
       + '<span class="rtc-bank">' + (_RTC_EN[b.code] || b.bank) + '</span>'
-      /* La SOURCE, écrite sur la carte (29/08, incident client) : deux banques sur huit sortent du
-         modèle DTP faute de flux de marché, et RIEN ne le disait — un client a comparé notre
-         estimation à un pricing OIS réel en croyant comparer deux pricings. Le badge tranche. */
-      /* Le survol du badge dit maintenant le POURQUOI (panne exacte côté fournisseur, ex. « abonnement
-         Pro requis ») ou le QUAND (heure de la dernière donnée de marché reçue) — audit du 30/08 :
-         « regarde les sources des autres taux ». Le taux affiché, lui, est recalé en continu sur la
-         dernière décision réelle du calendrier économique, IA ou pas. */
-      /* « ESTIMATION DTP » A ÉTÉ RETIRÉ LE 01/09 (demande user : « enlève estimation DTP, faut les
-         vraies taux pour toutes les banques… et donne des sources qu'on a »). Le badge ne qualifiait
-         QUE le pricing, mais placé seul en tête de carte il se lisait comme un verdict sur tout ce
-         qu'elle affiche, TAUX DIRECTEUR COMPRIS — or ce chiffre-là n'est pas une estimation. Il dit
-         maintenant ce qu'il qualifie (« pricing modélisé »), et la provenance du taux est écrite en
-         toutes lettres en pied de carte, avec sa date. Ce qui ne change pas, parce que c'est la
-         raison d'être de ce badge depuis l'incident du 29/08 : une carte sans pricing de marché ne
-         doit JAMAIS pouvoir se lire comme un pricing de marché. */
-      + (b.source && b.source !== 'market'
-          ? '<span class="rtc-src rtc-src--est" title="Pricing de marché indisponible pour cette banque chez notre fournisseur' + (b.panne ? ' (' + b.panne + ')' : '') + ' : les probabilités de réunion viennent du modèle du desk. Le taux directeur, lui, est celui de la dernière décision publiée — sa source est écrite en pied de carte.">pricing modélisé</span>'
-          : '<span class="rtc-src" title="Probabilités implicites de marché (OIS/futures), fournisseur rateprobability' + (b.srcAt ? ', dernière donnée reçue à ' + new Date(b.srcAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '') + '.">pricing marché</span>')
       + '</div>'
       + '<div class="rtc-metrics">'
       + '<div class="rtc-m"><span class="rtc-k">Prochain mouvement</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'

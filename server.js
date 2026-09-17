@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260917-taux-badge', ts: Date.UTC(2026, 8, 17, 15, 40), title: 'Onglet Taux : le badge de source a disparu, la carte reste plus simple à lire', desc: 'Depuis fin août, chaque carte de banque centrale portait un petit badge en tête, « pricing marché » ou « pricing modélisé », selon que la probabilité de mouvement venait vraiment du marché ou d’une estimation du desk. Il rendait service, mais alourdissait la lecture pour un détail qui ne concerne que deux banques sur huit. Nous l’avons retiré. Rien ne change en dessous : le taux directeur affiché reste toujours celui de la dernière décision réellement publiée, jamais une estimation, quelle que soit la banque. Pour les probabilités de mouvement, six banques sur huit (Fed, BCE, BoE, BoJ, BoC, RBA) continuent de venir en direct du marché, rafraîchies en continu. Les deux qui restent, la Banque nationale suisse et la Banque de réserve de Nouvelle-Zélande, ne sont pas couvertes en pricing de marché gratuit chez notre fournisseur de données pour l’instant : leurs probabilités restent celles du modèle du desk, simplement sans étiquette dédiée désormais. Nous en profitons pour fermer un angle mort découvert ce soir en vérifiant la chaîne de bout en bout : le flux de pricing pouvait, en théorie, s’arrêter de se rafraîchir sans que personne ne le sache. Une surveillance automatique le signale désormais si jamais cela devait arriver, et confirme le retour à la normale une fois résolu.' },
   { id: 'dtpu-20260917-alerte-bases', ts: Date.UTC(2026, 8, 17, 15, 10), title: 'Une base en retard n’écrase plus jamais un journal ou une disposition à jour, et on en est prévenu', desc: 'Vos comptes, vos journaux de trading et vos dispositions vivent sur plusieurs bases en parallèle, justement pour qu’aucune panne ne les emporte. Une garde déjà en place empêche qu’une base restée en retard reprenne la main et écrase une donnée plus fraîche : elle est mise à l’écart des lectures tant qu’elle n’a pas rattrapé son retard. Cette garde fonctionnait, mais en silence : rien ne confirmait qu’elle avait servi, et une base qui resterait bloquée sans jamais rattraper son retard n’aurait alerté personne. CE QUI CHANGE. Deux confirmations automatiques, par e-mail : une base qui vient d’être remise à jour le dit, avec le nombre de comptes recopiés et depuis combien de temps elle était en retard ; une base qui reste bloquée plus d’une heure sans réussir à se remettre à jour le signale aussi, avec la raison connue, au lieu de rester invisible indéfiniment comme lors de l’incident de cet été. Rien ne change dans la façon dont vos données sont protégées : ce qui change, c’est qu’on le sait, dès que ça se produit, au lieu de le découvrir des mois plus tard.' },
   { id: 'dtpu-20260917-sauvegarde-hors-site', ts: Date.UTC(2026, 8, 17, 14, 0), title: 'La sauvegarde quotidienne ne vit plus seule sur le serveur', desc: 'Après la réparation annoncée ce matin sur ce fil, une question restait ouverte : cette archive vivait SEULE sur le serveur. Si la machine venait à disparaître, l’archive aurait disparu avec elle, ce qui revient à n’avoir aucune sauvegarde du tout. Ce soir, elle part aussi ailleurs. Chaque nuit, une fois l’archive chiffrée et relue avec succès, une copie part automatiquement par e-mail vers l’équipe : une seconde boîte, un second endroit, sans compte ni service supplémentaire à payer pour cela. L’archive reste chiffrée de bout en bout à ce moment là. La phrase qui permet de la lire ne quitte jamais le serveur et n’apparaît jamais dans cet e-mail : sans elle, la pièce jointe reste un bloc illisible. Une seule limite assumée : au delà d’une vingtaine de mégaoctets, l’envoi renonce à la pièce jointe plutôt que de risquer un e-mail rejeté, et prévient à la place que l’archive reste disponible sur place, rapatriable à la main. Vingt quatre contrôles automatiques rejouent ce scénario à chaque mise en ligne, dont plusieurs témoins qui remettent l’ancien comportement en place pour vérifier qu’il échoue bien sans cette protection.' },
   { id: 'dtpu-20260917-sauvegarde-reelle', ts: Date.UTC(2026, 8, 17, 8, 30), title: 'Vos données sont désormais réellement sauvegardées chaque nuit', desc: 'Nous devons de la transparence après l’incident d’hier. En cherchant à restaurer le journal d’un client, nous avons ouvert le dossier des sauvegardes du serveur. Il était VIDE. Pas incomplet : vide, depuis le jour où la sauvegarde automatique a été installée. Elle s’est lancée chaque nuit, elle a échoué chaque nuit, et elle l’a écrit chaque nuit dans un journal technique que personne n’ouvre tant que rien ne semble cassé. DEUX CAUSES EMPILÉES, toutes deux invisibles. La première : le programme de sauvegarde n’avait pas le droit d’être exécuté. L’installateur accordait ce droit à deux scripts sur trois et oubliait précisément celui là. La seconde, plus profonde : le fichier qui contient nos clés était LU COMME DU CODE au lieu d’être lu comme une liste de réglages. Deux valeurs parfaitement banales suffisaient à tout arrêter, un mot de passe d’application contenant des espaces, et une adresse d’expéditeur contenant des chevrons. Tout ce qui était déclaré plus bas dans le fichier n’était alors jamais chargé, dont la phrase secrète qui chiffre les archives. La sauvegarde refusait donc de travailler, ce qui était la bonne décision de sa part : mieux vaut aucune archive qu’une archive en clair contenant toutes les clés. CE QUI CHANGE. Le fichier de réglages est maintenant analysé ligne par ligne, jamais exécuté. Une ligne mal écrite est ignorée et signalée, au lieu d’interrompre tout le reste. Et surtout : UNE SAUVEGARDE QUI ÉCHOUE ENVOIE DÉSORMAIS UNE ALERTE. C’est le vrai correctif. Un garde fou qui échoue en silence est pire qu’un garde fou absent, parce qu’il rassure. UNE CONSÉQUENCE QUE NOUS AVONS TROUVÉE EN CHEMIN, et qui vous concerne autant. Le même défaut de lecture privait la surveillance de nos bases de secours de leurs adresses : elle ne vérifiait plus que la base principale. Les trois autres étaient exposées à la mise en veille de deux mois et demi que cette surveillance existe précisément pour empêcher. C’est réparé par le même correctif. Enfin, une correction d’unité technique poussée par nos soins arrivait dans le dépôt sans jamais atteindre la machine : elle y est désormais recopiée automatiquement à chaque livraison. Trente contrôles automatiques rejouent tout ce scénario à chaque mise en ligne, dont plusieurs témoins qui remettent l’ancien défaut pour vérifier qu’il échoue bien.' },
@@ -20404,10 +20405,49 @@ async function _refreshRateProb(force = false) {
     const bankAt = { ...(_rpCache.bankAt || {}) };
     let okCount = 0;
     results.forEach((res, i) => { if (res.status === 'fulfilled' && res.value) { banks[codes[i]] = res.value; bankAt[codes[i]] = now; okCount++; } });
-    if (okCount) { _rpCache = { at: now, banks, bankAt }; auth.aiCacheSet('rates:rateprob', _rpCache).catch(() => {}); }
+    // ⚠️ CETTE PERSISTANCE POUVAIT ÉCHOUER EN SILENCE JUSQU'AU 17/09 (`.catch(() => {})`). Mesuré :
+    // la ligne `rates:rateprob` de la base primaire était figée au 9 septembre, huit jours de retard,
+    // sans qu'aucun signal ne le dise — la même maladie déjà payée deux fois cette nuit ailleurs
+    // (sauvegarde, quarantaine des bases). Un échec isolé ici n'est pas forcément grave (l'écriture
+    // est DIFFUSÉE sur toutes les bases saines : cf. _MULTI_TABLES dans auth.js — si une seule
+    // réussit, la lecture cliente reste correcte grâce à la fraîcheur comparée entre bases), mais un
+    // échec qui ne dit RIEN ne peut jamais être distingué d'un pipeline qui tourne bien.
+    if (okCount) { _rpCache = { at: now, banks, bankAt }; auth.aiCacheSet('rates:rateprob', _rpCache).catch(e => console.warn('[Taux] persistance rates:rateprob échouée :', e.message)); }
   } catch {} finally { _rpRefreshing = false; }
 }
-setInterval(() => { _refreshRateProb().catch(() => {}); }, 90 * 1000);   // tick 90s ; le refetch RÉEL respecte le TTL adaptatif (3 min normal, 90s si réunion ≤2 j)
+/* ⚠️ LE PIPELINE POUVAIT S'ARRÊTER SANS QUE PERSONNE NE LE SACHE (17/09) — LE TROU QUE LA FUSION
+   PAR BANQUE (ci-dessus) NE FERME PAS. Cette fusion protège contre l'échec d'UNE banque isolée ;
+   elle ne dit rien si le cycle entier (fetch + transformation + persistance) cesse de progresser
+   pour de bon — réseau coupé, bug, fournisseur qui change son format sans prévenir. `_rpCache.at`
+   ne bouge alors plus JAMAIS, et rien ne le signale : exactement la découverte faite ce soir en
+   base primaire (huit jours de retard, silencieux). On alerte donc sur l'ÂGE du cache, pas sur le
+   résultat d'un seul cycle — et on prévient aussi du retour à la normale, pour ne pas laisser
+   croire que ça dure encore une fois résolu. */
+let _rpAlerteEnvoyee = false;
+const _RP_SEUIL_ALERTE_MS = 20 * 60 * 1000;   // 20 min : très au-dessus du cycle normal (90 s à 3 min, jusqu'à 90 s en fenêtre de décision)
+function _rpVerifierFraicheur() {
+  const depuisMs = Date.now() - (_rpCache.at || 0);
+  if (depuisMs < _RP_SEUIL_ALERTE_MS) {
+    if (_rpAlerteEnvoyee) {
+      _rpAlerteEnvoyee = false;
+      mailer.sendAdminAlert({ subject: 'RÉSOLU : les taux de marché se rafraîchissent de nouveau',
+        html: '<p>Le pricing des banques centrales (rateprobability.com) s’est remis à jour normalement.</p>' })
+        .catch(e => console.warn('[Taux] alerte résolue non envoyée :', e.message));
+    }
+    return;
+  }
+  if (_rpAlerteEnvoyee) return;   // un seul e-mail par épisode, pas un rappel à chaque tick de 90 s tant que ça dure
+  _rpAlerteEnvoyee = true;
+  const h = Math.round(depuisMs / 360000) / 10;
+  const pannes = Object.entries(_rpPanne).map(([slug, raison]) => '<li><b>' + slug + '</b> : ' + raison + '</li>').join('');
+  mailer.sendAdminAlert({
+    subject: 'DTP : les taux de marché ne se sont pas rafraîchis depuis ' + h + ' h',
+    html: '<p>Le pricing des banques centrales (rateprobability.com) n’a pas été mis à jour avec succès depuis <b>' + h + ' h</b> — bien au-delà du cycle normal (90 s à 3 min).</p>'
+      + (pannes ? '<p>Dernières pannes connues par banque :</p><ul>' + pannes + '</ul>' : '')
+      + '<p style="color:#6b7280;font-size:12px;">Les cartes affichées peuvent rester correctes si une autre base a une copie plus fraîche (la lecture prend la plus récente), mais ce pipeline précis ne progresse plus.</p>',
+  }).catch(e => console.warn('[Taux] alerte fraîcheur non envoyée :', e.message));
+}
+setInterval(() => { _refreshRateProb().then(_rpVerifierFraicheur).catch(() => { _rpVerifierFraicheur(); }); }, 90 * 1000);   // tick 90s ; le refetch RÉEL respecte le TTL adaptatif (3 min normal, 90s si réunion ≤2 j)
 setTimeout(() => { _refreshRateProb(true).catch(() => {}); }, 9000);  // amorçage au démarrage
 
 // ─── Le CALENDRIER écrit les taux (déterministe, AVANT toute IA) ───────────────────────────────

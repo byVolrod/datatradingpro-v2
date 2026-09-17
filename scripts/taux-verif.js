@@ -133,26 +133,25 @@ if (SRC_CARD) {
   v('la probabilité affichée est CELLE du mouvement affiché (Hausse → 19 %, plus jamais 50)',
     lireMv(incident) === 'Hausse' && lireP(incident) === '19,00%',
     lireMv(incident) + ' · ' + lireP(incident) + ' — le 50,00% était la probabilité du MAINTIEN');
-  /* LE BADGE A CHANGÉ DE MOTS LE 01/09, PAS DE RÔLE. « estimation DTP » qualifiait le PRICING mais,
-     seul en tête de carte, se lisait comme un verdict sur tout ce qu'elle affiche — taux directeur
-     compris, alors que ce chiffre-là vient d'une décision publiée. Il dit maintenant ce qu'il
-     qualifie. Ce qu'on éprouve reste l'exigence née de l'incident du 29/08, et elle est écrite
-     comme une PROPRIÉTÉ, pas comme un libellé : une carte sans pricing de marché ne doit jamais
-     pouvoir se lire comme un pricing de marché. */
-  v('… et la carte modélisée dit que son pricing est modélisé, jamais « marché »',
-    /modélis/i.test(lireSrc(incident) || '') && !/march/i.test(lireSrc(incident) || ''), lireSrc(incident));
+  /* ⚠️ LE BADGE DE TÊTE (« pricing modélisé »/« pricing marché ») A ÉTÉ RETIRÉ LE 17/09, SUR DEMANDE
+     EXPLICITE DE L'UTILISATEUR APRÈS AVOIR ÉTÉ PRÉVENU DE L'INCIDENT QU'IL FERMAIT (29/08 : un
+     client a comparé l'estimation maison à un pricing OIS réel en croyant comparer deux pricings).
+     Ce banc a longtemps exigé ce badge comme LE garde-fou non négociable ; il vérifie maintenant
+     l'inverse — que la décision du 17/09 est bien appliquée PARTOUT sur la carte, sans laisser une
+     trace à moitié retirée (un badge qui reviendrait sur une seule des deux branches serait pire
+     que les deux présents : incohérent). La provenance, elle, N'A PAS disparu : elle reste servie
+     telle quelle par /api/rates (`_origineTaux`) et citée en toutes lettres dans les rapports
+     rédigés (Hebdo, Point Marché, Radar de Biais — couverts plus bas dans ce même fichier, section
+     « Les textes disent la vraie source », INCHANGÉE par ce retrait). */
+  v('la carte modélisée ne porte plus de badge de source du tout',
+    !lireSrc(incident), 'trouvé : ' + JSON.stringify(lireSrc(incident)));
+  v('… ni le mot « modélisé », ni le mot « marché », nulle part sur la carte',
+    !/modélis/i.test(incident) && !/pricing march/i.test(incident), incident.slice(0, 200));
   /* ⚠️ LE PIED DE CARTE A ÉTÉ RETIRÉ LE 02/09 (demande utilisateur citant la phrase mot pour mot).
      Il citait les sources — utile — mais il déversait aussi du diagnostic interne sur la carte d'un
      client payant : « abonnement Pro requis chez le fournisseur (HTTP 401) ». Les cinq contrôles qui
      éprouvaient sa rédaction sont retirés avec lui : un banc qui exige un élément supprimé est un
-     banc qui empêche de le supprimer.
-     ⚠️ CE QUI RESTE ÉPROUVÉ, et c'est l'essentiel : le BADGE de tête, juste au-dessus
-     (« la carte modélisée dit que son pricing est modélisé, jamais “marché” »). C'est lui le
-     garde-fou né de l'incident du 29/08 ; le pied n'en était que la version longue. La propriété
-     protégée n'a donc pas bougé d'un pouce : une carte sans pricing de marché ne peut toujours pas
-     se lire comme un pricing de marché.
-     La provenance elle-même reste calculée et servie dans /api/rates (`_origineTaux`) : seul son
-     affichage sur la carte a disparu. */
+     banc qui empêche de le supprimer. Cette garde-là reste vraie même sans le badge de tête. */
   v('le pied de carte a bien disparu du rendu (plus aucune carte ne l\'écrit)',
     !/rtc-srcs/.test(incident) && !/Taux directeur/.test(incident), (incident.match(/.{0,60}rtc-srcs.{0,40}/) || [''])[0]);
   v('… et le diagnostic interne ne peut plus atteindre le client (ni code HTTP, ni paywall)',
@@ -164,7 +163,7 @@ if (SRC_CARD) {
     meetings: [{ date: '2026-09-02', days: 5, hold: 69, hike: 0, cut: 31, impliedBps: -7, baseCase: 'HOLD' }] });
   v('un mouvement pricé à 0 % bascule sur le scénario central', lireMv(zero) === 'Maintien' && lireP(zero) === '69,00%',
     lireMv(zero) + ' · ' + lireP(zero));
-  v('… et une carte de marché porte « pricing marché »', lireSrc(zero) === 'pricing marché', lireSrc(zero));
+  v('… et une carte de marché ne porte pas non plus de badge', !lireSrc(zero), lireSrc(zero));
   /* LA MOITIÉ QUI COMPTE : une banque de marché ordinaire, cohérente, s'affiche comme avant. */
   const fed = card({ code: 'USD', cc: 'us', bank: 'Fed', rate: 3.75, next: '2026-09-16', expBps: -9.5,
     stance: 'CUT', prob: 62, source: 'market', scenario: { hold: 38, hike: 0, cut: 62 },
@@ -267,8 +266,12 @@ v('le jeton Pro (RATEPROB_TOKEN, .env du VPS uniquement) part sous les deux form
   && /RP_HEADERS\['X-API-Key'\] = process\.env\.RATEPROB_TOKEN/.test(SRV));
 v('/api/rates dit la santé PAR banque : `panne` côté estimation, `srcAt` côté marché',
   /panne: _rpPanne\[slug\] \|\| 'jamais reçu',/.test(SRV) && /srcAt: _rpBankAt\[b\.code\] \|\| _rpCache\.at \|\| null,/.test(SRV));
-v('… et le badge de la carte les affiche au survol (pourquoi / quand)',
-  /b\.panne \? ' \(' \+ b\.panne \+ '\)'/.test(CHARTS) && /b\.srcAt \? ', dernière donnée reçue à '/.test(CHARTS));
+/* ⚠️ LE BADGE QUI AFFICHAIT `panne`/`srcAt` AU SURVOL A DISPARU AVEC LUI LE 17/09 (retrait demandé
+   par l'utilisateur, cf. le pavé « LE BADGE DE TÊTE… » plus haut dans ce fichier). Les DEUX champs
+   restent servis par /api/rates (contrôle ci-dessus) : seule leur AFFICHAGE sur la carte a disparu,
+   pas la donnée elle-même — exactement le même principe que le pied de carte retiré le 02/09. */
+v('… et le champ `b.panne`/`b.srcAt` a bien quitté charts.js avec le badge (rien de résiduel)',
+  !/b\.panne \? ' \(' \+ b\.panne \+ '\)'/.test(CHARTS) && !/b\.srcAt \? ', dernière donnée reçue à '/.test(CHARTS));
 /* L'ancre vieillit BRUYAMMENT : sans rappel, une config « source de vérité » se périme en silence
    — c'est le défaut symétrique de celui qu'on corrige. */
 v('une ancre de plus de 60 jours réclame sa re-vérification', /_ANCRE_MAX_J = 60/.test(SRV) && /re-vérifier bias\/taux/.test(SRV));
@@ -550,14 +553,15 @@ console.log('\n── Le pricing de marché ne se perd pas sur un nom de champ �
       Number.isNaN(_rpRate({ policy_rate: 'n/a' })),
       'une chaîne ne doit jamais passer pour un taux');
   }
-  /* La cause exacte doit rester LISIBLE côté client : c'est elle qui distingue un paywall
-     (insoluble) d'un défaut de notre côté (réparable). Sans elle, les deux se confondent. */
-  v('la raison de l’absence de pricing est servie au client (champ `panne`)',
+  /* La cause exacte doit rester LISIBLE — désormais côté API/diagnostic, pas sur la carte elle-même
+     (le badge qui l'affichait au survol a été retiré le 17/09, demande explicite utilisateur). Elle
+     distingue toujours un paywall (insoluble) d'un défaut de notre côté (réparable) pour qui va la
+     chercher dans /api/rates ou le panneau admin. */
+  v('la raison de l’absence de pricing est servie par l’API (champ `panne`)',
     /panne: _rpPanne\[slug\]/.test(SRV),
     'sans la raison, impossible de distinguer un paywall d’un bug à nous');
-  v('… et le badge de la carte l’affiche au survol',
-    /b\.panne \? ' \(' \+ b\.panne \+ '\)'/.test(CH),
-    'la raison existe côté serveur et personne ne peut la lire');
+  v('… et elle a bien quitté la carte avec le badge (rien de résiduel dans charts.js)',
+    !/b\.panne \? ' \(' \+ b\.panne \+ '\)'/.test(CH));
 }
 
 /* ══ LA DERNIÈRE RÉUNION TENUE, POUR LES HUIT BANQUES (11/09, demande utilisateur) ═══════════════
@@ -619,6 +623,79 @@ console.log('\n── Le pricing de marché ne se perd pas sur un nom de champ �
     'deux dates sur la même carte sans intitulé distinct se confondent');
   v('… en lisant b.last, pas une valeur recopiée', /b\.last \? fr\(b\.last\)/.test(CHARTS));
 }
+
+console.log('\n── Le pipeline de taux le dit quand il s\'arrête (17/09) ──');
+/* ⚠️ POURQUOI. Mesuré en base primaire, le 17/09 : `rates:rateprob` figé au 9 septembre, huit
+   jours de retard, alors que le cycle normal rafraîchit toutes les 90 s à 3 min. La fusion par
+   banque (ci-dessus, section « ne se perd pas sur un nom de champ ») protège contre l'échec d'UNE
+   banque isolée ; elle ne dit rien si le cycle ENTIER cesse de progresser. `_rpVerifierFraicheur`
+   ferme ce trou en surveillant l'ÂGE du cache plutôt que le résultat d'un seul cycle. ON EXÉCUTE
+   LA VRAIE FONCTION extraite de server.js — pas une copie — avec un faux mailer qui capture ce
+   qu'il reçoit. */
+{
+  const iDebut = SRV.indexOf('let _rpAlerteEnvoyee = false;');
+  const iFin = SRV.indexOf("\nsetInterval(() => { _refreshRateProb().then(_rpVerifierFraicheur)", iDebut);
+  const bloc = (iDebut >= 0 && iFin > iDebut) ? SRV.slice(iDebut, iFin) : null;
+  v('`_rpVerifierFraicheur` est extractible de server.js', !!bloc,
+    'les ancres ont changé de forme : ce contrôle ne voit plus rien');
+
+  if (bloc) {
+    const monter = (source, rpCache, rpPanne) => {
+      const appels = [];
+      const fauxMailer = { sendAdminAlert: async (a) => { appels.push(a); return 'test'; } };
+      const fn = new Function('mailer', 'console', '_rpCache', '_rpPanne',
+        source + '\nreturn _rpVerifierFraicheur;')(fauxMailer, { warn() {} }, rpCache, rpPanne);
+      return { fn, appels };
+    };
+
+    // ── Cas A : cache frais (2 min) → silence ──
+    const cacheA = { at: Date.now() - 2 * 60 * 1000 };
+    const { fn: fnA, appels: appelsA } = monter(bloc, cacheA, {});
+    fnA();
+    v('cache frais (2 min) : aucune alerte', appelsA.length === 0, appelsA.length + ' appel(s)');
+
+    // ── Cas B : cache figé depuis 25 min → une alerte, avec la durée et les pannes connues ──
+    const cacheB = { at: Date.now() - 25 * 60 * 1000 };
+    const { fn: fnB, appels: appelsB } = monter(bloc, cacheB, { snb: 'abonnement Pro requis chez le fournisseur (HTTP 401)' });
+    fnB();
+    v('cache figé depuis 25 min : une alerte part', appelsB.length === 1, appelsB.length + ' appel(s)');
+    if (appelsB.length) {
+      v('… le sujet donne la durée en heures', /ne se sont pas rafraîchis depuis 0[.,]4 h/.test(appelsB[0].subject), appelsB[0].subject);
+      v('… le corps liste les pannes connues par banque', /snb/.test(appelsB[0].html) && /abonnement Pro requis/.test(appelsB[0].html), appelsB[0].html);
+    }
+    fnB();   // rejoué immédiatement, toujours figé
+    v('… un second passage, toujours figé, ne renvoie PAS une deuxième alerte pour le même épisode',
+      appelsB.length === 1, appelsB.length + ' appel(s) — sans le garde-fou, un pipeline arrêté spammerait la boîte mail toutes les 90 s');
+
+    // ── Cas C : le pipeline reprend → une alerte « RÉSOLU », une seule ──
+    cacheB.at = Date.now();   // le cycle vient de réussir
+    fnB();
+    v('… et la reprise envoie une alerte « RÉSOLU », séparée', appelsB.length === 2, appelsB.length + ' appel(s)');
+    if (appelsB.length === 2) v('… qui dit clairement que c\'est résolu', /RÉSOLU/.test(appelsB[1].subject), appelsB[1].subject);
+    fnB();   // rejoué, toujours frais : pas de nouveau « RÉSOLU »
+    v('… et rester frais ne redéclenche pas « RÉSOLU » en boucle', appelsB.length === 2, appelsB.length + ' appel(s)');
+
+    // ── TÉMOIN : sans le garde-fou anti-répétition, un pipeline arrêté alerterait à CHAQUE tick ──
+    const mut = bloc.replace('if (_rpAlerteEnvoyee) return;   // un seul e-mail par épisode, pas un rappel à chaque tick de 90 s tant que ça dure\n  ', '');
+    v('(témoin) la mutation retire bien le garde-fou anti-répétition', mut !== bloc,
+      'la ligne a changé de forme : ce témoin ne prouve plus rien');
+    if (mut !== bloc) {
+      const cacheMut = { at: Date.now() - 25 * 60 * 1000 };
+      const { fn: fnMut, appels: appelsMut } = monter(mut, cacheMut, {});
+      fnMut(); fnMut(); fnMut();
+      v('(témoin) sans le garde-fou, trois passages figés alertent bien trois fois',
+        appelsMut.length === 3, appelsMut.length + ' appel(s) — si ce n\'est pas 3, le témoin ne mord plus');
+    }
+  }
+}
+/* Le point d'écoute réel : le refresh périodique appelle bien la vérification après CHAQUE tick,
+   succès ou échec (un pipeline qui échoue à répétition est exactement le cas qu'on veut voir). */
+v('la vérification de fraîcheur est branchée sur le tick périodique (90 s), succès ET échec',
+  /_refreshRateProb\(\)\.then\(_rpVerifierFraicheur\)\.catch\(\(\) => \{ _rpVerifierFraicheur\(\); \}\)/.test(SRV),
+  'sinon un cycle qui échoue en boucle (catch) ne serait jamais revérifié');
+v('… et la persistance loggue désormais son échec au lieu de le taire',
+  /aiCacheSet\('rates:rateprob', _rpCache\)\.catch\(e => console\.warn/.test(SRV),
+  'un `.catch(() => {})` muet reproduirait exactement le silence mesuré le 17/09');
 
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);
