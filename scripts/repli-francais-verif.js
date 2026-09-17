@@ -193,5 +193,72 @@ v('… et la garde compare la VERSION, pas la date (sinon la guérison tournerai
 v('⚠️ un repli ne remplace TOUJOURS PAS une version rédigée par l\'IA (le plancher monte, le plafond ne descend pas)',
   /_existing && \(_existing\._fxr\._ai \|\| \(dayKeyOverride && !_progres\)\)/.test(SRV));
 
+/* ══ LES RÉCAPS DE SÉANCE (Asie/Londres/New York) — LE MÊME DÉFAUT, JAMAIS VU ICI (17/09) ══════════
+   Capture client : « Récap Séance New York » sous des en-têtes français (GÉOPOLITIQUE, MACRO,
+   ANALYSE DE SÉANCE) dont CHAQUE puce était en anglais brut — « US September Philly Fed business
+   index +37.8 vs +30.5 expected », etc. Cause : `_topLines`, qui nourrit `_pushBullets`, utilisé par
+   buildAsiaRecap/buildLondonRecap/buildUSRecap, lisait `headline` au lieu de `_titreFr`. Ces trois
+   rapports ne passent PAS par une rédaction IA (contrairement au FX Daily Recap et au Point Marché
+   couverts plus haut) : leurs puces sont un LISTING DIRECT des dépêches choisies, donc la langue de
+   `headline` est directement la langue affichée — un bug plus direct encore que ses jumeaux. */
+console.log('\n── Les récaps de séance (Asie/Londres/New York) — le même défaut, un autre repli ──');
+{
+  const srcTop = morceau('_topLines', /function _topLines\(items, n\) \{[^\n]*\}/);
+  const srcPush = morceau('_pushBullets', /function _pushBullets\(bullets, heading, items, max\) \{[\s\S]*?\n\}/);
+  v('`_topLines` est extractible', !!srcTop);
+  v('`_pushBullets` est extractible', !!srcPush);
+  if (srcTop && srcPush) {
+    const srcFrTf = /function _fxrTitreFr\(i\) \{[\s\S]*?\n\}/.exec(SRV)[0];
+    const srcFrFr = /function _fxrFrancais\(items\) \{[^\n]*\}/.exec(SRV)[0];
+    const T = new Function(srcFrTf + '\n' + srcFrFr + '\n' + srcTop + '\n' + srcPush
+      + '\nreturn { _topLines, _pushBullets };')();
+
+    const items = [
+      { headline: 'US September Philly Fed business index +37.8 vs +30.5 expected', _titreFr: "Indice Philly Fed de septembre aux États-Unis : +37,8 contre +30,5 attendu" },
+      { headline: 'Former Atlanta President: inflation portion of the Fed mandate far more concerning' },   // PAS de traduction → écartée
+      { headline: 'US 10-year yields down 9 bps to 4.93%', _titreFr: 'Le rendement américain à 10 ans recule de 9 pb à 4,93 %' },
+    ];
+    const lignes = T._topLines(items, 5);
+    v('`_topLines` ne rend QUE des puces traduites', lignes.every(l => !/September|Fed mandate|10-year yields/.test(l)),
+      JSON.stringify(lignes));
+    v('… avec le bon contenu français', lignes.some(l => /Philly Fed/.test(l)) && lignes.some(l => /4,93 %/.test(l)), JSON.stringify(lignes));
+    v('… et la dépêche SANS traduction est écartée plutôt que recopiée en anglais',
+      !lignes.some(l => /Atlanta President|far more concerning/.test(l)));
+
+    const bullets = [];
+    T._pushBullets(bullets, 'Macro', items, 5);
+    v('`_pushBullets` (utilisé par buildUSRecap/buildAsiaRecap/buildLondonRecap) hérite de la correction',
+      bullets.length > 0 && !bullets.some(b => /September|Fed mandate/.test(b)), JSON.stringify(bullets));
+
+    // TÉMOIN : remettre `headline` fait revenir l'anglais.
+    const mutTop = srcTop.replace('_fxrFrancais(items).slice(0, n).map(_fxrTitreFr).filter(Boolean)', 'items.slice(0, n).map(i => i.headline).filter(Boolean)');
+    v('(témoin) la mutation change bien `_topLines`', mutTop !== srcTop, 'la ligne a changé de forme : ce témoin ne prouve plus rien');
+    if (mutTop !== srcTop) {
+      const Tmut = new Function(srcFrTf + '\n' + srcFrFr + '\n' + mutTop + '\nreturn { _topLines };')();
+      const lignesMut = Tmut._topLines(items, 5);
+      v('(témoin) avec l\'ancien code, l\'anglais brut revient bien dans les puces',
+        lignesMut.some(l => /September|Fed mandate/.test(l)), JSON.stringify(lignesMut));
+    }
+  }
+
+  console.log('\n── « DTP Synthèse des Marchés » (European Market Wrap) — le repli déterministe, même défaut ──');
+  const srcEuFb = morceau('_euWrapFallback', /function _euWrapFallback\(levels, s\) \{[\s\S]*?\n  return b;\n\}/);
+  v('`_euWrapFallback` est extractible', !!srcEuFb);
+  if (srcEuFb) {
+    const srcFrTf = /function _fxrTitreFr\(i\) \{[\s\S]*?\n\}/.exec(SRV)[0];
+    const srcFrFr = /function _fxrFrancais\(items\) \{[^\n]*\}/.exec(SRV)[0];
+    const E = new Function(srcFrTf + '\n' + srcFrFr + '\n' + srcEuFb + '\nreturn _euWrapFallback;')();
+    const geo = [
+      { headline: 'Trump says he faces a big decision on whether to launch new attacks on Iran', _titreFr: 'Trump dit affronter une décision majeure sur de nouvelles frappes en Iran' },
+      { headline: 'China privately asks Iran to help rein in Houthis after Saudi appeal' },   // PAS de traduction → écartée
+    ];
+    const r = E({ eq: [], fx: [], fixed: [], cmd: [] }, { euData: [], data: [], naData: [], geo, trade: [], cb: [] });
+    v('la section GÉOPOLITIQUE du repli déterministe ne contient que du français',
+      !JSON.stringify(r['GEOPOLITIQUE'] || []).match(/Trump says|China privately/),
+      JSON.stringify(r['GEOPOLITIQUE']));
+    v('… et garde la dépêche traduite', (r['GEOPOLITIQUE'] || []).some(l => /décision majeure/.test(l)), JSON.stringify(r['GEOPOLITIQUE']));
+  }
+}
+
 console.log(`\n${ko === 0 ? '✅' : '❌'} repli-francais-verif : ${ok} contrôle(s) vert(s), ${ko} échec(s).`);
 process.exit(ko === 0 ? 0 : 1);

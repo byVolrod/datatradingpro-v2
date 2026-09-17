@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260917-recaps-seance-fr', ts: Date.UTC(2026, 8, 17, 21, 15), title: 'Récaps de séance (Asie, Londres, New York) : le texte est désormais entièrement en français', desc: 'Signalé par une capture d’écran : un Récap Séance New York affichait ses titres de rubrique en français (Géopolitique, Macro, Analyse de séance), mais chaque ligne en dessous restait en anglais brut. La cause : ces trois rapports listent directement les dépêches retenues plutôt que de les faire rédiger par l’IA, et le code piochait encore dans le texte d’origine de la dépêche au lieu de sa traduction déjà disponible juste à côté. La traduction existait, elle n’était simplement pas lue au bon endroit. Corrigé pour les trois récaps de séance, et pour la Synthèse des Marchés qui partageait le même défaut dans son mode de secours. Une dépêche pas encore traduite au moment de la rédaction est désormais écartée plutôt qu’affichée en anglais : la suivante prend sa place.' },
   { id: 'dtpu-20260917-taux-badge', ts: Date.UTC(2026, 8, 17, 15, 40), title: 'Onglet Taux : le badge de source a disparu, la carte reste plus simple à lire', desc: 'Depuis fin août, chaque carte de banque centrale portait un petit badge en tête, « pricing marché » ou « pricing modélisé », selon que la probabilité de mouvement venait vraiment du marché ou d’une estimation du desk. Il rendait service, mais alourdissait la lecture pour un détail qui ne concerne que deux banques sur huit. Nous l’avons retiré. Rien ne change en dessous : le taux directeur affiché reste toujours celui de la dernière décision réellement publiée, jamais une estimation, quelle que soit la banque. Pour les probabilités de mouvement, six banques sur huit (Fed, BCE, BoE, BoJ, BoC, RBA) continuent de venir en direct du marché, rafraîchies en continu. Les deux qui restent, la Banque nationale suisse et la Banque de réserve de Nouvelle-Zélande, ne sont pas couvertes en pricing de marché gratuit chez notre fournisseur de données pour l’instant : leurs probabilités restent celles du modèle du desk, simplement sans étiquette dédiée désormais. Nous en profitons pour fermer un angle mort découvert ce soir en vérifiant la chaîne de bout en bout : le flux de pricing pouvait, en théorie, s’arrêter de se rafraîchir sans que personne ne le sache. Une surveillance automatique le signale désormais si jamais cela devait arriver, et confirme le retour à la normale une fois résolu.' },
   { id: 'dtpu-20260917-alerte-bases', ts: Date.UTC(2026, 8, 17, 15, 10), title: 'Une base en retard n’écrase plus jamais un journal ou une disposition à jour, et on en est prévenu', desc: 'Vos comptes, vos journaux de trading et vos dispositions vivent sur plusieurs bases en parallèle, justement pour qu’aucune panne ne les emporte. Une garde déjà en place empêche qu’une base restée en retard reprenne la main et écrase une donnée plus fraîche : elle est mise à l’écart des lectures tant qu’elle n’a pas rattrapé son retard. Cette garde fonctionnait, mais en silence : rien ne confirmait qu’elle avait servi, et une base qui resterait bloquée sans jamais rattraper son retard n’aurait alerté personne. CE QUI CHANGE. Deux confirmations automatiques, par e-mail : une base qui vient d’être remise à jour le dit, avec le nombre de comptes recopiés et depuis combien de temps elle était en retard ; une base qui reste bloquée plus d’une heure sans réussir à se remettre à jour le signale aussi, avec la raison connue, au lieu de rester invisible indéfiniment comme lors de l’incident de cet été. Rien ne change dans la façon dont vos données sont protégées : ce qui change, c’est qu’on le sait, dès que ça se produit, au lieu de le découvrir des mois plus tard.' },
   { id: 'dtpu-20260917-sauvegarde-hors-site', ts: Date.UTC(2026, 8, 17, 14, 0), title: 'La sauvegarde quotidienne ne vit plus seule sur le serveur', desc: 'Après la réparation annoncée ce matin sur ce fil, une question restait ouverte : cette archive vivait SEULE sur le serveur. Si la machine venait à disparaître, l’archive aurait disparu avec elle, ce qui revient à n’avoir aucune sauvegarde du tout. Ce soir, elle part aussi ailleurs. Chaque nuit, une fois l’archive chiffrée et relue avec succès, une copie part automatiquement par e-mail vers l’équipe : une seconde boîte, un second endroit, sans compte ni service supplémentaire à payer pour cela. L’archive reste chiffrée de bout en bout à ce moment là. La phrase qui permet de la lire ne quitte jamais le serveur et n’apparaît jamais dans cet e-mail : sans elle, la pièce jointe reste un bloc illisible. Une seule limite assumée : au delà d’une vingtaine de mégaoctets, l’envoi renonce à la pièce jointe plutôt que de risquer un e-mail rejeté, et prévient à la place que l’archive reste disponible sur place, rapatriable à la main. Vingt quatre contrôles automatiques rejouent ce scénario à chaque mise en ligne, dont plusieurs témoins qui remettent l’ancien comportement en place pour vérifier qu’il échoue bien sans cette protection.' },
@@ -12232,7 +12233,16 @@ function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = fals
 
 // ─── Template helpers ─────────────────────────────────────────────────────────
 
-function _topLines(items, n) { return items.slice(0, n).map(i => i.headline).filter(Boolean); }
+/* ⚠️ LISAIT `headline`, LE TITRE D'ORIGINE — LE MÊME DÉFAUT DÉJÀ CORRIGÉ AILLEURS, JAMAIS ICI (17/09,
+   capture client : « Récap Séance New York » entièrement en anglais sous des en-têtes français
+   GÉOPOLITIQUE/MACRO/ANALYSE DE SÉANCE). `_topLines` nourrit `_pushBullets`, utilisé par
+   buildAsiaRecap/buildLondonRecap/buildUSRecap : ces trois rapports sont RÉDIGÉS EN FRANÇAIS (pas
+   de passe IA, contrairement au FX Daily Recap/DTP Daily) — leurs puces sont un LISTING DIRECT des
+   dépêches choisies, donc la langue de `headline` EST la langue de la puce. La traduction dort dans
+   `_titreFr` depuis le 28/08 (même champ, même bug, même leçon que FXR_VER=28 et _dtpdFallback) :
+   personne ne la lisait ici. Une dépêche non traduite est ÉCARTÉE plutôt qu'affichée en anglais
+   (`_fxrFrancais`) — la suivante prend sa place, exactement le principe déjà établi ailleurs. */
+function _topLines(items, n) { return _fxrFrancais(items).slice(0, n).map(_fxrTitreFr).filter(Boolean); }
 
 function _activeCBs(items) {
   const CBS = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','PBOC']);
@@ -19784,10 +19794,15 @@ function _euWrapFallback(levels, s) {
   /* ⚠️ LE REPLI DOIT PARLER LA MÊME LANGUE QUE LA NOUVELLE STRUCTURE. Il remplit les rubriques PAR
      LEUR NOM : laissé sur les anciens noms, il aurait rempli des rubriques que plus personne ne
      rend, et le jour où l'IA est en quota le rapport serait sorti VIDE sans que rien ne le signale.
-     C'est le genre de panne qui ne se voit qu'un jour de forte charge, c'est-à-dire au pire moment. */
+     C'est le genre de panne qui ne se voit qu'un jour de forte charge, c'est-à-dire au pire moment.
+     ⚠️ ET IL DOIT PARLER FRANÇAIS, PAS SEULEMENT LA BONNE STRUCTURE (17/09) — le même défaut que
+     _topLines (voir son commentaire), trouvé dans le même passage : `top()` lisait `headline`, le
+     titre d'origine, au lieu de `_titreFr`. Ce repli DÉTERMINISTE (sans IA) est justement celui qui
+     sert quand la passe complète a échoué — c'est-à-dire précisément le moment où l'anglais brut
+     avait le plus de chances d'atteindre le lecteur. */
   const b = {};
   const strip = arr => (arr || []).map(l => l.replace(/^- /, ''));
-  const top = (arr, n) => (arr || []).slice(0, n).map(i => i.headline).filter(Boolean);
+  const top = (arr, n) => _fxrFrancais(arr).slice(0, n).map(_fxrTitreFr).filter(Boolean);
 
   // MARCHES : les quatre familles de niveaux réels, à la suite, dans l'ordre de la consigne.
   const marches = [].concat(strip(levels.eq), strip(levels.fx), strip(levels.fixed), strip(levels.cmd));
