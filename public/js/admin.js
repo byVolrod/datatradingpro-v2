@@ -2005,6 +2005,16 @@
         + `<div class="aim-kv"><span>Alerte e-mail</span><b style="color:${T.alerteEnvoyee ? '#ffb300' : '#6b7280'}">${T.alerteEnvoyee ? 'ENVOYÉE (panne en cours)' : 'aucune en cours'}</b></div>`;
       const pannes = Object.entries(T.pannes || {});
       if (pannes.length) h += `<div class="aim-kpi-s" style="margin-top:4px;color:#8b93a1;line-height:1.5">${pannes.map(([s, r]) => `${_esc2(s)} : ${_esc2(String(r).slice(0, 70))}`).join('<br>')}</div>`;
+      /* Biais IA (rates:aibias) : cycle HEBDO, pas 90 s — trouvé figé 14 jours le 17/09 sans que rien
+         ne le dise (le cycle du samedi 02h réussissait pour ses 3 voisins, pas pour celui-ci). */
+      if (T.biaisAt) {
+        const bAgeMin = Math.round(T.biaisAgeMs / 60000);
+        const bCol = T.biaisPerime ? '#ef4444' : '#22c55e';
+        const bAgeTxt = bAgeMin < 60 ? bAgeMin + ' min' : bAgeMin < 1440 ? Math.round(bAgeMin / 60) + ' h' : Math.round(bAgeMin / 1440) + ' j';
+        h += `<div class="aim-kv" style="margin-top:6px;border-top:1px dashed #26262b;padding-top:6px"><span>Biais IA (hebdo)</span><b style="color:${bCol}">${T.biaisPerime ? 'FIGÉ ' : ''}il y a ${bAgeTxt}</b></div>`;
+      } else {
+        h += `<div class="aim-kv" style="margin-top:6px;border-top:1px dashed #26262b;padding-top:6px"><span>Biais IA (hebdo)</span><b style="color:#6b7280">aucun cycle réussi depuis le démarrage</b></div>`;
+      }
       return h;
     })();
     const _sv = document.getElementById('aim-sauvegarde');

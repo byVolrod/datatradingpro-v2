@@ -20482,13 +20482,21 @@ setTimeout(() => { _refreshRateProb(true).catch(() => {}); }, 9000);  // amorça
 // Même horloge que l'alerte mail ci-dessus, SANS attendre son seuil (17/09, demande user : « vérifie
 // que tout est à jour et le badge est toujours présent... met dans le panel admin que je puisse
 // surveiller aussi »). Lecture seule, ne génère rien, ne jette jamais.
+// Le biais IA (rates:aibias) tourne sur un cycle HEBDO (samedi 02h Paris), pas 90 s : son seuil de
+// péremption suit ce rythme (7 j + 2 j de marge), pas celui du pricing marché juste au-dessus.
+const _AIBIAS_SEUIL_ALERTE_MS = 9 * 86400000;
 function _tauxEtat() {
   const at = _rpCache.at || 0;
+  const biaisAt = _aiRatesBiasAt || 0;
   return {
     at, ageMs: at ? Date.now() - at : null, fraisSeuilMs: _RP_SEUIL_ALERTE_MS,
     perime: !!(at && (Date.now() - at) >= _RP_SEUIL_ALERTE_MS),
     alerteEnvoyee: _rpAlerteEnvoyee, banques: Object.keys(_rpCache.banks || {}).length,
     pannes: { ..._rpPanne },
+    // Biais IA (poids monétaire du Radar de Biais + résolution CB non ancrée) : visibilité SÉPARÉE,
+    // mesurée le 17/09 après avoir trouvé `rates:aibias` figée 14 jours sans que rien ne le dise.
+    biaisAt, biaisAgeMs: biaisAt ? Date.now() - biaisAt : null,
+    biaisPerime: !!(biaisAt && (Date.now() - biaisAt) >= _AIBIAS_SEUIL_ALERTE_MS),
   };
 }
 
@@ -20928,11 +20936,19 @@ app.use('/api/v1', requireApiKey, (_req, res) => {
 });
 
 // ── Actualisation IA (optionnelle) des biais TAUX : déclenchée AU CHANGEMENT RÉEL d'un taux (force=true) ou en filet hebdo. EN CACHE, jamais à l'ouverture. ──
+// ⚠️ MESURÉ le 17/09 (audit) : le cycle hebdomadaire (samedi 02h Paris, `runAll` plus bas) écrit avec
+// succès `smartbias:history`/`generateWeeklyBias`/Week Ahead deux samedis de suite (05/09, 12/09) —
+// mais `rates:aibias` restait figé au 03/09. La ligne qui suit échoue donc en silence à CE cycle
+// précis, `catch (e) { console.log(...) }` avale l'erreur AVANT même la tentative d'écriture (voir
+// plus bas). Sans horodatage EN MÉMOIRE (indépendant de la persistance Supabase), rien ne le disait :
+// même maladie déjà fermée ce soir pour le pipeline de taux et la sauvegarde. `_aiRatesBiasAt` porte
+// désormais la dernière réussite VUE PAR CE PROCESSUS, exposée dans le panneau admin.
+let _aiRatesBiasAt = 0;
 async function _aiRefreshRatesBias(force = false) {
   try {
     const cached = await auth.aiCacheGet('rates:aibias').catch(() => null);
     // force=true (un taux vient de bouger) → on ré-estime sans attendre l'expiration du cache.
-    if (!force && cached && cached.banks && cached.at && Date.now() - cached.at < 6 * 86400000) { _aiRatesBias = cached.banks; return; }
+    if (!force && cached && cached.banks && cached.at && Date.now() - cached.at < 6 * 86400000) { _aiRatesBias = cached.banks; _aiRatesBiasAt = cached.at; return; }
   } catch {}
   const cbNews = (Array.isArray(allNews) ? allNews : [])
     .filter(n => n && /\b(fed|fomc|powell|ecb|bce|lagarde|boe|bailey|boj|ueda|boc|macklem|rba|snb|rbnz)\b|rate decision|interest rate|inflation|\bcpi\b/i.test((n.headline || '') + ' ' + (n.category || '')))
@@ -20950,8 +20966,8 @@ async function _aiRefreshRatesBias(force = false) {
     const clean = {};
     CB.forEach(b => { const v = obj[b.code]; if (v && /^(hike|hold|cut)$/.test(v.bias || '')) clean[b.code] = { bias: v.bias, conv: Math.max(0.3, Math.min(0.97, +v.conv || b.conv)) }; });
     if (Object.keys(clean).length >= 4) {
-      _aiRatesBias = clean;
-      await auth.aiCacheSet('rates:aibias', { at: Date.now(), banks: clean }).catch(() => {});
+      _aiRatesBias = clean; _aiRatesBiasAt = Date.now();
+      await auth.aiCacheSet('rates:aibias', { at: _aiRatesBiasAt, banks: clean }).catch(() => {});
       console.log('[RatesBias IA] biais actualisés (' + Object.keys(clean).length + ' banques) → cache durable');
     }
   } catch (e) { console.log('[RatesBias IA] parse échec → on garde la config maison'); }

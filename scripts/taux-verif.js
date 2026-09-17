@@ -708,10 +708,10 @@ v('… et la persistance loggue désormais son échec au lieu de le taire',
   const src2 = (iDebut2 >= 0) ? SRV.slice(iDebut2, iFin2) : null;
   v('`_tauxEtat` est extractible de server.js', !!src2);
   if (src2) {
-    const monterEtat = (rpCache, rpPanne, alerteEnvoyee) => new Function(
-      '_rpCache', '_rpPanne', '_rpAlerteEnvoyee', '_RP_SEUIL_ALERTE_MS',
-      src2 + '\nreturn _tauxEtat;'
-    )(rpCache, rpPanne, alerteEnvoyee, 20 * 60 * 1000);
+    const PARAMS = ['_rpCache', '_rpPanne', '_rpAlerteEnvoyee', '_RP_SEUIL_ALERTE_MS', '_aiRatesBiasAt', '_AIBIAS_SEUIL_ALERTE_MS'];
+    const monterEtat = (rpCache, rpPanne, alerteEnvoyee, biaisAt) => new Function(
+      ...PARAMS, src2 + '\nreturn _tauxEtat;'
+    )(rpCache, rpPanne, alerteEnvoyee, 20 * 60 * 1000, biaisAt || 0, 9 * 86400000);
 
     const frais = monterEtat({ at: Date.now() - 2 * 60 * 1000, banks: { fed: 1, ecb: 1 } }, {}, false)();
     v('cache frais : `perime` est faux', frais.perime === false, JSON.stringify(frais));
@@ -726,19 +726,49 @@ v('… et la persistance loggue désormais son échec au lieu de le taire',
     const jamais = monterEtat({ at: 0, banks: {} }, {}, false)();
     v('aucun cycle réussi depuis le démarrage : `at` reste à 0, pas de faux frais', jamais.at === 0 && jamais.perime === false, JSON.stringify(jamais));
 
+    // ── LE BIAIS IA (rates:aibias) : un CYCLE HEBDO, un SEUIL DIFFÉRENT (17/09, trouvé figé 14 j) ──
+    const biaisFrais = monterEtat({ at: Date.now(), banks: {} }, {}, false, Date.now() - 2 * 86400000)();
+    v('biais IA rafraîchi il y a 2 j (< seuil hebdo) : `biaisPerime` est faux', biaisFrais.biaisPerime === false, JSON.stringify(biaisFrais));
+    const biaisFige = monterEtat({ at: Date.now(), banks: {} }, {}, false, Date.now() - 14 * 86400000)();
+    v('biais IA figé depuis 14 j (> seuil hebdo de 9 j) : `biaisPerime` est vrai', biaisFige.biaisPerime === true, JSON.stringify(biaisFige));
+    v('… et son âge voyage jusqu\'au panel', biaisFige.biaisAgeMs >= 14 * 86400000 - 1000, JSON.stringify(biaisFige));
+    const biaisJamais = monterEtat({ at: Date.now(), banks: {} }, {}, false, 0)();
+    v('aucun cycle biais réussi depuis le démarrage : `biaisAt` reste à 0, pas de faux frais',
+      biaisJamais.biaisAt === 0 && biaisJamais.biaisPerime === false, JSON.stringify(biaisJamais));
+
     // TÉMOIN : sans le seuil comparé à l'âge réel, un cache vieux de plusieurs heures se dirait frais.
     const mut2 = src2.replace('(Date.now() - at) >= _RP_SEUIL_ALERTE_MS', 'false');
     v('(témoin) la mutation retire bien la comparaison de fraîcheur', mut2 !== src2,
       'la ligne a changé de forme : ce témoin ne prouve plus rien');
     if (mut2 !== src2) {
-      const figeMut = new Function('_rpCache', '_rpPanne', '_rpAlerteEnvoyee', '_RP_SEUIL_ALERTE_MS',
-        mut2 + '\nreturn _tauxEtat;')({ at: Date.now() - 5 * 3600e3, banks: {} }, {}, false, 20 * 60 * 1000)();
+      const figeMut = new Function(...PARAMS,
+        mut2 + '\nreturn _tauxEtat;')({ at: Date.now() - 5 * 3600e3, banks: {} }, {}, false, 20 * 60 * 1000, 0, 9 * 86400000)();
       v('(témoin) sans la comparaison, un cache vieux de 5 h se dirait faussement frais',
         figeMut.perime === false, JSON.stringify(figeMut));
+    }
+
+    // TÉMOIN : sans le seuil du biais, un biais vieux de 14 j se dirait frais lui aussi.
+    const mut3 = src2.replace('(Date.now() - biaisAt) >= _AIBIAS_SEUIL_ALERTE_MS', 'false');
+    v('(témoin) la mutation retire bien la comparaison de fraîcheur du biais', mut3 !== src2,
+      'la ligne a changé de forme : ce témoin ne prouve plus rien');
+    if (mut3 !== src2) {
+      const biaisMut = new Function(...PARAMS,
+        mut3 + '\nreturn _tauxEtat;')({ at: Date.now(), banks: {} }, {}, false, 20 * 60 * 1000, Date.now() - 14 * 86400000, 9 * 86400000)();
+      v('(témoin) sans la comparaison, un biais figé depuis 14 j se dirait faussement frais',
+        biaisMut.biaisPerime === false, JSON.stringify(biaisMut));
     }
   }
   v('server.js expose `taux` dans le moniteur admin, protégé par try/catch (ne jette jamais)',
     /taux: \(\(\) => \{ try \{ return _tauxEtat\(\); \} catch \(e\) \{ return null; \} \}\)\(\)/.test(SRV));
+
+  // `_aiRatesBiasAt` doit être posé sur les DEUX chemins de succès (cache-hit ET génération fraîche) —
+  // sinon le panel resterait aveugle sur exactement le chemin qui a échoué en silence (mesuré 17/09 :
+  // le cache-hit marchait, la génération fraîche du samedi échouait — ou l'inverse, sans horodatage
+  // séparé des deux il est impossible de savoir LEQUEL).
+  v('`_aiRatesBiasAt` est posé au chargement depuis le cache (cache-hit)',
+    /_aiRatesBias = cached\.banks; _aiRatesBiasAt = cached\.at;/.test(SRV));
+  v('`_aiRatesBiasAt` est posé après une génération IA fraîche (cache-miss)',
+    /_aiRatesBias = clean; _aiRatesBiasAt = Date\.now\(\);/.test(SRV));
 }
 
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
