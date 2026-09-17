@@ -260,5 +260,52 @@ console.log('\n── Les récaps de séance (Asie/Londres/New York) — le mêm
   }
 }
 
+/* ══ LE TAG « ANALYSE » D'UNE NEWS — UN QUATRIÈME REPLI, ENCORE UN AUTRE ANGLE (17/09) ═══════════
+   Capture client : sur une news « BoJ » (onglet Asie), le tag Info affichait un résumé français
+   mais le tag Analyse affichait un paragraphe entièrement anglais (« The Bank of Japan's (BoJ)
+   monetary policy meeting will close a week packed with central bank decisions... »).
+   CAUSE, différente des trois précédentes : `_newsAnalysePrompt` DEMANDE explicitement le français
+   (« Rédige en FRANÇAIS » / « EN FRANÇAIS »), mais `_parseAnalyseBullets` acceptait n'importe quel
+   texte renvoyé par le modèle sans jamais vérifier qu'il avait obéi. Un seul écart (fournisseur de
+   secours sous budget serré, modèle qui ignore la consigne) suffisait à mettre l'anglais en cache
+   DURABLEMENT (mémoire + Supabase) — servi pour toujours sur cette news, jamais retenté.
+   Corrigé en réutilisant `_traductionFrValide` (déjà éprouvée par l'anti-poison de `_traduireLot`,
+   §1 ci-dessus n'en a pas besoin car il travaille sur des champs déjà traduits) plutôt qu'un
+   nouveau motif inventé pour l'occasion. */
+console.log('\n── Le tag « Analyse » d\'une news — le même principe, une quatrième fois ──');
+{
+  const srcLooksFr = /const _looksFr = s => [^\n]*\n/.exec(SRV)[0];
+  const srcNonFr = /const _RX_NON_FR = \/[^\n]*\n/.exec(SRV)[0];
+  const srcValide = /const _traductionFrValide = [^\n]*\n/.exec(SRV)[0];
+  const srcParse = morceau('_parseAnalyseBullets', /function _parseAnalyseBullets\(text\) \{[\s\S]*?\n\}/);
+  v('`_traductionFrValide`/`_parseAnalyseBullets` sont extractibles', !!(srcLooksFr && srcNonFr && srcValide && srcParse));
+  if (srcLooksFr && srcNonFr && srcValide && srcParse) {
+    const P = new Function(srcLooksFr + srcNonFr + srcValide + '\n' + srcParse + '\nreturn { _parseAnalyseBullets };')();
+    // Corpus MOT POUR MOT de la capture (paragraphe redécoupé en une puce, comme le ferait un
+    // modèle qui répond par une seule ligne « • … » au lieu des 2-3 attendues).
+    const sortieAnglaise = "• The Bank of Japan's (BoJ) monetary policy meeting will close a week packed with central bank decisions on Friday, with markets particularly interested in confirming expectations of a hawkish shift that has boosted a strong Japanese Yen (JPY) recovery in September.";
+    v('une sortie entièrement anglaise est ÉCARTÉE (jamais affichée)', P._parseAnalyseBullets(sortieAnglaise).length === 0,
+      JSON.stringify(P._parseAnalyseBullets(sortieAnglaise)));
+    const sortieFrancaise = '• Le ton reste hawkish : la BoJ pourrait relever ses taux face à une inflation persistante.\n• Une hausse renforcerait le yen, déjà porté par les anticipations de resserrement.';
+    const r2 = P._parseAnalyseBullets(sortieFrancaise);
+    v('… mais une sortie française, elle, passe intacte', r2.length === 2 && /hawkish/.test(r2[0]), JSON.stringify(r2));
+    const sortieMixte = '• Ceci est en français et doit rester.\n• This one is in English and must be dropped.';
+    const r3 = P._parseAnalyseBullets(sortieMixte);
+    v('une sortie MIXTE ne garde que la puce française (jamais l\'anglaise à côté)',
+      r3.length === 1 && /français et doit rester/.test(r3[0]), JSON.stringify(r3));
+
+    // TÉMOIN : sans le filtre, l'anglais de la capture ressort tel quel.
+    const srcParseSansFiltre = srcParse.replace('.filter(_traductionFrValide)', '');
+    v('(témoin) le retrait du filtre change bien le source', srcParseSansFiltre !== srcParse,
+      'la ligne a changé de forme : ce témoin ne prouve plus rien');
+    if (srcParseSansFiltre !== srcParse) {
+      const Pmut = new Function(srcLooksFr + srcNonFr + srcValide + '\n' + srcParseSansFiltre + '\nreturn { _parseAnalyseBullets };')();
+      const rMut = Pmut._parseAnalyseBullets(sortieAnglaise);
+      v('(témoin) sans le filtre, l\'anglais de la capture client revient bien tel quel',
+        rMut.length === 1 && /Bank of Japan/.test(rMut[0]), JSON.stringify(rMut));
+    }
+  }
+}
+
 console.log(`\n${ko === 0 ? '✅' : '❌'} repli-francais-verif : ${ok} contrôle(s) vert(s), ${ko} échec(s).`);
 process.exit(ko === 0 ? 0 : 1);
