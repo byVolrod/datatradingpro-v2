@@ -128,6 +128,17 @@ cp -a /etc/letsencrypt           config/letsencrypt              2>/dev/null || 
 cp -a /root/.ssh/dtp_deploy      config/cle-deploiement          2>/dev/null || true
 cp -a /usr/local/bin/dtp-deploy.sh config/                       2>/dev/null || true
 
+# ── 2 (avancee). LE DOSSIER D ACCUEIL, AVANT TOUTE COPIE DEDANS ─────────────────────────────
+# ⚠️ POSE ICI, PAS PLUS BAS, ET C EST LE CORRECTIF QUI COMPTE (17/09/2026, trouve en faisant
+# tourner cette sauvegarde pour la premiere fois depuis sa pose — les deux bugs precedents
+# (droit d execution, puis .env execute au lieu d etre lu) l empechaient d atteindre CE point du
+# script. `mkdir -p donnees` vivait plus bas, APRES la copie du dump : `cp -a SOURCE donnees/`
+# quand `donnees` n existe pas encore ne NICHE pas SOURCE dedans, il RENOMME SOURCE en `donnees`.
+# Le dump se retrouvait donc a plat (`donnees/users.json`) au lieu d etre range dans
+# `donnees/dump/users.json` — exactement ce que la verification finale de cette archive exige,
+# et exactement ce qui la faisait echouer, SUPPRIMER l archive, et alerter a chaque passage.
+mkdir -p donnees
+
 # ── 1 bis. LA BASE DE DONNEES ───────────────────────────────────────────────────────────────
 # ⚠️ LE TROU LE PLUS GRAVE DE L AUDIT DU 21/08 : les comptes clients, leurs abonnements et les
 # empreintes de leurs mots de passe n existaient QU A UN SEUL ENDROIT, chez Supabase. La
@@ -150,7 +161,7 @@ fi
 
 # ── 2. LES DONNÉES IRREMPLAÇABLES ───────────────────────────────────────────────────────────
 # Liste EXPLICITE : un « cp -a data/ » embarquerait 1,8 Go de cache de navigateur.
-mkdir -p donnees
+# (le dossier existe deja, cree plus haut avant la copie du dump — voir l encadre ci-dessus)
 # ⚠️ LES QUATRE FICHIERS DE COMPTES AJOUTES LE 21/08. Ils manquaient, et leur absence coutait cher :
 #   users_blacklist.json  : la liste noire repart VIDE, donc des comptes ecartes peuvent se recreer ;
 #   users_deleted.json    : les comptes supprimes ne sont plus reconnus comme tels et peuvent revenir ;

@@ -224,6 +224,59 @@ async function suite() {
   v('[témoin] un nouveau fichier durable serait bien signalé', mordu.length === 1 && mordu[0] === 'cache_tout_neuf_et_durable.json',
     'le contrôle ne mord pas : il laisserait passer un fichier hors de toute décision.');
 
+  console.log('\n── 5. Le dump de la base atterrit VRAIMENT dans donnees/dump/, pas à plat ──');
+  /* ⚠️ 17/09/2026, TROUVÉ EN FAISANT TOURNER CETTE SAUVEGARDE POUR LA PREMIÈRE FOIS DEPUIS SA
+     POSE — les deux bugs précédents du même jour (droit d'exécution, puis .env exécuté au lieu
+     d'être lu) l'empêchaient d'atteindre ce point du script. `mkdir -p donnees` vivait APRÈS
+     `cp -a "$REPO/data/app/dump" donnees/` : quand `donnees` n'existe pas encore, `cp -a` ne
+     NICHE pas la source dedans, il la RENOMME. Le dump atterrissait donc à plat
+     (`donnees/users.json`) au lieu de `donnees/dump/users.json` — exactement ce que la
+     vérification finale de l'archive exige, et exactement ce qui la faisait SUPPRIMER à chaque
+     passage. ON EXÉCUTE LE VRAI EXTRAIT du script, avec un faux `node` qui simule un export
+     réussi, pour lire la vraie structure de fichiers produite — une relecture ne voit pas ce
+     défaut, l'ordre des deux lignes est la seule chose qui compte. */
+  {
+    const iDebut = SH.indexOf('\nmkdir -p donnees\n');
+    const iFin = SH.indexOf('\n# ── 2. LES DONNÉES IRREMPLAÇABLES', iDebut);
+    const bloc = (iDebut >= 0 && iFin > iDebut) ? SH.slice(iDebut, iFin) : null;
+    v('le bloc « créer donnees/ puis y copier le dump » est extractible', !!bloc,
+      'les ancres ont changé de forme : ce contrôle ne voit plus rien');
+    if (bloc) {
+      const os = require('os');
+      const jouer = (corpsBloc) => {
+        const bac = fs.mkdtempSync(path.join(os.tmpdir(), 'dtp-dump-'));
+        const repo = path.join(bac, 'repo'); const bin = path.join(bac, 'bin'); const scene = path.join(bac, 'scene');
+        fs.mkdirSync(repo, { recursive: true }); fs.mkdirSync(bin, { recursive: true }); fs.mkdirSync(scene, { recursive: true });
+        // Faux `node` : simule un export réussi en écrivant un users.json, comme le ferait le vrai.
+        fs.writeFileSync(path.join(bin, 'node'),
+          '#!/usr/bin/env bash\nmkdir -p data/app/dump\necho \'[]\' > data/app/dump/users.json\nexit 0\n', { mode: 0o755 });
+        const script = `set -u\nexport PATH=${JSON.stringify(bin)}:$PATH\nREPO=${JSON.stringify(repo)}\nmsg() { :; }\ncd ${JSON.stringify(scene)}\n${corpsBloc}`;
+        require('child_process').spawnSync('/bin/bash', ['-c', script], { encoding: 'utf8' });
+        return scene;
+      };
+      const scene = jouer(bloc);
+      const imbrique = fs.existsSync(path.join(scene, 'donnees', 'dump', 'users.json'));
+      const aPlat = fs.existsSync(path.join(scene, 'donnees', 'users.json'));
+      v('le dump est bien NICHÉ dans donnees/dump/users.json (ce que la vérification finale exige)',
+        imbrique, 'introuvable — l\'archive produite serait supprimée par sa propre vérification');
+      v('… et pas éparpillé à plat dans donnees/users.json', !aPlat,
+        'trouvé à plat : c\'est exactement le défaut mesuré le 17/09');
+
+      // TÉMOIN : remettre l'ordre d'origine (mkdir APRÈS la copie) doit reproduire le défaut.
+      const mute = bloc.replace('mkdir -p donnees\n', '') + '\nmkdir -p donnees\n';
+      if (mute === bloc) {
+        v('(témoin) la mutation change bien le bloc', false, 'l\'ordre a changé de forme : ce témoin ne prouve plus rien');
+      } else {
+        const sceneMute = jouer(mute);
+        const imbriqueMute = fs.existsSync(path.join(sceneMute, 'donnees', 'dump', 'users.json'));
+        const aPlatMute = fs.existsSync(path.join(sceneMute, 'donnees', 'users.json'));
+        v('(témoin) avec l\'ancien ordre, le défaut du 17/09 revient bien (dump à plat)',
+          aPlatMute && !imbriqueMute,
+          'imbriqué=' + imbriqueMute + ' à plat=' + aPlatMute + ' — si le témoin ne mord pas, il ne prouve plus rien');
+      }
+    }
+  }
+
   console.log('\n──────────────────────────────────────────────────────────────────────');
   if (ko) { console.log(`❌ sauvegarde-verif : ${ko} échec(s) sur ${ok + ko}.`); process.exit(1); }
   console.log(`✅ sauvegarde-verif : ${ok} contrôle(s) au vert.`);
