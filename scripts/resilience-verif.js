@@ -191,36 +191,52 @@ console.log('\n── 8. Tout script lancé SANS interprète explicite doit êtr
   }
 }
 
-console.log('\n── 9. Une unité systemd corrigée dans le dépôt ARRIVE sur la machine ──');
-/* ⚠️ 17/09/2026. Les `.service`/`.timer` ne vivent pas dans le dépôt une fois installés : ils sont
-   copiés dans /etc/systemd/system/ par l'installateur, lancé UNE fois à la main. Un correctif
-   d'unité poussé sur main restait donc indéfiniment sans effet — la machine rejouait la version du
-   jour de l'installation, et rien ne le disait. Même maladie que le cache du DMX (corrigé le
-   10/09) : le code se déploie, la chose posée à côté ne suit pas. Le tireur d'auto-déploiement
-   resynchronise désormais les unités DÉJÀ INSTALLÉES à chaque passage.
-   ON EXÉCUTE LA VRAIE FONCTION, avec un faux /etc et un faux systemctl, pour lire ce qui se passe
-   réellement — un banc qui LIT le script ne verrait pas une boucle qui ne copie rien. */
+console.log('\n── 9. Une unité systemd corrigée dans le dépôt ARRIVE sur la machine, PAR LES DEUX CHEMINS ──');
+/* ⚠️ 17/09/2026, PUIS CORRIGÉ À NOUVEAU LE MÊME JOUR, QUELQUES HEURES PLUS TARD. Les `.service`/
+   `.timer` ne vivent pas dans le dépôt une fois installés : ils sont copiés dans
+   /etc/systemd/system/ par l'installateur, lancé UNE fois à la main. Un correctif d'unité poussé
+   sur main restait donc indéfiniment sans effet.
+   PREMIÈRE VERSION DU CORRECTIF (insuffisante) : la resynchro n'était écrite QUE dans
+   vps-autodeploiement.sh (le « chemin jalon », le tireur systemd du VPS). Mesurée en production
+   QUATRE HEURES après un déploiement pourtant réussi côté code applicatif : l'unité tournait
+   toujours avec l'ancien `ExecStart=`. Cause : CE VPS se déploie par le « chemin SSH »
+   (scripts/deploy.sh, via le secret DTP_SSH_KEY), pas par le tireur — la resynchro n'existait que
+   dans le chemin qui ne tournait pas ici. Deux chemins de déploiement, une seule logique
+   d'unités : sinon la divergence se paie comme celle du CODE que ce dépôt refuse déjà de dupliquer
+   (deploiement-verif.js). La logique vit maintenant dans UN SEUL fichier,
+   `scripts/vps/dtp-unites-sync.sh`, appelé par les deux.
+   ON EXÉCUTE LE VRAI SCRIPT (pas une fonction extraite), avec un faux /etc et un faux systemctl,
+   pour lire ce qui se passe réellement — et on vérifie aussi que LES DEUX CHEMINS l'appellent
+   vraiment, pas seulement l'un des deux comme la première fois. */
 {
+  const SYNC = path.join(RACINE, 'scripts/vps/dtp-unites-sync.sh');
+  const srcExiste = fs.existsSync(SYNC);
+  v('`scripts/vps/dtp-unites-sync.sh` existe', srcExiste,
+    'la resynchronisation des unités a disparu : un correctif d\'unité ne partirait plus en production, par aucun chemin');
+
   const AUTO = lire('scripts/vps-autodeploiement.sh');
-  const i = AUTO.indexOf('_unites_a_jour() {');
-  let src = null;
-  if (i >= 0) {
-    let prof = 0;
-    for (let k = AUTO.indexOf('{', i); k < AUTO.length; k++) {
-      if (AUTO[k] === '{') prof++;
-      else if (AUTO[k] === '}') { prof--; if (prof === 0) { src = AUTO.slice(i, k + 1); break; } }
-    }
-  }
-  if (!src) {
-    v('`_unites_a_jour` extraite de vps-autodeploiement.sh', false,
-      'la resynchronisation des unités a disparu : un correctif d\'unité ne partirait plus en production');
-  } else {
-    v('`_unites_a_jour` extraite de vps-autodeploiement.sh', true);
+  const DEPLOY = lire('scripts/deploy.sh');
+  v('le chemin JALON (vps-autodeploiement.sh) appelle le script partagé', /dtp-unites-sync\.sh/.test(AUTO));
+  v('le chemin SSH (deploy.sh) l\'appelle AUSSI — c\'est lui qui tourne réellement sur la production',
+    /dtp-unites-sync\.sh/.test(DEPLOY),
+    'ce VPS se déploie par ce chemin précis : l\'oublier ici reproduit EXACTEMENT la panne du 17/09');
+  v('le chemin SSH l\'appelle APRÈS le `git reset`, sur la machine distante (pas avant, en local)',
+    /reset --hard --quiet origin\/main[^"]*&&[^"]*dtp-unites-sync\.sh/.test(DEPLOY.replace(/\n/g, ' ')),
+    'appelé trop tôt, il resynchroniserait depuis l\'ANCIEN code, pas depuis celui qu\'on vient de déployer');
+
+  if (srcExiste) {
+    const src = fs.readFileSync(SYNC, 'utf8');
     const os = require('os');
     const bac = fs.mkdtempSync(path.join(os.tmpdir(), 'dtp-unites-'));
     const etc = path.join(bac, 'etc'); const dep = path.join(bac, 'scripts'); const bin = path.join(bac, 'bin');
+    // Même profondeur que la production : le script résout sa racine via `dirname "$0"/../..`,
+    // donc la copie de test doit vivre au même niveau (`<bac>/scripts/vps/…`) pour que ce calcul
+    // retombe sur `<bac>`, où `dep` (= <bac>/scripts) est placé juste en dessous.
+    const scriptCopie = path.join(bac, 'scripts', 'vps', 'dtp-unites-sync.sh');
     fs.mkdirSync(etc, { recursive: true }); fs.mkdirSync(dep, { recursive: true }); fs.mkdirSync(bin, { recursive: true });
+    fs.mkdirSync(path.dirname(scriptCopie), { recursive: true });
     fs.writeFileSync(path.join(bin, 'systemctl'), '#!/usr/bin/env bash\necho "SYSTEMCTL $*" >> "$TRACE"\nexit 0\n', { mode: 0o755 });
+    fs.writeFileSync(scriptCopie, src.replace(/\/etc\/systemd\/system/g, etc), { mode: 0o755 });
 
     // Trois unités : une INSTALLÉE ET MODIFIÉE, une INSTALLÉE ET IDENTIQUE, une JAMAIS INSTALLÉE.
     fs.writeFileSync(path.join(dep, 'dtp-sauvegarde.service'), 'NEUF\n');
@@ -230,31 +246,26 @@ console.log('\n── 9. Une unité systemd corrigée dans le dépôt ARRIVE sur
     fs.writeFileSync(path.join(dep, 'dtp-nouvelle.service'), 'JAMAIS POSEE\n');
 
     const trace = path.join(bac, 'trace');
-    const jouer = (corps) => {
-      const script = `set -u
-export PATH=${JSON.stringify(bin)}:$PATH
-export TRACE=${JSON.stringify(trace)}
-cd ${JSON.stringify(bac)}
-${corps.replace(/\/etc\/systemd\/system\//g, etc + '/')}
-_unites_a_jour`;
-      const r = require('child_process').spawnSync('/bin/bash', ['-c', script], { encoding: 'utf8' });
+    const jouer = () => {
+      const r = require('child_process').spawnSync('/bin/bash', [scriptCopie],
+        { encoding: 'utf8', env: { ...process.env, PATH: bin + ':' + process.env.PATH, TRACE: trace }, cwd: bac });
       return String(r.stdout || '') + String(r.stderr || '');
     };
 
-    const sortie = jouer(src);
+    const sortie = jouer();
     v('une unité installée ET modifiée est remplacée par celle du dépôt',
       fs.readFileSync(path.join(etc, 'dtp-sauvegarde.service'), 'utf8').trim() === 'NEUF',
       sortie.slice(0, 200));
-    v('… et le remplacement est annoncé dans le journal', /unité mise à jour : dtp-sauvegarde\.service/.test(sortie), sortie.slice(0, 200));
+    v('… et le remplacement est annoncé dans le journal', /mise à jour : dtp-sauvegarde\.service/.test(sortie), sortie.slice(0, 200));
     v('une unité JAMAIS installée n\'est pas posée d\'autorité (ça, c\'est le rôle de l\'installateur)',
       !fs.existsSync(path.join(etc, 'dtp-nouvelle.service')),
-      'le tireur a activé une unité que personne n\'a choisi d\'installer');
+      'le script a activé une unité que personne n\'a choisi d\'installer');
     v('systemd est rechargé puisque quelque chose a changé',
       /SYSTEMCTL daemon-reload/.test(fs.existsSync(trace) ? fs.readFileSync(trace, 'utf8') : ''));
 
     // Deuxième passage : plus rien ne change → pas de daemon-reload (pas de bruit inutile).
     fs.writeFileSync(trace, '');
-    jouer(src);
+    jouer();
     v('un second passage sans changement ne recharge PAS systemd',
       !/SYSTEMCTL daemon-reload/.test(fs.readFileSync(trace, 'utf8')),
       'systemd serait rechargé à chaque minute pour rien');
@@ -264,12 +275,110 @@ _unites_a_jour`;
     if (mute === src) {
       v('(témoin) la mutation change bien le source', false, 'la garde a changé de forme : ce témoin ne prouve plus rien');
     } else {
+      fs.writeFileSync(scriptCopie, mute.replace(/\/etc\/systemd\/system/g, etc), { mode: 0o755 });
       fs.writeFileSync(path.join(etc, 'dtp-sauvegarde.service'), 'VIEUX\n');
-      jouer(mute);
+      jouer();
       v('(témoin) sans la copie, l\'unité corrigée ne part jamais en production',
         fs.readFileSync(path.join(etc, 'dtp-sauvegarde.service'), 'utf8').trim() === 'VIEUX');
     }
     try { fs.rmSync(bac, { recursive: true, force: true }); } catch {}
+  }
+}
+
+console.log('\n── 10. Un script lancé sur L\'HÔTE ne dépend JAMAIS d\'un paquet npm ──');
+/* ⚠️ 17/09/2026, DÉCOUVERT EN VOULANT FAIRE TOURNER LA SAUVEGARDE JUSTE CORRIGÉE. Elle échouait
+   encore, sur une erreur toute différente : `Cannot find module '@supabase/supabase-js'`, dans
+   `dtp-export-bdd.js`, exécuté DIRECTEMENT sur l'hôte par dtp-sauvegarde.service (pas dans le
+   conteneur, où le Dockerfile fait bien `npm ci --omit=dev`). RÉFLEXE ENVISAGÉ, PUIS ÉCARTÉ :
+   faire tourner `npm ci` sur l'hôte aussi. Mesuré avant de le poser : ça « réussirait »
+   (avertissement EBADENGINE, pas une erreur) en installant `undici@7.29.0`, qui EXIGE
+   Node ≥20.18.1 — cette machine tourne en 18.19.1. Un filet qui a l'air posé, comme la sauvegarde
+   elle-même l'a été pendant des semaines.
+   LA VRAIE RÈGLE, DÉJÀ ÉTABLIE PAR `supabase-keepalive.js` (« Zéro dépendance », lu en tête de ce
+   fichier) : un script lancé sur l'hôte ne dépend JAMAIS d'un paquet npm, il n'a donc jamais
+   besoin qu'on lui installe quoi que ce soit. `dtp-export-bdd.js` la suit désormais (`fetch`
+   natif au lieu du SDK). CE CONTRÔLE L'IMPOSE plutôt que de compter sur la mémoire : il retrouve
+   tout script Node lancé SUR L'HÔTE (directement dans un `ExecStart=`, ou depuis un `.sh` que
+   systemd lance) et refuse tout `require()` qui ne soit ni un module natif de Node, ni un chemin
+   relatif. `dotenv`, seule exception documentée, n'est tolérée QUE protégée par un `try/catch`
+   (elle l'est déjà dans les deux fichiers) — sans quoi son absence ferait planter le script. */
+{
+  const CORE = new Set(require('module').builtinModules);
+  const fichiersServices = fs.readdirSync(path.join(RACINE, 'scripts')).filter(f => /^dtp-.*\.service$/.test(f));
+
+  /* Repérage PAR JETON, pas par regex sur "node " : `/usr/bin/node …js` écrit le nom du binaire
+     collé à un `/`, jamais précédé d'un espace — une regex qui n'attend que `(?:^|\s)node`
+     ratait donc précisément l'appel DIRECT de dtp-keepalive.service (trouvé en testant ce
+     contrôle : il ne voyait QUE dtp-export-bdd.js, jamais supabase-keepalive.js). On découpe donc
+     la ligne en mots, et un mot est « node » s'il vaut exactement ça OU se termine par `/node`. */
+  const trouverAppelsNode = texte => {
+    const trouves = new Set();
+    const mots = texte.split(/\s+/);
+    for (let i = 0; i < mots.length; i++) {
+      const mot = mots[i].replace(/^["']|["']$/g, '');
+      if (mot === 'node' || mot.endsWith('/node')) {
+        const suivant = (mots[i + 1] || '').replace(/^["']|["']$/g, '');
+        const base = suivant.split('/').pop();
+        if (base && /\.js$/.test(base)) trouves.add(base);
+      }
+    }
+    return trouves;
+  };
+
+  // 1) Les scripts .js lancés DIRECTEMENT par un ExecStart= (ex. `node …/supabase-keepalive.js`).
+  const entreesJS = new Set();
+  // 2) Les scripts .sh lancés par un ExecStart=, dans lesquels on cherche un `node …/xxx.js` NON
+  //    envoyé dans le conteneur (`docker exec … node -e '…'` reste dans l'image, avec SES dépendances).
+  const entreesSH = new Set();
+  for (const f of fichiersServices) {
+    const execs = (lire('scripts/' + f).match(/^ExecStart=.*$/gm) || []).join('\n');
+    for (const n of trouverAppelsNode(execs)) entreesJS.add(n);
+    for (const m of execs.matchAll(/(?:scripts\/vps\/)([\w.-]+\.sh)\b/g)) entreesSH.add(m[1]);
+  }
+  for (const sh of entreesSH) {
+    const txt = lire('scripts/vps/' + sh);
+    // On retire les blocs `docker exec … node -e '…'` avant de chercher : CE Node-là tourne dans
+    // le conteneur, avec le node_modules complet installé par le Dockerfile — hors sujet ici.
+    const horsConteneur = txt.replace(/docker exec[^\n]*node[^\n]*/g, '');
+    for (const n of trouverAppelsNode(horsConteneur)) entreesJS.add(n);
+  }
+  v('au moins un point d\'entrée Node hôte repéré (le banc voit quelque chose)', entreesJS.size > 0,
+    [...entreesJS].join(', ') || '(aucun trouvé — le format des unités a peut-être changé)');
+
+  const dossiersScripts = [path.join(RACINE, 'scripts'), path.join(RACINE, 'scripts', 'vps')];
+  for (const nomFichier of [...entreesJS].sort()) {
+    let chemin = null;
+    for (const d of dossiersScripts) { const c = path.join(d, nomFichier); if (fs.existsSync(c)) { chemin = c; break; } }
+    if (!chemin) { v(`« ${nomFichier} » est retrouvé dans scripts/ ou scripts/vps/`, false); continue; }
+    const src = fs.readFileSync(chemin, 'utf8');
+
+    // Un `require('dotenv')` protégé par try/catch est toléré ; on le neutralise avant de scanner
+    // le reste, pour ne pas le confondre avec une dépendance non protégée du même nom.
+    const sansDotenvProtege = src.replace(/try\s*\{[^}]*require\(['"]dotenv['"]\)[^}]*\}\s*catch[^}]*\{[^}]*\}/s, '');
+
+    const suspects = [];
+    for (const m of sansDotenvProtege.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+      const mod = m[1];
+      if (mod.startsWith('.') || mod.startsWith('/')) continue;                 // fichier local
+      const racineMod = mod.startsWith('node:') ? mod.slice(5) : mod.split('/')[0];
+      if (CORE.has(racineMod) || CORE.has('node:' + racineMod)) continue;       // module natif
+      suspects.push(mod);
+    }
+    v(`« ${nomFichier} » ne dépend d'aucun paquet npm`, suspects.length === 0,
+      suspects.length ? suspects.join(', ') + ' — sur l\'hôte, rien n\'installe ces paquets (voir scripts/deploy.sh pour la mesure du 17/09)' : undefined);
+  }
+
+  // TÉMOIN : une dépendance réintroduite doit faire rougir CE contrôle précis.
+  const cible = [...entreesJS].find(n => dossiersScripts.some(d => fs.existsSync(path.join(d, n))));
+  if (cible) {
+    let chemin = null;
+    for (const d of dossiersScripts) { const c = path.join(d, cible); if (fs.existsSync(c)) { chemin = c; break; } }
+    const src = fs.readFileSync(chemin, 'utf8');
+    const mute = "require('@supabase/supabase-js');\n" + src;
+    const sansDotenvProtege = mute.replace(/try\s*\{[^}]*require\(['"]dotenv['"]\)[^}]*\}\s*catch[^}]*\{[^}]*\}/s, '');
+    const reintroduit = [...sansDotenvProtege.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)]
+      .some(m => !m[1].startsWith('.') && !m[1].startsWith('/') && !CORE.has(m[1].split('/')[0]));
+    v('(témoin) réintroduire une dépendance npm dans un script hôte fait bien rougir ce contrôle', reintroduit);
   }
 }
 

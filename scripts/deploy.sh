@@ -58,9 +58,30 @@ fi
 AVANT="$(ssh -i "$CLE" -o StrictHostKeyChecking=accept-new "$HOTE" "cd $DOSSIER && git rev-parse --short HEAD" 2>/dev/null || echo '?')"
 echo "  version en ligne avant : $AVANT"
 
+# ⚠️ LA RESYNCHRO DES UNITÉS systemd EST DANS CETTE LIGNE DEPUIS LE 17/09/2026, ET C'EST LE
+# CORRECTIF QUI COMPTE ICI. Une première écriture (le même jour) l'avait posée UNIQUEMENT dans
+# vps-autodeploiement.sh (le « chemin jalon ») — or CE VPS se déploie par CE chemin-ci, le SSH
+# direct. Résultat mesuré : un correctif d'unité poussé sur main restait invisible quatre heures
+# après un déploiement pourtant réussi côté code applicatif. `dtp-unites-sync.sh` est LE MÊME
+# script que l'autre chemin appelle — deux chemins, une seule logique, comme pour la séquence de
+# déploiement elle-même (voir l'en-tête de ce fichier).
+# ⚠️ `npm ci` SUR L'HÔTE A ÉTÉ ENVISAGÉ ICI, PUIS ÉCARTÉ (17/09/2026, même incident que la
+# resynchro des unités juste au-dessus). La sauvegarde échouait sur `Cannot find module
+# '@supabase/supabase-js'` — un script lancé DIRECTEMENT sur l'hôte (dtp-export-bdd.js, via
+# dtp-sauvegarde.service) lisait un node_modules que seul le Dockerfile installe (ça ne concerne
+# que l'image). `npm ci` sur l'hôte AURAIT réglé ce symptôme précis, mais aurait tenté d'installer
+# `undici@7.29.0`, qui EXIGE Node ≥20.18.1 — cette machine tourne en 18.19.1. Mesuré : `npm ci`
+# « réussit » quand même (avertissement EBADENGINE, pas une erreur), mais le SDK installé ne
+# fonctionne pas sur ce Node (« aucun noeud Supabase ne répond »). Un filet qui a l'air posé.
+# LA VRAIE RÈGLE, DÉJÀ ÉTABLIE PAR supabase-keepalive.js (« Zéro dépendance ») : un script lancé
+# sur l'HÔTE ne doit JAMAIS dépendre d'un paquet npm — `dtp-export-bdd.js` la suit désormais,
+# via `fetch` natif au lieu du SDK. `resilience-verif.js` § 11 l'IMPOSE : tout script node lancé
+# sur l'hôte (direct ou depuis un .sh systemd) est scanné, et un `require()` non natif y fait
+# rougir le banc. `npm ci` devient donc inutile ICI — jamais nécessaire si la règle tient.
 ssh -i "$CLE" "$HOTE" "cd $DOSSIER \
   && git fetch --quiet origin main \
   && git reset --hard --quiet origin/main \
+  && (bash scripts/vps/dtp-unites-sync.sh || true) \
   && docker compose build $SERVICE \
   && docker compose up -d $SERVICE"
 

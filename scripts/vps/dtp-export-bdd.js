@@ -11,17 +11,22 @@
    l archive CHIFFREE. Les empreintes de mots de passe y sont donc protegees par le chiffrement de
    l archive, comme le reste.
 
-   ⚠️ CE COMMENTAIRE A MENTI PENDANT DES SEMAINES (corrige le 17/09/2026, trouve en cherchant une
-   sauvegarde pour restaurer le journal d un client). Il disait que `ai_cache` n etait PAS exporte
-   par choix, pour economiser du trafic sortant apres un incident d egress de 18 To. FAUX : la table
-   `TABLES` ci-dessous exporte bel et bien `ai_cache` depuis le 03/09/2026 (elle porte les modeles de
-   journal de bord, les avatars, la liste noire et les pierres tombales), et `bilan.note` plus bas
-   repetait la meme fausse affirmation. Un commentaire perime ment avec l autorite du code : les deux
-   traces sont corrigees dans le meme commit. `ai_cache` EST exporte, elle est PETITE (1,4 Mo mesures
-   le 03/09), et c est justement elle qui porte ce qu un client peut perdre.
+   ⚠️ ZERO DEPENDANCE (17/09/2026, meme jour que la decouverte). Ce script appelait
+   `@supabase/supabase-js`, un module npm — et `node_modules` sur l HOTE (par opposition a l IMAGE
+   Docker) n avait JAMAIS ete installe : seul le Dockerfile fait `npm ci`, ce qui ne concerne que
+   le conteneur. Pire : `npm` lui-meme n etait pas installe sur cette machine. Consequence mesuree :
+   la sauvegarde, tout juste debloquee d un premier defaut (droit d execution, puis lecture du
+   .env), echouait encore sur « Cannot find module '@supabase/supabase-js' » — une TROISIEME cause
+   d echec silencieux empilee sur les deux precedentes, le meme jour.
+   `scripts/supabase-keepalive.js`, plus ancien, avait deja resolu ce probleme EN NE L AYANT PAS :
+   il ne depend de rien, en parlant directement a l API REST de Supabase (PostgREST) via `fetch`,
+   deja natif au Node installe sur cette machine (v18.19.1). Ce script suit desormais la meme
+   regle : aucune dependance npm ne doit plus jamais etre necessaire pour qu une tache systemd
+   tourne sur l HOTE. `npm ci`/`apt install npm` restent poses en filet (voir scripts/deploy.sh et
+   vps-autodeploiement.sh), mais plus AUCUN script d hote n en a besoin pour fonctionner.
 
-   ⚠️ LECTURE SEULE, PAR CONSTRUCTION. Le script n appelle que `select`. Il ne peut ni modifier ni
-   supprimer quoi que ce soit, meme en cas de bug.
+   ⚠️ LECTURE SEULE, PAR CONSTRUCTION. Le script n appelle que des GET (`select`). Il ne peut ni
+   modifier ni supprimer quoi que ce soit, meme en cas de bug.
 
    Usage (sur le serveur, depuis /opt/datatradingpro) :  node scripts/vps/dtp-export-bdd.js
    ═══════════════════════════════════════════════════════════════════════════════════════════════ */
@@ -29,9 +34,7 @@
 const fs = require('fs');
 const path = require('path');
 
-try { require('dotenv').config(); } catch (e) { /* les variables peuvent venir de l environnement */ }
-
-const { createClient } = require('@supabase/supabase-js');
+try { require('dotenv').config(); } catch (e) { /* les variables peuvent venir de l environnement, et dotenv lui-meme est optionnel */ }
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data', 'app');
 const SORTIE = path.join(DATA_DIR, 'dump');
@@ -68,16 +71,43 @@ const TABLES = [
   { nom: 'ai_cache',        obligatoire: false, pourquoi: 'modeles de journal, avatars, liste noire, pierres tombales' },
 ];
 
-const PAGE = 1000;   // Supabase plafonne une reponse a 1000 lignes : on pagine, sinon on tronque en silence.
+const PAGE = 1000;      // Supabase plafonne une reponse a 1000 lignes : on pagine, sinon on tronque en silence.
+const DELAI_MS = 15000; // Une requete qui ne repond jamais ne doit pas bloquer une sauvegarde nocturne.
 
 function log(x) { console.log('  ' + x); }
 
-async function exporterTable(client, t) {
+/* Un appel GET a l API REST de PostgREST, avec pagination par en-tete `Range` — l equivalent
+   exact de `.select('*').range(debut, fin)` du SDK, sans la dependance. */
+async function supaGet(url, key, table, debut, fin) {
+  const controleur = new AbortController();
+  const minuteur = setTimeout(() => controleur.abort(), DELAI_MS);
+  try {
+    const rep = await fetch(url.replace(/\/+$/, '') + '/rest/v1/' + encodeURIComponent(table) + '?select=*', {
+      headers: {
+        apikey: key,
+        Authorization: 'Bearer ' + key,
+        'Range-Unit': 'items',
+        Range: debut + '-' + fin,
+      },
+      signal: controleur.signal,
+    });
+    if (!rep.ok && rep.status !== 206) {
+      let detail = '';
+      try { detail = JSON.stringify(await rep.json()); } catch { try { detail = await rep.text(); } catch {} }
+      throw new Error('HTTP ' + rep.status + (detail ? ' — ' + detail.slice(0, 200) : ''));
+    }
+    return await rep.json();
+  } finally {
+    clearTimeout(minuteur);
+  }
+}
+
+async function exporterTable(url, key, t) {
   const lignes = [];
   for (let debut = 0; ; debut += PAGE) {
-    const { data, error } = await client.from(t.nom).select('*').range(debut, debut + PAGE - 1);
-    if (error) throw new Error(error.message || String(error));
-    if (!data || !data.length) break;
+    const data = await supaGet(url, key, t.nom, debut, debut + PAGE - 1);
+    if (!Array.isArray(data)) throw new Error('reponse inattendue (pas un tableau)');
+    if (!data.length) break;
     lignes.push(...data);
     if (data.length < PAGE) break;           // derniere page
     if (lignes.length > 500000) throw new Error('plus de 500 000 lignes : garde-fou, export interrompu');
@@ -89,32 +119,25 @@ async function exporterTable(client, t) {
   if (!NOEUDS.length) { console.error('  X aucune configuration Supabase dans l environnement'); process.exit(1); }
   fs.mkdirSync(SORTIE, { recursive: true });
 
-  let client = null, nomNoeud = '';
+  let noeud = null;
   for (const [nom, url, key] of NOEUDS) {
     try {
-      const c = createClient(url, key, { auth: { persistSession: false } });
       // Sonde minimale : une seule ligne, pour ne pas payer une lecture complete juste pour tester.
-      const { error } = await c.from('users').select('id').limit(1);
-      if (error) throw new Error(error.message);
-      client = c; nomNoeud = nom; break;
+      const data = await supaGet(url, key, 'users', 0, 0);
+      if (!Array.isArray(data)) throw new Error('reponse inattendue au sondage');
+      noeud = { nom, url, key };
+      break;
     } catch (e) { log('noeud ' + nom + ' indisponible (' + String(e.message).slice(0, 80) + ')'); }
   }
-  if (!client) { console.error('  X aucun noeud Supabase ne repond : AUCUN export produit'); process.exit(1); }
-  log('noeud utilise : ' + nomNoeud);
+  if (!noeud) { console.error('  X aucun noeud Supabase ne repond : AUCUN export produit'); process.exit(1); }
+  log('noeud utilise : ' + noeud.nom);
 
-  const bilan = { genereLe: new Date().toISOString(), noeud: nomNoeud, tables: {} };
+  const bilan = { genereLe: new Date().toISOString(), noeud: noeud.nom, tables: {} };
   let echecObligatoire = false;
 
   for (const t of TABLES) {
     try {
-      /* ⚠️ ON PASSAIT `t.nom` A UNE FONCTION QUI FAIT DEJA `t.nom` (corrige le 03/09/2026).
-         La table demandee a Supabase etait donc litteralement `undefined`, la requete echouait, et
-         comme `users` est obligatoire l export sortait en erreur — ce qui interrompt la sauvegarde
-         entiere (« aucune archive ne sera produite »). Consequence mesuree : AUCUNE archive n a
-         jamais ete produite depuis la pose des minuteurs. Meme forme d echec que le keep-alive
-         d aout : une tache qui a l air installee et qui ne fait rien. Un banc joue desormais cette
-         fonction avec un client espion et regarde QUEL nom de table part reellement. */
-      const lignes = await exporterTable(client, t);
+      const lignes = await exporterTable(noeud.url, noeud.key, t);
       const fic = path.join(SORTIE, t.nom + '.json');
       fs.writeFileSync(fic, JSON.stringify(lignes));
       /* ⚠️ ON RELIT CE QU ON VIENT D ECRIRE. Un fichier tronque par un disque plein a l air d un

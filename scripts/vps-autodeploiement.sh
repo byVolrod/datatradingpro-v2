@@ -75,37 +75,17 @@ _libre_go() { df -P / 2>/dev/null | tail -1 | awk '{printf "%.1f", $(NF-2)/10485
 cd "$DOSSIER"
 
 # ── LES UNITÉS systemd SUIVENT LE DÉPÔT, ELLES AUSSI ───────────────────────────────────────────
-# ⚠️ POSÉ LE 17/09/2026. Les `.service` et `.timer` vivent dans /etc/systemd/system/, où seul
-# l'installateur (`vps-resilience-installer.sh`, lancé UNE fois à la main) les dépose. Conséquence
-# mesurée le jour même : un correctif d'unité poussé sur main restait indéfiniment dans le dépôt
-# sans jamais tourner — la machine continuait d'exécuter la version du jour de l'installation, et
-# rien ne le signalait. C'est la forme exacte du défaut que ce fichier combat déjà pour le CODE
-# (« le script se met à jour tout seul à chaque déploiement ») ; les unités y échappaient.
-# On ne recharge systemd QUE si quelque chose a réellement changé : un `daemon-reload` à chaque
-# minute serait du bruit, et le bruit finit par être ignoré.
-_unites_a_jour() {
-  local change=0 u dest
-  for u in scripts/dtp-*.service scripts/dtp-*.timer; do
-    [ -f "$u" ] || continue
-    dest="/etc/systemd/system/$(basename "$u")"
-    # On ne pose QUE des unités déjà installées : cette boucle met à jour, elle n'active rien de
-    # nouveau. Poser une unité que personne n'a choisie d'installer serait une décision, pas une
-    # mise à jour — et elle appartient à l'installateur.
-    [ -f "$dest" ] || continue
-    if ! cmp -s "$u" "$dest"; then cp "$u" "$dest" && change=1 && echo "[autodeploiement] unité mise à jour : $(basename "$u")"; fi
-  done
-  [ "$change" = "1" ] && systemctl daemon-reload && echo "[autodeploiement] systemd rechargé"
-  return 0
-}
-
-# ⚠️ LA RESYNCHRO DES UNITÉS TOURNE AVANT TOUTE SORTIE ANTICIPÉE, ET C'EST VOULU (17/09/2026).
-# Placée dans le chemin de déploiement, elle n'aurait pris effet qu'au déploiement SUIVANT : le
-# premier amène le nouveau tireur dans le dépôt, mais c'est l'ANCIEN qui tourne à ce moment-là.
-# Un correctif d'unité aurait donc attendu la livraison d'après, sans que rien ne le dise — le
-# genre de délai qu'on ne soupçonne pas et qu'on passe une soirée à chercher. Ici elle tourne à
-# chaque tick : elle ne fait rien quand rien ne diffère (un `cmp` sur dix fichiers), et elle
-# applique le correctif à la minute où il arrive.
-_unites_a_jour
+# ⚠️ POSÉ LE 17/09/2026 ICI, PUIS EXTRAIT LE MÊME JOUR (voir dtp-unites-sync.sh). Une première
+# écriture définissait cette logique EN DUR dans ce seul fichier — et ce VPS se déploie en réalité
+# par le « chemin SSH » (deploy.sh, via DTP_SSH_KEY), pas par ce tireur : la resynchro n'a donc
+# jamais tourné ici, mesuré quatre heures après un déploiement pourtant réussi côté code. La
+# logique vit maintenant dans UN SEUL script, appelé par les deux chemins — exactement la règle
+# que ce fichier applique déjà à la séquence de déploiement elle-même (« deux chemins, une seule
+# vérité »), désormais étendue aux unités.
+# On l'appelle À CHAQUE TICK, avant toute sortie anticipée : posée seulement dans le chemin de
+# déploiement, elle n'aurait pris effet qu'au déploiement SUIVANT (celui-ci amène le script mis à
+# jour, mais c'est l'ANCIEN qui tourne encore à ce moment précis).
+bash scripts/vps/dtp-unites-sync.sh 2>&1 || true
 
 # Réseau qui tousse → on réessaie au prochain tick, sans bruit. Le « + » du refspec est
 # indispensable : `prod-ready` est un tag FORCÉ (il avance à chaque version validée), et un
@@ -142,7 +122,14 @@ echo "$CIBLE $(date +%s)" > "$ESSAI"
 git reset --hard --quiet "$CIBLE"
 # Les unités viennent d'être mises à jour par le `git reset` : on repasse, pour que le correctif
 # soit en vigueur AVANT le redémarrage du conteneur plutôt qu'au tick suivant.
-_unites_a_jour
+bash scripts/vps/dtp-unites-sync.sh 2>&1 || true
+
+# ⚠️ `npm ci` SUR L'HÔTE A ÉTÉ ENVISAGÉ ICI, PUIS ÉCARTÉ (17/09/2026 — voir scripts/deploy.sh pour
+# la mesure complète). Il « réussirait » (avertissement EBADENGINE, pas une erreur) tout en
+# installant un SDK dont une dépendance transitive (`undici@7.29.0`) exige Node ≥20.18.1, alors
+# que cette machine tourne en 18.19.1 — un filet qui a l'air posé. LA RÈGLE, au lieu de ça : un
+# script lancé sur l'hôte ne dépend JAMAIS d'un paquet npm (« Zéro dépendance », déjà appliqué par
+# supabase-keepalive.js, suivi depuis par dtp-export-bdd.js). `resilience-verif.js` § 11 l'impose.
 
 # ── NE PAS CONSTRUIRE SUR UN DISQUE DÉJÀ TENDU ─────────────────────────────────────────────────
 # Le ménage d'après-coup ne protège de rien si la construction elle-même sature le disque : à

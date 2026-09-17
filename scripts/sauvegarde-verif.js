@@ -33,32 +33,55 @@ const SH  = fs.readFileSync(path.join(RACINE, 'scripts/vps/dtp-sauvegarde.sh'), 
 let ok = 0, ko = 0;
 const v = (n, c, d) => { if (c) { ok++; console.log('  ✓ ' + n); } else { ko++; console.log('  ✗ ' + n + (d ? '\n      → ' + d : '')); } };
 
+/* Extrait une fonction (async ou non) par comptage d'accolades — même méthode que les autres
+   bancs du dépôt (journal-garde-verif.js, calendrier-verif.js). */
+function extraireFn(nom) {
+  const m = /(?:async\s+)?function\s+NOM\s*\(/.source.replace('NOM', nom);
+  const rx = new RegExp(m);
+  const i = EXP.search(rx);
+  if (i < 0) return null;
+  const debutAccolade = EXP.indexOf('{', i);
+  let prof = 0;
+  for (let k = debutAccolade; k < EXP.length; k++) {
+    if (EXP[k] === '{') prof++;
+    else if (EXP[k] === '}') { prof--; if (prof === 0) return EXP.slice(i, k + 1); }
+  }
+  return null;
+}
+
 /* ⚠️ TOUT LE BANC VIT DANS CETTE FONCTION. Premier jet écrit avec un `return` au niveau du module
    pour enchaîner sur la suite après l'`await` : `return` hors fonction est une erreur de syntaxe,
    que `node -c` voit mais qu'on ne voit pas en relisant — js-verif l'a attrapée. */
 async function principal() {
   console.log('\n── 1. LE CONTRÔLE CLÉ — quelle table part vraiment vers Supabase ? ──');
-  const d = EXP.indexOf('async function exporterTable(');
-  const f = EXP.indexOf('\n}', d) + 2;
-  v('exporterTable extractible', d > 0 && f > d);
-  /* On rejoue la VRAIE fonction avec le VRAI argument du site d'appel, extrait lui aussi. */
-  const appel = /await exporterTable\(client, ([^)]+)\)/.exec(EXP);
-  v('le site d\'appel est lisible', !!appel, appel && appel[1]);
-  if (d > 0 && appel) {
-    const fn = new Function('const PAGE = 1000;\n' + EXP.slice(d, f) + '\nreturn exporterTable;')();
+  /* ⚠️ 17/09/2026 : le script est passé de `@supabase/supabase-js` à `fetch` nu (« zéro
+     dépendance », même choix que supabase-keepalive.js — voir l'en-tête de dtp-export-bdd.js). Ce
+     banc rejouait l'ancienne forme (`client.from(nom).select().range()`) ; il éprouve maintenant
+     le VRAI appel HTTP, avec un faux `fetch` qui note quelle table part réellement dans l'URL —
+     c'est encore plus proche de la production qu'avant : on ne fait plus confiance à une couche
+     d'abstraction, on regarde ce qui part sur le réseau. */
+  const srcGet = extraireFn('supaGet');
+  const srcExp = extraireFn('exporterTable');
+  v('`supaGet` extractible', !!srcGet);
+  v('`exporterTable` extractible', !!srcExp);
+  if (srcGet && srcExp) {
     const vu = [];
-    const espion = { from(nom) { vu.push(nom); return { select() { return { range: async () => ({ data: [], error: null }) }; } }; } };
+    const fauxFetch = async (url) => {
+      const table = decodeURIComponent(new URL(url).pathname.split('/').pop());
+      vu.push(table);
+      return { ok: true, status: 200, json: async () => [] };
+    };
+    const fn = new Function('fetch', 'AbortController', 'PAGE', 'DELAI_MS',
+      srcGet + '\n' + srcExp + '\nreturn exporterTable;')(fauxFetch, AbortController, 1000, 15000);
     const t = { nom: 'users', obligatoire: true };
-    // On reproduit l'expression du site d'appel telle qu'elle est écrite dans le fichier.
-    const arg = new Function('t', 'return ' + appel[1] + ';')(t);
-    await fn(espion, arg);
+    await fn('https://exemple.supabase.co', 'clefactice', t);
     v('la table demandée est « users », pas « undefined »', vu[0] === 'users',
       'reçu : ' + JSON.stringify(vu[0]) + ' — l\'export échouerait, et la sauvegarde entière avec lui');
   }
-  suite();
+  await suite();
 }
 
-function suite() {
+async function suite() {
   console.log('\n── 2. Les tables qui portent des données de CLIENT sont exportées ──');
   const bloc = /const TABLES = \[([\s\S]*?)\];/.exec(EXP);
   v('la liste des tables est lisible', !!bloc);
@@ -86,8 +109,44 @@ function suite() {
     /users_blacklist\.json/.test(SH) && /users_deleted\.json/.test(SH) && /users_mirror\.json/.test(SH));
 
   console.log('\n── 4. La pagination ne tronque pas en silence ──');
-  v('la lecture est paginée (Supabase plafonne à 1000 lignes)', /range\(debut, debut \+ PAGE - 1\)/.test(EXP));
+  v('la lecture est paginée par en-tête `Range` (Supabase plafonne à 1000 lignes)', /Range:\s*debut \+ '-' \+ fin/.test(EXP));
   v('… et un volume aberrant lève une erreur au lieu de rogner', /garde-fou, export interrompu/.test(EXP));
+
+  /* ⚠️ LA PAGINATION, REJOUÉE POUR DE VRAI (17/09) — pas seulement grep. Un faux `fetch` sert des
+     pages de 1000, 1000 puis 234 lignes ; on vérifie que `exporterTable` fait bien PLUSIEURS
+     appels (et pas un seul, tronqué), s'arrête à la dernière page partielle, et rend le bon total. */
+  {
+    const srcGet2 = extraireFn('supaGet');
+    const srcExp2 = extraireFn('exporterTable');
+    if (srcGet2 && srcExp2) {
+      const TOTAL = 2234;
+      let appels = 0;
+      const fauxFetch = async (url, opts) => {
+        appels++;
+        const [debut, fin] = opts.headers.Range.split('-').map(Number);
+        const tranche = Array.from({ length: Math.max(0, Math.min(fin, TOTAL - 1) - debut + 1) }, (_, i) => ({ id: debut + i }));
+        return { ok: true, status: tranche.length === TOTAL - debut ? 200 : 206, json: async () => tranche };
+      };
+      const fn = new Function('fetch', 'AbortController', 'PAGE', 'DELAI_MS',
+        srcGet2 + '\n' + srcExp2 + '\nreturn exporterTable;')(fauxFetch, AbortController, 1000, 15000);
+      const lignes = await fn('https://exemple.supabase.co', 'clefactice', { nom: 'users' });
+      v('2234 lignes (3 pages) reviennent TOUTES, sans troncature', lignes.length === TOTAL,
+        'reçu ' + lignes.length + ' ligne(s) en ' + appels + ' appel(s)');
+      v('… en effectuant PLUSIEURS appels (la pagination tourne vraiment)', appels === 3, appels + ' appel(s)');
+
+      // TÉMOIN : sans l'incrément de page, un seul appel reviendrait, tronqué à 1000 lignes.
+      const muteExp = srcExp2.replace(/debut \+= PAGE/, 'debut += 999999');
+      if (muteExp === srcExp2) {
+        v('(témoin) la mutation change bien le source', false, 'la boucle a changé de forme : ce témoin ne prouve plus rien');
+      } else {
+        const fnMute = new Function('fetch', 'AbortController', 'PAGE', 'DELAI_MS',
+          srcGet2 + '\n' + muteExp + '\nreturn exporterTable;')(fauxFetch, AbortController, 1000, 15000);
+        const lignesMute = await fnMute('https://exemple.supabase.co', 'clefactice', { nom: 'users' });
+        v('(témoin) sans la pagination, l\'export tronque bien à 1000 lignes', lignesMute.length === 1000,
+          'reçu ' + lignesMute.length + ' — si ce n\'est pas 1000, le témoin ne mord plus');
+      }
+    }
+  }
 
 
   /* ══════════════════════════════════════════════════════════════════════════════════════════
