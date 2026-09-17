@@ -1813,7 +1813,11 @@ async function _dbHealthProbe() {
        « RESYNCHRO… » sans que rien, nulle part, ne dise pourquoi : l'échec d'écriture était avalé et
        la convergence le rejouait toutes les 20 minutes. Un état dégradé muet se diagnostique par
        hypothèses, et on y passe des jours — c'est la leçon du rapport provisoire de ce matin. */
-    return { name: n.name, host, state, status, ms: Date.now() - t0, downUntil: n.downUntil > Date.now() ? n.downUntil : 0, quarLect: !!n.quarLect, quarDemarrage: !!n.quarDemarrage, quarRaison: n.quarRaison || '', err };
+    /* `quarSince` REMONTE AUSSI (17/09) : sans lui, « RESYNCHRO… » ne dit pas DEPUIS QUAND, et
+       l'alerte mail à 1h (voir `_alerterQuarantineProlongee` dans auth.js) est le SEUL endroit
+       où cette durée existe — invisible tant qu'aucun mail n'est parti. Le panel doit pouvoir
+       montrer la même horloge SANS attendre le seuil d'alerte. */
+    return { name: n.name, host, state, status, ms: Date.now() - t0, downUntil: n.downUntil > Date.now() ? n.downUntil : 0, quarLect: !!n.quarLect, quarDemarrage: !!n.quarDemarrage, quarRaison: n.quarRaison || '', quarSince: n.quarLect ? (n.quarSince || 0) : 0, err };
   }));
   const data = { count: nodes.length, okCount: nodes.filter(n => n.state === 'ok').length, nodes, keepalive: { last: _kaLast, ok: _kaOk } };
   _dbHealthCache = { at: Date.now(), data };
@@ -1913,6 +1917,7 @@ module.exports = {
   aiCachePrune,
   getEgressStats,
   dbHealth,
+  sauvegardeEtat,
   getKeepAliveStatus,
   _keepAlive,   // exposé pour un déclenchement manuel (admin) si besoin
 };
@@ -1944,6 +1949,23 @@ async function _weeklyEnsureDb() {
     if (!insErr) { _weeklyFile = []; _weeklySaveFile(); console.log(`[Weekly] table détectée → ${rows.length} rapport(s) migré(s) en BDD`); }
     else _weeklyDb = false;
   }
+}
+
+// ⚠️ LA SAUVEGARDE NOCTURNE TOURNE HORS DU PROCESSUS NODE (17/09, demande user : « vérifie bien
+// que les sauvegardes se font bien »). `dtp-sauvegarde.sh` s'exécute sur le VPS, par systemd, en
+// dehors du conteneur applicatif : sans pont, son succès ou son échec ne remonte NULLE PART dans
+// le desk, et se découvre en cherchant à restaurer quelque chose — même maladie déjà payée deux
+// fois cette nuit (keep-alive, pipeline de taux). Le script écrit un état JSON dans le volume
+// PARTAGÉ (`./data/app` sur le VPS = `/app/data` dans le conteneur, voir docker-compose.yml) ;
+// cette fonction le LIT SEULEMENT, ne génère rien, ne jette jamais.
+const SAUVEGARDE_ETAT_FILE = path.join(_DOSSIER_DONNEES, 'sauvegarde-etat.json');
+function sauvegardeEtat() {
+  try {
+    const raw = fs.readFileSync(SAUVEGARDE_ETAT_FILE, 'utf8');
+    const j = JSON.parse(raw);
+    if (!j || typeof j !== 'object' || !j.at) return null;
+    return j;
+  } catch { return null; }
 }
 
 async function weeklyReportSave(weekKey, report) {

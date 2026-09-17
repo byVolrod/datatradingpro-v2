@@ -51,10 +51,14 @@ if (SRC_CB) {
   const nz = S.CB.find(b => b.code === 'NZD'), ch = S.CB.find(b => b.code === 'CHF');
   v('NZD et CHF portent une ancre datée', !!(nz && nz.ancre) && !!(ch && ch.ancre),
     'sans ancre, la hiérarchie des sources n\'existe pas');
-  v('l\'ancre NZD porte les valeurs vérifiées sur rbnz.govt.nz (2,50 · hike)',
-    nz && nz.rate === 2.50 && nz.bias === 'hike', nz && (nz.rate + ' · ' + nz.bias));
+  /* ⚠️ RE-VÉRIFIÉ le 17/09 : la réunion RBNZ du 02/09, pricée à 2,50 jusqu'ici, a EU LIEU — l'OCR est
+     passé à 2,75 (rbnz.govt.nz, Bloomberg). L'ancre suit désormais la décision RÉELLE, pas le
+     pricing d'AVANT la réunion ; la conviction repasse au générique (0,60) faute de pricing marché
+     vérifié pour la PROCHAINE réunion (28/10, paywall). */
+  v('l\'ancre NZD porte la décision confirmée sur rbnz.govt.nz (2,75 · hike, 02/09)',
+    nz && nz.rate === 2.75 && nz.bias === 'hike', nz && (nz.rate + ' · ' + nz.bias));
   const rnz = S._cbResolved(nz);
-  v('le biais IA ne renverse PLUS une banque ancrée', rnz.bias === 'hike' && rnz.conv === 0.93,
+  v('le biais IA ne renverse PLUS une banque ancrée', rnz.bias === 'hike' && rnz.conv === 0.60,
     'résolu : ' + rnz.bias + ' ' + rnz.conv + ' — l\'incident client, à l\'identique');
   /* … ET LA MOITIÉ QUI COMPTE : l'IA reste légitime sur une banque NON ancrée. */
   const eu = S.CB.find(b => b.code === 'EUR');
@@ -62,15 +66,15 @@ if (SRC_CB) {
   v('… mais s\'applique toujours à une banque non ancrée', reu.bias === 'cut' && reu.conv === 0.55,
     'résolu : ' + reu.bias + ' — l\'actualisation IA ne doit pas mourir, seulement respecter l\'ancre');
   /* La preuve arithmétique de l'incident, gardée comme régression : hold/0,50 fabrique EXACTEMENT
-     la carte fautive du client (50/19/31, Δ −3). Et depuis la CALIBRATION du 30/08 (« pour chaque
-     devise corrige »), l'ancre NZD porte le pricing RÉEL : hike/0,93 → 93 % de hausse (le marché
-     dit 93,3 %), Δ +22,9 — plus un 60 % générique. */
+     la carte fautive du client (50/19/31, Δ −3). Le second cas (hike/0,93) n'est PLUS la conviction
+     vivante de l'ancre NZD depuis le 17/09 (retombée à 0,60, voir plus haut) — gardé tel quel comme
+     simple régression MATHÉMATIQUE de `_rateScenario` à haute conviction, découplée de la config. */
   const scH = S._rateScenario({ bias: 'hold', conv: 0.50, step: 25 }, 0);
   const scK = S._rateScenario({ bias: 'hike', conv: 0.93, step: 25 }, 0);
   v('hold/0,50 reproduit la carte fautive (50/19/31, Δ −3)',
     Math.round(scH.hold * 100) === 50 && Math.round(scH.cut * 100) === 31 && +scH.impliedBps.toFixed(1) === -3,
     JSON.stringify(scH));
-  v('hike/0,93 (l\'ancre calibrée) donne 93 % de hausse, Δ +22,9 — le pricing réel du 28/08',
+  v('hike/0,93 (régression mathématique, plus l\'ancre vivante) donne 93 % de hausse, Δ +22,9',
     Math.round(scK.hike * 100) === 93 && +scK.impliedBps.toFixed(1) === 22.9, JSON.stringify(scK));
   /* ── CALIBRATION DEVISE PAR DEVISE (30/08, sonde des 8 banques + données client) ─────────────
      Les 8 taux étaient exacts ; les biais de JUIN étaient à contre-sens du marché sur 4 banques.
@@ -696,6 +700,46 @@ v('la vérification de fraîcheur est branchée sur le tick périodique (90 s), 
 v('… et la persistance loggue désormais son échec au lieu de le taire',
   /aiCacheSet\('rates:rateprob', _rpCache\)\.catch\(e => console\.warn/.test(SRV),
   'un `.catch(() => {})` muet reproduirait exactement le silence mesuré le 17/09');
+
+// ── LE PANEL ADMIN VOIT LA MÊME HORLOGE QUE L'ALERTE MAIL, SANS ATTENDRE SON SEUIL (17/09) ──────
+{
+  const iDebut2 = SRV.indexOf('function _tauxEtat() {');
+  const iFin2 = SRV.indexOf('\n}', iDebut2) + 2;
+  const src2 = (iDebut2 >= 0) ? SRV.slice(iDebut2, iFin2) : null;
+  v('`_tauxEtat` est extractible de server.js', !!src2);
+  if (src2) {
+    const monterEtat = (rpCache, rpPanne, alerteEnvoyee) => new Function(
+      '_rpCache', '_rpPanne', '_rpAlerteEnvoyee', '_RP_SEUIL_ALERTE_MS',
+      src2 + '\nreturn _tauxEtat;'
+    )(rpCache, rpPanne, alerteEnvoyee, 20 * 60 * 1000);
+
+    const frais = monterEtat({ at: Date.now() - 2 * 60 * 1000, banks: { fed: 1, ecb: 1 } }, {}, false)();
+    v('cache frais : `perime` est faux', frais.perime === false, JSON.stringify(frais));
+    v('… et le nombre de banques en cache est rendu', frais.banques === 2, JSON.stringify(frais));
+
+    const fige = monterEtat({ at: Date.now() - 25 * 60 * 1000, banks: { fed: 1 } }, { chf: 'HTTP 401' }, true)();
+    v('cache figé au-delà du seuil : `perime` est vrai', fige.perime === true, JSON.stringify(fige));
+    v('… et l\'état de l\'alerte mail (déjà envoyée ou pas) voyage jusqu\'au panel',
+      fige.alerteEnvoyee === true, JSON.stringify(fige));
+    v('… et les pannes par banque voyagent aussi jusqu\'au panel', fige.pannes.chf === 'HTTP 401', JSON.stringify(fige));
+
+    const jamais = monterEtat({ at: 0, banks: {} }, {}, false)();
+    v('aucun cycle réussi depuis le démarrage : `at` reste à 0, pas de faux frais', jamais.at === 0 && jamais.perime === false, JSON.stringify(jamais));
+
+    // TÉMOIN : sans le seuil comparé à l'âge réel, un cache vieux de plusieurs heures se dirait frais.
+    const mut2 = src2.replace('(Date.now() - at) >= _RP_SEUIL_ALERTE_MS', 'false');
+    v('(témoin) la mutation retire bien la comparaison de fraîcheur', mut2 !== src2,
+      'la ligne a changé de forme : ce témoin ne prouve plus rien');
+    if (mut2 !== src2) {
+      const figeMut = new Function('_rpCache', '_rpPanne', '_rpAlerteEnvoyee', '_RP_SEUIL_ALERTE_MS',
+        mut2 + '\nreturn _tauxEtat;')({ at: Date.now() - 5 * 3600e3, banks: {} }, {}, false, 20 * 60 * 1000)();
+      v('(témoin) sans la comparaison, un cache vieux de 5 h se dirait faussement frais',
+        figeMut.perime === false, JSON.stringify(figeMut));
+    }
+  }
+  v('server.js expose `taux` dans le moniteur admin, protégé par try/catch (ne jette jamais)',
+    /taux: \(\(\) => \{ try \{ return _tauxEtat\(\); \} catch \(e\) \{ return null; \} \}\)\(\)/.test(SRV));
+}
 
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);

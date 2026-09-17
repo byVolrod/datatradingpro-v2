@@ -204,9 +204,13 @@ titre('Une sauvegarde qui échoue ENVOIE une alerte (elle se taisait)');
   v('… et l\'alerte part MÊME sans adresse configurée (repli garanti)', /sendAdminAlert/.test(envoyeSansVar),
     'sans repli, la production reste silencieuse : le correctif ne corrige rien là où il compte · ' + sansVar.sortie.slice(-160));
 
-  /* TÉMOIN DE MUTATION : sans l'appel à l'alerte, l'échec redevient muet. */
+  /* TÉMOIN DE MUTATION : sans l'appel à l'alerte, l'échec redevient muet.
+     ⚠️ FORME CHANGÉE LE 17/09 : le `[ "$code" -ne 0 ] && _alerter_echec …` court est devenu un bloc
+     `if … fi` (il porte désormais AUSSI `_ecrire_etat`, pour le panel admin — voir sauvegarde-verif.js
+     et taux-verif.js pour ce second effet). Le témoin vise donc l'appel lui-même, pas la ponctuation
+     qui l'entoure — même principe que le témoin `quarSince` de bases-verif.js. */
   const src = fs.readFileSync(SAUV, 'utf8');
-  const mute = src.replace(/\[ "\$code" -ne 0 \] && _alerter_echec[^\n]*/, ':');
+  const mute = src.replace(/_alerter_echec "code de sortie \$code[^\n]*/, ':');
   v('(témoin) la mutation change bien le source', mute !== src,
     'la garde a changé de forme : ce témoin ne prouve plus rien');
   if (mute !== src) {

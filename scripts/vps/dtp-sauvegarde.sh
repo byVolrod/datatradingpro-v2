@@ -54,6 +54,23 @@ TMP=$(mktemp -d)
 GARDER="${DTP_BACKUP_GARDER:-3}"
 
 msg() { echo "$(date '+%F %T') $*"; }
+
+# ══ L'ÉTAT DE CE PASSAGE, LISIBLE PAR LE DESK (17/09) ═══════════════════════════════════════════
+# Ce script tourne HORS du conteneur applicatif : sans ce fichier, son succès ou son échec ne
+# remonte nulle part dans le panneau admin — même maladie que le keep-alive resté vert deux mois
+# et demi en ne pinguant rien. Écrit dans le volume PARTAGÉ (`./data/app` sur ce VPS =
+# `/app/data` dans le conteneur, voir docker-compose.yml) ; `auth.js` (`sauvegardeEtat()`) le LIT
+# seulement, jamais écrit côté Node.
+ETAT_FILE="$REPO/data/app/sauvegarde-etat.json"
+_HORSSITE_OK=false
+_ecrire_etat() {
+  local ok="$1" taille="$2" horssite="$3" raison="$4"
+  local raison_esc; raison_esc=$(printf '%s' "$raison" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  mkdir -p "$(dirname "$ETAT_FILE")" 2>/dev/null
+  printf '{"at":%s,"ok":%s,"taille":"%s","horsSite":%s,"raison":"%s"}\n' \
+    "$(( $(date +%s) * 1000 ))" "$ok" "$taille" "$horssite" "$raison_esc" > "$ETAT_FILE" 2>/dev/null \
+    || msg "ATTENTION : impossible d'ecrire l'etat pour le panneau admin ($ETAT_FILE)"
+}
 # ⚠️ Le nettoyage retire AUSSI l'archive en cours d'ecriture. Une interruption (Ctrl-C, session SSH
 # coupee, machine qui s'arrete) laissait sinon dans /root/sauvegardes un fichier tronque, portant un
 # nom parfaitement normal, que la rotation compterait comme une sauvegarde et que la migration
@@ -96,7 +113,10 @@ nettoyer() {
   fi
   # On alerte sur TOUT echec, y compris ceux qui sortent avant la moindre ecriture (phrase secrete
   # absente, disque plein, export de la base en erreur) — ce sont EXACTEMENT ceux qui se sont tus.
-  [ "$code" -ne 0 ] && _alerter_echec "code de sortie $code (voir le journal du service)"
+  if [ "$code" -ne 0 ]; then
+    _alerter_echec "code de sortie $code (voir le journal du service)"
+    _ecrire_etat false "" false "code de sortie $code (voir le journal du service)"
+  fi
   return 0
 }
 trap nettoyer EXIT
@@ -293,6 +313,7 @@ _copie_hors_site() {
       }).then(() => process.exit(0)).catch(e => { console.error(e.message); process.exit(1); });
     });' 2>&1; then
     msg "copie hors-site : archive envoyee par e-mail a $dest ($TAILLE)"
+    _HORSSITE_OK=true
   else
     printf '%s' "<p>La copie hors-site (piece jointe) a ECHOUE cette nuit.</p><p>Sauvegarde locale VALIDE : <code>$ARCHIVE</code> sur le VPS.</p>" \
       | DEST_MAIL="$dest" docker exec -e DEST_MAIL -i "$CONTENEUR_ALERTE" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{require("/app/mailer").sendAdminAlert({subject:"DTP : la copie hors-site a ECHOUE (archive locale OK)",html:s,to:process.env.DEST_MAIL}).then(()=>process.exit(0)).catch(e=>{console.error(e.message);process.exit(1);});});' 2>&1 \
@@ -301,3 +322,7 @@ _copie_hors_site() {
   fi
 }
 _copie_hors_site || msg "copie hors-site : erreur inattendue, ignoree (l'archive locale reste valide)"
+
+# ── 8. ÉTAT POUR LE PANNEAU ADMIN ───────────────────────────────────────────────────────────
+# Écrit APRÈS la copie hors-site : `_HORSSITE_OK` porte alors sa valeur définitive pour ce passage.
+_ecrire_etat true "$TAILLE" "$_HORSSITE_OK" ""

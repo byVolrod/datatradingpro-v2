@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260917bbg1203" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260917bbg1204" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -700,6 +700,21 @@
           <div class="panel-head"><h2>Rapports quotidiens</h2></div>
           <div class="panel-body" id="aim-rapports"></div>
         </div>
+        <!-- 17/09, demande user : « vérifie que tout est à jour stp et le badge est toujours
+             présent... met dans le panel admin que je puisse surveiller aussi ». Le pipeline de
+             pricing (rateprobability.com) alerte déjà par e-mail s'il se fige plus de 20 min ; cette
+             carte montre la même horloge SANS attendre l'alerte. -->
+        <div class="panel-card aim-card">
+          <div class="panel-head"><h2>Pipeline Taux</h2></div>
+          <div class="panel-body" id="aim-taux"></div>
+        </div>
+        <!-- Même logique que « Rapports quotidiens » : la sauvegarde nocturne tourne sur le VPS,
+             hors du processus Node — sans ce bloc, un échec ne se découvre qu'en cherchant à
+             restaurer quelque chose. -->
+        <div class="panel-card aim-card">
+          <div class="panel-head"><h2>Sauvegarde quotidienne</h2></div>
+          <div class="panel-body" id="aim-sauvegarde"></div>
+        </div>
       </div>
       </div><!-- /onglet Services -->
 
@@ -902,6 +917,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260917bbg1203"></script>
+<script src="/js/admin.js?v=20260917bbg1204"></script>
 </body>
 </html>

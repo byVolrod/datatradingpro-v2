@@ -1989,6 +1989,41 @@
         + `<div class="aim-track" style="margin-top:9px"><i style="width:${pct}%;background:${col}"></i></div>`
         + `<div class="aim-kpi-s" style="margin-top:5px">${pct}% du plafond 24 h</div>`;
     })();
+    /* 17/09, demande user : « vérifie que tout est à jour et le badge est toujours présent... met
+       dans le panel admin que je puisse surveiller aussi ». Même horloge que l'alerte mail
+       (`_rpVerifierFraicheur` dans server.js, seuil 20 min), montrée SANS attendre le seuil. */
+    const _taux = document.getElementById('aim-taux');
+    if (_taux) _taux.innerHTML = (() => {
+      const T = d.taux; if (!T) return '<div class="aim-j-empty">indisponible</div>';
+      if (!T.at) return '<div class="aim-j-empty">aucun cycle réussi depuis le démarrage</div>';
+      const ageMin = Math.round(T.ageMs / 60000);
+      const perime = !!T.perime;
+      const col = perime ? '#ef4444' : (T.ageMs > T.fraisSeuilMs * 0.5 ? '#ffb300' : '#22c55e');
+      const ageTxt = ageMin < 1 ? '<1 min' : ageMin < 60 ? ageMin + ' min' : Math.round(ageMin / 60) + ' h';
+      let h = `<div class="aim-kv"><span>Dernier cycle réussi</span><b style="color:${col}">${perime ? 'FIGÉ ' : ''}il y a ${ageTxt}</b></div>`
+        + `<div class="aim-kv"><span>Banques en cache</span><b>${T.banques || 0}/8</b></div>`
+        + `<div class="aim-kv"><span>Alerte e-mail</span><b style="color:${T.alerteEnvoyee ? '#ffb300' : '#6b7280'}">${T.alerteEnvoyee ? 'ENVOYÉE (panne en cours)' : 'aucune en cours'}</b></div>`;
+      const pannes = Object.entries(T.pannes || {});
+      if (pannes.length) h += `<div class="aim-kpi-s" style="margin-top:4px;color:#8b93a1;line-height:1.5">${pannes.map(([s, r]) => `${_esc2(s)} : ${_esc2(String(r).slice(0, 70))}`).join('<br>')}</div>`;
+      return h;
+    })();
+    const _sv = document.getElementById('aim-sauvegarde');
+    if (_sv) _sv.innerHTML = (() => {
+      const S = d.sauvegarde; if (!S) return '<div class="aim-j-empty">indisponible</div>';
+      if (!S.at) return '<div class="aim-j-empty">aucune sauvegarde enregistrée depuis la pose du minuteur</div>';
+      const ageH = Math.round((Date.now() - S.at) / 3600000);
+      // > 26h = le minuteur quotidien (04h10) a raté au moins un passage.
+      const col = S.ok === false ? '#ef4444' : ageH > 26 ? '#ffb300' : '#22c55e';
+      const etat = S.ok === false ? 'ÉCHEC' : ageH > 26 ? `RETARD (${ageH} h)` : 'OK ✓';
+      let h = `<div class="aim-kv"><span>Dernier passage</span><b style="color:${col}">${etat} <span style="color:#6b7280;font-weight:400">${new Date(S.at).toLocaleString('fr-FR')}</span></b></div>`;
+      if (S.ok !== false) {
+        h += `<div class="aim-kv"><span>Taille</span><b>${_esc2(S.taille || '—')}</b></div>`
+          + `<div class="aim-kv"><span>Copie hors-site</span><b style="color:${S.horsSite ? '#22c55e' : '#ffb300'}">${S.horsSite ? 'envoyée ✓' : 'non confirmée'}</b></div>`;
+      } else if (S.raison) {
+        h += `<div class="aim-kpi-s" style="margin:-2px 0 4px;color:#ef4444">${_esc2(String(S.raison).slice(0, 200))}</div>`;
+      }
+      return h;
+    })();
     document.getElementById('aim-db').innerHTML = (() => {
       const DB = d.db; if (!DB || !DB.nodes || !DB.nodes.length) return '<div class="aim-j-empty">sondes en cours…</div>';
       const col = s => s === 'ok' ? '#22c55e' : s === 'restreint' ? '#ef4444' : '#ffb300';
@@ -2004,7 +2039,11 @@
          toutes les 20 minutes et personne ne pouvait savoir pourquoi. La cause s'affiche donc sous
          la ligne, en clair. Un état dégradé muet se diagnostique par hypothèses, et on y passe des
          jours — le rapport provisoire de ce matin l'a coûté deux fois. */
-      const rows = DB.nodes.map(n => `<div class="aim-kv"><span title="${_esc2(n.host)}">${_esc2(n.name)}</span><b style="color:${n.quarLect ? '#ffb300' : col(n.state)}">${n.quarLect ? (n.quarDemarrage ? 'DÉMARRAGE…' : 'RESYNCHRO…') : lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.ms} ms</span></b></div>`
+      /* DEPUIS QUAND (17/09) : « RESYNCHRO… » sans durée ne dit pas si le rattrapage vient de
+         commencer ou s'il traîne. L'alerte mail à 1h (auth.js) porte déjà cette horloge ; le panel
+         doit pouvoir la montrer SANS attendre le seuil d'alerte. */
+      const age = ms => { const m = Math.round(ms / 60000); return m < 1 ? '<1 min' : m < 60 ? m + ' min' : Math.round(m / 60) + ' h'; };
+      const rows = DB.nodes.map(n => `<div class="aim-kv"><span title="${_esc2(n.host)}">${_esc2(n.name)}</span><b style="color:${n.quarLect ? '#ffb300' : col(n.state)}">${n.quarLect ? (n.quarDemarrage ? 'DÉMARRAGE…' : 'RESYNCHRO…') : lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.quarLect && n.quarSince ? 'depuis ' + age(Date.now() - n.quarSince) + ' · ' : ''}${n.ms} ms</span></b></div>`
         + (n.quarLect && n.quarRaison ? `<div class="aim-kpi-s" style="margin:-3px 0 7px;color:#ffb300;line-height:1.45">↳ ${_esc2(String(n.quarRaison).slice(0, 150))}</div>` : '')).join('');
       const KA = DB.keepalive;   // anti-pause free-tier : WRITE sur chaque base /12 h (ingress → marche même en 402)
       const kaLine = (KA && KA.last) ? `<div class="aim-kv"><span>Keep-alive</span><b style="color:${KA.ok >= DB.count ? '#22c55e' : '#ffb300'}">${KA.ok}/${DB.count} <span style="color:#6b7280;font-weight:400">il y a ${(() => { const m = Math.round((Date.now() - KA.last) / 60000); return m < 1 ? '<1 min' : m < 60 ? m + ' min' : Math.round(m / 60) + ' h'; })()}</span></b></div>` : '';

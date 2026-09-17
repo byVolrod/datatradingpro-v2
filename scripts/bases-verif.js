@@ -624,6 +624,23 @@ console.log('\n── Le même e-mail sous deux identifiants ne bloque plus la b
   const mutQ = ADM2.replace("quarDemarrage ? 'DÉMARRAGE…' : 'RESYNCHRO…'", "'RESYNCHRO…'");
   v('(témoin) revenir à un libellé unique est bien détecté',
     mutQ !== ADM2 && !/quarDemarrage \? 'DÉMARRAGE…'/.test(mutQ));
+
+  /* ⚠️ « RESYNCHRO… » SANS DURÉE NE DIT PAS SI LE RATTRAPAGE VIENT DE COMMENCER OU S'IL TRAÎNE
+     (17/09, demande user : « vérifie que tout est à jour... met dans le panel admin que je puisse
+     surveiller aussi »). `quarSince` est posé côté serveur depuis le 17/09 (_markDown) mais ne
+     sortait pas de `_dbHealthProbe` : le panel n'avait toujours aucun moyen de le montrer. */
+  v('`_dbHealthProbe` (dbHealth) expose `quarSince`, remis à 0 hors quarantaine',
+    /quarSince: n\.quarLect \? \(n\.quarSince \|\| 0\) : 0/.test(AUTH2),
+    'sans le remettre à 0 hors quarantaine, une base revenue « OK » garderait un horodatage périmé affiché');
+
+  v('le panel affiche « depuis Xmin/h » à côté de DÉMARRAGE…/RESYNCHRO…',
+    /n\.quarLect && n\.quarSince \? 'depuis ' \+ age\(/.test(ADM2));
+
+  /* ── TÉMOIN ── sans la condition `n.quarLect ?`, une base saine qui a déjà traversé une
+     quarantaine passée garderait un `quarSince` affiché comme si elle l'était encore. */
+  const mutQS = AUTH2.replace('quarSince: n.quarLect ? (n.quarSince || 0) : 0', 'quarSince: n.quarSince || 0');
+  v('(témoin) sans le remettre à zéro hors quarantaine, la mutation est bien détectée',
+    mutQS !== AUTH2 && !/quarSince: n\.quarLect \? \(n\.quarSince \|\| 0\) : 0/.test(mutQS));
 }
 
 console.log(`✅ bases-verif : ${ok} contrôle(s) au vert.`);

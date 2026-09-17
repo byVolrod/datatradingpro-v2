@@ -31,6 +31,7 @@ const RACINE = path.join(__dirname, '..');
 const EXP = fs.readFileSync(path.join(RACINE, 'scripts/vps/dtp-export-bdd.js'), 'utf8');
 const SH  = fs.readFileSync(path.join(RACINE, 'scripts/vps/dtp-sauvegarde.sh'), 'utf8');
 const MAILER = fs.readFileSync(path.join(RACINE, 'mailer.js'), 'utf8');
+const SRV = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
 let ok = 0, ko = 0;
 const v = (n, c, d) => { if (c) { ok++; console.log('  ✓ ' + n); } else { ko++; console.log('  ✗ ' + n + (d ? '\n      → ' + d : '')); } };
 
@@ -490,6 +491,60 @@ _copie_hors_site`;
           mimeMute.slice(0, 500));
       }
     }
+  }
+
+  // ── 7. L'ÉTAT DE LA SAUVEGARDE, LISIBLE PAR LE DESK (17/09) ──────────────────────────────────
+  // Ce script tourne HORS du conteneur applicatif (systemd, sur le VPS) : sans pont, son succès ou
+  // son échec ne remonte nulle part dans le panneau admin. `_ecrire_etat` (bash) écrit un état JSON
+  // dans le volume partagé ; `auth.sauvegardeEtat()` (Node) le LIT seulement.
+  {
+    v('`_ecrire_etat` est appelée quand le script se termine en erreur (piège `nettoyer`)',
+      /_ecrire_etat false "" false "code de sortie \$code/.test(SH), 'la trappe EXIT n\'écrit plus l\'échec pour le panel');
+    v('`_ecrire_etat` est appelée après un passage réussi ET après la copie hors-site (pas avant)',
+      (() => {
+        const iCopie = SH.indexOf('_copie_hors_site ||');
+        const iEtatOk = SH.indexOf('_ecrire_etat true "$TAILLE"');
+        return iCopie >= 0 && iEtatOk > iCopie;
+      })(), 'un état "OK" écrit AVANT la copie hors-site figerait `horsSite` à sa valeur initiale (false)');
+    v('l\'état vit dans le volume PARTAGÉ ($REPO/data/app), pas ailleurs sur le disque du conteneur',
+      /ETAT_FILE="\$REPO\/data\/app\/sauvegarde-etat\.json"/.test(SH),
+      'docker-compose.yml ne monte que ./data/app:/app/data — un autre chemin ne traverserait pas dans le conteneur');
+
+    const AUTH = fs.readFileSync(path.join(RACINE, 'auth.js'), 'utf8');
+    v('`sauvegardeEtat` est exportée par auth.js (sinon server.js ne peut pas la lire)',
+      /sauvegardeEtat,/.test(AUTH.slice(AUTH.indexOf('module.exports'))));
+    const srcEtat = extraireDe(AUTH, 'sauvegardeEtat');
+    v('`sauvegardeEtat` est extractible du VRAI auth.js', !!srcEtat);
+    if (srcEtat) {
+      const construireLecteur = (contenu, jette) => {
+        const fauxFs = { readFileSync: () => { if (jette) throw new Error('ENOENT'); return contenu; } };
+        const fauxPath = { join: (...a) => a.join('/') };
+        // `SAUVEGARDE_ETAT_FILE` est déclarée juste AU-DESSUS de la fonction dans le vrai fichier ;
+        // `extraireDe` ne rend que la fonction. Sans cette const, `fs.readFileSync` recevrait un
+        // identifiant non défini — le vrai `try/catch` de la fonction l'avalerait alors en silence
+        // et rendrait null même pour un contenu VALIDE (piège qui a mordu à l'écriture de ce banc).
+        return new Function('fs', 'path', '_DOSSIER_DONNEES',
+          "const SAUVEGARDE_ETAT_FILE = path.join(_DOSSIER_DONNEES, 'sauvegarde-etat.json');\n"
+          + srcEtat + '\nreturn sauvegardeEtat;')(fauxFs, fauxPath, '/app/data');
+      };
+      const fnAbsent = construireLecteur('', true);
+      v('fichier absent (jamais sauvegardé depuis la pose du minuteur) → null, ne jette pas',
+        fnAbsent() === null);
+      const fnCorrompu = construireLecteur('{ pas du json', false);
+      v('JSON corrompu → null, ne jette pas (un panel qui plante sur un fichier à moitié écrit est pire qu\'un panel vide)',
+        construireLecteur('{ pas du json', false)() === null);
+      const fnSansAt = construireLecteur(JSON.stringify({ ok: true }), false);
+      v('objet sans `at` → null (rien à afficher sans horodatage)', fnSansAt() === null);
+      const etatOk = { at: 1758000000000, ok: true, taille: '4.2M', horsSite: true, raison: '' };
+      const fnOk = construireLecteur(JSON.stringify(etatOk), false);
+      v('un état valide et complet est rendu tel quel', (() => { const r = fnOk(); return r && r.at === etatOk.at && r.ok === true && r.taille === '4.2M' && r.horsSite === true; })());
+      const etatEchec = { at: 1758000000000, ok: false, taille: '', horsSite: false, raison: 'code de sortie 1' };
+      const fnEchec = construireLecteur(JSON.stringify(etatEchec), false);
+      v('un état d\'échec garde sa raison', (() => { const r = fnEchec(); return r && r.ok === false && r.raison === 'code de sortie 1'; })());
+    }
+
+    v('server.js expose `sauvegarde` dans le moniteur admin, protégé par try/catch (ne jette jamais)',
+      /sauvegarde: \(\(\) => \{ try \{ return auth\.sauvegardeEtat\(\); \} catch \(e\) \{ return null; \} \}\)\(\)/.test(SRV));
   }
 
   console.log('\n──────────────────────────────────────────────────────────────────────');

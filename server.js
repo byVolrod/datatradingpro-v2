@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260917-taux-nzd-relevee', ts: Date.UTC(2026, 8, 17, 21, 30), title: 'Onglet Taux : le taux directeur néo-zélandais était resté à l’ancienne décision', desc: 'Vérification demandée sur l’ensemble des huit banques centrales, sources croisées. Sept étaient exactes. La huitième, la Banque de réserve de Nouvelle-Zélande, ne l’était plus : sa carte affichait encore 2,50 %, le niveau fixé le 8 juillet. Or la Banque a relevé son taux directeur d’un quart de point le 2 septembre, à 2,75 %, comme elle l’avait déjà signalé possible. La Nouvelle-Zélande et la Suisse sont les deux seules banques dont le pricing de marché n’est pas accessible gratuitement chez notre fournisseur : leur carte s’appuie donc sur une estimation du desk, mise à jour à la main à chaque décision plutôt qu’en continu comme les six autres. Cette décision du 2 septembre n’avait pas été reportée. Corrigé : 2,75 %, avec la date de la décision. La Suisse, elle, n’a pas encore eu de nouvelle réunion depuis notre dernière vérification : son taux restait exact.' },
   { id: 'dtpu-20260917-recaps-seance-fr', ts: Date.UTC(2026, 8, 17, 21, 15), title: 'Récaps de séance (Asie, Londres, New York) : le texte est désormais entièrement en français', desc: 'Signalé par une capture d’écran : un Récap Séance New York affichait ses titres de rubrique en français (Géopolitique, Macro, Analyse de séance), mais chaque ligne en dessous restait en anglais brut. La cause : ces trois rapports listent directement les dépêches retenues plutôt que de les faire rédiger par l’IA, et le code piochait encore dans le texte d’origine de la dépêche au lieu de sa traduction déjà disponible juste à côté. La traduction existait, elle n’était simplement pas lue au bon endroit. Corrigé pour les trois récaps de séance, et pour la Synthèse des Marchés qui partageait le même défaut dans son mode de secours. Une dépêche pas encore traduite au moment de la rédaction est désormais écartée plutôt qu’affichée en anglais : la suivante prend sa place.' },
   { id: 'dtpu-20260917-taux-badge', ts: Date.UTC(2026, 8, 17, 15, 40), title: 'Onglet Taux : le badge de source a disparu, la carte reste plus simple à lire', desc: 'Depuis fin août, chaque carte de banque centrale portait un petit badge en tête, « pricing marché » ou « pricing modélisé », selon que la probabilité de mouvement venait vraiment du marché ou d’une estimation du desk. Il rendait service, mais alourdissait la lecture pour un détail qui ne concerne que deux banques sur huit. Nous l’avons retiré. Rien ne change en dessous : le taux directeur affiché reste toujours celui de la dernière décision réellement publiée, jamais une estimation, quelle que soit la banque. Pour les probabilités de mouvement, six banques sur huit (Fed, BCE, BoE, BoJ, BoC, RBA) continuent de venir en direct du marché, rafraîchies en continu. Les deux qui restent, la Banque nationale suisse et la Banque de réserve de Nouvelle-Zélande, ne sont pas couvertes en pricing de marché gratuit chez notre fournisseur de données pour l’instant : leurs probabilités restent celles du modèle du desk, simplement sans étiquette dédiée désormais. Nous en profitons pour fermer un angle mort découvert ce soir en vérifiant la chaîne de bout en bout : le flux de pricing pouvait, en théorie, s’arrêter de se rafraîchir sans que personne ne le sache. Une surveillance automatique le signale désormais si jamais cela devait arriver, et confirme le retour à la normale une fois résolu.' },
   { id: 'dtpu-20260917-alerte-bases', ts: Date.UTC(2026, 8, 17, 15, 10), title: 'Une base en retard n’écrase plus jamais un journal ou une disposition à jour, et on en est prévenu', desc: 'Vos comptes, vos journaux de trading et vos dispositions vivent sur plusieurs bases en parallèle, justement pour qu’aucune panne ne les emporte. Une garde déjà en place empêche qu’une base restée en retard reprenne la main et écrase une donnée plus fraîche : elle est mise à l’écart des lectures tant qu’elle n’a pas rattrapé son retard. Cette garde fonctionnait, mais en silence : rien ne confirmait qu’elle avait servi, et une base qui resterait bloquée sans jamais rattraper son retard n’aurait alerté personne. CE QUI CHANGE. Deux confirmations automatiques, par e-mail : une base qui vient d’être remise à jour le dit, avec le nombre de comptes recopiés et depuis combien de temps elle était en retard ; une base qui reste bloquée plus d’une heure sans réussir à se remettre à jour le signale aussi, avec la raison connue, au lieu de rester invisible indéfiniment comme lors de l’incident de cet été. Rien ne change dans la façon dont vos données sont protégées : ce qui change, c’est qu’on le sait, dès que ça se produit, au lieu de le découvrir des mois plus tard.' },
@@ -7788,6 +7789,11 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
          lui seul porte la cause : le message exact du fournisseur, l'heure, et la taille du prompt
          envoyé (une réponse tronquée et un prompt au plafond se lisent ensemble, jamais séparément). */
       rapports: _etatRapportsQuotidiens(),
+      // Même bloc « surveillance sans attendre l'alerte » que ci-dessus, pour le pipeline de taux
+      // (rateprobability.com) et la sauvegarde nocturne (hors du processus Node, lue via un état
+      // écrit par dtp-sauvegarde.sh dans le volume partagé — voir auth.sauvegardeEtat()).
+      taux: (() => { try { return _tauxEtat(); } catch (e) { return null; } })(),
+      sauvegarde: (() => { try { return auth.sauvegardeEtat(); } catch (e) { return null; } })(),
       /* CE QUE LE DESK A APPRIS DES PLAFONDS PAR REQUÊTE. Même raison que la demande horaire
          apprise, déjà affichée plus haut : un apprentissage qu'on ne montre pas ne se vérifie
          jamais, et on découvre qu'il a dérapé par un rapport en anglais. */
@@ -20130,7 +20136,15 @@ const CB = [
   // AUCUN pricing de marché (API : « Pro subscription required », prouvé par la sonde) : pour ces
   // deux-là, cette ligne EST la source de vérité de la carte — elle doit être re-vérifiée à chaque
   // changement de cycle (rappel bruyant à 60 j via l'ancre), sans quoi elle se périme en silence.
-  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:2.50, bias:'hike',              conv:0.93, step:25, floor:1.75, ceil:3.50, ancre:'2026-08-30' },   // OCR 2,50 (communiqué du 08/07) ; « RBNZ Hike 93,3 % » au 02/09 (Financial Source via client, 28/08) → conv 0,93 = LE pricing réel, plus un 60 % générique
+  // ⚠️ RE-VÉRIFIÉ le 17/09 (demande user : « vérifie pour toutes les autres paires aussi »). La
+  // réunion du 02/09 pricée ci-dessus a EU LIEU : le RBNZ a relevé l'OCR de 25 pb à 2,75 %, confirmé
+  // par le communiqué officiel rbnz.govt.nz (Monetary Policy Statement September 2026) et Bloomberg
+  // (« New Zealand Delivers Back-to-Back Rate Hikes »). L'ancienne ligne (2,50, ancre 30/08)
+  // affichait donc un taux directeur PÉRIMÉ de 25 pb. Conviction ramenée au générique (0,60, comme
+  // pour CHF) : la prochaine réunion (28/10) n'a pas de pricing spécifique vérifié ici, seule la
+  // décision PASSÉE l'a. Le communiqué évoque « the chance of one further quarter-point hike before
+  // the end of this year » — le biais hausse reste donc justifié, sans confiance chiffrée précise.
+  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:2.75, bias:'hike',              conv:0.60, step:25, floor:1.75, ceil:3.50, ancre:'2026-09-02' },   // OCR 2,75 (relevé confirmé le 02/09, rbnz.govt.nz) ; prochaine réunion 28/10, pas de pricing marché vérifié (paywall) → conv générique
 ];
 // Modèle maison : scénario d'une réunion (idx 0 = prochaine ; la conviction du biais croît avec l'horizon).
 function _rateScenario(b, idx) {
@@ -20464,6 +20478,18 @@ function _rpVerifierFraicheur() {
 }
 setInterval(() => { _refreshRateProb().then(_rpVerifierFraicheur).catch(() => { _rpVerifierFraicheur(); }); }, 90 * 1000);   // tick 90s ; le refetch RÉEL respecte le TTL adaptatif (3 min normal, 90s si réunion ≤2 j)
 setTimeout(() => { _refreshRateProb(true).catch(() => {}); }, 9000);  // amorçage au démarrage
+// Même horloge que l'alerte mail ci-dessus, SANS attendre son seuil (17/09, demande user : « vérifie
+// que tout est à jour et le badge est toujours présent... met dans le panel admin que je puisse
+// surveiller aussi »). Lecture seule, ne génère rien, ne jette jamais.
+function _tauxEtat() {
+  const at = _rpCache.at || 0;
+  return {
+    at, ageMs: at ? Date.now() - at : null, fraisSeuilMs: _RP_SEUIL_ALERTE_MS,
+    perime: !!(at && (Date.now() - at) >= _RP_SEUIL_ALERTE_MS),
+    alerteEnvoyee: _rpAlerteEnvoyee, banques: Object.keys(_rpCache.banks || {}).length,
+    pannes: { ..._rpPanne },
+  };
+}
 
 // ─── Le CALENDRIER écrit les taux (déterministe, AVANT toute IA) ───────────────────────────────
 /* L'audit du 30/08 (signalement MaTToKs : carte RBNZ à 2,2500 % pendant que la vraie OCR est à
