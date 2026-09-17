@@ -74,6 +74,39 @@ _libre_go() { df -P / 2>/dev/null | tail -1 | awk '{printf "%.1f", $(NF-2)/10485
 
 cd "$DOSSIER"
 
+# ── LES UNITÉS systemd SUIVENT LE DÉPÔT, ELLES AUSSI ───────────────────────────────────────────
+# ⚠️ POSÉ LE 17/09/2026. Les `.service` et `.timer` vivent dans /etc/systemd/system/, où seul
+# l'installateur (`vps-resilience-installer.sh`, lancé UNE fois à la main) les dépose. Conséquence
+# mesurée le jour même : un correctif d'unité poussé sur main restait indéfiniment dans le dépôt
+# sans jamais tourner — la machine continuait d'exécuter la version du jour de l'installation, et
+# rien ne le signalait. C'est la forme exacte du défaut que ce fichier combat déjà pour le CODE
+# (« le script se met à jour tout seul à chaque déploiement ») ; les unités y échappaient.
+# On ne recharge systemd QUE si quelque chose a réellement changé : un `daemon-reload` à chaque
+# minute serait du bruit, et le bruit finit par être ignoré.
+_unites_a_jour() {
+  local change=0 u dest
+  for u in scripts/dtp-*.service scripts/dtp-*.timer; do
+    [ -f "$u" ] || continue
+    dest="/etc/systemd/system/$(basename "$u")"
+    # On ne pose QUE des unités déjà installées : cette boucle met à jour, elle n'active rien de
+    # nouveau. Poser une unité que personne n'a choisie d'installer serait une décision, pas une
+    # mise à jour — et elle appartient à l'installateur.
+    [ -f "$dest" ] || continue
+    if ! cmp -s "$u" "$dest"; then cp "$u" "$dest" && change=1 && echo "[autodeploiement] unité mise à jour : $(basename "$u")"; fi
+  done
+  [ "$change" = "1" ] && systemctl daemon-reload && echo "[autodeploiement] systemd rechargé"
+  return 0
+}
+
+# ⚠️ LA RESYNCHRO DES UNITÉS TOURNE AVANT TOUTE SORTIE ANTICIPÉE, ET C'EST VOULU (17/09/2026).
+# Placée dans le chemin de déploiement, elle n'aurait pris effet qu'au déploiement SUIVANT : le
+# premier amène le nouveau tireur dans le dépôt, mais c'est l'ANCIEN qui tourne à ce moment-là.
+# Un correctif d'unité aurait donc attendu la livraison d'après, sans que rien ne le dise — le
+# genre de délai qu'on ne soupçonne pas et qu'on passe une soirée à chercher. Ici elle tourne à
+# chaque tick : elle ne fait rien quand rien ne diffère (un `cmp` sur dix fichiers), et elle
+# applique le correctif à la minute où il arrive.
+_unites_a_jour
+
 # Réseau qui tousse → on réessaie au prochain tick, sans bruit. Le « + » du refspec est
 # indispensable : `prod-ready` est un tag FORCÉ (il avance à chaque version validée), et un
 # fetch sans force refuserait de le faire bouger — le tireur resterait aveugle pour toujours.
@@ -107,6 +140,10 @@ echo "[autodeploiement] jalon $JALON → ${CIBLE:0:7} : déploiement"
 echo "$CIBLE $(date +%s)" > "$ESSAI"
 
 git reset --hard --quiet "$CIBLE"
+# Les unités viennent d'être mises à jour par le `git reset` : on repasse, pour que le correctif
+# soit en vigueur AVANT le redémarrage du conteneur plutôt qu'au tick suivant.
+_unites_a_jour
+
 # ── NE PAS CONSTRUIRE SUR UN DISQUE DÉJÀ TENDU ─────────────────────────────────────────────────
 # Le ménage d'après-coup ne protège de rien si la construction elle-même sature le disque : à
 # 100 %, nginx tronque en silence toute réponse de plus de ~750 Ko et le desk arrive nu (07/09).

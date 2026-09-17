@@ -7,10 +7,18 @@
 #
 # ⚠️ LA PHRASE SECRÈTE VIENT DU .env, ET ELLE N'EST PAS LUE PAR systemd. Un EnvironmentFile pointé
 # sur notre .env serait un piège : systemd n'interprète NI les guillemets NI les échappements du
-# shell, et nos quatre-vingts clés en contiennent. Une seule valeur mal relue et le service part
-# avec une phrase tronquée — l'archive serait chiffrée avec une clé que personne ne connaît, et on
-# ne s'en apercevrait qu'au moment de la restaurer. On passe donc par bash, qui lit le .env avec
-# EXACTEMENT la même grammaire que le script de sauvegarde lui-même.
+# shell, et nos quatre-vingts clés en contiennent.
+#
+# ⚠️⚠️ MAIS LE SOURCING PAR BASH ÉTAIT UN PIÈGE PIRE (corrigé le 17/09/2026, après avoir trouvé
+# /root/sauvegardes VIDE depuis la pose des minuteurs). On écrivait ici :
+#     set -a; . /opt/datatradingpro/.env; set +a
+# c'est-à-dire : relire chaque valeur du fichier COMME DU CODE. Le mot de passe d'application Gmail
+# (quatre groupes séparés par des espaces) faisait tenter l'exécution d'une commande « xena » ; et
+# un EMAIL_FROM contenant « < » était lu comme une REDIRECTION, erreur de syntaxe qui arrêtait le
+# sourcing NET. Or DTP_BACKUP_PASS est ajoutée en FIN de fichier par l'installateur : elle n'était
+# donc jamais chargée, et la sauvegarde refusait de produire une archive — chaque nuit, en silence.
+# On passe désormais par dtp-env.sh, qui PARSE le fichier au lieu de l'exécuter : une ligne
+# illisible est ignorée et signalée, jamais fatale. Bancs : resilience-verif.js, env-verif.js.
 [Unit]
 Description=DTP sauvegarde quotidienne (config, etats metier, export Supabase) — archive chiffree
 After=network-online.target docker.service
@@ -20,7 +28,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/opt/datatradingpro
 # `set -a` exporte tout ce que le .env déclare ; `set +a` referme aussitôt.
-ExecStart=/usr/bin/bash -lc 'set -a; . /opt/datatradingpro/.env; set +a; exec /opt/datatradingpro/scripts/vps/dtp-sauvegarde.sh'
+ExecStart=/usr/bin/bash -lc '. /opt/datatradingpro/scripts/vps/dtp-env.sh /opt/datatradingpro/.env; exec /opt/datatradingpro/scripts/vps/dtp-sauvegarde.sh'
 # Une sauvegarde qui traîne est une sauvegarde qui a échoué : l'export pagine la base et le
 # chiffrement lit tout le dossier de données. Une heure est large ; au-delà, quelque chose est bloqué.
 TimeoutStartSec=3600

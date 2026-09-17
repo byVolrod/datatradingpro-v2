@@ -167,9 +167,16 @@ titre("L'archive ne rejoue pas une publication déjà à l'écran sous un autre 
       const _calHist = new Map();
       const _calHistKey = e => e.currency + '|' + String(e.ctry || '') + '|' + String(e.title).toLowerCase().replace(/\s+/g, ' ').trim();
       for (const e of archive) _calHist.set(_calHistKey(e), { ...e, _k: _calHistKey(e) });
-      const f = new Function('_calHist', '_calHistKey', '_ffDisplayTitle', '_CAL_SPEECH_RX',
+      /* ⚠️ `_CAL_MEME_PUBLI_MS` s'ajoute ici le 17/09 : la reconnaissance « même publication » est
+         passée du JOUR CALENDAIRE à la PROXIMITÉ (± 12 h). On injecte la VRAIE valeur lue dans
+         server.js, jamais une copie en dur — sinon le banc éprouverait un seuil que la production
+         n'applique pas, et resterait vert le jour où quelqu'un change la constante. */
+      const mSeuil = /_CAL_MEME_PUBLI_MS\s*=\s*([0-9*\s.e]+);/.exec(SRV);
+      const seuil = mSeuil ? Function('"use strict";return (' + mSeuil[1] + ')')() : null;
+      if (!seuil) throw new Error('_CAL_MEME_PUBLI_MS introuvable dans server.js');
+      const f = new Function('_calHist', '_calHistKey', '_ffDisplayTitle', '_CAL_SPEECH_RX', '_CAL_MEME_PUBLI_MS',
         src + '\nreturn _calHistMerge;');
-      return f(_calHist, _calHistKey, e => RENOMME[e.title] || e.title, /speaks|speech|testimony|press conf/i);
+      return f(_calHist, _calHistKey, e => RENOMME[e.title] || e.title, /speaks|speech|testimony|press conf/i, seuil);
     };
     const hier = Date.now() - 6 * 3600000;
     // La situation exacte de la capture : la fenêtre porte la ligne du fournisseur qui NOMME
@@ -189,8 +196,32 @@ titre("L'archive ne rejoue pas une publication déjà à l'écran sous un autre 
     else rouge(`l'archive ne rappelle plus la publication d'un autre jour (${autreJour.length} ligne(s))`, 'on aurait remplacé un doublon par un trou');
 
     const autreDevise = monter([{ currency: 'USD', ctry: 'US', title: 'Inflation Rate YoY', timestamp: hier, actual: '2.4%', forecast: '', previous: '' }])(fenetre);
-    if (autreDevise.length === 2) vert("le même indicateur sur une AUTRE devise n'est pas confondu");
+    if (autreDevise.length === 2) vert("le même indicateur sur AUTRE devise n'est pas confondu");
     else rouge("une autre devise a été prise pour un doublon");
+
+    /* ⚠️ LE CAS DE MINUIT, ÉPINGLÉ SUR DES HORODATAGES FIXES (17/09). Ce banc a rougi pendant des
+       jours SANS QUE PERSONNE N'Y CROIE, parce qu'il ne rougissait qu'entre 06h et 10h UTC : à ces
+       heures-là, et à ces heures-là seulement, les deux horodatages relatifs du test (maintenant
+       moins 6 h, et moins 10 h) tombaient de part et d'autre de minuit UTC. On a d'abord conclu
+       « test instable ». C'était FAUX : la garde comparait le JOUR CALENDAIRE, donc la production
+       ratait réellement tout doublon enjambant minuit. Un symptôme qui ne se montre qu'à certaines
+       heures reste un symptôme.
+       Ces deux contrôles ne dépendent plus de l'heure d'exécution : ils PLACENT la paire à cheval
+       sur minuit. Ils mordent sur l'ancienne écriture et passent sur la nouvelle. */
+    const minuit = Date.UTC(2026, 7, 12, 0, 0, 0);   // 12 août 2026, 00h00 UTC (toujours dans le passé)
+    const avantMinuit = minuit - 2 * 3600e3;          // 11 août, 22h00
+    const apresMinuit = minuit + 2 * 3600e3;          // 12 août, 02h00
+    const fenMinuit = [{ currency: 'GBP', ctry: '', title: 'CPI y/y', timestamp: apresMinuit, actual: '3.1%', forecast: '3.1%', previous: '2.9%' }];
+    const arcMinuit = [{ currency: 'GBP', ctry: 'GB', title: 'Inflation Rate YoY', timestamp: avantMinuit, actual: '3.1%', forecast: '3.1%', previous: '2.9%' }];
+    const surMinuit = monter(arcMinuit)(fenMinuit).filter(e => (RENOMME[e.title] || e.title) === 'CPI y/y' && e.currency === 'GBP');
+    if (surMinuit.length === 1) vert("une publication vue à 22h et à 02h (à cheval sur minuit) ne fait QU'UNE ligne");
+    else rouge(`${surMinuit.length} lignes pour une publication à cheval sur minuit`,
+      surMinuit.map(e => `${e.title} @${new Date(e.timestamp).toISOString()}`).join(' · '));
+
+    // Et le contre-exemple : deux parutions VRAIMENT distinctes (un mois d'écart) restent deux.
+    const moisAvant = monter([{ currency: 'GBP', ctry: 'GB', title: 'Inflation Rate YoY', timestamp: apresMinuit - 30 * 86400e3, actual: '2.8%', forecast: '', previous: '' }])(fenMinuit);
+    if (moisAvant.length === 2) vert("… sans confondre pour autant deux parutions séparées d'un mois");
+    else rouge("la publication du mois précédent a été absorbée : on a troqué un doublon contre un trou");
 
     // Les prises de parole : plusieurs officiels parlent le même jour sous un libellé générique.
     const fenetreDisc = [{ currency: 'USD', ctry: 'US', title: 'FOMC Member Speaks', timestamp: hier, actual: '-', forecast: '', previous: '' }];

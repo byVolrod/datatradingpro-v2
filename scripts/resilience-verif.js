@@ -60,16 +60,29 @@ v('la sauvegarde passe une fois par jour', /OnCalendar=\*-\*-\* \d\d:\d\d:\d\d/.
 v('le keep-alive passe plusieurs fois par jour (marge sur la fenêtre de 7 jours)',
   /OnCalendar=\*-\*-\* [\d,]*,[\d,]*:/.test(KA_T), (/OnCalendar=.*/.exec(KA_T) || [''])[0]);
 
-console.log('\n── 3. La phrase secrète : lue par bash, jamais par systemd ──');
+console.log('\n── 3. Le .env est PARSÉ, ni lu par systemd, ni exécuté par bash ──');
 /* systemd n'interprète NI les guillemets NI les échappements du shell. Un EnvironmentFile pointé sur
    notre .env (quatre-vingts clés, dont certaines en contiennent) livrerait une valeur tronquée —
    l'archive serait chiffrée avec une clé que personne ne connaît, et on ne le découvrirait qu'en
    voulant la restaurer. */
 v('aucun EnvironmentFile sur notre .env (systemd le lirait de travers)',
   !/EnvironmentFile=.*\.env/.test(SAUV_S) && !/EnvironmentFile=.*\.env/.test(KA_S),
-  'le .env doit être lu par bash, avec la grammaire du shell');
-v('la sauvegarde source le .env via bash', /bash -lc '.*\. \/opt\/datatradingpro\/\.env/.test(SAUV_S));
-v('le keep-alive aussi', /bash -lc '.*\. \/opt\/datatradingpro\/\.env/.test(KA_S));
+  'le .env doit être lu par notre propre lecteur, pas par systemd');
+/* ⚠️ LA RÈGLE A CHANGÉ LE 17/09/2026, ET CES DEUX CONTRÔLES EXIGEAIENT LE DÉFAUT. Ils vérifiaient
+   que les unités SOURÇAIENT le .env (`bash -lc 'set -a; . …/.env; set +a'`). C'était la bonne
+   intention — échapper à systemd — avec le mauvais outil : sourcer, c'est relire chaque valeur
+   COMME DU CODE. Un mot de passe Google avec des espaces faisait exécuter une commande, un
+   EMAIL_FROM contenant « < » cassait la syntaxe et ARRÊTAIT le sourcing — donc tout ce qui suivait
+   (DTP_BACKUP_PASS, SUPABASE_URL_2/_3/_4, SUPABASE_ACCESS_TOKEN) n'était jamais chargé. Zéro
+   archive pendant des semaines, et un keep-alive qui ne voyait plus que la base principale.
+   Laisser ces deux lignes en l'état aurait fait refuser le correctif comme une régression. */
+const execStarts = t => (t.match(/^ExecStart=.*$/gm) || []).join('\n');
+v('la sauvegarde PARSE le .env (dtp-env.sh), elle ne le source plus',
+  /dtp-env\.sh/.test(execStarts(SAUV_S)) && !/(^|\s|;)\.\s+\/opt\/datatradingpro\/\.env/.test(execStarts(SAUV_S)),
+  'sourcer le .env fait exécuter ses valeurs : c\'est la panne du 17/09');
+v('le keep-alive aussi (sans quoi db2/db3/db4 cessent d\'être pinguées)',
+  /dtp-env\.sh/.test(execStarts(KA_S)) && !/(^|\s|;)\.\s+\/opt\/datatradingpro\/\.env/.test(execStarts(KA_S)),
+  'SUPABASE_URL_2/_3/_4 sont déclarées après les lignes fautives : le sourcing les perdait');
 v('aucune clé ni phrase secrète écrite en dur dans les unités',
   !/sbp_[A-Za-z0-9]/.test(SAUV_S + KA_S + SAUV_T + KA_T)
   && !/eyJ[A-Za-z0-9]/.test(SAUV_S + KA_S + SAUV_T + KA_T)
@@ -175,6 +188,88 @@ console.log('\n── 8. Tout script lancé SANS interprète explicite doit êtr
     try { mode = execFileSync('git', ['ls-files', '-s', 'scripts/vps/' + script], { cwd: RACINE, encoding: 'utf8' }).trim(); } catch {}
     v(`« ${script} » est exécutable dans git (100755)`, /^100755\s/.test(mode || ''),
       (mode || '(introuvable dans git)') + ' — un `git reset --hard` sur une machine qui n\'a jamais eu +x localement ne le redonne pas tout seul');
+  }
+}
+
+console.log('\n── 9. Une unité systemd corrigée dans le dépôt ARRIVE sur la machine ──');
+/* ⚠️ 17/09/2026. Les `.service`/`.timer` ne vivent pas dans le dépôt une fois installés : ils sont
+   copiés dans /etc/systemd/system/ par l'installateur, lancé UNE fois à la main. Un correctif
+   d'unité poussé sur main restait donc indéfiniment sans effet — la machine rejouait la version du
+   jour de l'installation, et rien ne le disait. Même maladie que le cache du DMX (corrigé le
+   10/09) : le code se déploie, la chose posée à côté ne suit pas. Le tireur d'auto-déploiement
+   resynchronise désormais les unités DÉJÀ INSTALLÉES à chaque passage.
+   ON EXÉCUTE LA VRAIE FONCTION, avec un faux /etc et un faux systemctl, pour lire ce qui se passe
+   réellement — un banc qui LIT le script ne verrait pas une boucle qui ne copie rien. */
+{
+  const AUTO = lire('scripts/vps-autodeploiement.sh');
+  const i = AUTO.indexOf('_unites_a_jour() {');
+  let src = null;
+  if (i >= 0) {
+    let prof = 0;
+    for (let k = AUTO.indexOf('{', i); k < AUTO.length; k++) {
+      if (AUTO[k] === '{') prof++;
+      else if (AUTO[k] === '}') { prof--; if (prof === 0) { src = AUTO.slice(i, k + 1); break; } }
+    }
+  }
+  if (!src) {
+    v('`_unites_a_jour` extraite de vps-autodeploiement.sh', false,
+      'la resynchronisation des unités a disparu : un correctif d\'unité ne partirait plus en production');
+  } else {
+    v('`_unites_a_jour` extraite de vps-autodeploiement.sh', true);
+    const os = require('os');
+    const bac = fs.mkdtempSync(path.join(os.tmpdir(), 'dtp-unites-'));
+    const etc = path.join(bac, 'etc'); const dep = path.join(bac, 'scripts'); const bin = path.join(bac, 'bin');
+    fs.mkdirSync(etc, { recursive: true }); fs.mkdirSync(dep, { recursive: true }); fs.mkdirSync(bin, { recursive: true });
+    fs.writeFileSync(path.join(bin, 'systemctl'), '#!/usr/bin/env bash\necho "SYSTEMCTL $*" >> "$TRACE"\nexit 0\n', { mode: 0o755 });
+
+    // Trois unités : une INSTALLÉE ET MODIFIÉE, une INSTALLÉE ET IDENTIQUE, une JAMAIS INSTALLÉE.
+    fs.writeFileSync(path.join(dep, 'dtp-sauvegarde.service'), 'NEUF\n');
+    fs.writeFileSync(path.join(etc, 'dtp-sauvegarde.service'), 'VIEUX\n');
+    fs.writeFileSync(path.join(dep, 'dtp-disque.timer'), 'PAREIL\n');
+    fs.writeFileSync(path.join(etc, 'dtp-disque.timer'), 'PAREIL\n');
+    fs.writeFileSync(path.join(dep, 'dtp-nouvelle.service'), 'JAMAIS POSEE\n');
+
+    const trace = path.join(bac, 'trace');
+    const jouer = (corps) => {
+      const script = `set -u
+export PATH=${JSON.stringify(bin)}:$PATH
+export TRACE=${JSON.stringify(trace)}
+cd ${JSON.stringify(bac)}
+${corps.replace(/\/etc\/systemd\/system\//g, etc + '/')}
+_unites_a_jour`;
+      const r = require('child_process').spawnSync('/bin/bash', ['-c', script], { encoding: 'utf8' });
+      return String(r.stdout || '') + String(r.stderr || '');
+    };
+
+    const sortie = jouer(src);
+    v('une unité installée ET modifiée est remplacée par celle du dépôt',
+      fs.readFileSync(path.join(etc, 'dtp-sauvegarde.service'), 'utf8').trim() === 'NEUF',
+      sortie.slice(0, 200));
+    v('… et le remplacement est annoncé dans le journal', /unité mise à jour : dtp-sauvegarde\.service/.test(sortie), sortie.slice(0, 200));
+    v('une unité JAMAIS installée n\'est pas posée d\'autorité (ça, c\'est le rôle de l\'installateur)',
+      !fs.existsSync(path.join(etc, 'dtp-nouvelle.service')),
+      'le tireur a activé une unité que personne n\'a choisi d\'installer');
+    v('systemd est rechargé puisque quelque chose a changé',
+      /SYSTEMCTL daemon-reload/.test(fs.existsSync(trace) ? fs.readFileSync(trace, 'utf8') : ''));
+
+    // Deuxième passage : plus rien ne change → pas de daemon-reload (pas de bruit inutile).
+    fs.writeFileSync(trace, '');
+    jouer(src);
+    v('un second passage sans changement ne recharge PAS systemd',
+      !/SYSTEMCTL daemon-reload/.test(fs.readFileSync(trace, 'utf8')),
+      'systemd serait rechargé à chaque minute pour rien');
+
+    // TÉMOIN : sans la copie, l'unité corrigée reste sur la machine dans sa vieille version.
+    const mute = src.replace(/if ! cmp -s "\$u" "\$dest"; then[^\n]*\n/, '');
+    if (mute === src) {
+      v('(témoin) la mutation change bien le source', false, 'la garde a changé de forme : ce témoin ne prouve plus rien');
+    } else {
+      fs.writeFileSync(path.join(etc, 'dtp-sauvegarde.service'), 'VIEUX\n');
+      jouer(mute);
+      v('(témoin) sans la copie, l\'unité corrigée ne part jamais en production',
+        fs.readFileSync(path.join(etc, 'dtp-sauvegarde.service'), 'utf8').trim() === 'VIEUX');
+    }
+    try { fs.rmSync(bac, { recursive: true, force: true }); } catch {}
   }
 }
 

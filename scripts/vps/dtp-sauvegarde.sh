@@ -59,12 +59,45 @@ msg() { echo "$(date '+%F %T') $*"; }
 # nom parfaitement normal, que la rotation compterait comme une sauvegarde et que la migration
 # choisirait comme « la plus recente ». _FINI passe a 1 quand l'archive est verifiee.
 _FINI=0
+
+# ══ UNE SAUVEGARDE QUI ÉCHOUE DOIT CRIER ════════════════════════════════════════════════════════
+# ⚠️ POSÉ LE 17/09/2026, APRÈS AVOIR TROUVÉ /root/sauvegardes VIDE DEPUIS LA POSE DES MINUTEURS.
+# Ce script a passé des SEMAINES à échouer chaque nuit — d'abord en « Permission denied » (le bit
+# +x manquait), puis faute de DTP_BACKUP_PASS (le .env ne se sourçait pas). À chaque fois il a
+# proprement écrit sa raison... dans le journal systemd, que personne n'ouvre tant que rien ne
+# semble cassé. Le minuteur, lui, repartait le lendemain, verdissant l'écran d'état.
+# C'est la maladie décrite dans CLAUDE.md sous sa forme la plus coûteuse : un garde-fou qui a
+# l'air posé. On ferme le trou par l'endroit qui compte : l'échec PART EN E-MAIL, comme le fait
+# déjà la sentinelle du disque, via le mailer déjà chargé dans le conteneur.
+CONTENEUR_ALERTE="${DTP_CONTENEUR:-datatradingpro}"
+_alerter_echec() {
+  local raison="$1"
+  # ⚠️ UNE ADRESSE PAR DÉFAUT EST OBLIGATOIRE, ET C'EST LE CŒUR DU CORRECTIF. Une première écriture
+  # de cette fonction ne faisait rien quand aucune variable n'était posée : elle aurait donc été
+  # MUETTE sur la machine de production, où aucune de ces deux variables n'existe — c'est-à-dire
+  # qu'elle reproduisait exactement le silence qu'elle est censée briser. On reprend donc le même
+  # repli que la sentinelle du disque (`_dest` dans dtp-disque.sh), qui alerte déjà là-bas.
+  local dest="${DTP_ALERTE_EMAILS:-${DISK_ALERT_EMAILS:-muhammedatay@outlook.fr}}"
+  docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$CONTENEUR_ALERTE" || {
+    msg "conteneur absent : impossible d'envoyer l'alerte d'echec"; return 0; }
+  # Corps par l'entree standard : le passer en argument imposerait d'echapper du HTML dans du
+  # shell dans un docker exec — une apostrophe suffirait a tout casser (lecon de dtp-disque.sh).
+  printf '%s' "<p>La sauvegarde quotidienne DTP a <b>ECHOUE</b>.</p><p>Raison : $(printf '%s' "$raison" | sed 's/&/\&amp;/g; s/</\&lt;/g')</p><p>Archives presentes dans /root/sauvegardes : $(ls -1 "$DEST"/dtp-*.tar.gz.gpg 2>/dev/null | wc -l)</p><p>Diagnostic : <code>journalctl -u dtp-sauvegarde.service -n 40 --no-pager</code></p>" \
+    | DEST_MAIL="$dest" docker exec -e DEST_MAIL -i "$CONTENEUR_ALERTE" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{require("/app/mailer").sendAdminAlert({subject:"DTP : la sauvegarde quotidienne a ECHOUE",html:s,to:process.env.DEST_MAIL}).then(()=>process.exit(0)).catch(e=>{console.error(e.message);process.exit(1);});});' 2>&1 \
+    && msg "alerte d'echec envoyee a $dest" || msg "l'envoi de l'alerte d'echec a lui-meme echoue"
+}
+
 nettoyer() {
+  local code=$?
   rm -rf "$TMP"
   if [ "$_FINI" != "1" ] && [ -n "${ARCHIVE:-}" ] && [ -f "${ARCHIVE:-}" ]; then
     rm -f "$ARCHIVE"
     msg "interrompu : l'archive incomplete a ete supprimee (une sauvegarde a moitie ecrite est un piege)"
   fi
+  # On alerte sur TOUT echec, y compris ceux qui sortent avant la moindre ecriture (phrase secrete
+  # absente, disque plein, export de la base en erreur) — ce sont EXACTEMENT ceux qui se sont tus.
+  [ "$code" -ne 0 ] && _alerter_echec "code de sortie $code (voir le journal du service)"
+  return 0
 }
 trap nettoyer EXIT
 

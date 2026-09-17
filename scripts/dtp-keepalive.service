@@ -22,7 +22,13 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/datatradingpro
-# bash lit le .env avec EXACTEMENT la grammaire du shell — systemd, lui, n'interprète ni les
-# guillemets ni les échappements, et nos quatre-vingts clés en contiennent.
-ExecStart=/usr/bin/bash -lc 'set -a; . /opt/datatradingpro/.env; set +a; exec /usr/bin/node /opt/datatradingpro/scripts/supabase-keepalive.js'
+# ⚠️ ON NE SOURCE PLUS LE .env (corrigé le 17/09/2026). Le sourcing relit chaque valeur COMME DU
+# CODE : le mot de passe d'application Gmail (des espaces, non protégés) faisait exécuter une
+# commande inexistante, et un EMAIL_FROM contenant « < » provoquait une erreur de syntaxe qui
+# ARRÊTAIT le sourcing net. Tout ce qui est déclaré après cette ligne n'était donc jamais chargé —
+# c'est-à-dire SUPABASE_URL_2/_3/_4 et SUPABASE_ACCESS_TOKEN. Mesuré : le keep-alive ne pinguait
+# plus que la base principale, et db2/db3/db4 étaient exposées au sommeil de 2,5 mois que ce
+# minuteur est précisément là pour empêcher. Le filet était troué, et affichait « OK » sur la seule
+# base qu'il atteignait encore. dtp-env.sh PARSE le fichier au lieu de l'exécuter.
+ExecStart=/usr/bin/bash -lc '. /opt/datatradingpro/scripts/vps/dtp-env.sh /opt/datatradingpro/.env; exec /usr/bin/node /opt/datatradingpro/scripts/supabase-keepalive.js'
 TimeoutStartSec=300
