@@ -314,6 +314,133 @@ console.log('\n── 7. Un compte SANS empreinte au miroir converge quand même
     SRC && /const all = vivants\.filter\(r => r\.password_hash\)/.test(SRC) && /_up\(node, uuidRows, 'id'\)/.test(SRC));
 }
 
+console.log('\n── 8. Une base en retard resynchronisée ou coincée le DIT (17/09) — la garde marchait, elle était muette ──');
+{
+  /* ⚠️ POURQUOI CETTE SECTION. La quarantaine (§1-7) empêche bien une base en retard d'écraser une
+     donnée fraîche — mais jusqu'au 17/09, tout ça ne parlait qu'au journal du conteneur : la maladie
+     du « garde-fou qui a l'air posé », déjà payée deux fois cette nuit (sauvegarde, keep-alive).
+     `_alerterQuarantineLevee` confirme qu'une resynchronisation a bien eu lieu ; `_alerterQuarantineProlongee`
+     signale une base qui ne converge JAMAIS — le trou que la quarantaine seule ne fermait pas : sans
+     lui, une base bloquée en resynchro pour une raison qui ne se résout pas toute seule (schéma
+     incompatible, permissions) resterait écartée indéfiniment sans qu'aucune autre sonde ne le voie. */
+  const SRC_ESC  = extraire(AUTH, 'function _escHtml(');
+  const SRC_LEV  = extraire(AUTH, 'function _alerterQuarantineLevee(');
+  const SRC_PROL = extraire(AUTH, 'function _alerterQuarantineProlongee(');
+  const SRC_SEUIL = (/const _QUAR_SEUIL_ALERTE_MS = [^;]+;/.exec(AUTH) || [null])[0];
+  v('_escHtml extractible', !!SRC_ESC);
+  v('_alerterQuarantineLevee extractible', !!SRC_LEV);
+  v('_alerterQuarantineProlongee extractible', !!SRC_PROL);
+  v('le seuil d\'alerte est LU dans auth.js, pas recopié ici', !!SRC_SEUIL, 'lu : ' + SRC_SEUIL);
+
+  const monter = (extra) => {
+    const appels = [];
+    const fauxMailer = { sendAdminAlert: async (a) => { appels.push(a); return 'test'; } };
+    const api = new Function('mailer', 'console',
+      SRC_ESC + '\n' + SRC_LEV + '\n' + SRC_PROL + '\n' + SRC_SEUIL + '\n'
+      + (extra || '') + '\n'
+      + 'return { _alerterQuarantineLevee, _alerterQuarantineProlongee, _QUAR_SEUIL_ALERTE_MS };'
+    )(fauxMailer, { warn() {}, log() {}, error() {} });
+    return { api, appels };
+  };
+
+  if (SRC_ESC && SRC_LEV && SRC_PROL && SRC_SEUIL) {
+    console.log('  · une base RESYNCHRONISÉE le confirme par e-mail');
+    {
+      const { api, appels } = monter();
+      api._alerterQuarantineLevee([{ nom: 'db2', comptes: 42, depuisMs: 2 * 3600 * 1000 }]);
+      v('une alerte part bien (asynchrone, laisser le microtask se jouer)', true);   // le then() se joue avant l'assertion suivante grâce à l'ordre synchrone de sendAdminAlert ici
+      v('le mailer est bien sollicité', appels.length === 1, appels.length + ' appel(s)');
+      if (appels.length) {
+        v('… avec le nom de la base', /db2/.test(appels[0].html));
+        v('… le nombre de comptes recopiés', /42/.test(appels[0].html));
+        v('… et la durée du retard, en heures rondes', /2 h/.test(appels[0].html), appels[0].html);
+        v('le sujet dit qu\'aucune lecture périmée n\'est passée', /aucune lecture périmée/.test(appels[0].subject), appels[0].subject);
+      }
+      // Échappement HTML : un nom de base ne doit jamais pouvoir injecter une balise dans l'e-mail.
+      const { api: api2, appels: appels2 } = monter();
+      api2._alerterQuarantineLevee([{ nom: '<script>x</script>', comptes: 1, depuisMs: 0 }]);
+      v('le nom de la base est ÉCHAPPÉ dans l\'e-mail (pas d\'injection HTML)',
+        appels2.length === 1 && !/<script>/.test(appels2[0].html) && /&lt;script&gt;/.test(appels2[0].html),
+        appels2.length ? appels2[0].html : '(aucun appel)');
+    }
+
+    console.log('  · une base COINCÉE en quarantaine depuis plus d\'1 h le signale — pas avant, pas deux fois');
+    {
+      const now = Date.now();
+      const { api, appels } = monter();
+      const recente = { name: 'db3', quarLect: true, quarSince: now - 30 * 60 * 1000, quarAlerted: false, quarRaison: '' };
+      api._alerterQuarantineProlongee([recente], now);
+      v('… PAS d\'alerte avant le seuil (30 min < 1 h)', appels.length === 0, appels.length + ' appel(s) — le seuil ne protège plus du bruit d\'un redémarrage ordinaire');
+
+      const vieille = { name: 'db4', quarLect: true, quarSince: now - 90 * 60 * 1000, quarAlerted: false, quarRaison: 'colonne "plan" absente' };
+      api._alerterQuarantineProlongee([vieille], now);
+      v('… alerte bien envoyée au-delà du seuil', appels.length === 1, appels.length + ' appel(s)');
+      if (appels.length) {
+        v('… nomme la base concernée', /db4/.test(appels[0].subject), appels[0].subject);
+        v('… donne la raison connue (diagnostic actionnable, pas juste "en retard")', /colonne .plan. absente/.test(appels[0].html), appels[0].html);
+      }
+      v('le nœud est marqué "déjà alerté" (pas de rappel à chaque passage de convergence)', vieille.quarAlerted === true);
+
+      // Rejouer immédiatement ne doit RIEN renvoyer : c'est quarAlerted qui l'empêche.
+      api._alerterQuarantineProlongee([vieille], now);
+      v('… et un second passage, minutes après, ne renvoie PAS une deuxième alerte pour le même épisode',
+        appels.length === 1, appels.length + ' appel(s) — sans ce garde-fou, une base coincée spammerait la boîte mail toutes les 20 min');
+
+      // TÉMOIN : sans le garde `quarAlerted`, la seconde alerte partirait bien.
+      const { api: api3, appels: appels3 } = monter(
+        SRC_PROL.includes('node.quarAlerted') ? '' /* déjà couvert ci-dessus par la vraie fonction */ : ''
+      );
+      const mutProl = SRC_PROL.replace('node.quarAlerted', 'false');
+      v('(témoin) la mutation retire bien le garde-fou anti-répétition', mutProl !== SRC_PROL,
+        'le nom du champ a changé : ce témoin ne prouve plus rien');
+      if (mutProl !== SRC_PROL) {
+        const appelsMut = [];
+        const fauxMailerMut = { sendAdminAlert: async (a) => { appelsMut.push(a); return 'test'; } };
+        const apiMut = new Function('mailer', 'console', SRC_ESC + '\n' + mutProl + '\n' + SRC_SEUIL + '\nreturn { _alerterQuarantineProlongee };')(fauxMailerMut, { warn() {}, log() {}, error() {} });
+        const rejouee = { name: 'db4', quarLect: true, quarSince: now - 90 * 60 * 1000, quarAlerted: true, quarRaison: '' };
+        apiMut._alerterQuarantineProlongee([rejouee], now);
+        apiMut._alerterQuarantineProlongee([rejouee], now);
+        v('(témoin) sans le garde, la même base coincée alerte bien deux fois de suite',
+          appelsMut.length === 2, appelsMut.length + ' appel(s) — si ce n\'est pas 2, le témoin ne mord plus');
+      }
+    }
+  }
+
+  console.log('  · _markDown pose quarSince UNE FOIS, ne le rafraîchit jamais tant que la quarantaine dure');
+  {
+    const b = bac([{ nom: 'primary', reponses: REPOND('vieux') }]);
+    if (b) {
+      const node = b.noeud('primary');
+      b._markDown(node, new Error('panne réseau'));
+      const t1 = node.quarSince;
+      v('quarSince est posé à la première mise en quarantaine', typeof t1 === 'number' && t1 > 0, String(t1));
+      b._markDown(node, new Error('panne réseau, encore'));
+      v('… et N\'EST PAS rafraîchi par un second échec (sinon une base qui échoue en boucle ne semblerait jamais "en retard depuis longtemps")',
+        node.quarSince === t1, 'avant=' + t1 + ' après=' + node.quarSince);
+    } else {
+      v('bac() disponible pour éprouver _markDown', false, 'extraction manquante plus haut : voir les échecs en tête de fichier');
+    }
+  }
+
+  console.log('  · le câblage dans _usersConverge : où ces alertes sont réellement appelées');
+  {
+    const SRC_CONV3 = extraire(AUTH, 'async function _usersConverge(');
+    v('la levée de quarantaine réussie appelle bien _alerterQuarantineLevee',
+      !!SRC_CONV3 && /if \(resynchronisees\.length\) _alerterQuarantineLevee\(resynchronisees\)/.test(SRC_CONV3));
+    v('… et les DEUX sites qui lèvent la quarantaine remettent quarSince/quarAlerted à zéro (sinon un futur épisode hériterait d\'un horodatage périmé)',
+      !!SRC_CONV3 && (SRC_CONV3.match(/quarSince = 0;\s*n(?:ode)?\.quarAlerted = false;/g) || []).length === 2,
+      'occurrences trouvées : ' + ((SRC_CONV3 && (SRC_CONV3.match(/quarSince = 0/g) || []).length) || 0));
+    /* ⚠️ LA POSITION COMPTE AUTANT QUE L'APPEL. Posé APRÈS le `if (!healthy.length) return;`, ce
+       signal ne se déclencherait JAMAIS dans le cas qui en a le plus besoin : toutes les bases
+       injoignables en même temps. */
+    const iAppelProl = SRC_CONV3 ? SRC_CONV3.indexOf('_alerterQuarantineProlongee(_dbNodes, now)') : -1;
+    const iReturnVide = SRC_CONV3 ? SRC_CONV3.indexOf('if (!healthy.length) return;') : -1;
+    v('_alerterQuarantineProlongee est appelée AVANT le retour anticipé « aucune base saine »',
+      iAppelProl >= 0 && iReturnVide >= 0 && iAppelProl < iReturnVide,
+      'sinon une panne totale (toutes les bases injoignables) resterait le seul cas jamais signalé');
+  }
+}
+
 console.log('\n──────────────────────────────────────────────────────────────────────');
   if (ko) { console.log(`❌ bases-verif : ${ko} échec(s) sur ${ok + ko}.`); process.exit(1); }
   /* ══ UNE BASE NE PEUT PLUS RESTER « RESYNCHRO… » POUR TOUJOURS (16/09) ══════════════════
@@ -455,8 +582,16 @@ console.log('\n── Le même e-mail sous deux identifiants ne bloque plus la b
   const AUTH2 = require('fs').readFileSync(require('path').join(__dirname, '..', 'auth.js'), 'utf8');
   const ADM2  = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'js', 'admin.js'), 'utf8');
 
+  /* ⚠️ ÉPINGLÉ SUR L'ORTHOGRAPHE EXACTE DE LA LIGNE JUSQU'AU 17/09, LA MÊME FAUTE QUE CELLE DÉCRITE
+     JUSTE AU-DESSUS POUR SES TROIS VOISINS. Ajouter `n.quarSince = Date.now();` à la même ligne
+     (pour dater l'entrée en quarantaine dès le démarrage, cf. _alerterQuarantineProlongee) l'a fait
+     rougir sur du code sain. On vérifie donc la PROPRIÉTÉ — les deux marqueurs posés dans le MÊME
+     forEach de démarrage — pas la ponctuation exacte de la ligne. */
+  const iBootMark = AUTH2.indexOf("if (_usersMirror.size) {");
+  const bootMark = iBootMark < 0 ? '' : AUTH2.slice(iBootMark, AUTH2.indexOf('\n}', iBootMark) + 2);
   v('au démarrage, les bases sont marquées « démarrage », pas seulement quarantainées',
-    /_dbNodes\.forEach\(n => \{ n\.quarLect = true; n\.quarDemarrage = true; \}\);/.test(AUTH2));
+    /_dbNodes\.forEach\(n => \{[^}]*n\.quarLect = true;[^}]*n\.quarDemarrage = true;[^}]*\}\);/.test(bootMark),
+    bootMark || '(bloc de démarrage introuvable)');
 
   /* Une base qui TOMBE en cours de route n'est pas une base qui vient de naître : sans cette remise
      à zéro, une vraie panne postérieure au boot hériterait du libellé « DÉMARRAGE… » et on

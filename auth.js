@@ -9,6 +9,9 @@ const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
+// Alertes de quarantaine (cf. _alerterQuarantineLevee / _alerterQuarantineProlongee plus bas) —
+// server.js require déjà les deux modules indépendamment, aucun cycle : mailer.js ne require pas auth.js.
+const mailer = require('./mailer');
 
 const SUPABASE_URL  = process.env.SUPABASE_URL;
 const SUPABASE_KEY  = process.env.SUPABASE_KEY;
@@ -31,7 +34,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 // fichier (login/sessions survivent au blackout). Zéro risque côté auth.
 function _mkClient(url, key) { return createClient(url, key, { auth: { persistSession: false } }); }
 const _dbNodes = [];
-function _addNode(name, url, key) { if (!url || !key) return; try { _dbNodes.push({ name, url, client: _mkClient(url, key), downUntil: 0, quarLect: false }); } catch (e) { console.error(`[Auth] base ${name} IGNORÉE (URL/clé invalide → ne crashe pas le boot) :`, e.message); } }
+function _addNode(name, url, key) { if (!url || !key) return; try { _dbNodes.push({ name, url, client: _mkClient(url, key), downUntil: 0, quarLect: false, quarSince: 0, quarAlerted: false }); } catch (e) { console.error(`[Auth] base ${name} IGNORÉE (URL/clé invalide → ne crashe pas le boot) :`, e.message); } }
 _addNode('primary', SUPABASE_URL, SUPABASE_KEY);
 _addNode('db2', process.env.SUPABASE_URL_2, process.env.SUPABASE_KEY_2);
 _addNode('db3', process.env.SUPABASE_URL_3, process.env.SUPABASE_KEY_3);
@@ -70,6 +73,10 @@ function _markDown(node, err) {
      lecture rend NODESDOWN — cas déjà géré partout, qui bascule sur le miroir, c'est-à-dire sur le
      superset à jour. Le pire cas de cette garde est donc l'état le plus sûr. */
   node.quarLect = true;
+  // Horodatage de la PREMIÈRE entrée en quarantaine (jamais rafraîchi par les échecs suivants tant
+  // qu'elle dure) : c'est lui qui permet à _alerterQuarantineProlongee de mesurer depuis QUAND une
+  // base est écartée, pas seulement QU'elle l'est.
+  if (!node.quarSince) node.quarSince = Date.now();
   node.quarDemarrage = false;   // une base qui TOMBE n'est pas une base qui vient de démarrer : le panneau doit les distinguer
 }
 function _applyOps(client, table, ops) { let qb = client.from(table); for (const [m, a] of ops) qb = qb[m](...a); return qb; }
@@ -559,7 +566,12 @@ if (_usersMirror.size) {
      la confiance qu'on met dans les autres.
      `quarDemarrage` porte cette nuance jusqu'à l'écran. Il ne change RIEN à la prudence : la base ne
      sert toujours aucune lecture de comptes avant sa première convergence. */
-  _dbNodes.forEach(n => { n.quarLect = true; n.quarDemarrage = true; });
+  // quarSince posé ICI AUSSI (pas seulement dans _markDown) : sans lui, une base qui reste
+  // quarantainée depuis le DÉMARRAGE sans jamais passer par _markDown (elle répond, mais la
+  // convergence échoue dessus pour une autre raison — schéma, permissions) ne daterait jamais son
+  // entrée en quarantaine, et _alerterQuarantineProlongee ne la verrait donc JAMAIS : exactement le
+  // trou qu'elle existe pour fermer.
+  _dbNodes.forEach(n => { n.quarLect = true; n.quarDemarrage = true; n.quarSince = Date.now(); });
   console.log(`[Auth] démarrage : ${_dbNodes.length} base(s) en quarantaine de lecture jusqu'à la première convergence (le miroir, à jour, sert les comptes d'ici là)`);
 }
 
@@ -812,6 +824,49 @@ setInterval(() => { _pendingFlush().catch(() => {}); }, 5 * 60 * 1000);   // re-
 // compté dans l'égress) et le miroir est LOCAL → ZÉRO égress Supabase. Idempotent (sans .select() → aucune
 // ligne renvoyée). Résultat : chaque base saine finit avec TOUS les comptes → failover robuste (n'importe
 // quelle base sert n'importe quel login) + primaire recomplétée dès son retour.
+/* ⚠️ CETTE COUCHE ENTIÈRE ÉTAIT MUETTE (17/09/2026) — LA GARDE FONCTIONNE, PERSONNE N'EN ÉTAIT
+   PRÉVENU. La quarantaine de lecture protège correctement contre une base en retard qui écraserait
+   une donnée fraîche (cf. _TABLES_SENSIBLES, _markDown, _usersConverge), mais tout ce mécanisme ne
+   parle qu'au journal du conteneur — exactement la maladie du « garde-fou qui a l'air posé » déjà
+   payée deux fois cette nuit (sauvegarde, keep-alive). Deux alertes, par le même mailer déjà chargé
+   dans server.js pour le disque et l'IA :
+     · une base qui ÉTAIT en retard vient d'être resynchronisée → confirmation que la protection a
+       vraiment servi, pas seulement qu'elle existe dans le code ;
+     · une base reste en quarantaine depuis plus d'une heure → LE TROU RESTANT. `_usersConverge`
+       peut échouer à resynchroniser une base indéfiniment (panne réelle qui ne se résout jamais,
+       incompatibilité de schéma) sans qu'aucune autre sonde ne le voie : le keep-alive ne surveille
+       que la PAUSE Supabase au sens de l'API de gestion, pas cette quarantaine interne. Sans ce
+       signal, ce cas précis retombait dans le même silence que l'incident de juin à septembre — une
+       base durablement écartée, invisible tant que personne n'ouvre le panneau admin par hasard. */
+function _escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function _alerterQuarantineLevee(items) {
+  const lignes = items.map(it => {
+    const depuis = it.depuisMs ? ' (en retard ' + (it.depuisMs >= 3600000 ? Math.round(it.depuisMs / 3600000) + ' h' : Math.max(1, Math.round(it.depuisMs / 60000)) + ' min') + ')' : '';
+    return '<li><b>' + _escHtml(it.nom) + '</b> : ' + it.comptes + ' compte(s) complet(s) recopié(s)' + depuis + '</li>';
+  }).join('');
+  mailer.sendAdminAlert({
+    subject: 'DTP : base(s) resynchronisée(s) — aucune lecture périmée n’est passée',
+    html: '<p>La convergence vient de remettre à jour la ou les bases suivantes, écartées des lectures de comptes le temps de les recompléter :</p><ul>' + lignes + '</ul>'
+      + '<p style="color:#6b7280;font-size:12px;">Pendant la quarantaine, aucune lecture de compte (mot de passe, plan, échéance) ne pouvait venir de cette base : le miroir local servait à sa place. C’est exactement la protection qui a manqué en juin.</p>',
+  }).catch(e => console.warn('[Auth] alerte resynchro non envoyée :', e.message));
+}
+const _QUAR_SEUIL_ALERTE_MS = 60 * 60 * 1000;   // 1 h : très au-dessus d'une convergence normale (~30-60 s après un déploiement) — ne s'arme jamais sur un redémarrage ordinaire
+function _alerterQuarantineProlongee(nodes, now) {
+  for (const node of nodes) {
+    if (!node.quarLect || !node.quarSince || node.quarAlerted) continue;
+    const depuisMs = now - node.quarSince;
+    if (depuisMs < _QUAR_SEUIL_ALERTE_MS) continue;
+    node.quarAlerted = true;   // une seule alerte par épisode — pas une toutes les 20 min tant que ça dure
+    const h = Math.round(depuisMs / 3600000);
+    mailer.sendAdminAlert({
+      subject: 'DTP : base « ' + node.name + ' » toujours en quarantaine de lecture (' + h + ' h)',
+      html: '<p>La base <b>' + _escHtml(node.name) + '</b> est en quarantaine de lecture depuis <b>' + h + ' h</b> : ses lectures de comptes restent écartées pour ne pas servir une donnée périmée, et la convergence n’a pas réussi à la resynchroniser.</p>'
+        + '<p style="color:#cbd5e1;">Le desk reste fonctionnel (repli sur les autres bases et sur le miroir local), mais cette base ne sert plus aucun client tant que ce n’est pas résolu.</p>'
+        + (node.quarRaison ? '<p style="color:#6b7280;font-size:12px;">Dernière raison connue : ' + _escHtml(node.quarRaison) + '</p>' : '')
+        + '<p style="color:#6b7280;font-size:12px;">Diagnostic : panneau admin, section bases — ou <code>journalctl -u datatradingpro</code> côté conteneur.</p>',
+    }).catch(e => console.warn('[Auth] alerte quarantaine prolongée non envoyée :', e.message));
+  }
+}
 let _convBusy = false, _convLast = 0, _convTimer = null;
 async function _usersConverge(reason = '') {
   /* ⚠️ LE SEUIL « AU MOINS DEUX BASES » ÉTAIT JUSTE POUR SA RAISON D'ORIGINE, ET FAUX POUR CELLE-CI.
@@ -822,6 +877,9 @@ async function _usersConverge(reason = '') {
      toutes les lectures de `users` seraient tombées sur le miroir, définitivement. Une base suffit. */
   if (_convBusy || !_dbNodes.length || !_usersMirror.size) return;
   const now = Date.now();
+  // Évalué à CHAQUE appel, MÊME si aucune base n'est saine ce cycle-ci (avant le `return` suivant) :
+  // c'est justement le cas d'une base durablement injoignable qu'il faut pouvoir signaler.
+  _alerterQuarantineProlongee(_dbNodes, now);
   const healthy = _dbNodes.filter(n => n.downUntil <= now);
   if (!healthy.length) return;
   _convBusy = true;
@@ -874,7 +932,7 @@ async function _usersConverge(reason = '') {
       /* ⚠️ SORTIR ICI SANS LEVER LA QUARANTAINE L'AURAIT RENDUE ÉTERNELLE. Un miroir dont aucun
          compte ne porte d'empreinte (cas d'une reconstruction partielle) n'a rien à propager — mais
          cela ne veut pas dire que les bases sont en retard. On lève, et on le dit. */
-      _dbNodes.forEach(n => { if (n.quarLect) { n.quarLect = false; n.quarDemarrage = false; console.log(`[Auth] ${n.name} : rien à propager (miroir sans compte complet) → quarantaine levée`); } });
+      _dbNodes.forEach(n => { if (n.quarLect) { n.quarLect = false; n.quarDemarrage = false; n.quarSince = 0; n.quarAlerted = false; console.log(`[Auth] ${n.name} : rien à propager (miroir sans compte complet) → quarantaine levée`); } });
       return;
     }
     /* ÉCRITURE TOLÉRANTE AUX DIVERGENCES DE SCHÉMA (16/09). L'ancienne version ne savait retirer
@@ -972,7 +1030,8 @@ async function _usersConverge(reason = '') {
       if (!ri.ok) { if (_supaDown(ri.error) && !_isSchemaErr(ri.error)) _markDown(node, ri.error); node.quarRaison = String((ri.error && ri.error.message) || '').slice(0, 180); return false; }
       return true;
     };
-    let okNodes = 0, leves = 0;
+    let okNodes = 0;
+    const resynchronisees = [];   // { nom, comptes, depuisMs } — nourrit _alerterQuarantineLevee après la boucle
     for (const node of healthy) {
       try {
         const a = await _up(node, uuidRows, 'id'); const b = await _upLegacy(node, legacyRows);
@@ -988,12 +1047,17 @@ async function _usersConverge(reason = '') {
              donc reprendre les lectures. Lever la quarantaine ailleurs — au retour du keep-alive,
              par exemple — rouvrirait précisément la fenêtre que cette garde ferme. */
           node.quarRaison = '';                                   // réussite : la cause précédente n'a plus lieu d'être affichée
-          if (node.quarLect) { node.quarLect = false; node.quarDemarrage = false; leves++; console.log(`[Auth] ${node.name} resynchronisée (${all.length} compte(s)) → quarantaine de lecture LEVÉE`); }
+          if (node.quarLect) {
+            node.quarLect = false; node.quarDemarrage = false;
+            resynchronisees.push({ nom: node.name, comptes: all.length, depuisMs: node.quarSince ? (now - node.quarSince) : 0 });
+            node.quarSince = 0; node.quarAlerted = false;
+            console.log(`[Auth] ${node.name} resynchronisée (${all.length} compte(s)) → quarantaine de lecture LEVÉE`);
+          }
         }
       }
       catch (e) { _markDown(node, e); }
     }
-    void leves;
+    if (resynchronisees.length) _alerterQuarantineLevee(resynchronisees);
     _convLast = now;
     if (okNodes) console.log(`[Auth] convergence users${reason ? ' (' + reason + ')' : ''} : ${all.length} compte(s) complet(s) → ${okNodes}/${healthy.length} base(s)`);
   } finally { _convBusy = false; }
