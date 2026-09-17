@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260916-journal-effondrement', ts: Date.UTC(2026, 8, 16, 20, 45), title: 'Journal de trading : le filet posé ce matin avait un trou, il est refermé', desc: 'Un client nous a signalé son journal totalement vide, quelques heures après une première réparation annoncée plus tôt le même jour sur ce fil. Nous devons une explication honnête : cette réparation protégeait déjà les journaux vides envoyés SANS aucune colonne, mais votre navigateur envoie TOUJOURS ses colonnes, même quand ses données n’ont pas fini de charger. Le filet posé le matin ne voyait donc rien à arrêter dans ce cas précis, et un enregistrement anodin, déclenché après un hoquet réseau au chargement de la page, a réduit un journal de trente sept opérations à zéro. LA CAUSE EXACTE, CETTE FOIS AU BON ENDROIT. Quand le chargement du journal échoue, un onglet resté ouvert pendant un souci réseau par exemple, le desk retenait un journal vide comme s’il avait bien reçu vos données. Une action ensuite anodine, changer un capital de départ, trier une colonne, déclenchait un enregistrement de ce vide par dessus vos données réelles. CE QUI CHANGE, EN DEUX TEMPS. D’abord à la source : le desk ne peut plus enregistrer avant d’avoir réellement reçu votre journal. Un chargement qui échoue affiche désormais hors ligne et retente au prochain ouverture de l’onglet, il ne se fait plus passer pour un journal vide. Ensuite en dernier rempart, côté serveur : un enregistrement qui ferait tomber un journal d’au moins deux opérations à zéro d’un seul coup est désormais refusé, quelle que soit sa forme. Supprimer vos trades un par un jusqu’au dernier reste bien sûr possible, ce geste ne baisse jamais le compte de plus d’une unité à la fois. ET UNE SAUVEGARDE AUTOMATIQUE DE PLUS, au cas où une faille de ce genre nous échapperait encore : exactement comme pour vos dispositions depuis ce matin, chaque enregistrement qui ferait rétrécir votre journal en garde une copie hors quota, récupérable depuis le panneau d’administration. Quarante cinq contrôles automatiques rejouent maintenant ce scénario précis à chaque livraison, dont plusieurs témoins qui prouvent que sans ces gardes, l’incident se reproduit.' },
   { id: 'dtpu-20260916-calendrier-doublon', ts: Date.UTC(2026, 8, 16, 20, 14), title: 'Calendrier : plus de double ligne pour un seul rendez-vous, et les libellés ne sont plus rognés', desc: 'Deux corrections nées de vos captures. LE DOUBLE CPI. Vous aviez raison deux fois : après la correction de l’horloge du flux, ce matin, les deux lignes se sont retrouvées à la MÊME heure, et elles auraient dû fusionner. Elles ne l’ont pas fait, pour une raison précise : la règle qui supprime les doublons compare le PAYS, or l’un des deux fournisseurs renseigne le pays et l’autre le laisse vide. Deux pays différents aux yeux du code, donc deux lignes. Or un pays absent ne veut pas dire un autre pays, il veut dire je ne sais pas. Le pays reste décisif entre deux pays CONNUS, et c’est indispensable : l’inflation espagnole et l’italienne tombent à la même seconde sous la devise euro et ne sont pas un doublon. Mais quand l’un des deux l’ignore, il s’agit du même rendez vous vu par deux sources, et c’est la ligne la mieux renseignée qui reste. Sur votre capture, c’est celle à 3,1 pour cent, la bonne. LES LIBELLÉS ROGNÉS du choix de disposition d’un onglet. Là aussi la cause est nette, et elle ne se voyait pas en relisant : la feuille de style contenait une adaptation pour les cartes étroites, qui interrogeait un conteneur dont le nom n’était déclaré NULLE PART. Une règle de ce type ne signale rien quand son conteneur n’existe pas, elle reste simplement inerte. Cette adaptation n’avait donc jamais fonctionné depuis qu’elle a été écrite. Le conteneur est posé, et l’adaptation porte désormais sur la HAUTEUR, qui était le vrai problème : dans un onglet court, les vignettes et les textes se resserrent au lieu d’être coupés, et un nom de disposition passe à la ligne plutôt que d’être tranché. Un contrôle automatique balaie maintenant les cinquante neuf règles de ce type du desk et refuse qu’une seule vise un conteneur inexistant. C’est exactement ce que nous faisons déjà côté code pour les noms de variables : un nom lu, déclaré nulle part, est un défaut silencieux.' },
   { id: 'dtpu-20260916-recuperation', ts: Date.UTC(2026, 8, 16, 20, 6), title: 'Vos données sont désormais récupérables base par base', desc: 'Vos données privées vivent en quatre exemplaires, sur quatre bases, pour qu’aucune panne ne puisse les emporter. La lecture sert toujours la version la plus RÉCENTE : c’est la bonne règle, posée début septembre pour qu’une base revenue d’interruption ne vous serve plus un modèle vieux de trois mois. MAIS ELLE A UN ANGLE MORT, et il s’est manifesté aujourd’hui. Si un enregistrement récent est plus PAUVRE qu’une version plus ancienne conservée ailleurs, c’est le récent qui gagne. Rien n’est perdu, tout est caché. Et de votre côté de l’écran, caché et perdu se ressemblent exactement. Il manquait une seule chose pour trancher : POUVOIR REGARDER. Le panneau d’administration permet maintenant de voir, pour un compte donné, ce que CHAQUE base détient : nombre de dispositions, de widgets, de trades, de colonnes, présence d’un modèle personnalisé, avec la date de chaque version. Quand les bases divergent, c’est écrit en toutes lettres et la version la plus complète est signalée. Un bouton réaligne alors les quatre bases sur celle là. TROIS PRÉCAUTIONS, parce qu’un outil de réparation qui abîme est pire que pas d’outil. La réparation ne peut recopier qu’une valeur qui EXISTE DÉJÀ sur l’une des bases : jamais une valeur fabriquée, jamais une suppression. Elle refuse de réaligner vers une version plus pauvre sans une confirmation explicite, parce qu’on ne devine pas l’intention d’un geste irréversible. Et elle passe par le chemin d’écriture normal, celui qui diffuse aux quatre bases : une correction écrite à la main dans une seule base serait effacée au passage suivant, ce que ce desk a déjà appris à ses dépens. ENFIN, L’ÉCRAN NE MONTRE JAMAIS LE CONTENU. Il annonce trente sept trades, vingt et une colonnes, un modèle personnalisé. Pas une paire, pas une note, pas un montant : de quoi choisir une version, rien de plus. Dix huit contrôles automatiques tiennent l’ensemble à chaque livraison, dont un qui vérifie qu’aucun contenu privé ne peut fuir dans ces résumés.' },
   { id: 'dtpu-20260916-coffre-donnees', ts: Date.UTC(2026, 8, 16, 19, 34), title: 'Vos données privées ne peuvent plus être effacées par un enregistrement qui arrive vide', desc: 'Un client nous a signalé son modèle de journal introuvable, puis une de ses dispositions disparue. Vérification faite en base : SES DONNÉES ÉTAIENT INTACTES, trente sept trades, vingt et une colonnes, son modèle personnalisé. Rien n’était perdu. Mais en cherchant pourquoi le desk ne les montrait plus, nous avons trouvé DEUX chemins par lesquels elles auraient pu l’être, et nous les avons fermés tous les deux. PREMIER CHEMIN, LE JOURNAL. L’enregistrement reconstruisait l’objet ENTIÈREMENT à partir de ce que le navigateur envoyait. Un client qui enregistre avant d’avoir reçu ses données, parce que la page a été rouverte pendant un redémarrage, parce que le réseau est lent ou parce que le navigateur a restauré un onglet, écrivait donc un journal VIDE par dessus le vôtre. Et comme le champ qui mémorise que votre journal est personnalisé repassait lui aussi à zéro, le desk reproposait le gabarit standard : votre modèle semblait avoir disparu. Désormais l’enregistrement FUSIONNE au lieu de remplacer. Ce qui n’est pas envoyé garde sa valeur, jamais effacé par omission. Ce qui reste possible, à dessein : supprimer vos trades un par un jusqu’au dernier, ou réimporter un journal. Ce qui est refusé, c’est l’enregistrement qui n’apporte rien face à un journal qui a tout : ce n’est pas une modification, c’est un navigateur qui n’a rien chargé. SECOND CHEMIN, LES DISPOSITIONS. Le filet existait déjà, trois sauvegardes espacées d’au moins vingt quatre heures. Règle juste pour une séance de mise en page ordinaire : une dizaine d’enregistrements ne doit pas chasser trois jours de sauvegardes. Sauf qu’il en découlait ceci : le premier enregistrement de la journée fige l’état, et tous les suivants écrasent sans plus rien sauvegarder. Si ce premier enregistrement est DÉJÀ celui qui perd des dispositions, la sauvegarde conserve l’état appauvri et le filet certifie la perte au lieu de la rattraper. C’est exactement ce que nous avons mesuré. Une sauvegarde se prend maintenant AUSSI, hors quota, au moment précis où un enregistrement RÉTRÉCIT ce qui est en place : c’est le seul instant où elle vaut vraiment quelque chose, et c’était le seul que la règle écartait. Avec une garde de plus : une sauvegarde riche ne peut pas être chassée par une sauvegarde pauvre, sinon trois enregistrements malheureux d’affilée videraient le filet de ce qu’il protège. ET UNE PRÉCISION SUR LE JOURNAL DES ENVOIS. La mention compte supprimé s’affichait dès qu’un identifiant n’était pas résolu, ce qui arrive aussi quand la liste des comptes est momentanément incomplète, ou quand la ligne ne porte aucun identifiant. Trois situations, une seule était une suppression. Elles portent maintenant trois mentions distinctes, et la suppression n’est affirmée que lorsque le registre des comptes supprimés le confirme. Vingt huit contrôles automatiques rejouent ces deux scénarios à chaque livraison, chacun avec son témoin.' },
@@ -2833,7 +2834,8 @@ app.get('/api/journal', async (req, res) => {
    Pur À DESSEIN : c'est ce qui permet au banc de le JOUER sur les cas réels au lieu de le relire. */
 function _jrFusionSure(avant, apporte) {
   const a = avant && typeof avant === 'object' ? avant : null;
-  const avaitEntrees = !!(a && Array.isArray(a.entries) && a.entries.length);
+  const avantEntrees = (a && Array.isArray(a.entries)) ? a.entries.length : 0;
+  const avaitEntrees = avantEntrees > 0;
   const avaitCols    = !!(a && a.cols);
   const avaitCustom  = !!(a && a.custom);
   const n = apporte || {};
@@ -2843,6 +2845,25 @@ function _jrFusionSure(avant, apporte) {
      ou une personnalisation n'est pas une modification : c'est un client qui n'a rien chargé. */
   if (apporteRien && (avaitEntrees || avaitCols || avaitCustom)) {
     return { refuse: true, raison: 'corps vide face à un journal existant (' + ((a.entries || []).length) + ' entrée(s))' };
+  }
+
+  /* ⚠️ SECOND REFUS, POSÉ APRÈS COUP (16/09, compte Heikilea, journal réduit à zéro EN PRODUCTION
+     malgré le refus ci-dessus). LA FAILLE, mesurée dans les faits : le client envoie TOUJOURS ses
+     colonnes (`cols`), y compris quand `entries` est vide par accident — un chargement du journal
+     qui a échoué (page ouverte pendant un hoquet réseau) posait `entries: []` côté client, PUIS une
+     action anodine (changer le capital de départ, trier une colonne) déclenchait un enregistrement.
+     `cols` étant présent, `apporteRien` valait faux : le refus ci-dessus ne voyait rien à refuser,
+     et un journal de 37 trades est devenu un journal de zéro.
+     LA RÈGLE QUI FERME CE TROU, sans revenir sur la fonctionnalité légitime qu'elle protégeait :
+     supprimer ses trades un par un se fait UN enregistrement à la fois (le client débounce à 600 ms
+     et ne rejoue qu'après chaque modification) — le compte ne peut donc baisser QUE d'une unité par
+     enregistrement dans un usage normal. Un enregistrement qui fait tomber un journal d'AU MOINS
+     DEUX entrées à ZÉRO, en un seul coup, n'est jamais ce geste-là : c'est cette faille, ou une
+     autre de la même famille. On le refuse, sauf si le client le confirme EXPLICITEMENT — un
+     signal qu'aucun chemin du produit n'envoie aujourd'hui (il n'existe pas de bouton « tout
+     supprimer »), posé pour le jour où l'on en ajoutera un sans avoir à revenir ici. */
+  if (Array.isArray(n.entries) && n.entries.length === 0 && avantEntrees >= 2 && n.videConfirme !== true) {
+    return { refuse: true, raison: 'effondrement du journal (' + avantEntrees + ' → 0 entrée en un seul enregistrement, non confirmé)' };
   }
 
   const stored = {};
@@ -2867,6 +2888,50 @@ function _jrFusionSure(avant, apporte) {
 
   return { refuse: false, stored, preserve };
 }
+/* ══ JOURNAL : UN JALON SE PREND QUAND LES DONNÉES RÉTRÉCISSENT (16/09) ══════════════════════════
+   Le compte Heikilea a perdu son journal EN PRODUCTION malgré les deux refus ci-dessus : le premier
+   (corps vide) parce que `cols` accompagne toujours l'envoi, le second (effondrement massif) posé
+   après coup mais qui n'existait pas encore au moment de l'incident. Sans un TROISIÈME filet qui ne
+   dépend d'aucune hypothèse sur ce qui a causé la perte, la PROCHAINE faille — d'une famille qu'on
+   n'a pas encore vue — resterait irrécupérable en dehors de la sauvegarde chiffrée nocturne du VPS,
+   à laquelle cette session n'a pas accès.
+   Exactement le mécanisme déjà posé pour les dispositions (`_wdgHistPush`/`_wdgRetrecit`, même
+   jour) : 3 jalons, un par 24 h en temps normal, mais un jalon est FORCÉ hors quota dès que
+   l'enregistrement qui arrive RÉTRÉCIT ce qui est en place. C'est le seul instant où une sauvegarde
+   vaut quelque chose, et c'est justement celui qu'un quota temporel laisserait passer. Le panneau
+   d'administration (Récupération) lit `journal:<uid>:hist` comme il lit déjà `wdg:<uid>:hist`. */
+const _JR_HIST_MAX = 3;
+const _JR_HIST_MS  = 24 * 3600e3;
+function _jrRetrecit(avant, apres) {
+  const av = (avant && Array.isArray(avant.entries)) ? avant.entries.length : 0;
+  const ap = (apres && Array.isArray(apres.entries)) ? apres.entries.length : 0;
+  return av > 0 && ap < av;
+}
+async function _jrHistLire(uid) {
+  let h = null;
+  try { h = await auth.aiCacheGet('journal:' + uid + ':hist', _JR_KV_TTL); } catch {}
+  const v = (h && Array.isArray(h.v)) ? h.v.filter(x => x && x.at && x.cfg) : [];
+  return v.sort((a, b) => b.at - a.at).slice(0, _JR_HIST_MAX);
+}
+async function _jrHistPush(uid, avant, forcer) {
+  if (!avant || !Array.isArray(avant.entries) || !avant.entries.length) return;   // rien à protéger
+  const v = await _jrHistLire(uid);
+  if (!forcer && v.length && Date.now() - v[0].at < _JR_HIST_MS) return;          // jalon du jour déjà pris
+  const entrant = { at: Date.now(), cfg: avant };
+  let neuf = [entrant, ...v];
+  if (neuf.length > _JR_HIST_MAX) {
+    /* Même garde que côté layouts : un jalon RICHE ne se fait pas chasser par un jalon PAUVRE —
+       sinon des enregistrements malheureux d'affilée videraient le filet de ce qu'il protège. */
+    const poids = x => (x.cfg.entries || []).length;
+    const max = Math.max(...neuf.map(poids));
+    let i = neuf.findIndex(x => poids(x) < max);
+    if (i < 0) i = neuf.length - 1;
+    neuf.splice(i, 1);
+  }
+  neuf = neuf.slice(0, _JR_HIST_MAX);
+  await auth.aiCacheSet('journal:' + uid + ':hist', { v: neuf });
+}
+
 app.post('/api/journal', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
   // OUVERT à tous les comptes connectés depuis le 03/07/2026 (fin de la phase « en développement »).
@@ -2908,6 +2973,9 @@ app.post('/api/journal', async (req, res) => {
       return res.json({ ok: false, refuse: true, raison: g.raison, count: (avant && avant.entries || []).length });
     }
     if (g.preserve.length) console.warn('[Journal] ' + req.session.userId + ' : champs préservés faute d\'être fournis : ' + g.preserve.join(', '));
+    const retrecit = _jrRetrecit(avant, g.stored);
+    if (retrecit) console.warn('[Journal] ' + req.session.userId + ' : enregistrement qui RÉTRÉCIT (' + ((avant && avant.entries || []).length) + ' → ' + (g.stored.entries || []).length + ' entrée(s)) → jalon forcé');
+    try { await _jrHistPush(req.session.userId, avant, retrecit); } catch {}
     await auth.aiCacheSet('journal:' + req.session.userId, g.stored);
     res.json({ ok: true, count: entries.length });
   } catch { res.status(500).json({ ok: false }); }
@@ -27787,6 +27855,7 @@ const _RECUP_FAMILLES = [
   { cle: uid => 'wdg:' + uid + ':hist',  quoi: 'Dispositions — sauvegardes' },
   { cle: uid => 'wdg:' + uid + ':bak',   quoi: 'Dispositions — sauvegarde héritée' },
   { cle: uid => 'journal:' + uid,        quoi: 'Journal de trading' },
+  { cle: uid => 'journal:' + uid + ':hist', quoi: 'Journal — sauvegardes (16/09)' },
   { cle: uid => 'uipref:' + uid,         quoi: 'Préférences d\'affichage' },
   { cle: uid => 'symrecent:' + uid,      quoi: 'Recherches récentes' },
 ];

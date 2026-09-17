@@ -14171,6 +14171,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
 // dialog natif), suppression avec confirmation inline, stats calculées sur les données réelles.
 (function () {
   let _jrList = null;        // entrées chargées (null = pas encore fetché)
+  /* ⚠️ CETTE VARIABLE EXISTE PARCE QU'UN JOURNAL RÉEL A ÉTÉ ÉCRASÉ EN PRODUCTION (16/09, compte
+     Heikilea, capture Discord à 22h30). CE QUI S'EST PASSÉ, mesuré dans la base : `_jrList = []`
+     était posé au CATCH du chargement — page ouverte pendant un hoquet réseau — et RIEN ne
+     distinguait ensuite « le journal est vide » de « le chargement a échoué ». `_jrList` étant
+     truthy (un tableau vide reste un tableau), `loadJournalView` considérait le journal comme
+     CHARGÉ et ne retentait jamais ; la première action qui appelait `_jrSave()` (changer le
+     capital de départ, trier une colonne…) envoyait alors `entries: []` avec le gabarit de
+     colonnes par défaut — un enregistrement qui RESSEMBLE à un vidage volontaire, alors que
+     c'est un chargement qui n'a jamais eu lieu. `_jrLoaded` ne passe à `true` QU'À la réussite
+     du chargement serveur : `_jrSave` refuse désormais d'émettre quoi que ce soit tant qu'il
+     n'est pas vrai, quel que soit ce que contient `_jrList` par ailleurs. */
+  let _jrLoaded = false;
   let _jrCustom = false;     // false = gabarit DTP (options par défaut) ; true = journal PERSO importé (options de l'utilisateur uniquement, jamais mélangées au DTP)
   let _jrEdit = null;        // id en cours d'édition (null = mode ajout)
   let _jrDelPending = null;  // id en attente de confirmation de suppression
@@ -14255,6 +14267,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return p;
   }
   function _jrSave() {
+    /* Le garde-fou du 16/09 : sans lui, un chargement qui n'a jamais réussi peut quand même
+       déclencher un enregistrement — c'est exactement ce qui a vidé le journal d'Heikilea. */
+    if (!_jrLoaded) { _jrStatus('Chargement du journal en cours…'); return; }
     clearTimeout(_jrSaveT); clearTimeout(_jrRetryT);
     _jrDirty = true;
     _jrStatus('Sauvegarde…');
@@ -14268,7 +14283,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }, 600);
   }
   function _jrFlushBeacon() {
-    if (!_jrDirty || !_jrList) return;
+    if (!_jrLoaded || !_jrDirty || !_jrList) return;   // même garde qu'_jrSave : jamais avant un chargement confirmé
     try {
       const blob = new Blob([JSON.stringify(_jrPayload())], { type: 'application/json' });
       if (navigator.sendBeacon && navigator.sendBeacon('/api/journal', blob)) _jrDirty = false;
@@ -16452,10 +16467,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   window.loadJournalView = function () {
-    if (_jrList) { _jrRender(); return; }   // déjà chargé → re-render instantané (les données vivent en mémoire + serveur)
+    if (_jrLoaded) { _jrRender(); return; }   // déjà VRAIMENT chargé → re-render instantané
     _jrStatus('Chargement…');
     fetch('/api/journal').then(r => r.json())
       .then(j => {
+        _jrLoaded = true;   // à partir d'ici, et seulement d'ici, un enregistrement peut partir
         _jrList = Array.isArray(j.entries) ? j.entries : [];
         _jrCustom = !!j.custom; _jrCols = _jrColsFromStore(j.cols);
         _jrComptes = Array.isArray(j.comptes) ? j.comptes.filter(x => typeof x === 'string' && x) : [];
@@ -16469,7 +16485,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
         _jrStartCap = (_jrCaps[_jrCompte] != null && isFinite(_jrCaps[_jrCompte])) ? Number(_jrCaps[_jrCompte]) : null;
         _jrStatus(''); _jrRender();
       })
-      .catch(() => { _jrList = []; _jrStatus('Hors-ligne'); _jrRender(); });
+      .catch(() => {
+        /* `_jrLoaded` RESTE false ici, à dessein : la prochaine ouverture de l'onglet retentera
+           le chargement au lieu de croire le journal vide, et `_jrSave`/`_jrFlushBeacon` ne
+           peuvent rien envoyer tant que ce chargement n'a pas vraiment réussi. `_jrList = []`
+           reste posé UNIQUEMENT pour que l'écran ait quelque chose à dessiner ; ce n'est plus
+           une donnée qu'on risque d'enregistrer. */
+        _jrList = []; _jrStatus('Hors-ligne : nouvel essai à la prochaine ouverture de l\'onglet'); _jrRender();
+      });
   };
 })();
 

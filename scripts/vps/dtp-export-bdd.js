@@ -11,10 +11,14 @@
    l archive CHIFFREE. Les empreintes de mots de passe y sont donc protegees par le chiffrement de
    l archive, comme le reste.
 
-   ⚠️ ON N EXPORTE PAS TOUT, ET C EST DELIBERE.
-   La table `ai_cache` est un CACHE : elle se regenere, elle est volumineuse, et la lire couterait
-   du trafic sortant. Ce projet a deja paye un incident d egress de 18 To : sauvegarder ce qui se
-   reconstruit tout seul serait payer deux fois pour rien. On exporte ce qui est IRREMPLACABLE.
+   ⚠️ CE COMMENTAIRE A MENTI PENDANT DES SEMAINES (corrige le 17/09/2026, trouve en cherchant une
+   sauvegarde pour restaurer le journal d un client). Il disait que `ai_cache` n etait PAS exporte
+   par choix, pour economiser du trafic sortant apres un incident d egress de 18 To. FAUX : la table
+   `TABLES` ci-dessous exporte bel et bien `ai_cache` depuis le 03/09/2026 (elle porte les modeles de
+   journal de bord, les avatars, la liste noire et les pierres tombales), et `bilan.note` plus bas
+   repetait la meme fausse affirmation. Un commentaire perime ment avec l autorite du code : les deux
+   traces sont corrigees dans le meme commit. `ai_cache` EST exporte, elle est PETITE (1,4 Mo mesures
+   le 03/09), et c est justement elle qui porte ce qu un client peut perdre.
 
    ⚠️ LECTURE SEULE, PAR CONSTRUCTION. Le script n appelle que `select`. Il ne peut ni modifier ni
    supprimer quoi que ce soit, meme en cas de bug.
@@ -126,7 +130,6 @@ async function exporterTable(client, t) {
     }
   }
 
-  bilan.note = "ai_cache n'est PAS exporte : c'est un cache, il se regenere, et le lire couterait du trafic sortant pour rien.";
   fs.writeFileSync(path.join(SORTIE, '_bilan.json'), JSON.stringify(bilan, null, 2));
 
   if (echecObligatoire) {

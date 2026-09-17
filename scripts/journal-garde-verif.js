@@ -91,12 +91,32 @@ titre('Ce qui n\'est pas fourni est PRÉSERVÉ, jamais effacé par omission');
 
 titre('Ce qui reste légitime passe toujours');
 {
-  // Supprimer ses trades un par un jusqu'au dernier : geste réel, le corps porte colonnes ET custom.
-  const r = fusion(JOURNAL(), { entries: [], cols: JOURNAL().cols, comptes: null, startCaps: null, startCap: undefined, custom: true, customFourni: true });
-  if (!r.refuse && r.stored.entries.length === 0) vert('vider son journal trade par trade reste possible');
-  else rouge('un vidage légitime est refusé', JSON.stringify(r));
-  if (r.stored && r.stored.custom === true) vert('… et le modèle personnalisé survit au vidage');
+  /* CE CONTRÔLE DÉCRIVAIT UN GESTE QUI N'EXISTE PAS DANS LE PRODUIT (corrigé le 16/09, à la
+     lumière de l'incident Heikilea). Aucun bouton « vider le journal » n'envoie 37 → 0 en UNE
+     seule requête : supprimer ses trades un par un le fait UN enregistrement à la fois (débounce
+     600 ms, rejoué à chaque suppression), donc de 37 à 36, puis 35… jusqu'à 1 → 0. Le test
+     d'origine simulait un vidage total EN UN SEUL APPEL — exactement la forme de l'incident, pas
+     de la fonctionnalité. Corrigé pour tester ce qui existe réellement ; le geste VOLONTAIRE
+     (un bouton à construire un jour) passe par le signal explicite videConfirme, prévu pour ça
+     dans _jrFusionSure. */
+  const r = fusion(JOURNAL(), { entries: [], cols: JOURNAL().cols, comptes: null, startCaps: null, startCap: undefined, custom: true, customFourni: true, videConfirme: true });
+  if (!r.refuse && r.stored.entries.length === 0) vert('un vidage total EXPLICITEMENT confirmé reste possible (signal prévu pour un futur bouton)');
+  else rouge('le signal de confirmation explicite ne fonctionne pas', JSON.stringify(r));
+  if (r.stored && r.stored.custom === true) vert('… et le modèle personnalisé survit au vidage confirmé');
   else rouge('le modèle a été perdu en vidant les trades');
+}
+{
+  // Le geste RÉEL : supprimer un par un, jamais plus d'une unité perdue par enregistrement.
+  let etat = JOURNAL();
+  let ok37 = true;
+  for (let n = 37; n >= 1; n--) {
+    const suivant = { entries: etat.entries.slice(1), cols: etat.cols, comptes: null, startCaps: null, startCap: undefined, custom: true, customFourni: true };
+    const r = fusion(etat, suivant);
+    if (r.refuse) { ok37 = false; break; }
+    etat = r.stored;
+  }
+  if (ok37 && etat.entries.length === 0) vert('supprimer les 37 trades UN PAR UN, jusqu\'au dernier, passe intégralement');
+  else rouge('la suppression unitaire, rejouée trade par trade, a été bloquée en cours de route');
 }
 {
   // Un premier enregistrement sur un journal qui n'existe pas encore.
@@ -132,13 +152,57 @@ titre('Témoin : sans la garde, le journal de la capture EST écrasé');
     vert('l\'ancienne écriture rend bien { entries: [], custom: false, sans colonnes } : elle détruisait');
   } else rouge('le témoin ne reproduit pas le défaut');
 
-  // Et la mutation du VRAI code : on retire le refus, le journal doit repasser à zéro entrée.
-  const mute = SRC.replace(/if \(apporteRien && \(avaitEntrees \|\| avaitCols \|\| avaitCustom\)\) \{[\s\S]*?\n  \}/, '');
+  // Et la mutation du VRAI code : on retire LES DEUX refus (celui du 16/09 matin ET celui posé
+  // après l'incident Heikilea du même soir, qui bloque lui aussi ce corps précis sur un journal de
+  // 37 entrées) — sans quoi le second, à lui seul, suffirait à arrêter ce corps et le témoin ne
+  // prouverait plus rien sur le premier.
+  const mute = SRC
+    .replace(/if \(apporteRien && \(avaitEntrees \|\| avaitCols \|\| avaitCustom\)\) \{[\s\S]*?\n  \}/, '')
+    .replace(/if \(Array\.isArray\(n\.entries\) && n\.entries\.length === 0 && avantEntrees >= 2[\s\S]*?\n  \}/, '');
   if (mute === SRC) {
     rouge('la mutation du témoin n\'a rien changé au source', 'la garde a changé de forme : ce témoin ne prouve plus rien');
   } else {
     const r = monter(mute)(JOURNAL(), { entries: [], cols: null, comptes: null, startCaps: null, startCap: undefined, custom: false, customFourni: true });
-    if (!r.refuse) vert('(témoin) sans le refus, l\'enregistrement vide passe bien — la garde est donc ce qui l\'arrête');
+    if (!r.refuse) vert('(témoin) sans les deux refus, l\'enregistrement vide passe bien — ce sont eux qui l\'arrêtent');
+    else rouge('(témoin) la mutation ne mord pas');
+  }
+}
+
+titre('Le compte Heikilea, exactement : un effondrement passe malgré `cols` présent (avant le second refus)');
+/* ⚠️ 16/09, capture Discord 22h30, compte Heikilea : « mon journal c'est complètement réinitialisé
+   plus aucune datas ». Mesuré en base : 0 trades, 21 colonnes, `custom: false`. Le premier refus
+   (corps vide) ne mordait PAS ici : `cols` est TOUJOURS envoyé par le client (`_jrColsToStore()`
+   n'est jamais vide), donc `apporteRien` valait faux. Le second refus, posé après coup, doit
+   arrêter EXACTEMENT ce cas. */
+{
+  const AVANT_HEIKILEA = { entries: Array.from({ length: 37 }, (_, i) => ({ id: 'h' + i })), cols: Array.from({ length: 21 }, (_, i) => ({ k: 'c' + i })), custom: true };
+  const CORPS_INCIDENT = { entries: [], cols: Array.from({ length: 21 }, (_, i) => ({ k: 'c' + i })), comptes: null, startCaps: null, startCap: undefined, custom: false, customFourni: true };
+
+  const r = fusion(AVANT_HEIKILEA, CORPS_INCIDENT);
+  if (r.refuse) vert('le corps de l\'incident (37 → 0, cols présent) est désormais REFUSÉ');
+  else rouge('le corps de l\'incident PASSE toujours', JSON.stringify(r.stored && { e: r.stored.entries.length }));
+  if (r.refuse && /37/.test(r.raison || '')) vert('… et le refus nomme le nombre perdu, traçable dans le journal serveur');
+
+  // Témoin inverse déjà couvert plus haut (« ce qui reste légitime »), mais on le rejoue ICI avec
+  // `cols` présent pour prouver que le nouveau refus ne mord QUE sur l'effondrement, pas sur le
+  // vidage légitime d'un journal à une seule entrée.
+  const dernierTrade = fusion({ entries: [{ id: 'x' }], cols: AVANT_HEIKILEA.cols, custom: true },
+    { entries: [], cols: AVANT_HEIKILEA.cols, comptes: null, startCaps: null, startCap: undefined, custom: true, customFourni: true });
+  if (!dernierTrade.refuse) vert('supprimer SON DERNIER trade (1 → 0) reste possible, cols ou pas');
+  else rouge('un vidage légitime à une seule entrée est bloqué par le nouveau refus');
+
+  const deuxATrois = fusion({ entries: [{ id: 'a' }, { id: 'b' }], cols: AVANT_HEIKILEA.cols, custom: true },
+    { entries: [{ id: 'a' }], cols: AVANT_HEIKILEA.cols, comptes: null, startCaps: null, startCap: undefined, custom: true, customFourni: true });
+  if (!deuxATrois.refuse) vert('retirer UN trade parmi plusieurs (2 → 1, jamais à zéro) n\'est pas un effondrement');
+  else rouge('une simple suppression unitaire est refusée à tort');
+
+  // Témoin de mutation : sans le second refus, l'incident repasse.
+  const muteEffondrement = SRC.replace(/if \(Array\.isArray\(n\.entries\) && n\.entries\.length === 0 && avantEntrees >= 2[\s\S]*?\n  \}/, '');
+  if (muteEffondrement === SRC) {
+    rouge('la mutation du second refus n\'a rien changé', 'la garde a changé de forme : ce témoin ne prouve plus rien');
+  } else {
+    const rMute = monter(muteEffondrement)(AVANT_HEIKILEA, CORPS_INCIDENT);
+    if (!rMute.refuse) vert('(témoin) sans le second refus, l\'incident Heikilea repasse bien — c\'est lui qui protège');
     else rouge('(témoin) la mutation ne mord pas');
   }
 }
@@ -236,6 +300,92 @@ titre('Témoin : sans la garde, le journal de la capture EST écrasé');
       await new Function('auth', '_WDG_KV_TTL', '_WDG_HIST_MAX', '_WDG_HIST_MS', '_wdgHistLire',
         mute + '\nreturn _wdgHistPush;')(authM, 1, 3, 24 * 3600e3, lireM)('u', true);
       if (kv.get('wdg:u:hist').v.length === 1) vert('(témoin) sans le forçage, aucun jalon n\'est pris malgré la perte');
+      else rouge('(témoin) la mutation ne mord pas');
+    }
+  }
+}
+
+titre('Le journal a le MÊME filet que les layouts : `_jrRetrecit` / `_jrHistPush`');
+/* ⚠️ 16/09 soir, incident Heikilea. Même mécanisme que ci-dessus, posé sur le journal plutôt que
+   sur les dispositions : un jalon pris une fois par 24 h figerait l'état appauvri si le PREMIER
+   enregistrement du jour est déjà celui qui perd des trades — exactement l'enregistrement qui a
+   réduit son journal de 37 à 0. Rejoué ici sur le VRAI `_jrRetrecit`/`_jrHistPush` de server.js. */
+{
+  const SRC_JR = extraire('_jrRetrecit');
+  const _jp = extraire('_jrHistPush');
+  const SRC_JP = _jp ? ('async ' + _jp) : null;
+  if (!SRC_JR || !SRC_JP) {
+    rouge('`_jrRetrecit` / `_jrHistPush` introuvables dans server.js', 'ce banc n\'éprouve plus le filet du journal');
+  } else {
+    vert('`_jrRetrecit` et `_jrHistPush` extraits de server.js');
+    const retrecitJr = new Function(SRC_JR + '\nreturn _jrRetrecit;')();
+    const J = n => ({ entries: Array.from({ length: n }, (_, i) => ({ id: 'e' + i })) });
+
+    titre('Reconnaître un enregistrement de journal qui RÉTRÉCIT');
+    if (retrecitJr(J(37), J(0))) vert('l\'effondrement Heikilea (37 → 0) est vu comme un rétrécissement');
+    else rouge('37 → 0 passe inaperçu');
+    if (retrecitJr(J(5), J(4))) vert('perdre UN trade est vu aussi (retrait unitaire normal)');
+    else rouge('un retrait unitaire passe inaperçu');
+    if (!retrecitJr(J(3), J(4))) vert('AJOUTER un trade n\'est pas un rétrécissement');
+    else rouge('un ajout est pris pour une perte : un jalon serait forcé à chaque trade saisi');
+    if (!retrecitJr(J(3), J(3))) vert('un enregistrement identique ne force rien');
+    else rouge('un enregistrement sans changement force un jalon');
+    if (!retrecitJr(null, J(3))) vert('un tout premier enregistrement ne force rien (rien à protéger)');
+    else rouge('le premier enregistrement force un jalon inutile');
+
+    titre('Le jalon du journal est pris MALGRÉ le quota de 24 h quand ça rétrécit');
+    const jouerJr = async (histExistant, avant, forcer) => {
+      const kv = new Map(Object.entries(histExistant || {}));
+      const auth = {
+        aiCacheGet: async k => kv.has(k) ? kv.get(k) : null,
+        aiCacheSet: async (k, v) => { kv.set(k, v); },
+      };
+      const lire = async uid => {
+        const h = kv.get('journal:' + uid + ':hist');
+        let v = (h && Array.isArray(h.v)) ? h.v : [];
+        return v.sort((a, b) => b.at - a.at).slice(0, 3);
+      };
+      const f = new Function('auth', '_JR_HIST_MAX', '_JR_HIST_MS', '_jrHistLire', SRC_JP + '\nreturn _jrHistPush;');
+      await f(auth, 3, 24 * 3600e3, lire)('u', avant, forcer);
+      return kv.get('journal:u:hist');
+    };
+    const jalonDuJourJr = { 'journal:u:hist': { v: [{ at: Date.now() - 3600e3, cfg: J(37) }] } };
+
+    const sansJr = await jouerJr(jalonDuJourJr, J(36), false);
+    if ((sansJr || { v: [] }).v.length === 1) vert('sans rétrécissement forcé, le quota tient : pas de jalon de plus');
+    else rouge('le quota des 24 h ne tient plus côté journal', String(sansJr && sansJr.v.length));
+
+    /* `avant` est l'état RICHE qu'on protège (le journal tel qu'il était juste avant l'écriture qui
+       l'effondre) — c'est lui qu'on snapshotte, jamais le corps vide qui arrive. `forcer`, lui, est
+       calculé à côté par `_jrRetrecit(avant, g.stored)` et vaut true précisément pour ce cas. */
+    const avecJr = await jouerJr(jalonDuJourJr, J(37), true);
+    if (avecJr.v.length === 2 && avecJr.v[0].cfg.entries.length === 37) vert('avec effondrement, le jalon du journal (37 trades) est pris malgré le quota du jour');
+    else rouge('le jalon n\'est PAS pris quand le journal s\'effondre : le filet reste aveugle au seul moment utile', JSON.stringify(avecJr));
+
+    titre('Un jalon riche n\'est pas chassé par un jalon pauvre (journal)');
+    const pleinJr = { 'journal:u:hist': { v: [
+      { at: Date.now() - 1000, cfg: J(37) },   // le RICHE : le journal Heikilea intact
+      { at: Date.now() - 2000, cfg: J(1) },
+      { at: Date.now() - 3000, cfg: J(1) },
+    ] } };
+    const apresJr = await jouerJr(pleinJr, J(1), true);
+    if (apresJr.v.some(x => (x.cfg.entries || []).length === 37)) vert('le jalon des 37 trades survit à trois effondrements d\'affilée');
+    else rouge('le jalon riche a été chassé : le filet a effacé ce qu\'il devait protéger',
+      apresJr.v.map(x => (x.cfg.entries || []).length).join(' · '));
+    if (apresJr.v.length === 3) vert('… et l\'historique du journal garde bien ses trois places');
+    else rouge('l\'historique du journal n\'a plus trois places', String(apresJr.v.length));
+
+    titre('Témoin : sans le forçage, l\'incident Heikilea n\'aurait laissé aucune trace récupérable');
+    const muteJr = SRC_JP.replace('if (!forcer && v.length', 'if (v.length');
+    if (muteJr === SRC_JP) {
+      rouge('la mutation du témoin n\'a rien changé', 'la garde a changé de forme : ce témoin ne prouve plus rien');
+    } else {
+      const kv = new Map([['journal:u:hist', { v: [{ at: Date.now() - 3600e3, cfg: J(37) }] }]]);
+      const authM = { aiCacheGet: async k => kv.get(k) || null, aiCacheSet: async (k, v) => { kv.set(k, v); } };
+      const lireM = async uid => { const h = kv.get('journal:' + uid + ':hist'); return (h && h.v) ? h.v.slice() : []; };
+      await new Function('auth', '_JR_HIST_MAX', '_JR_HIST_MS', '_jrHistLire',
+        muteJr + '\nreturn _jrHistPush;')(authM, 3, 24 * 3600e3, lireM)('u', J(37), true);
+      if (kv.get('journal:u:hist').v.length === 1) vert('(témoin) sans le forçage, aucun jalon n\'est pris malgré l\'effondrement');
       else rouge('(témoin) la mutation ne mord pas');
     }
   }
