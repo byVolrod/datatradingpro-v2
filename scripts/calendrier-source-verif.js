@@ -33,12 +33,16 @@ console.log('\n── La source du calendrier économique est ForexFactory ─�
 
 // ── Extraction d'une déclaration complète (const/function), accolades comptées ──────────────────
 function extraire(nom) {
-  const rx = new RegExp('^(?:const|let|function)\\s+' + nom.replace(/[$]/g, '\\$') + '\\b', 'm');
+  // (?:async\s+)? : `_refreshTVActualsInner` (section 12) est une fonction ASYNC — sans ce préfixe
+  // optionnel le motif ne matche rien du tout (« déclaration introuvable »), puisque la ligne
+  // commence par « async », pas par « function ». Inclure « async » DANS le motif (pas juste le
+  // sauter) garantit qu'il fait partie du texte extrait : un `await` dans le corps a besoin de lui.
+  const rx = new RegExp('^(?:const|let|(?:async\\s+)?function)\\s+' + nom.replace(/[$]/g, '\\$') + '\\b', 'm');
   const m = src.match(rx);
   if (!m) throw new Error('déclaration introuvable : ' + nom);
   // Une FONCTION se termine à l'accolade qui ferme son corps (les parenthèses de paramètres ne
   // comptent pas) ; une CONSTANTE, au point-virgule laissé à découvert par tous les délimiteurs.
-  const fonction = /^function/.test(m[0]);
+  const fonction = /^(?:async\s+)?function/.test(m[0]);
   let i = m.index, prof = 0, corps = false;
   for (; i < src.length; i++) {
     const c = src[i];
@@ -61,7 +65,7 @@ function extraire(nom) {
   throw new Error('déclaration non terminée : ' + nom);
 }
 
-const NOMS = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_FF_EURO_CTRY_ADJ',
+const NOMS = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_calPeriode', '_calPeriodeConflit', '_FF_EURO_CTRY_ADJ',
   '_CAL_VITAL_RX', '_calVitalLift', '_calKey', '_calKeyDated', '_calActualsMap', '_overlayActuals',
   '_calSansResultatFutur',
   '_FF_JOUR_MIN', '_FF_APPARIEMENT_MIN', '_FF_FENETRE_MS', '_calJourUTC', '_FF_ADJ_CTRY', '_ffCtry',
@@ -420,9 +424,98 @@ console.log('\n── 11. L\'archive ne ressuscite jamais un résultat encore à
   }
 }
 
-/* ⚠️ LE BILAN EST À LA FIN, ET IL DOIT Y RESTER (01/09). Il était posé juste après la section 9,
-   donc AVANT les sections 10 et 11 : leurs échecs s'affichaient à l'écran mais le banc sortait
-   quand même en 0 (le `process.exit` était déjà passé) — un banc vert sur un desk cassé, exactement
-   ce que ces bancs existent pour empêcher. Toute nouvelle section s'insère AU-DESSUS de ce bloc. */
-if (ko) { console.log('\n✗ ' + ko + ' ÉCHEC(S)\n'); process.exit(1); }
-console.log('\n✓ LA SOURCE DU CALENDRIER EST FOREXFACTORY, ET AUCUNE LIGNE À VENIR NE PORTE DE RÉSULTAT\n');
+// ── 12. GARDE PÉRIODICITÉ : un m/m ne récupère JAMAIS les chiffres d'un y/y ─────────────────────
+/* 18/09, capture utilisateur : le calendrier affichait « German PPI m/m » avec 4,6 % / 4,1 % / 3 %
+   — les TROIS chiffres retrouvés TELS QUELS dans l'archive (`calhist:events`, Supabase) sous le
+   titre « PPI YoY », même devise EUR, même pays DE, même horodatage — jamais les 1,1 % / 0,4 % /
+   1,1 % que porte notre PROPRE cache d'actuals pour la clé m/m (et que forexfactory.com affiche,
+   proche : 1,1 % / 0,6 % / 1,1 %). Preuve par le code : `_refreshTVActualsInner` (le rattrapage qui
+   remplit `_calActualsMap` quand la fusion FF↔TV n'a rien trouvé) n'exigeait qu'UN SEUL mot commun
+   (« ppi ») pour accepter un candidat TradingView — bien plus large que le seuil ≥ 2 déjà éprouvé
+   partout ailleurs dans ce fichier (`_calFusionFF`, l'ancrage de décalage horaire). Quand
+   TradingView ne publie PAS le m/m d'un indicateur un jour donné (seulement le y/y, comme mesuré
+   ici pour l'Allemagne), ce seul mot commun suffisait à apparier le y/y sous la clé du m/m — une
+   confusion de GRANDEUR (variation mensuelle contre annuelle), pas un simple écart de source. */
+console.log('\n── 12. Garde périodicité : un m/m ne récupère jamais les chiffres d\'un y/y ──');
+(async () => {
+  let blocR;
+  try {
+    blocR = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_calPeriode', '_calPeriodeConflit', '_calKey', '_calKeyDated', '_calActualsMap', '_refreshTVActualsInner'].map(extraire).join('\n');
+  } catch (e) { verif('le code du rattrapage TradingView est extractible de server.js', false, e.message); blocR = null; }
+  if (blocR) {
+    verif('le code du rattrapage (8 déclarations) est extractible de server.js', true);
+    const T = Date.UTC(2026, 8, 18, 6, 0);   // 18/09/2026, 08:00 Paris (CEST, UTC+2)
+    let FLUXOurs = [];
+    let refr;
+    try {
+      // eslint-disable-next-line no-eval
+      refr = eval('(function(){' +
+        'const getCalendarRaw = () => FLUXOurs;' +
+        'let TVCAND = [];' +
+        'const fetchTVCalendar = async () => TVCAND;' +
+        'const _calActualsSave = () => {};' +
+        blocR +
+        '\nreturn { _refreshTVActualsInner, _calActualsMap, poserTV: l => { TVCAND = l; } };})()');
+    } catch (e) { verif('il s\'évalue sans erreur', false, e.message); }
+    if (refr) {
+      verif('il s\'évalue sans erreur', true);
+      const { _refreshTVActualsInner, _calActualsMap, poserTV } = refr;
+      const K = 'EUR|germanppimm|2026-09-18';
+
+      // a. LE SCÉNARIO EXACT DE LA CAPTURE : TradingView n'a QUE le y/y ce jour-là pour l'Allemagne
+      //    (pas de candidat m/m) → la clé m/m doit rester VIDE, jamais empoisonnée par le y/y.
+      FLUXOurs = [{ currency: 'EUR', title: 'German PPI m/m', timestamp: T, actual: '', forecast: '0.4%', previous: '1.1%' }];
+      poserTV([{ ts: T, currency: 'EUR', title: 'PPI YoY', actual: '4.6%', forecast: '4.1%', previous: '3%' }]);
+      const n1 = await _refreshTVActualsInner(false);
+      verif('aucune ligne n\'est remplie quand le seul candidat est une PÉRIODICITÉ différente (0 rempli)', n1 === 0, 'rempli = ' + n1);
+      verif('la clé m/m ne porte AUCUNE valeur empruntée au y/y (jamais 4,6 %)',
+        !_calActualsMap.get(K) || !_calActualsMap.get(K).actual, JSON.stringify(_calActualsMap.get(K)));
+
+      // b. TÉMOIN — un vrai candidat de MÊME périodicité, au même horodatage, remplit normalement :
+      //    le verrou ne bloque que la paire dont la périodicité diverge, pas les paires saines.
+      _calActualsMap.clear();
+      poserTV([
+        { ts: T, currency: 'EUR', title: 'PPI YoY', actual: '4.6%', forecast: '4.1%', previous: '3%' },
+        { ts: T, currency: 'EUR', title: 'PPI MoM', actual: '1.1%', forecast: '0.4%', previous: '1.1%' },
+      ]);
+      const n2 = await _refreshTVActualsInner(false);
+      verif('… mais un vrai candidat MÊME périodicité, lui, remplit normalement (1 rempli)', n2 === 1, 'rempli = ' + n2);
+      const bon = _calActualsMap.get(K);
+      verif('… avec les BONNES valeurs (celles du m/m, jamais celles du y/y)',
+        !!bon && bon.actual === '1.1%' && bon.forecast === '0.4%' && bon.previous === '1.1%', JSON.stringify(bon));
+    }
+  }
+
+  // ── 13. MÊME GARDE DANS LA FUSION FF↔TV ───────────────────────────────────────────────────────
+  /* Défense en profondeur : `_calFusionFF` exige déjà un recouvrement ≥ 2, ce qui écarte en pratique
+     la paire m/m↔y/y de « PPI » (elles ne partagent qu'« ppi », « core » étant lui-même un mot vide
+     de `_CAL_STOP`). Ce scénario choisit donc un indicateur à deux mots DISTINCTIFS communs
+     (« wholesale », « price » — « index » est aussi un mot vide) pour prouver que le verrou
+     périodicité mord MÊME quand le score de recouvrement, à lui seul, aurait suffi à faire gagner la
+     mauvaise périodicité. Deux lignes de remplissage assurent la densité minimale FF de la journée
+     (`_FF_JOUR_MIN` = 3), sans quoi VERROU 1 renverrait la liste TradingView sans y toucher — ce
+     serait alors ce verrou-là qui empêcherait l'appariement, pas celui qu'on éprouve ici. */
+  console.log('\n── 13. Garde périodicité : même verrou dans la fusion ForexFactory ↔ TradingView ──');
+  {
+    FLUX = [
+      ffEv('EUR', 'German Wholesale Price Index m/m', h(8, 0), 'Medium', { forecast: '0.4%' }),
+      ffEv('USD', 'ISM Services PMI', h(16, 0), 'High', { forecast: '52.3' }),
+      ffEv('USD', 'Unemployment Claims', h(14, 30), 'Medium', { forecast: '230K' }),
+    ];
+    const tv = [tvEv('EUR', 'Wholesale Price Index YoY', h(8, 0), 'Medium', { actual: '4.6%', forecast: '4.1%', previous: '3%', ctry: 'DE' })];
+    const out = _calFusionFF(tv);
+    const ligne = a(out, 'EUR', 'German Wholesale Price Index m/m');
+    verif('même avec 2 mots communs (« wholesale », « price »), un y/y n\'est jamais apparié à un m/m',
+      !!ligne && (ligne.actual === '' || ligne.actual == null), ligne && JSON.stringify(ligne && ligne.actual));
+  }
+
+  /* ⚠️ LE BILAN EST À LA FIN, ET IL DOIT Y RESTER (01/09). Il était posé juste après la section 9,
+     donc AVANT les sections 10 et 11 : leurs échecs s'affichaient à l'écran mais le banc sortait
+     quand même en 0 (le `process.exit` était déjà passé) — un banc vert sur un desk cassé,
+     exactement ce que ces bancs existent pour empêcher. Toute nouvelle section s'insère AU-DESSUS
+     de ce bloc. Sections 12-13 tournent dans une IIFE asynchrone (`_refreshTVActualsInner` est
+     `async`) : le bilan est donc déplacé DANS cette IIFE, après son `await`, pour rester la
+     DERNIÈRE chose exécutée — sortir en synchrone ici sortirait AVANT que 12-13 aient rempli `ko`. */
+  if (ko) { console.log('\n✗ ' + ko + ' ÉCHEC(S)\n'); process.exit(1); }
+  console.log('\n✓ LA SOURCE DU CALENDRIER EST FOREXFACTORY, ET AUCUNE LIGNE À VENIR NE PORTE DE RÉSULTAT\n');
+})();

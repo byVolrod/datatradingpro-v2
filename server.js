@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260918-calendrier-mm-yy', ts: Date.UTC(2026, 8, 18, 10, 30), title: 'Calendrier économique : un chiffre mensuel ne peut plus emprunter celui de l’annuel', desc: 'Vous nous avez signalé, capture à l’appui, un IPP allemand mensuel affichant 4,6%, très loin du chiffre publié ailleurs. Vérification faite : ce 4,6% existait bel et bien dans nos données, mais il appartenait à la publication ANNUELLE du même indicateur, pas à la mensuelle affichée. LA CAUSE, MESURÉE. Quand notre fournisseur de temps réel ne publie qu’UNE seule des deux périodicités d’un indicateur ce jour-là (ici l’annuel, pas le mensuel), notre rattrapage de résultats cherchait le candidat le plus proche par mots-clés communs. Un seul mot partagé, le nom de l’indicateur, suffisait à le déclarer valable, sans jamais vérifier si les deux publications portaient sur la même durée. Une variation mensuelle et une variation annuelle du même indicateur n’ont pourtant rien de comparable en grandeur. CE QUI CHANGE. Un chiffre mensuel ne peut plus être servi sous un intitulé annuel, ni l’inverse : les deux périodicités sont désormais distinguées avant tout rapprochement, à la fois dans le rattrapage de résultats et dans la fusion avec le calendrier de référence. Quand seule l’autre périodicité est disponible, la case reste simplement vide plutôt que de montrer un chiffre qui n’est pas le bon. Six contrôles automatiques rejouent ce scénario exact à chaque livraison, dont deux témoins qui prouvent que sans cette garde, le défaut revient.' },
   { id: 'dtpu-20260917-analyse-fr', ts: Date.UTC(2026, 8, 17, 22, 45), title: 'Fil d’actualité : le bouton « Analyse » d’une news pouvait rester en anglais', desc: 'Signalé par une capture d’écran : sur une actualité, le bouton « Info » affichait un résumé en français mais le bouton « Analyse » de la même actualité affichait un paragraphe entièrement en anglais. La cause : la consigne de rédaction demande bien le français au modèle qui écrit cette analyse, mais rien ne vérifiait ensuite qu’il avait obéi. Le jour où un fournisseur de secours l’ignorait, le résultat anglais était conservé durablement et servi tel quel, sans nouvelle tentative. Corrigé : une analyse qui n’est pas en français est désormais écartée plutôt qu’affichée telle quelle, exactement comme pour les autres textes du desk qui suivent déjà cette règle.' },
   { id: 'dtpu-20260917-taux-nzd-relevee', ts: Date.UTC(2026, 8, 17, 21, 30), title: 'Onglet Taux : le taux directeur néo-zélandais était resté à l’ancienne décision', desc: 'Vérification demandée sur l’ensemble des huit banques centrales, sources croisées. Sept étaient exactes. La huitième, la Banque de réserve de Nouvelle-Zélande, ne l’était plus : sa carte affichait encore 2,50%, le niveau fixé le 8 juillet. Or la Banque a relevé son taux directeur d’un quart de point le 2 septembre, à 2,75%, comme elle l’avait déjà signalé possible. La Nouvelle-Zélande et la Suisse sont les deux seules banques dont le pricing de marché n’est pas accessible gratuitement chez notre fournisseur : leur carte s’appuie donc sur une estimation du desk, mise à jour à la main à chaque décision plutôt qu’en continu comme les six autres. Cette décision du 2 septembre n’avait pas été reportée. Corrigé : 2,75%, avec la date de la décision. La Suisse, elle, n’a pas encore eu de nouvelle réunion depuis notre dernière vérification : son taux restait exact.' },
   { id: 'dtpu-20260917-recaps-seance-fr', ts: Date.UTC(2026, 8, 17, 21, 15), title: 'Récaps de séance (Asie, Londres, New York) : le texte est désormais entièrement en français', desc: 'Signalé par une capture d’écran : un Récap Séance New York affichait ses titres de rubrique en français (Géopolitique, Macro, Analyse de séance), mais chaque ligne en dessous restait en anglais brut. La cause : ces trois rapports listent directement les dépêches retenues plutôt que de les faire rédiger par l’IA, et le code piochait encore dans le texte d’origine de la dépêche au lieu de sa traduction déjà disponible juste à côté. La traduction existait, elle n’était simplement pas lue au bon endroit. Corrigé pour les trois récaps de séance, et pour la Synthèse des Marchés qui partageait le même défaut dans son mode de secours. Une dépêche pas encore traduite au moment de la rédaction est désormais écartée plutôt qu’affichée en anglais : la suivante prend sa place.' },
@@ -5508,6 +5509,25 @@ function _calTitleTokens(title) {
   return out;
 }
 function _calOverlap(a, b) { let n = 0; for (const w of a) if (b.has(w)) n++; return n; }
+/* GARDE PÉRIODICITÉ (18/09, capture user : « German PPI m/m » affichait 4,6 % / 4,1 % / 3 % — les
+   trois chiffres de « PPI YoY » (retrouvés tels quels dans `calhist:events` : même titre "PPI YoY",
+   même devise EUR, même pays DE, même horodatage), jamais ceux du m/m que montre forexfactory.com
+   (1,1 % / 0,6 % / 1,1 %, et notre propre `_calActualsMap` avait d'ailleurs la bonne valeur sous la
+   clé m/m — jamais servie, cf. plus bas). TradingView ne publie pas toujours les DEUX périodicités
+   d'un même indicateur (ce jour-là, seulement PPI YoY pour l'Allemagne) : un appariement qui ne
+   regarde QUE le nombre de mots communs peut alors apparier « German PPI m/m » avec « PPI YoY » —
+   un seul mot partagé (« ppi ») suffit déjà à `_refreshTVActualsInner` (recouvrement ≥ 1, voir plus
+   bas). Un m/m et un y/y du MÊME indicateur ne sont JAMAIS la même publication : les grandeurs n'ont
+   rien à voir (variation mensuelle contre variation annuelle). Ce verrou rejette toute paire dont
+   les DEUX titres portent chacun une périodicité EXPLICITE et qu'elles DIFFÈRENT — quel que soit le
+   score de recouvrement par ailleurs. */
+function _calPeriode(tok) {
+  if (tok.has('mom')) return 'mom';
+  if (tok.has('yoy')) return 'yoy';
+  if (tok.has('qoq')) return 'qoq';
+  return null;
+}
+function _calPeriodeConflit(a, b) { const pa = _calPeriode(a), pb = _calPeriode(b); return !!(pa && pb && pa !== pb); }
 
 /* ══ LIBELLÉS FOREXFACTORY À L'AFFICHAGE (11/08, demande user) ═════════════════════════════════════
    Le calendrier est servi par TradingView (actuals natifs, temps réel, historique) mais TV nomme ses
@@ -5781,6 +5801,7 @@ async function _refreshTVActualsInner(force) {
       if (diff > 45 * 60 * 1000) continue;                            // ±45 min après correction
       const ov = _calOverlap(et, x.tok);
       if (ov < 1) continue;
+      if (_calPeriodeConflit(et, x.tok)) continue;   // ← même garde qu'en fusion FF : jamais un m/m avec un y/y (cf. commentaire à _calOverlap)
       if (ov > bs || (ov === bs && diff < bd)) { bs = ov; bd = diff; best = x.t; }
     }
     if (best && bs >= 1) {
@@ -5992,6 +6013,7 @@ function _calFusionFF(tvItems) {
       if (d > _FF_FENETRE_MS) continue;
       const ov = _calOverlap(tok, c.tok);
       if (ov < 2) continue;
+      if (_calPeriodeConflit(tok, c.tok)) continue;   // ← garde périodicité (cf. commentaire à _calOverlap) : jamais un m/m avec un y/y
       if (ov > bestOv || (ov === bestOv && d < bestD)) { bestOv = ov; bestD = d; best = c; }
     }
     if (!best) { sortie.push(f); continue; }               // ligne FF que TradingView n'a pas → elle entre
