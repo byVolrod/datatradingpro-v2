@@ -69,6 +69,7 @@ const NOMS = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_calP
   '_CAL_VITAL_RX', '_calVitalLift', '_calKey', '_calKeyDated', '_calActualsMap', '_overlayActuals',
   '_calSansResultatFutur',
   '_FF_JOUR_MIN', '_FF_APPARIEMENT_MIN', '_FF_FENETRE_MS', '_calJourUTC', '_FF_ADJ_CTRY', '_ffCtry',
+  '_calBaseTokens', '_calMemeSujetAutrePeriode',
   '_calFusionFF'];
 let bloc;
 try { bloc = NOMS.map(extraire).join('\n'); }
@@ -507,6 +508,54 @@ console.log('\n── 12. Garde périodicité : un m/m ne récupère jamais les 
     const ligne = a(out, 'EUR', 'German Wholesale Price Index m/m');
     verif('même avec 2 mots communs (« wholesale », « price »), un y/y n\'est jamais apparié à un m/m',
       !!ligne && (ligne.actual === '' || ligne.actual == null), ligne && JSON.stringify(ligne && ligne.actual));
+  }
+
+  // ── 14. Un y/y natif de TradingView disparaît quand FF ne publie QUE le m/m ────────────────────
+  /* 18/09, capture utilisateur APRÈS le déploiement du verrou périodicité : « German PPI m/m » sur
+     forexfactory.com, « German PPI y/y » chez nous, même jour, même devise - le verrou 12/13
+     empêche désormais d'ATTRIBUER les mauvaises valeurs, mais la ligne y/y elle-même survivait
+     comme un rendez-vous à part entière que FF n'affiche pas. FF classe ce PPI m/m en impact LOW
+     (absent de `ff`, le tableau déjà filtré par tradabilité) : la preuve doit donc venir du flux
+     BRUT. Et VERROU 2 ne protège pas ce cas : avec seulement 2 rendez-vous EUR à fort impact ce
+     jour-là (ECOFIN, Eurogroup) et AUCUN qui s'apparie à TradingView, la santé d'appariement tombe
+     à 0 et le retrait normal se désarme - exactement le scénario mesuré en production. */
+  console.log('\n── 14. Un y/y natif de TradingView disparaît quand FF ne publie QUE le m/m ──');
+  {
+    FLUX = [
+      ffEv('EUR', 'German PPI m/m', h(8, 0), 'Low', { forecast: '0.4%' }),
+      ffEv('EUR', 'ECOFIN Meetings', h(0, 0), 'Medium', {}),
+      ffEv('EUR', 'Eurogroup Meetings', h(0, 0), 'Medium', {}),
+    ];
+    const tv = [tvEv('EUR', 'PPI YoY', h(8, 0), 'Medium', { actual: '4.6%', forecast: '4.1%', previous: '3%', ctry: 'DE' })];
+    const out = _calFusionFF(tv);
+    verif('le retrait normal est bien DÉSARMÉ dans ce scénario (témoin du contexte : rien ne s\'apparie)',
+      !!a(out, 'EUR', 'ECOFIN Meetings') && !!a(out, 'EUR', 'Eurogroup Meetings'), titres(out).join(' · '));
+    verif('… et pourtant, le y/y natif de TradingView est retiré (FF ne publie que le m/m ce jour-là)',
+      !a(out, 'EUR', 'PPI YoY'), titres(out).join(' · '));
+  }
+  // Témoin : sans AUCUNE trace de ce sujet côté FF ce jour-là, rien à comparer → pas de retrait injustifié.
+  {
+    FLUX = [
+      ffEv('EUR', 'ECOFIN Meetings', h(0, 0), 'Medium', {}),
+      ffEv('EUR', 'Eurogroup Meetings', h(0, 0), 'Medium', {}),
+      ffEv('EUR', 'Some Other Release', h(1, 0), 'Medium', {}),
+    ];
+    const tv = [tvEv('EUR', 'PPI YoY', h(8, 0), 'Medium', { actual: '4.6%', forecast: '4.1%', previous: '3%', ctry: 'DE' })];
+    const out = _calFusionFF(tv);
+    verif('témoin : sans aucune trace de PPI côté FF ce jour-là, le y/y natif reste affiché (rien à comparer)',
+      !!a(out, 'EUR', 'PPI YoY'), titres(out).join(' · '));
+  }
+  // Témoin pays : un PPI FRANÇAIS ne fait pas disparaître un PPI ALLEMAND sous la même devise EUR.
+  {
+    FLUX = [
+      ffEv('EUR', 'French PPI m/m', h(8, 0), 'Low', { forecast: '0.2%' }),
+      ffEv('EUR', 'ECOFIN Meetings', h(0, 0), 'Medium', {}),
+      ffEv('EUR', 'Eurogroup Meetings', h(0, 0), 'Medium', {}),
+    ];
+    const tv = [tvEv('EUR', 'PPI YoY', h(8, 0), 'Medium', { actual: '4.6%', forecast: '4.1%', previous: '3%', ctry: 'DE' })];
+    const out = _calFusionFF(tv);
+    verif('témoin pays : un PPI m/m FRANÇAIS ne fait pas disparaître un PPI y/y ALLEMAND (même devise, pays différents)',
+      !!a(out, 'EUR', 'PPI YoY'), titres(out).join(' · '));
   }
 
   /* ⚠️ LE BILAN EST À LA FIN, ET IL DOIT Y RESTER (01/09). Il était posé juste après la section 9,

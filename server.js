@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260918-calendrier-fantome', ts: Date.UTC(2026, 8, 18, 12, 30), title: 'Calendrier économique : une publication que forexfactory.com n’affiche pas ne s’affiche plus non plus chez nous', desc: 'Suite du correctif de ce matin sur German PPI. Il empêchait déjà d’attribuer le mauvais chiffre à la bonne case, mais la ligne fautive elle-même restait affichée comme un rendez-vous à part entière, absent de forexfactory.com ce jour-là. LA CAUSE. Notre fournisseur de temps réel publie parfois une seule des deux variantes d’un indicateur (l’annuelle, pas la mensuelle, par exemple) quand ForexFactory, lui, n’en publie qu’une seule aussi, mais l’autre. Sans contrepartie chez ForexFactory, cette variante isolée restait affichée comme si elle en faisait partie. CE QUI CHANGE. Une publication dont ForexFactory ne montre, ce jour-là, QUE l’autre variante du même indicateur n’est plus affichée : notre calendrier ne montre plus que ce que forexfactory.com montre, sans ligne fantôme en plus. Quatre contrôles automatiques rejouent ce scénario exact à chaque livraison, dont un témoin qui prouve que le retrait ne se déclenche jamais sans preuve directe (un pays différent sous la même devise, par exemple, ne fait disparaître aucune ligne).' },
   { id: 'dtpu-20260918-calendrier-mm-yy', ts: Date.UTC(2026, 8, 18, 8, 0), title: 'Calendrier économique : un chiffre mensuel ne peut plus emprunter celui de l’annuel', desc: 'Vous nous avez signalé, capture à l’appui, un IPP allemand mensuel affichant 4,6%, très loin du chiffre publié ailleurs. Vérification faite : ce 4,6% existait bel et bien dans nos données, mais il appartenait à la publication ANNUELLE du même indicateur, pas à la mensuelle affichée. LA CAUSE, MESURÉE. Quand notre fournisseur de temps réel ne publie qu’UNE seule des deux périodicités d’un indicateur ce jour-là (ici l’annuel, pas le mensuel), notre rattrapage de résultats cherchait le candidat le plus proche par mots-clés communs. Un seul mot partagé, le nom de l’indicateur, suffisait à le déclarer valable, sans jamais vérifier si les deux publications portaient sur la même durée. Une variation mensuelle et une variation annuelle du même indicateur n’ont pourtant rien de comparable en grandeur. CE QUI CHANGE. Un chiffre mensuel ne peut plus être servi sous un intitulé annuel, ni l’inverse : les deux périodicités sont désormais distinguées avant tout rapprochement, à la fois dans le rattrapage de résultats et dans la fusion avec le calendrier de référence. Quand seule l’autre périodicité est disponible, la case reste simplement vide plutôt que de montrer un chiffre qui n’est pas le bon. Six contrôles automatiques rejouent ce scénario exact à chaque livraison, dont deux témoins qui prouvent que sans cette garde, le défaut revient.' },
   { id: 'dtpu-20260917-analyse-fr', ts: Date.UTC(2026, 8, 17, 22, 45), title: 'Fil d’actualité : le bouton « Analyse » d’une news pouvait rester en anglais', desc: 'Signalé par une capture d’écran : sur une actualité, le bouton « Info » affichait un résumé en français mais le bouton « Analyse » de la même actualité affichait un paragraphe entièrement en anglais. La cause : la consigne de rédaction demande bien le français au modèle qui écrit cette analyse, mais rien ne vérifiait ensuite qu’il avait obéi. Le jour où un fournisseur de secours l’ignorait, le résultat anglais était conservé durablement et servi tel quel, sans nouvelle tentative. Corrigé : une analyse qui n’est pas en français est désormais écartée plutôt qu’affichée telle quelle, exactement comme pour les autres textes du desk qui suivent déjà cette règle.' },
   { id: 'dtpu-20260917-taux-nzd-relevee', ts: Date.UTC(2026, 8, 17, 21, 30), title: 'Onglet Taux : le taux directeur néo-zélandais était resté à l’ancienne décision', desc: 'Vérification demandée sur l’ensemble des huit banques centrales, sources croisées. Sept étaient exactes. La huitième, la Banque de réserve de Nouvelle-Zélande, ne l’était plus : sa carte affichait encore 2,50%, le niveau fixé le 8 juillet. Or la Banque a relevé son taux directeur d’un quart de point le 2 septembre, à 2,75%, comme elle l’avait déjà signalé possible. La Nouvelle-Zélande et la Suisse sont les deux seules banques dont le pricing de marché n’est pas accessible gratuitement chez notre fournisseur : leur carte s’appuie donc sur une estimation du desk, mise à jour à la main à chaque décision plutôt qu’en continu comme les six autres. Cette décision du 2 septembre n’avait pas été reportée. Corrigé : 2,75%, avec la date de la décision. La Suisse, elle, n’a pas encore eu de nouvelle réunion depuis notre dernière vérification : son taux restait exact.' },
@@ -5964,6 +5965,45 @@ function _ffCtry(title) {
   const m = String(title || '').trim().match(/^([A-Za-z]+)\b/);
   return (m && _FF_ADJ_CTRY[m[1].toLowerCase()]) || '';
 }
+/* MÊME SUJET, AUTRE PÉRIODICITÉ QUE TOUT CE QUE FOREXFACTORY PUBLIE CE JOUR-LÀ (18/09, suite du
+   correctif du même jour sur _refreshTVActualsInner). Ce verrou-là empêche d'ATTRIBUER les valeurs
+   d'un y/y à un m/m ; un second défaut restait : quand ForexFactory ne liste, pour un indicateur
+   donné, QUE le m/m (jamais le y/y), un y/y purement natif de TradingView continuait d'apparaître
+   comme une ligne à part entière — un rendez-vous que forexfactory.com n'affiche pas du tout.
+   Capture utilisateur : « German PPI m/m » sur forexfactory.com, « German PPI y/y » chez nous, même
+   jour, même devise — deux calendriers qui ne se ressemblent plus, contre la décision du 01/09
+   (« la source du calendrier, c'est ForexFactory »).
+   VERROU 2 plus bas ne protège pas ce cas : il désarme le retrait pour TOUTE la journée dès qu'assez
+   d'AUTRES rendez-vous ne s'apparient pas (réunions, ECOFIN…) — une preuve AGRÉGÉE sur la journée,
+   pas une preuve sur CETTE ligne précise. Ici la preuve est directe, lue sur le flux BRUT de FF
+   (`brut`, pas `ff` qui a déjà écarté les impacts faibles — un PPI m/m noté Low par FF compte quand
+   même comme preuve que FF a tranché sur ce sujet) : si FF publie CE MÊME indicateur sous UNE
+   périodicité, une ligne TradingView de la MÊME famille sous une AUTRE périodicité n'est pas un
+   rendez-vous distinct que FF endosse — c'est l'autre face d'un indicateur que FF a choisi de ne
+   montrer que d'un seul côté. Elle sort, INDÉPENDAMMENT de la santé d'appariement de VERROU 2. */
+function _calBaseTokens(tok) { const b = new Set(tok); b.delete('mom'); b.delete('yoy'); b.delete('qoq'); return b; }
+/* Seuil ≥ 1, pas ≥ 2 comme le reste du fichier : TradingView ne porte jamais le pays dans son
+   titre (« PPI YoY », jamais « German PPI YoY »), donc face à un « German PPI m/m » de FF, seul
+   « ppi » reste commun une fois la périodicité écartée — un score de 2 ne serait ATTEIGNABLE que
+   pour les indicateurs à deux mots distinctifs (cf. section 13). Le seuil de 1 reste sûr ici
+   parce que la preuve est déjà étroitement bornée par ailleurs : même devise, même JOUR, et
+   périodicité EXPLICITEMENT différente des deux côtés — et parce que le pays, quand les deux
+   côtés le portent, doit en plus concorder (ligne suivante). */
+function _calMemeSujetAutrePeriode(brut, c, jour) {
+  const pc = _calPeriode(c.tok);
+  if (!pc) return false;
+  const bc = _calBaseTokens(c.tok);
+  const ctryC = (c.e && c.e.ctry) || '';
+  return brut.some(e => {
+    if (!e || e.currency !== c.e.currency || _calJourUTC(e.timestamp) !== jour) return false;
+    const ctryE = _ffCtry(e.title);
+    if (ctryC && ctryE && ctryC !== ctryE) return false;   // même devise, pays différents (DE vs FR sous EUR)
+    const tokE = _calTitleTokens(e.title);
+    const pe = _calPeriode(tokE);
+    if (!pe || pe === pc) return false;
+    return _calOverlap(bc, _calBaseTokens(tokE)) >= 1;
+  });
+}
 function _calFusionFF(tvItems) {
   const tvIn = Array.isArray(tvItems) ? tvItems : [];
   let brut = [];
@@ -6039,8 +6079,9 @@ function _calFusionFF(tvItems) {
   for (const c of tv) {
     if (c.pris || !c.e) continue;
     const j = _calJourUTC(c.e.timestamp);
-    const arbitre = arme && joursFF.has(j) && couvert.has(j + '|' + c.e.currency)
-      && !_CAL_VITAL_RX.test(c.e.title || '');             // VERROU 3 — les vitaux ne sont jamais retirés
+    if (_CAL_VITAL_RX.test(c.e.title || '')) { sortie.push(c.e); continue; }   // VERROU 3 — les vitaux ne sont jamais retirés
+    const arbitre = (arme && joursFF.has(j) && couvert.has(j + '|' + c.e.currency))
+      || _calMemeSujetAutrePeriode(brut, c, j);            // preuve directe, même hors santé de journée (cf. commentaire ci-dessus)
     if (!arbitre) sortie.push(c.e);
   }
   /* LES VALEURS NE SE PERDENT PAS EN CHEMIN. Une ligne venue de FF arrive le plus souvent SANS
