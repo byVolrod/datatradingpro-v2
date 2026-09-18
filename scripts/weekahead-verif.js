@@ -431,13 +431,20 @@ verif('révision annuelle du NFP ramenée au rang 1', W.poidsMajeur({ title: 'No
 verif('Jackson Hole = point d\'orgue', W.poidsMajeur({ title: 'Fed Chair Powell Speech at Jackson Hole' }) >= 5);
 verif('un chiffre ordinaire ne pèse rien', W.poidsMajeur({ title: 'Retail Sales MoM' }) === 0);
 
-console.log('\n── 9. Repêchage des rendez-vous sous-cotés : appliqué À LA SOURCE ──');
-// Le repêchage a longtemps été du CODE MORT : il testait les vitaux APRÈS le filtre High/Medium,
-// donc sur une liste dont ils avaient déjà été retirés. On vérifie qu'il est bien dans le filtre.
+console.log('\n── 9. Repêchage des rendez-vous sous-cotés : plus nécessaire, tout le calendrier est repêché ──');
+/* Historique : le repêchage a longtemps été du CODE MORT (il testait les vitaux APRÈS le filtre
+   High/Medium, sur une liste dont ils avaient déjà été retirés), puis réparé À LA SOURCE (le filtre
+   lui-même appelait _CAL_VITAL_RX pour ne pas les écarter). Le 18/09 (demande user explicite :
+   « élargir je veux faible moyens et grand comme forexfactory »), le filtre d'impact a été retiré
+   ENTIÈREMENT de _buildTVCalendar/Range : plus aucun événement, vital ou non, n'est jamais écarté sur
+   son impact — le repêchage n'a donc plus de filtre à contourner. Ce contrôle vérifie que le filtre
+   est bien PARTI (pas juste déplacé) et que `_calVitalLift` (qui RELÈVE encore l'impact AFFICHÉ des
+   vitaux, indépendamment de tout filtre) tourne toujours sur le flux ENTIER. */
 const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
-const filtre = (src.match(/(?:const|let) items = evs\.filter\([^\n]*/) || [''])[0];   // `let` depuis le 01/09 : la liste est réassignée par la fusion ForexFactory (_calFusionFF)
-verif('le filtre du calendrier repêche les vitaux (Jackson Hole, discours, minutes, OPEP)',
-  /_CAL_VITAL_RX/.test(filtre), filtre.slice(0, 150));
+verif('_buildTVCalendar ne filtre plus par impact (parité ForexFactory, tout entre)',
+  /let items = evs\.map\(_calVitalLift\)/.test(src));
+verif('_buildTVCalendarRange non plus (les flèches ‹ › disent la même chose que la vue courante)',
+  /let items = raw\.map\(_calVitalLift\)/.test(src));
 verif('la Semaine à Venir range les événements au jour civil de PARIS',
   /_jourParis\(e\.timestamp\)/.test(src));
 verif('la Semaine à Venir passe par _calFfNames (noms ForexFactory)', /const up = _calFfNames\(upBrut\)/.test(src));

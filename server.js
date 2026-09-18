@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260918-calendrier-parite', ts: Date.UTC(2026, 8, 18, 13, 0), title: 'Calendrier économique : parité totale avec forexfactory.com, tous impacts confondus', desc: 'Suite des deux correctifs de ce matin. Le calendrier ne reprenait jusqu’ici que les rendez-vous que ForexFactory classe en impact moyen ou fort : un rendez-vous publié en impact faible sur forexfactory.com - comme le PPI allemand mensuel évoqué plus tôt aujourd’hui - n’apparaissait jamais chez nous, même une fois corrigé le défaut du matin. CE QUI CHANGE. Le calendrier reprend désormais TOUT ce que publie forexfactory.com, faible impact compris, avec le même niveau d’impact affiché qu’en face. Vous verrez donc sensiblement plus de lignes qu’avant, sur toutes les devises : discours secondaires, publications mineures, tout ce qui figure sur la page de référence. Les autres widgets du desk (Radar de Biais, Semaine à Venir, alertes) continuent de ne retenir que les rendez-vous réellement significatifs pour le trading, exactement comme avant : seul l’onglet Calendrier s’aligne sur la totalité de ForexFactory.' },
   { id: 'dtpu-20260918-calendrier-fantome', ts: Date.UTC(2026, 8, 18, 12, 30), title: 'Calendrier économique : une publication que forexfactory.com n’affiche pas ne s’affiche plus non plus chez nous', desc: 'Suite du correctif de ce matin sur German PPI. Il empêchait déjà d’attribuer le mauvais chiffre à la bonne case, mais la ligne fautive elle-même restait affichée comme un rendez-vous à part entière, absent de forexfactory.com ce jour-là. LA CAUSE. Notre fournisseur de temps réel publie parfois une seule des deux variantes d’un indicateur (l’annuelle, pas la mensuelle, par exemple) quand ForexFactory, lui, n’en publie qu’une seule aussi, mais l’autre. Sans contrepartie chez ForexFactory, cette variante isolée restait affichée comme si elle en faisait partie. CE QUI CHANGE. Une publication dont ForexFactory ne montre, ce jour-là, QUE l’autre variante du même indicateur n’est plus affichée : notre calendrier ne montre plus que ce que forexfactory.com montre, sans ligne fantôme en plus. Quatre contrôles automatiques rejouent ce scénario exact à chaque livraison, dont un témoin qui prouve que le retrait ne se déclenche jamais sans preuve directe (un pays différent sous la même devise, par exemple, ne fait disparaître aucune ligne).' },
   { id: 'dtpu-20260918-calendrier-mm-yy', ts: Date.UTC(2026, 8, 18, 8, 0), title: 'Calendrier économique : un chiffre mensuel ne peut plus emprunter celui de l’annuel', desc: 'Vous nous avez signalé, capture à l’appui, un IPP allemand mensuel affichant 4,6%, très loin du chiffre publié ailleurs. Vérification faite : ce 4,6% existait bel et bien dans nos données, mais il appartenait à la publication ANNUELLE du même indicateur, pas à la mensuelle affichée. LA CAUSE, MESURÉE. Quand notre fournisseur de temps réel ne publie qu’UNE seule des deux périodicités d’un indicateur ce jour-là (ici l’annuel, pas le mensuel), notre rattrapage de résultats cherchait le candidat le plus proche par mots-clés communs. Un seul mot partagé, le nom de l’indicateur, suffisait à le déclarer valable, sans jamais vérifier si les deux publications portaient sur la même durée. Une variation mensuelle et une variation annuelle du même indicateur n’ont pourtant rien de comparable en grandeur. CE QUI CHANGE. Un chiffre mensuel ne peut plus être servi sous un intitulé annuel, ni l’inverse : les deux périodicités sont désormais distinguées avant tout rapprochement, à la fois dans le rattrapage de résultats et dans la fusion avec le calendrier de référence. Quand seule l’autre périodicité est disponible, la case reste simplement vide plutôt que de montrer un chiffre qui n’est pas le bon. Six contrôles automatiques rejouent ce scénario exact à chaque livraison, dont deux témoins qui prouvent que sans cette garde, le défaut revient.' },
   { id: 'dtpu-20260917-analyse-fr', ts: Date.UTC(2026, 8, 17, 22, 45), title: 'Fil d’actualité : le bouton « Analyse » d’une news pouvait rester en anglais', desc: 'Signalé par une capture d’écran : sur une actualité, le bouton « Info » affichait un résumé en français mais le bouton « Analyse » de la même actualité affichait un paragraphe entièrement en anglais. La cause : la consigne de rédaction demande bien le français au modèle qui écrit cette analyse, mais rien ne vérifiait ensuite qu’il avait obéi. Le jour où un fournisseur de secours l’ignorait, le résultat anglais était conservé durablement et servi tel quel, sans nouvelle tentative. Corrigé : une analyse qui n’est pas en français est désormais écartée plutôt qu’affichée telle quelle, exactement comme pour les autres textes du desk qui suivent déjà cette règle.' },
@@ -6020,11 +6021,16 @@ function _calFusionFF(tvItems) {
   const joursFF = new Set([...parJour.entries()].filter(([, n]) => n >= _FF_JOUR_MIN).map(([j]) => j));
   if (!joursFF.size) return tvIn;
 
-  // Mêmes règles de tradabilité que pour TradingView : on change d'où vient le calendrier, pas ce
-  // qu'un calendrier contient.
+  /* PARITÉ TOTALE AVEC FOREXFACTORY (18/09, demande user explicite : « élargir je veux faible moyens
+     et grand comme forexfactory »). Jusqu'ici, seuls les rendez-vous Medium/High de FF entraient dans
+     `ff` — un PPI allemand noté Low par FF n'y figurait jamais, ce qui a produit le défaut du jour
+     même (une ligne TradingView sans contrepartie FF restait affichée faute de jumelle FF à comparer).
+     Élargir à TOUT ce que le flux BRUT de FF publie (Low compris) ferme cette classe de défaut à la
+     racine : FF exclut déjà de son flux tout ce qu'il classe « Non-Economic » (cf. commentaire plus
+     haut), donc `brut` ne contient QUE ce que FF juge assez économique pour être publié - il n'y a
+     plus de filtre de tradabilité À NOUS à lui superposer. */
   const ff = brut
-    .filter(e => joursFF.has(_calJourUTC(e.timestamp))
-      && (e.impact === 'High' || e.impact === 'Medium' || _CAL_VITAL_RX.test(e.title)))
+    .filter(e => joursFF.has(_calJourUTC(e.timestamp)))
     .map(_calVitalLift)
     .map(e => ({
       id: 'ff-' + Buffer.from(e.title + '|' + e.currency + '|' + _calJourUTC(e.timestamp)).toString('base64').slice(0, 18),
@@ -6108,7 +6114,12 @@ async function _buildTVCalendar(force) {
     if (!_tvCalCache.items.length) { try { const seul = _calFusionFF([]); if (seul.length) return seul; } catch {} }
     return _tvCalCache.items;
   }
-  let items = evs.filter(e => e.impact === 'High' || e.impact === 'Medium' || _CAL_VITAL_RX.test(e.title || '')).map(_calVitalLift).map(e => ({   // événements tradables + rendez-vous vitaux sous-cotés (cf. _CAL_VITAL_RX)
+  /* PARITÉ TOTALE AVEC FOREXFACTORY (18/09, demande user) : plus de filtre High/Medium ici — TOUT ce
+     que TradingView publie (Low compris) entre désormais dans le pool de candidats. C'est `_calFusionFF`
+     qui, juste en dessous, décide au final quoi garder d'après ce que ForexFactory publie RÉELLEMENT ;
+     restreindre ICI reviendrait à empêcher un rendez-vous Low de FF de trouver sa jumelle TradingView
+     (values réelles) plutôt que de rester à sec sur le seul repli `_calActualsMap`. */
+  let items = evs.map(_calVitalLift).map(e => ({
     id: 'tv-' + Buffer.from(e.title + '|' + e.currency + '|' + (e.country || '') + '|' + new Date(e.ts).toISOString().slice(0, 10)).toString('base64').slice(0, 18),   // le PAYS fait partie de l'identité : DE et FR publient le MÊME intitulé le MÊME jour sous la devise EUR
     timestamp: e.ts,
     time: new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
@@ -6122,17 +6133,10 @@ async function _buildTVCalendar(force) {
   return items;
 }
 // ── HISTORIQUE NAVIGABLE (flèches ‹ › du calendrier desk) : fenêtre = [now − N mois*31j … now + 10j].
-// N ∈ {1,2,3} (max 3 mois en arrière). Même mapping que _buildTVCalendar (High/Medium tradables). Cache 4 min par niveau.
+// N ∈ {1,2,3} (max 3 mois en arrière). Même mapping que _buildTVCalendar (parité ForexFactory, tout impact). Cache 4 min par niveau.
 const _tvRangeCache = new Map();   // N → { ts, items }
 // Jours d'historique par niveau (≈ 2 / 2,5 / 3 mois). Tous > la fenêtre hist interne (60 j) → chaque flèche recule VISIBLEMENT.
 const _RANGE_DAYS = { 1: 67, 2: 80, 3: 92, 4: 122, 5: 155, 6: 190 };   // 6 mois (demande user : historique 6 mois pour des tendances fiables)
-/* SÉRIES VITALES CLASSÉES « LOW » PAR TRADINGVIEW (correctif 12/08, trou NZD) : la Nouvelle-Zélande
-   publie son IPC au TRIMESTRE et TradingView met le QoQ en Medium… mais le YoY — le seul comparable
-   à la cible de la RBNZ — en LOW. Le filtre High/Medium ci-dessous l'écartait donc à chaque fois :
-   le Radar de Biais n'a JAMAIS pu calculer le niveau d'inflation NZD (null depuis l'origine).
-   On repêche les publications Low dont le titre est une série de NIVEAU annuel d'inflation — regex
-   volontairement ÉTROITE : il s'agit de combler un trou de données, pas de rouvrir le robinet Low. */
-const _CAL_LOW_VITAL_RX = /\b(?:core\s+)?(?:inflation\s+rate|cpi|hicp)\s+yoy\b|consumer price index.*yoy/i;
 async function _buildTVCalendarRange(backMonths) {
   backMonths = Math.max(1, Math.min(6, backMonths | 0));   // jusqu'à 6 mois (demande user)
   const hit = _tvRangeCache.get(backMonths);
@@ -6154,7 +6158,9 @@ async function _buildTVCalendarRange(backMonths) {
   // Fenêtre HONNÊTE : les tranches de grille débordent [startMs, endMs] → on reclippe exactement sur la plage demandée.
   const raw = [...seen.values()].filter(e => e.ts >= startMs && e.ts <= endMs);
   if (!raw.length) return (hit && hit.items) || [];
-  let items = raw.filter(e => e.impact === 'High' || e.impact === 'Medium' || _CAL_LOW_VITAL_RX.test(e.title || '') || _CAL_VITAL_RX.test(e.title || '')).map(_calVitalLift).map(e => ({
+  // PARITÉ TOTALE AVEC FOREXFACTORY (18/09) : même levée du filtre High/Medium que dans _buildTVCalendar
+  // ci-dessus — les flèches ‹ › de l'historique doivent dire la même chose que la vue courante.
+  let items = raw.map(_calVitalLift).map(e => ({
     id: 'tv-' + Buffer.from(e.title + '|' + e.currency + '|' + (e.country || '') + '|' + new Date(e.ts).toISOString().slice(0, 10)).toString('base64').slice(0, 18),   // le PAYS fait partie de l'identité : DE et FR publient le MÊME intitulé le MÊME jour sous la devise EUR
     timestamp: e.ts,
     time: new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),

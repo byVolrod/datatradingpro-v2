@@ -558,6 +558,30 @@ console.log('\n── 12. Garde périodicité : un m/m ne récupère jamais les 
       !!a(out, 'EUR', 'PPI YoY'), titres(out).join(' · '));
   }
 
+  // ── 15. PARITÉ TOTALE : un rendez-vous FAIBLE IMPACT publié par ForexFactory entre au calendrier ──
+  /* 18/09, demande utilisateur explicite après le correctif de la ligne fantôme : « élargir je veux
+     faible moyens et grand comme forexfactory ». Avant ce jour, `ff` (le tableau construit depuis le
+     flux BRUT de FF) n'acceptait que Medium/High : un rendez-vous que forexfactory.com publie bien,
+     mais en impact Low, n'entrait JAMAIS dans le calendrier du desk — c'est exactement ce qui a fait
+     disparaître German PPI m/m en production, après le correctif précédent (section 14). Le filtre est
+     désormais retiré : TOUT ce que le flux BRUT de FF publie (FF exclut déjà lui-même le
+     « Non-Economic » à la source, cf. le commentaire au-dessus de `_calFusionFF`) entre au calendrier,
+     quel que soit son impact. */
+  console.log('\n── 15. Parité totale : un rendez-vous faible impact publié par ForexFactory entre au calendrier ──');
+  {
+    FLUX = [
+      ffEv('EUR', 'German PPI m/m', h(8, 0), 'Low', { forecast: '0.4%' }),
+      ffEv('EUR', 'ECOFIN Meetings', h(0, 0), 'Medium', {}),
+      ffEv('EUR', 'Eurogroup Meetings', h(0, 0), 'Medium', {}),
+    ];
+    const out = _calFusionFF([]);   // TradingView muet ce jour-là : ne doit RIEN changer à ce que FF publie
+    verif('un rendez-vous Low de ForexFactory (German PPI m/m) apparaît désormais au calendrier',
+      !!a(out, 'EUR', 'German PPI m/m'), titres(out).join(' · '));
+    const ligne = a(out, 'EUR', 'German PPI m/m');
+    verif('… avec son impact d\'origine conservé (Low, pas relevé artificiellement)',
+      !!ligne && ligne.impact === 'Low', ligne && ligne.impact);
+  }
+
   /* ⚠️ LE BILAN EST À LA FIN, ET IL DOIT Y RESTER (01/09). Il était posé juste après la section 9,
      donc AVANT les sections 10 et 11 : leurs échecs s'affichaient à l'écran mais le banc sortait
      quand même en 0 (le `process.exit` était déjà passé) — un banc vert sur un desk cassé,
