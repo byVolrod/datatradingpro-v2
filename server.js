@@ -6437,6 +6437,10 @@ setInterval(() => { if (_calRangeDirty) { _calRangeDirty = false; const o = {}; 
 setTimeout(() => _calEnsureRanges().catch(() => {}), 25000);   // 1er passage peu après le démarrage
 
 app.get('/api/calendar-events', async (req, res) => {
+  // Optimisation « cache-calendrier » (réversible, pilotée depuis le panneau Performance) : évite au
+  // navigateur de re-télécharger les ~405 Ko à chaque ouverture de vue. 60 s = frais côté marché,
+  // et le desk fait de toute façon un fetch neuf après. Désactivable instantanément (retour arrière).
+  try { if (_perfOpt && _perfOpt['cache-calendrier']) res.set('Cache-Control', 'private, max-age=60'); } catch {}
   // NAVIGATION HISTORIQUE (flèches ‹ › du desk) : ?back=1|2|3 → fenêtre étendue jusqu'à 3 mois en arrière.
   // Fenêtre PURE à la plage demandée (pas de fusion _calHist, qui n'a que la dernière valeur par indicateur).
   const back = Math.max(0, Math.min(3, parseInt(req.query.back, 10) || 0));
@@ -8330,6 +8334,132 @@ app.post('/api/admin/disque/liberer', requireSameOrigin, requireAdmin, async (re
 app.get('/api/admin/disque', requireAdmin, (_req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({ ..._disqueEtat, seuils: _DISQUE_SEUILS, seuilsEffectifs: _disqueSeuilsEff(), planchersGo: _DISQUE_GO, previsionJours: _DISQUE_PREVISION_J, nettoyages: _disqueNettoyages(), incidents: _disqueIncidents(), recuperable: _disqueRecuperable() });
+});
+/* ═══ PERFORMANCE INTELLIGENTE — DÉTECTER LA LENTEUR DE NAVIGATION, PROPOSER, CORRIGER (SÛR) ═══════
+   Les mesures serveur sont bonnes (~0,2 s, cache mémoire, aucun waterfall) : la lenteur ressentie
+   vit CÔTÉ CLIENT. On la collecte donc là où elle se produit, via public/js/perf-beacon.js, qui
+   envoie ici un RÉSUMÉ agrégé (noms de vues, chemins d'API, millisecondes — rien de personnel).
+
+   ⚠️ CE MODULE NE RÉÉCRIT JAMAIS DE CODE. Le « bouton corrige » n'applique QUE des optimisations
+   d'une LISTE BLANCHE, toutes RÉVERSIBLES par un simple drapeau de configuration (jamais une
+   modification de source à chaud, ingérable et dangereuse sur un desk de trading). Chaque
+   application note un instantané AVANT, et un retour arrière est toujours possible. */
+const _PERF_F = path.join(_CACHE_DIR, 'perf_beacon.json');
+const _PERF_OPT_F = path.join(_CACHE_DIR, 'perf_optims.json');
+const _PERF_HIST_F = path.join(_CACHE_DIR, 'perf_historique.json');
+let _perf = { views: {}, api: {}, longtasks: { n: 0, ms: 0 }, samples: 0, maj: 0 };
+try { _perf = Object.assign(_perf, JSON.parse(fs.readFileSync(_PERF_F, 'utf8')) || {}); } catch {}
+let _perfOpt = {};
+try { _perfOpt = JSON.parse(fs.readFileSync(_PERF_OPT_F, 'utf8')) || {}; } catch {}
+let _perfHist = [];
+try { _perfHist = JSON.parse(fs.readFileSync(_PERF_HIST_F, 'utf8')) || []; } catch {}
+let _perfMajTimer = 0;
+
+// Fusionne un beacon. Bornes DURES sur le nombre de clés : la télémétrie ne doit jamais grossir sans fin.
+function _perfMerge(b) {
+  if (!b || typeof b !== 'object') return;
+  _perf.samples++;
+  const fold = (dst, src, cap) => {
+    if (!src || typeof src !== 'object') return;
+    for (const k of Object.keys(src)) {
+      const s = src[k]; if (!s || typeof s !== 'object') continue;
+      const d = dst[k] || (dst[k] = { n: 0, ms: 0, msMax: 0, dup: 0, err: 0 });
+      d.n += (+s.n || 0); d.ms += (+s.ms || 0); d.msMax = Math.max(d.msMax || 0, +s.msMax || 0);
+      d.dup += (+s.dup || 0); d.err += (+s.err || 0);
+    }
+    // borne : on ne garde que les `cap` clés les plus SOLLICITÉES (celles qui comptent pour la perf)
+    const keys = Object.keys(dst);
+    if (keys.length > cap) { keys.sort((a, b2) => dst[b2].n - dst[a].n).slice(cap).forEach(k => delete dst[k]); }
+  };
+  fold(_perf.views, b.views, 80);
+  fold(_perf.api, b.api, 120);
+  if (b.longtasks) { _perf.longtasks.n += (+b.longtasks.n || 0); _perf.longtasks.ms += (+b.longtasks.ms || 0); }
+  _perf.maj = Date.now();
+  // Persistance throttlée (le fichier est petit et borné) — jamais plus d'une écriture / 10 s.
+  if (Date.now() - _perfMajTimer > 10000) { _perfMajTimer = Date.now(); try { fs.writeFileSync(_PERF_F, JSON.stringify(_perf)); } catch {} }
+}
+
+// Analyse : transforme les mesures en constats CLASSÉS, avec cause et recommandation. Heuristiques
+// délibérément prudentes (il faut un minimum d'échantillons) — un faux positif use la confiance.
+function _perfAnalyse() {
+  const out = [];
+  const moy = (o) => o.n ? o.ms / o.n : 0;
+  for (const [nom, v] of Object.entries(_perf.views)) {
+    if (v.n < 3) continue;
+    if (moy(v) > 800 || v.msMax > 2500) out.push({ gravite: moy(v) > 1500 ? 'haute' : 'moyenne', categorie: 'vue-lente',
+      cible: nom, mesure: 'ouverture ' + Math.round(moy(v)) + ' ms (max ' + Math.round(v.msMax) + ' ms) sur ' + v.n + ' navigations',
+      cause: 'rendu de vue coûteux (grille/graphiques) ou données rechargées à l’ouverture',
+      recommandation: 'mémoriser le rendu et ne rafraîchir qu’en tâche de fond', auto: null });
+  }
+  for (const [path2, a] of Object.entries(_perf.api)) {
+    if (a.n < 3) continue;
+    if (moy(a) > 500) out.push({ gravite: moy(a) > 1200 ? 'haute' : 'moyenne', categorie: 'api-lente',
+      cible: path2, mesure: Math.round(moy(a)) + ' ms de moyenne (max ' + Math.round(a.msMax) + ' ms)', cause: 'traitement backend ou payload lourd',
+      recommandation: 'cache serveur / réduction du payload', auto: _perfOptDispo(path2) });
+    if (a.dup >= 3 && a.dup / a.n > 0.2) out.push({ gravite: 'moyenne', categorie: 'appels-dupliques',
+      cible: path2, mesure: a.dup + ' doublons sur ' + a.n + ' appels (même chemin en <2 s)', cause: 'plusieurs déclencheurs appellent le même endpoint à l’ouverture',
+      recommandation: 'dédoublonner / throttle côté client', auto: null });
+    if (a.err > 0 && a.err / a.n > 0.05) out.push({ gravite: 'haute', categorie: 'erreurs', cible: path2,
+      mesure: a.err + ' échecs sur ' + a.n + ' appels', cause: 'timeout, 5xx, ou endpoint indisponible', recommandation: 'inspecter le handler / les délais', auto: null });
+    if (_perf.samples >= 5 && a.n / _perf.samples > 30) out.push({ gravite: 'basse', categorie: 'polling-frequent',
+      cible: path2, mesure: (a.n / _perf.samples).toFixed(1) + ' appels par session', cause: 'polling ou refetch trop fréquent',
+      recommandation: 'espacer le rafraîchissement / servir depuis le cache', auto: null });
+  }
+  if (_perf.samples >= 5 && _perf.longtasks.ms / _perf.samples > 1500) out.push({ gravite: 'moyenne', categorie: 'taches-longues',
+    cible: 'thread principal', mesure: Math.round(_perf.longtasks.ms / _perf.samples) + ' ms de tâches longues par session', cause: 'JS synchrone lourd au rendu (re-renders, gros parse)',
+    recommandation: 'découper le travail / rendre asynchrone', auto: null });
+  const rang = { haute: 0, moyenne: 1, basse: 2 };
+  return out.sort((x, y) => rang[x.gravite] - rang[y.gravite]);
+}
+
+/* LISTE BLANCHE des optimisations SÛRES et RÉVERSIBLES (config seule, jamais de code). Chacune :
+   `s'applique-t-elle à cette cible ?`, `applique`, `annule` — toutes idempotentes. */
+const _PERF_OPTIMS = {
+  'cache-calendrier': {
+    titre: 'Cache HTTP court sur /api/calendar-events (payload de 405 Ko)',
+    concerne: (p) => p === '/api/calendar-events',
+    detail: 'Ajoute Cache-Control: private, max-age=60 → le navigateur ne re-télécharge pas les 405 Ko à chaque ouverture de vue pendant 60 s. Réversible instantanément.',
+  },
+};
+function _perfOptDispo(path2) { for (const [id, o] of Object.entries(_PERF_OPTIMS)) { if (o.concerne(path2)) return id; } return null; }
+
+// Applique/annule une optimisation de la liste blanche, avec instantané AVANT et journal (borné).
+function _perfHistPush(rec) { _perfHist.unshift(rec); if (_perfHist.length > 200) _perfHist.length = 200; try { fs.writeFileSync(_PERF_HIST_F, JSON.stringify(_perfHist)); } catch {} }
+function _perfAvant(id) {
+  const o = _PERF_OPTIMS[id]; if (!o) return null;
+  for (const [p, a] of Object.entries(_perf.api)) { if (o.concerne(p)) return { cible: p, moyMs: a.n ? Math.round(a.ms / a.n) : null, n: a.n }; }
+  return { cible: null, moyMs: null, n: 0 };
+}
+function _perfSetOpt(id, on) {
+  if (!_PERF_OPTIMS[id]) return false;
+  _perfOpt[id] = !!on; try { fs.writeFileSync(_PERF_OPT_F, JSON.stringify(_perfOpt)); } catch {}
+  _perfHistPush({ t: Date.now(), id, titre: _PERF_OPTIMS[id].titre, action: on ? 'appliquée' : 'retour arrière', avant: on ? _perfAvant(id) : null, statut: on ? 'active' : 'annulée' });
+  return true;
+}
+
+// ── ENDPOINTS ────────────────────────────────────────────────────────────────────────────────
+// La balise de N'IMPORTE QUEL membre connecté remonte ici (c'est la VRAIE navigation qu'on veut voir).
+app.post('/api/perf/beacon', (req, res) => { try { _perfMerge(req.body); } catch {} res.status(204).end(); });
+// Lecture réservée à l'admin : un abonné n'a rien à voir de la télémétrie interne.
+app.get('/api/admin/perf', requireAuth, requireAdmin, (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ samples: _perf.samples, maj: _perf.maj, views: _perf.views, api: _perf.api, longtasks: _perf.longtasks,
+    constats: _perfAnalyse(), optims: Object.entries(_PERF_OPTIMS).map(([id, o]) => ({ id, titre: o.titre, detail: o.detail, active: !!_perfOpt[id] })),
+    historique: _perfHist.slice(0, 40) });
+});
+app.post('/api/admin/perf/apply', requireSameOrigin, requireAuth, requireAdmin, (req, res) => {
+  const id = req.body && req.body.id; if (!_perfSetOpt(id, true)) return res.status(400).json({ error: 'optimisation inconnue' });
+  res.json({ ok: true, id, avant: _perfAvant(id) });
+});
+app.post('/api/admin/perf/revert', requireSameOrigin, requireAuth, requireAdmin, (req, res) => {
+  const id = req.body && req.body.id; if (!_perfSetOpt(id, false)) return res.status(400).json({ error: 'optimisation inconnue' });
+  res.json({ ok: true, id });
+});
+// Réinitialise les mesures (repartir sur une fenêtre propre après une optimisation).
+app.post('/api/admin/perf/reset', requireSameOrigin, requireAuth, requireAdmin, (_req, res) => {
+  _perf = { views: {}, api: {}, longtasks: { n: 0, ms: 0 }, samples: 0, maj: Date.now() };
+  try { fs.writeFileSync(_PERF_F, JSON.stringify(_perf)); } catch {}
+  res.json({ ok: true });
 });
 // Filet de secours OK ? → l'utilisateur n'est IMPACTÉ que si le repli 0-token/cache est lui-même KO.
 // Conditions réelles « on ne peut plus rien servir » : feed news cassé OU cache durable (KV) injoignable.

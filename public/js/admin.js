@@ -2486,8 +2486,78 @@
     _aimOnglet = nom;
     bar.querySelectorAll('.aimt').forEach(b => b.classList.toggle('on', b.dataset.aimt === nom));
     document.querySelectorAll('[data-aimt-p]').forEach(p => { p.hidden = (p.dataset.aimtP !== nom); });
+    if (nom === 'perf') { try { loadPerf(); } catch (e) {} }
     if (_aimLastData) { try { aimAppliquer(_aimLastData); } catch (e) {} }
   }
+
+  // ── PERFORMANCE INTELLIGENTE : lit /api/admin/perf (mesures réelles des membres), affiche les
+  //    constats classés, les optimisations réversibles et l'historique. Aucune écriture de code.
+  function _perfEsc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+  async function loadPerf() {
+    let d; try { d = await fetch('/api/admin/perf').then(r => r.json()); } catch { return; }
+    if (!d) return;
+    const meta = document.getElementById('perf-meta');
+    if (meta) meta.textContent = (d.samples || 0) + ' session(s) mesurée(s)' + (d.maj ? ' · maj ' + new Date(d.maj).toLocaleString('fr-FR') : '');
+    // Constats classés
+    const gc = { haute: '#ff3d00', moyenne: '#ffb300', basse: '#8a8f98' };
+    const cbox = document.getElementById('perf-constats');
+    if (cbox) {
+      const c = d.constats || [];
+      cbox.innerHTML = !c.length
+        ? '<p class="doc-p" style="color:var(--text3)">Aucun problème détecté pour l’instant' + ((d.samples || 0) < 3 ? ' (peu de sessions mesurées — laissez tourner quelques navigations).' : '.') + '</p>'
+        : c.map(f => '<div class="row-inline" style="align-items:flex-start;gap:8px;margin:0 0 8px;padding:8px;border:1px solid var(--line,#232429);border-radius:6px">'
+          + '<span style="flex:0 0 auto;width:9px;height:9px;border-radius:50%;margin-top:4px;background:' + (gc[f.gravite] || '#8a8f98') + '"></span>'
+          + '<div style="flex:1"><b>' + _perfEsc(f.categorie) + '</b> — <code>' + _perfEsc(f.cible) + '</code><br>'
+          + '<span style="color:var(--text2)">' + _perfEsc(f.mesure) + '</span><br>'
+          + '<span style="color:var(--text3);font-size:12px">Cause : ' + _perfEsc(f.cause) + ' · Reco : ' + _perfEsc(f.recommandation) + '</span>'
+          + (f.auto ? ' <button class="btn btn-sm" onclick="perfApply(\'' + _perfEsc(f.auto) + '\')">Corriger (sûr)</button>' : '')
+          + '</div></div>').join('');
+    }
+    // Optimisations réversibles
+    const obox = document.getElementById('perf-optims');
+    if (obox) {
+      obox.innerHTML = (d.optims || []).map(o => '<div class="row-inline" style="justify-content:space-between;gap:8px;margin:0 0 8px">'
+        + '<div style="flex:1"><b>' + _perfEsc(o.titre) + '</b> ' + (o.active ? '<span style="color:#00e676">● active</span>' : '<span style="color:var(--text3)">○ inactive</span>')
+        + '<br><span style="color:var(--text3);font-size:12px">' + _perfEsc(o.detail) + '</span></div>'
+        + (o.active ? '<button class="btn btn-sm" onclick="perfRevert(\'' + _perfEsc(o.id) + '\')">Retour arrière</button>'
+                    : '<button class="btn btn-sm btn-primary" onclick="perfApply(\'' + _perfEsc(o.id) + '\')">Appliquer</button>')
+        + '</div>').join('') || '<p class="doc-p" style="color:var(--text3)">Aucune optimisation disponible.</p>';
+    }
+    // Détail des mesures (top vues + top API)
+    const dbox = document.getElementById('perf-detail');
+    if (dbox) {
+      const moy = o => o.n ? Math.round(o.ms / o.n) : 0;
+      const vues = Object.entries(d.views || {}).sort((a, b) => moy(b[1]) - moy(a[1])).slice(0, 12);
+      const apis = Object.entries(d.api || {}).sort((a, b) => moy(b[1]) - moy(a[1])).slice(0, 15);
+      const tv = vues.map(([k, v]) => '<tr><td>' + _perfEsc(k) + '</td><td>' + moy(v) + ' ms</td><td>' + Math.round(v.msMax) + ' ms</td><td>' + v.n + '</td></tr>').join('');
+      const ta = apis.map(([k, a]) => '<tr><td><code>' + _perfEsc(k) + '</code></td><td>' + moy(a) + ' ms</td><td>' + a.n + '</td><td>' + (a.dup || 0) + '</td><td>' + (a.err || 0) + '</td></tr>').join('');
+      dbox.innerHTML = '<div class="table-wrap"><b style="font-size:12px">Vues (temps d’ouverture)</b><table class="users-table"><thead><tr><th>Vue</th><th>Moy.</th><th>Max</th><th>Nav.</th></tr></thead><tbody>' + (tv || '<tr><td colspan=4 style="color:var(--text3)">—</td></tr>') + '</tbody></table></div>'
+        + '<div class="table-wrap" style="margin-top:10px"><b style="font-size:12px">Appels API</b><table class="users-table"><thead><tr><th>Endpoint</th><th>Moy.</th><th>Appels</th><th>Doublons</th><th>Erreurs</th></tr></thead><tbody>' + (ta || '<tr><td colspan=5 style="color:var(--text3)">—</td></tr>') + '</tbody></table></div>';
+    }
+    // Historique
+    const hbox = document.getElementById('perf-historique');
+    if (hbox) {
+      const h = d.historique || [];
+      hbox.innerHTML = !h.length ? '<p class="doc-p" style="color:var(--text3)">Aucune optimisation appliquée pour l’instant.</p>'
+        : '<div class="table-wrap"><table class="users-table"><thead><tr><th>Date</th><th>Optimisation</th><th>Action</th><th>Avant</th><th>Statut</th></tr></thead><tbody>'
+        + h.map(r => '<tr><td>' + new Date(r.t).toLocaleString('fr-FR') + '</td><td>' + _perfEsc(r.titre) + '</td><td>' + _perfEsc(r.action) + '</td><td>' + (r.avant && r.avant.moyMs != null ? r.avant.moyMs + ' ms' : '—') + '</td><td>' + _perfEsc(r.statut) + '</td></tr>').join('')
+        + '</tbody></table></div>';
+    }
+  }
+  async function perfApply(id) {
+    try { await fetch('/api/admin/perf/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); } catch {}
+    loadPerf();
+  }
+  async function perfRevert(id) {
+    try { await fetch('/api/admin/perf/revert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }); } catch {}
+    loadPerf();
+  }
+  async function perfReset() {
+    try { await fetch('/api/admin/perf/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } catch {}
+    loadPerf();
+  }
+  function perfAnalyser() { loadPerf(); }   // l'analyse est calculée côté serveur à chaque lecture
+  window.perfApply = perfApply; window.perfRevert = perfRevert; window.perfReset = perfReset; window.perfAnalyser = perfAnalyser;
 
   // Câblage UNIQUE des contrôles statiques (portée du graphe + filtres du journal)
   (function _aimWire() {

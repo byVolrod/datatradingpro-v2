@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260917bbg1204" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260921bbg1205" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -656,6 +656,7 @@
         <button class="aimt" data-aimt="serveur" role="tab">Serveur</button>
         <button class="aimt" data-aimt="services" role="tab">Services</button>
         <button class="aimt" data-aimt="journal" role="tab">Journal</button>
+        <button class="aimt" data-aimt="perf" role="tab">Performance</button>
       </div>
       <div class="aimt-panel" data-aimt-p="ia">
       <div class="panel-card">
@@ -752,6 +753,34 @@
         <div class="panel-body aim-j-wrap" id="aim-journal"></div>
       </div>
       </div><!-- /onglet Journal -->
+
+      <!-- ─── Performance intelligente : mesure la VRAIE navigation des membres (perf-beacon.js),
+           classe les lenteurs, et applique des optimisations RÉVERSIBLES (config, jamais de code). -->
+      <div class="aimt-panel" data-aimt-p="perf" hidden>
+      <div class="panel-card aim-card">
+        <div class="panel-head"><h2>Performance de navigation</h2><span class="ph-spacer"></span>
+          <span class="fin-sub" id="perf-meta"></span>
+          <button class="btn btn-sm" onclick="perfAnalyser()" id="perf-analyser-btn" style="margin-left:8px">Analyser &amp; Optimiser</button>
+          <button class="btn btn-sm" onclick="perfReset()" title="Repartir sur une fenêtre de mesure propre">Réinitialiser les mesures</button>
+        </div>
+        <div class="panel-body">
+          <p class="doc-p" id="perf-intro">La lenteur ressentie vit côté client (rendu des vues). Ce panneau agrège la navigation RÉELLE des membres : temps par vue, appels API lents ou dupliqués, tâches longues. « Analyser » classe les causes ; les optimisations sûres s'appliquent d'un clic et sont réversibles.</p>
+          <div id="perf-constats"></div>
+        </div>
+      </div>
+      <div class="panel-card aim-card">
+        <div class="panel-head"><h2>Optimisations sûres (réversibles)</h2></div>
+        <div class="panel-body" id="perf-optims"></div>
+      </div>
+      <div class="panel-card aim-card">
+        <div class="panel-head"><h2>Détail des mesures</h2></div>
+        <div class="panel-body" id="perf-detail"></div>
+      </div>
+      <div class="panel-card aim-card">
+        <div class="panel-head"><h2>Historique des optimisations</h2></div>
+        <div class="panel-body" id="perf-historique"></div>
+      </div>
+      </div><!-- /onglet Performance -->
     </section>
 
     <!-- ─────────── SYSTÈME · Accès API ─────────── -->
@@ -917,6 +946,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260917bbg1204"></script>
+<script src="/js/admin.js?v=20260921bbg1205"></script>
 </body>
 </html>
