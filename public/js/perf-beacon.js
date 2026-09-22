@@ -39,13 +39,14 @@
   // ── fetch enveloppé : chronomètre + doublons. Ne change RIEN au résultat (même promesse). ──
   try {
     var _fetch = window.fetch;
-    window.fetch = function (input, init) {
+    window.fetch = function (...args) {   // paramètre rest → pas d'objet implicite `arguments` (que js-verif ne reconnaît pas)
+      var input = args[0];
       var url = ''; try { url = (typeof input === 'string') ? input : (input && input.url) || ''; } catch (e) {}
       var path = url; try { path = new URL(url, location.origin).pathname; } catch (e) {}
       var start = (performance && performance.now) ? performance.now() : Date.now();
       var dup = false;
       try { if (path.indexOf('/api/') === 0) { var last = recentApi[path]; if (last && (start - last) < 2000) dup = true; recentApi[path] = start; } } catch (e) {}
-      var p = _fetch.apply(this, arguments);
+      var p = _fetch.apply(this, args);
       try {
         p.then(function (r) { try { bumpApi(path, ((performance.now ? performance.now() : Date.now()) - start), !!(r && r.ok), dup); } catch (e) {} },
                function () { try { bumpApi(path, ((performance.now ? performance.now() : Date.now()) - start), false, dup); } catch (e) {} });

@@ -1253,7 +1253,7 @@ function handleMessage(msg) {
        20 s, et un lecteur qui ouvrait entre-temps la carte périmée voyait le bloc apparaître sous
        ses yeux au tick suivant. On remplace donc les cartes concernées ici même, panneaux fermés. */
     if (_proposPoses.size) { _rafraichirCartesPropos(_proposPoses); _proposPoses.clear(); }
-    if (truly_new.length === 0) { if (_patched) renderNews(true); return; }
+    if (truly_new.length === 0) { if (_patched) _renderNewsCoalesce(true); return; }   // coalescé : rafale WS → 1 rebuild/frame
     allItems = [...truly_new, ...allItems].sort((a, b) => b.timestamp - a.timestamp);
     if (allItems.length > 2000) allItems = allItems.slice(0, 2000);
     if (!isFirstUpdate) {
@@ -1261,7 +1261,7 @@ function handleMessage(msg) {
       newCount += added;                 // badge = exactement ce qui est dans le panneau (pas les rapports/primers)
       _setNotifBadge(newCount);
     }
-    renderNews(!isFirstUpdate);
+    _renderNewsCoalesce(!isFirstUpdate);   // coalescé : plusieurs lots WS en rafale → 1 seul rebuild du fil par frame
     if (!isFirstUpdate) {
       // Bannière LIVE : on flashe APRÈS le rendu, et UNIQUEMENT si la news importante est
       // RÉELLEMENT AFFICHÉE dans le feed (passe les filtres ET dans les `displayLimit` premières).
@@ -1727,6 +1727,32 @@ function _newsCmp(a, b) {
 // contre 8 dans celle de 16 h. Un plafond en items donne donc une profondeur imprévisible : les
 // mêmes 100 items valent une heure un jour de publication et six heures un après-midi calme.
 try { window.groupSpeakerQuotes = _groupSpeakerQuotes; } catch {}   // partagé : widget Actus + news de paire
+
+/* ⚠️ COALESCENCE DU RENDU DU FIL — LA CAUSE DE « FLUIDE À LA CONNEXION, LENT APRÈS QUELQUES SECONDES »
+   (22/09, symptôme rapporté par l'utilisateur). `renderNews` fait `newsList.innerHTML = ''` puis
+   reconstruit ~100 nœuds groupés. Il était appelé SYNCHRONEMENT à CHAQUE lot WebSocket porteur de
+   neuf. Or FinancialJuice pousse en RAFALE : plusieurs messages en une fraction de seconde = autant
+   de rebuilds complets d'affilée, qui saturent le thread principal — et donc figent TOUTE l'UI, la
+   navigation comprise. Le desk est fluide tant que le WS n'a pas poussé, puis se dégrade dès que le
+   flux devient actif. C'est exactement le symptôme.
+   La correction : sur le CHEMIN WEBSOCKET seulement, on coalesce les rebuilds sur une frame
+   (requestAnimationFrame). N messages en rafale → UN rebuild, jamais plus vite que l'écran ne
+   rafraîchit. Le rendu INITIAL et les actions UTILISATEUR (filtre, recherche, « charger plus »)
+   restent SYNCHRONES — la réactivité au clic n'est pas différée.
+   ⚠️ SÛR PAR CONSTRUCTION : la mise à jour des DONNÉES (`allItems`) et la bannière LIVE restent
+   synchrones (la bannière lit les données, jamais le DOM) ; seul le rebuild COÛTEUX du DOM est
+   batché. Le drapeau `hasNew` est mémorisé par un OU logique sur les appels coalescés. */
+let _renderNewsRAF = 0, _renderNewsPendingNew = false;
+function _renderNewsCoalesce(hasNew) {
+  _renderNewsPendingNew = _renderNewsPendingNew || !!hasNew;
+  if (_renderNewsRAF) return;   // un rebuild est déjà planifié pour cette frame → on coalesce
+  const planif = (typeof requestAnimationFrame === 'function') ? requestAnimationFrame : (fn => setTimeout(fn, 16));
+  _renderNewsRAF = planif(() => {
+    _renderNewsRAF = 0;
+    const hn = _renderNewsPendingNew; _renderNewsPendingNew = false;
+    try { renderNews(hn); } catch (e) {}
+  });
+}
 
 function renderNews(hasNew = false) {
   const filtered = getFilteredItems();
