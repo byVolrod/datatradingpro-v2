@@ -4303,6 +4303,9 @@ const _RTC_MESURE_AIDE = {
 
     document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === view));
     document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('hidden', p.id !== `view-${view}`));
+    // Retour sur le fil : s'il a pris du retard pendant qu'on était ailleurs (rebuild différé tant
+    // qu'il était masqué, cf. _renderNewsCoalesce dans app.js), on le reconstruit maintenant, une fois.
+    if (view === 'news') { try { if (typeof window._dtpNewsShown === 'function') window._dtpNewsShown(); } catch (e) {} }
 
     // BANK : pleine largeur → on masque la colonne de droite (table seule).
     // FX LIST : côte à côte avec le panneau droit (World Clock/Mètre) comme DataTradingPro SUR GRAND

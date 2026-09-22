@@ -41,5 +41,15 @@ v('le rendu initial (fin du spinner) reste un renderNews() direct',
 v('renderNews reste une fonction appelable directement (actions utilisateur, filtres)',
   /function renderNews\(hasNew = false\)/.test(APP));
 
+console.log('\n── On ne reconstruit pas un fil MASQUÉ (résidu de lenteur à la navigation) ──');
+const CHARTS = fs.readFileSync(path.join(RACINE, 'public/js/charts.js'), 'utf8');
+v('le rebuild est sauté quand le fil est masqué (fil dans un autre module)',
+  /_newsVisible\(\)/.test(APP) && /if \(!_newsVisible\(\)\) \{ _newsDirty = true; return; \}/.test(APP),
+  'reconstruire un DOM caché vole du temps au module réellement affiché — la navigation en pâtit.');
+v('… et il est reconstruit UNE fois au retour sur le fil', /window\._dtpNewsShown = function/.test(APP) && /if \(_newsDirty\)/.test(APP));
+v('activateView(\'news\') déclenche ce rafraîchissement au retour',
+  /view === 'news'.{0,60}_dtpNewsShown/.test(CHARTS),
+  'sans ce hook, revenir sur le fil après une absence n’afficherait pas les dépêches arrivées entre-temps.');
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec' : '✓ ' + ok + ' contrôles au vert') + '\n');
 process.exit(ko ? 1 : 0);

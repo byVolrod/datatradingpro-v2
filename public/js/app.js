@@ -1742,17 +1742,30 @@ try { window.groupSpeakerQuotes = _groupSpeakerQuotes; } catch {}   // partagé 
    ⚠️ SÛR PAR CONSTRUCTION : la mise à jour des DONNÉES (`allItems`) et la bannière LIVE restent
    synchrones (la bannière lit les données, jamais le DOM) ; seul le rebuild COÛTEUX du DOM est
    batché. Le drapeau `hasNew` est mémorisé par un OU logique sur les appels coalescés. */
-let _renderNewsRAF = 0, _renderNewsPendingNew = false;
+let _renderNewsRAF = 0, _renderNewsPendingNew = false, _newsDirty = false;
+/* ⚠️ NE PAS RECONSTRUIRE UN FIL MASQUÉ (22/09, 2e passe, résidu de lenteur à la navigation). Le fil
+   vit dans `#view-news` ; quand l'utilisateur est sur un AUTRE module (Biais, Institutions…),
+   `view-news` porte `hidden` mais reste dans le DOM. Sans cette garde, chaque dépêche WebSocket
+   reconstruisait quand même ses ~100 nœuds en arrière-plan — du temps de thread volé au module
+   RÉELLEMENT affiché, donc une navigation qui reste « un poil lente » sous le flux. On note « à
+   refaire » et on reconstruit UNE seule fois au retour sur le fil (voir window._dtpNewsShown, appelé
+   par activateView). Les DONNÉES (`allItems`) et la bannière/badge restent à jour : seul le rebuild
+   du DOM caché est différé. */
+function _newsVisible() { const v = document.getElementById('view-news'); return !v || !v.classList.contains('hidden'); }
 function _renderNewsCoalesce(hasNew) {
   _renderNewsPendingNew = _renderNewsPendingNew || !!hasNew;
+  if (!_newsVisible()) { _newsDirty = true; return; }   // fil masqué → on note, on ne reconstruit rien
   if (_renderNewsRAF) return;   // un rebuild est déjà planifié pour cette frame → on coalesce
   const planif = (typeof requestAnimationFrame === 'function') ? requestAnimationFrame : (fn => setTimeout(fn, 16));
   _renderNewsRAF = planif(() => {
     _renderNewsRAF = 0;
-    const hn = _renderNewsPendingNew; _renderNewsPendingNew = false;
+    const hn = _renderNewsPendingNew; _renderNewsPendingNew = false; _newsDirty = false;
     try { renderNews(hn); } catch (e) {}
   });
 }
+// Appelé par activateView('news') : si des dépêches sont arrivées pendant qu'on était ailleurs, on
+// reconstruit le fil UNE fois, maintenant qu'il est de nouveau visible.
+try { window._dtpNewsShown = function () { if (_newsDirty) { _newsDirty = false; _renderNewsPendingNew = false; try { renderNews(); } catch (e) {} } }; } catch (e) {}
 
 function renderNews(hasNew = false) {
   const filtered = getFilteredItems();
