@@ -4306,6 +4306,9 @@ const _RTC_MESURE_AIDE = {
     // Retour sur le fil : s'il a pris du retard pendant qu'on était ailleurs (rebuild différé tant
     // qu'il était masqué, cf. _renderNewsCoalesce dans app.js), on le reconstruit maintenant, une fois.
     if (view === 'news') { try { if (typeof window._dtpNewsShown === 'function') window._dtpNewsShown(); } catch (e) {} }
+    // Retour sur le Calendrier : si un rafraîchissement auto l'a mis à jour pendant qu'il était
+    // masqué (rendu différé, cf. _refreshCalendarData), on reconstruit la table maintenant, une fois.
+    if (view === 'calendar') { try { if (_calDirty && typeof renderCalTable === 'function') { _calDirty = false; renderCalTable(); } } catch (e) {} }
 
     // BANK : pleine largeur → on masque la colonne de droite (table seule).
     // FX LIST : côte à côte avec le panneau droit (World Clock/Mètre) comme DataTradingPro SUR GRAND
@@ -4938,6 +4941,15 @@ function CAL_FLAG(currency) {
 }
 
 let _calEvents       = [];
+/* ⚠️ NE PAS RECONSTRUIRE UNE TABLE CALENDRIER MASQUÉE (22/09). Le calendrier est passé à ~1801
+   événements le 18/09 (« parité totale » ForexFactory, tous impacts). Or le rafraîchissement auto
+   (toutes les 5 min, ou 20 s pendant les fenêtres de données) appelait renderCalTable() — un rebuild
+   de ~1801 lignes via innerHTML — MÊME quand la vue Calendrier était masquée, volant le thread au
+   module réellement affiché. Ce pic périodique, 6× plus lourd depuis le 18/09, est une cause de la
+   lenteur « depuis 2-3 jours ». On garde les DONNÉES fraîches (fetch + tri), mais on diffère le
+   RENDU tant que la table est cachée, et on la reconstruit une fois au retour (voir activateView). */
+let _calDirty = false;
+function _calViewVisible() { const v = document.getElementById('view-calendar'); return !v || !v.classList.contains('hidden'); }
 let _calCurFilter    = 'ALL';
 let _calImpFilter    = 'ALL';
 let _calSearch       = '';
@@ -6064,7 +6076,8 @@ async function _refreshCalendarData(silent = false) {
     const items = json.items || [];
     if (items.length > 0) {
       _calEvents = items.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-      if (!silent) renderCalTable();
+      // Rendu différé si la vue est masquée : on ne reconstruit pas 1801 lignes en arrière-plan.
+      if (!silent) { if (_calViewVisible()) renderCalTable(); else _calDirty = true; }
       _calUpdateDateRangeLabel();
       return true;
     }

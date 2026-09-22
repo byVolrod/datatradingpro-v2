@@ -51,5 +51,17 @@ v('activateView(\'news\') déclenche ce rafraîchissement au retour',
   /view === 'news'.{0,60}_dtpNewsShown/.test(CHARTS),
   'sans ce hook, revenir sur le fil après une absence n’afficherait pas les dépêches arrivées entre-temps.');
 
+console.log('\n── Le calendrier (~1801 événements) ne se re-rend pas quand il est masqué ──');
+v('le rafraîchissement auto diffère le rendu si la vue Calendrier est masquée',
+  /if \(_calViewVisible\(\)\) renderCalTable\(\); else _calDirty = true;/.test(CHARTS),
+  'reconstruire 1801 lignes en arrière-plan (auto-refresh 20 s–5 min) vole le thread au module affiché.');
+v('… et la table est reconstruite au retour sur le Calendrier', /view === 'calendar'.{0,80}renderCalTable/.test(CHARTS));
+
+console.log('\n── Curseur : flèche partout, mais curseurs FONCTIONNELS préservés ──');
+const CSS = fs.readFileSync(path.join(RACINE, 'public/css/style.css'), 'utf8');
+v('le curseur « main » (pointer) est neutralisé sur tout le site', /\* \{ cursor: default !important; \}/.test(CSS));
+v('… mais la saisie de texte reste (champs input/textarea)', /textarea, \[contenteditable="true"\][^\n]*cursor: text !important/.test(CSS));
+v('… et le redimensionnement des splitters reste', /cursor: col-resize !important/.test(CSS) && /cursor: row-resize !important/.test(CSS));
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec' : '✓ ' + ok + ' contrôles au vert') + '\n');
 process.exit(ko ? 1 : 0);
