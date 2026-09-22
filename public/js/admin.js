@@ -2097,6 +2097,14 @@
                  style="background:transparent;border:1px solid #3a3f4b;border-radius:4px;color:#e3b23a;font-size:12px;padding:5px 12px;cursor:pointer">Constater</button>
              </div>
              <div id="recup-out" style="margin-top:7px"></div>
+             <div class="aim-kpi-s" style="color:#8b93a1;margin:12px 0 6px;line-height:1.45;border-top:1px solid #1c1c20;padding-top:9px">Diagnostic d'un compte (login impossible même après reset) : voir base par base si l'enregistrement, le mot de passe et l'identité sont cohérents. <b>Lecture seule</b> — rien n'est modifié.</div>
+             <div style="display:flex;gap:6px;align-items:center">
+               <input id="udiag-email" type="text" placeholder="e-mail du compte bloqué" spellcheck="false"
+                 style="flex:1;min-width:0;background:#0c0c0e;border:1px solid #26262b;border-radius:4px;color:#e6e6e6;font-size:12px;padding:5px 8px">
+               <button type="button" id="udiag-go"
+                 style="background:transparent;border:1px solid #3a3f4b;border-radius:4px;color:#e3b23a;font-size:12px;padding:5px 12px;cursor:pointer">Diagnostiquer</button>
+             </div>
+             <div id="udiag-out" style="margin-top:7px"></div>
            </div>`;;
     })();
   }
@@ -3587,9 +3595,38 @@ try { document.addEventListener('DOMContentLoaded', adSupAvLoad); } catch (e) {}
     }
     o.innerHTML = h || '<div class="aim-kpi-s" style="color:#6b7280">Aucune donnée privée pour ce compte.</div>';
   }
+  // ── Diagnostic compte par e-mail (lecture seule) ──
+  function _diagBadge(ok, txt) { return '<span style="color:' + (ok ? '#00e676' : '#ef4444') + '">' + txt + '</span>'; }
+  function diagRender(d) {
+    const o = document.getElementById('udiag-out'); if (!o) return;
+    if (!d || !d.ok) { o.innerHTML = '<div class="aim-kpi-s" style="color:#ef4444">' + _esc2((d && d.erreur) || 'diagnostic indisponible') + '</div>'; return; }
+    const lig = c => c ? ('id ' + _esc2(c.id) + ' · ' + _esc2(c.nom) + ' · mdp ' + _diagBadge(c.hashPresent, c.hashPresent ? 'présent' : 'ABSENT')
+      + ' · ' + (c.actif ? 'actif' : _diagBadge(false, 'inactif')) + (c.echeance ? ' · échéance ' + _esc2(String(c.echeance).slice(0, 10)) : '')) : '—';
+    let rows = (d.noeuds || []).map(n => '<tr><td>' + _esc2(n.noeud) + '</td><td>'
+      + (n.erreur ? _diagBadge(false, 'erreur : ' + _esc2(n.erreur))
+         : (!n.present ? _diagBadge(false, 'compte ABSENT de cette base')
+            : (n.doublon ? _diagBadge(false, 'DOUBLON (' + n.comptes.length + ')') + ' — ' + n.comptes.map(lig).join(' | ') : lig(n.comptes[0]))))
+      + '</td></tr>').join('');
+    rows += '<tr><td><b>miroir</b></td><td>' + (d.miroir ? lig(d.miroir) : _diagBadge(false, 'absent du miroir')) + '</td></tr>';
+    const alertes = [];
+    if (d.doublonEntreBases) alertes.push('⚠️ Identité éclatée : ' + d.idsDistincts.length + ' identifiants différents pour le même e-mail — le login peut lire le mauvais. À réunir sur un seul id.');
+    if (d.hashDivergent) alertes.push('⚠️ Mot de passe présent sur certaines bases, ABSENT sur d\'autres — le login peut tomber sur la version sans mot de passe. Redéfinir le mot de passe depuis la fiche admin propage la bonne version.');
+    if (d.supprime) alertes.push('⚠️ Ce compte est marqué SUPPRIMÉ (pierre tombale) — refusé au login avant même le mot de passe. À restaurer.');
+    if (d.listeNoire) alertes.push('⚠️ Cet e-mail est sur la LISTE NOIRE — connexion bloquée.');
+    o.innerHTML = '<div class="table-wrap"><table class="users-table" style="font-size:11px"><thead><tr><th>Base</th><th>Ce qu\'elle détient</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      + (alertes.length ? '<div style="font-size:11px;color:#ffb300;margin-top:7px;line-height:1.5">' + alertes.map(_esc2).join('<br>') + '</div>'
+                        : '<div class="aim-kpi-s" style="color:#00e676;margin-top:6px">Aucune incohérence détectée entre les bases pour ce compte.</div>');
+  }
+  async function udiagGo(email) {
+    const o = document.getElementById('udiag-out'); if (o) o.innerHTML = '<div class="aim-kpi-s" style="color:#8b93a1">Lecture des bases…</div>';
+    let d = null; try { d = await (await fetch('/api/admin/user-diag?email=' + encodeURIComponent(email))).json(); } catch (e) {}
+    diagRender(d);
+  }
   document.addEventListener('click', async (e) => {
     const go = e.target.closest && e.target.closest('#recup-go');
     if (go) { const i = document.getElementById('recup-uid'); if (i && i.value.trim()) constater(i.value.trim()); return; }
+    const gd = e.target.closest && e.target.closest('#udiag-go');
+    if (gd) { const i = document.getElementById('udiag-email'); if (i && i.value.trim()) udiagGo(i.value.trim()); return; }
     const b = e.target.closest && e.target.closest('.recup-do');
     if (!b) return;
     /* PAS DE BOÎTE NATIVE (règle du desk) : la confirmation se fait SUR le bouton, en deux temps. */

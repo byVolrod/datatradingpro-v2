@@ -1875,8 +1875,50 @@ async function aiCacheParNoeud(key) {
   });
 }
 
+/* ═══ DIAGNOSTIC COMPTE PAR NŒUD (LECTURE SEULE, 22/09) ══════════════════════════════════════════
+   Un login qui échoue même après reset, alors que les 4 bases répondent, se diagnostique en REGARDANT
+   ce que CHAQUE base détient pour l'e-mail : enregistrement présent ? hash présent ? doublon (deux
+   ids pour un même e-mail = identité éclatée) ? nom vide ? marqué supprimé ?
+   ⚠️ LECTURE PURE, ET LE HASH NE SORT JAMAIS : on ne renvoie que « hashPresent » (booléen). Une route
+   d'administration reste une route — elle montre, elle ne divulgue pas le secret qui ouvre le compte.
+   On interroge TOUTES les bases (même en quarantaine) : le but est justement de voir les divergences. */
+function _diagLigneCompte(x) {
+  if (!x) return null;
+  return { id: x.id, nom: (x.name && String(x.name).trim()) || '(vide)', hashPresent: !!x.password_hash,
+    actif: x.active, role: x.role, plan: x.plan, echeance: x.expires_at || null,
+    cree: x.created_at || null, derniereConnexion: x.last_login || null };
+}
+async function usersParNoeud(email) {
+  const em = String(email || '').toLowerCase().trim();
+  if (!em) return { email: em, erreur: 'email vide', noeuds: [], miroir: null };
+  const rep = await Promise.allSettled(_dbNodes.map(n =>
+    _applyOps(n.client, TABLE, [['select', ['id, email, name, role, plan, active, expires_at, created_at, last_login, password_hash']], ['eq', ['email', em]]])));
+  const noeuds = rep.map((s, i) => {
+    const nom = _dbNodes[i] && _dbNodes[i].name;
+    if (s.status !== 'fulfilled') return { noeud: nom, erreur: String((s.reason && s.reason.message) || s.reason).slice(0, 140) };
+    const r = s.value;
+    if (r && r.error) return { noeud: nom, erreur: String(r.error.message || r.error).slice(0, 140) };
+    const rows = (r && Array.isArray(r.data)) ? r.data : [];
+    return { noeud: nom, present: rows.length > 0, doublon: rows.length > 1, comptes: rows.map(_diagLigneCompte) };
+  });
+  // Divergences remarquables : ids différents pour le même e-mail (identité éclatée), ou hash présent
+  // ici mais absent là (le login peut alors tomber sur la version sans hash → échec, reset inutile).
+  const ids = new Set(), sansHash = [], avecHash = [];
+  for (const n of noeuds) for (const c of (n.comptes || [])) {
+    if (c.id != null) ids.add(String(c.id));
+    (c.hashPresent ? avecHash : sansHash).push(n.noeud);
+  }
+  const mRow = _mirrorGet(em);
+  return { email: em, noeuds, miroir: _diagLigneCompte(mRow),
+    idsDistincts: [...ids], doublonEntreBases: ids.size > 1,
+    hashDivergent: avecHash.length > 0 && sansHash.length > 0,
+    supprime: mRow ? _isTombstoned(mRow.id) : noeuds.some(n => (n.comptes || []).some(c => _isTombstoned(c.id))),
+    listeNoire: isEmailBlacklisted(em) };
+}
+
 module.exports = {
   aiCacheParNoeud,
+  usersParNoeud,
   estSupprime,
   isStaff,
   seedAdmin,

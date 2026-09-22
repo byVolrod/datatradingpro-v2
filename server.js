@@ -28278,6 +28278,17 @@ app.post('/api/admin/recuperation/realigner', requireAdmin, async (req, res) => 
     res.json({ ok: true, cle, depuis: noeud, resume: _recupResume(src.valeur) });
   } catch (e) { res.status(500).json({ ok: false, erreur: String(e && e.message || e).slice(0, 160) }); }
 });
+// Diagnostic d'un compte par e-mail, base par base (LECTURE SEULE : ne modifie rien, ne divulgue
+// jamais le hash — seulement « présent oui/non »). Sert à voir pourquoi un login échoue même après
+// reset alors que les bases répondent : doublon d'identité, hash absent sur une base, compte marqué
+// supprimé, nom vide. Voir auth.usersParNoeud.
+app.get('/api/admin/user-diag', requireAdmin, async (req, res) => {
+  const email = String((req.query && req.query.email) || '').slice(0, 200);
+  if (!email) return res.status(400).json({ ok: false, erreur: 'e-mail manquant' });
+  if (typeof auth.usersParNoeud !== 'function') return res.json({ ok: false, erreur: 'diagnostic par nœud indisponible' });
+  try { res.set('Cache-Control', 'no-store'); res.json({ ok: true, ...(await auth.usersParNoeud(email)) }); }
+  catch (e) { res.status(500).json({ ok: false, erreur: String(e && e.message || e).slice(0, 160) }); }
+});
 
 app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
   try {
