@@ -9883,6 +9883,12 @@ const _WR_ORDER = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
    sortiraient en blanc, en silence. Le récap se peint sur une action du lecteur, donc bien après
    que les deux fichiers sont là. Le repli est l'ENCRE, jamais une couleur de devise inventée :
    mieux vaut un code non coloré qu'un code de la mauvaise devise. */
+/* LECTURE D'UNE RUBRIQUE (v52, façon mentor : « Inflation → le chiffre de tête franchit 3 % mais la
+   composition raconte l'inverse »). Une ligne sous l'intitulé, ouverte par la flèche or, AVANT les
+   prints qu'elle résume. */
+function _wrLecture(t) {
+  return `<div class="wr-text wr-lecture"><span class="wr-lecture-fl" aria-hidden="true">→</span> ${_wrInline(t)}</div>`;
+}
 function _wrCouleurDevise(c) {
   try { if (window.DTPCsCouleur) return window.DTPCsCouleur(c) || '#e6e6ea'; } catch (e) {}
   return '#e6e6ea';
@@ -10520,13 +10526,14 @@ function _renderWeeklyRecap(item) {
         // 2) Inflation — prose IA + 1 puce PAR PRINT de la semaine (réel vs attendu vs précédent, déterministe).
         if (cd.inflation || infPrints.length || _rubOK) {
           body += `<div class="wr-macro-heading">Inflation</div>`;
-          if (cd.inflation) body += `<div class="wr-text">${_wrParas(cd.inflation)}</div>`;
+          if (cd.inflation) body += _wrLecture(cd.inflation);
           infPrints.forEach(p => { body += printRow(p); });
           if (!cd.inflation && !infPrints.length) body += _rien;
         }
         // 3) Emploi — prints de la semaine, déterministe (v42 : rubrique séparée de la croissance).
         if (empPrints.length || _rubOK) {
           body += `<div class="wr-macro-heading">Emploi</div>`;
+          if (empPrints.length && cd.employment) body += _wrLecture(cd.employment);
           if (empPrints.length) empPrints.forEach(p => { body += printRow(p); });
           else body += _rien;
         }
@@ -10534,6 +10541,7 @@ function _renderWeeklyRecap(item) {
         //    → libellé groupé « Croissance & Emploi » (rétro-compat).
         if (groPrints.length || _rubOK) {
           body += `<div class="wr-macro-heading">${(empPrints.length || _rubOK) ? 'Croissance économique' : 'Croissance &amp; Emploi'}</div>`;
+          if (groPrints.length && cd.growth) body += _wrLecture(cd.growth);
           if (groPrints.length) groPrints.forEach(p => { body += printRow(p); });
           else body += _rien;
         }
@@ -10564,11 +10572,15 @@ function _renderWeeklyRecap(item) {
         //    devient « Biais » (30/08, demande user « met juste biais ») ; le texte lui-même est tenu
         //    à UNE phrase courte par le prompt (v50), les archives gardent leur texte d'époque.
         const wkAhead = Array.isArray(cd.weekAhead) ? cd.weekAhead : [];
+        /* v52 (23/09, façon mentor) : les rendez-vous de la semaine à venir en PUCES datées, comme chez
+           lui, au lieu d'une ligne « a · b · c » ; la phrase de synthèse reste en tête. */
         if (wkAhead.length || cd.conclusion) {
-          const _prog = wkAhead.length ? `<span class="wr-drv-prog">${wkAhead.map(_wrEsc).join(' · ')}</span>` : '';
-          body += `<div class="wr-text wr-drv"><strong>Semaine à venir :</strong> ${cd.conclusion ? _wrInline(cd.conclusion) : ''}${_prog ? (cd.conclusion ? '<br>' : '') + _prog : ''}</div>`;
+          body += `<div class="wr-text wr-drv"><strong>Semaine à venir :</strong> ${cd.conclusion ? _wrInline(cd.conclusion) : ''}</div>`;
+          wkAhead.forEach(x => { body += `<div class="wr-bullet wr-drv-prog">${_wrEsc(x)}</div>`; });
         }
         if (cd.biasRationale) body += `<div class="wr-text wr-drv"><strong>Biais :</strong> ${_wrInline(cd.biasRationale)}</div>`;
+        // « ⇒ » : la conclusion du mentor, en deux temps (dynamique, puis risque principal). v52.
+        if (cd.verdict) body += `<div class="wr-text wr-verdict"><span class="wr-verdict-fl" aria-hidden="true">⇒</span> ${_wrInline(cd.verdict)}</div>`;
         body += `</div>`;   // fin .wr-ccy-body
         body += `</div>`;   // fin .wr-ccy-block
       });
@@ -11317,6 +11329,17 @@ function _renderFXDailyRecap(item) {
       const l = _macroFam.get(fam);
       if (l && l.length) { body += `<div class="fxdr-grp-title">${_wrEsc(fam)}</div>`; _puces(l); }
     });
+  }
+
+  /* ── LECTURE DE MARCHÉ (23/09, façon mentor) : POURQUOI une devise a réagi comme elle l'a fait au
+     fait majeur du jour — le mécanisme, ses causes, ce que le marché voulait contre ce qu'il a eu.
+     Sous Macro : Macro dit ce qui s'est passé, la lecture explique la réaction. Les rapports plus
+     anciens n'ont pas le champ, la section n'apparaît simplement pas. */
+  const _lectures = (Array.isArray(w.lectures) ? w.lectures : []).filter(x => x && x.ccy && x.text);
+  if (_lectures.length) {
+    body += _sec('Lecture de marché') + '<div class="fxdr-bullets">';
+    _lectures.forEach(x => { body += `<div class="wr-bullet fxdr-lecture"><strong style="color:${_wrCouleurDevise(x.ccy)}">${_wrEsc(x.ccy)}</strong> : ${_verdictColore(_wrInline(x.text))}</div>`; });
+    body += '</div>';
   }
 
   /* ── LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE — SOUS MACRO (25/08, demande user : « ensuite en

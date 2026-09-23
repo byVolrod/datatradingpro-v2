@@ -5593,6 +5593,11 @@ html[data-theme="light"] .mt-taux-v--nul { color: #6b7280; }
 .wr-drv { color:#c9d1d9; font-size:13px; line-height:1.7; margin:0 0 10px; }
 .wr-drv strong { color:#fff; font-weight:var(--fw-semibold); }
 .wr-drv-prog { color:#9aa3b2; font-size:12.5px; }
+/* v52 (23/09, façon mentor) : lecture d'une rubrique (« → … ») et conclusion « ⇒ » de la devise. */
+.wr-lecture { color:#c9d1d9; font-size:13px; line-height:1.65; margin:0 0 6px; }
+.wr-lecture-fl { color:var(--gold-bright, #e3b23a); font-weight:700; margin-right:2px; }
+.wr-verdict { color:#e6e9ee; font-size:13px; line-height:1.7; margin:10px 0 4px; padding:8px 10px; border-left:2px solid var(--gold-bright, #e3b23a); background:rgba(227,178,58,.05); border-radius:0 6px 6px 0; }
+.wr-verdict-fl { color:var(--gold-bright, #e3b23a); font-weight:800; margin-right:4px; }
 .wr-summary .wr-p { color:#d6dde6; }
 /* Analyse par devise = CARTES DÉPLIABLES (v37, demande user « + simple, moins long, lisible à vue d'œil ») :
    en-tête scannable toujours visible (code + badge biais + accroche), corps repliable avec les 7 sections. */

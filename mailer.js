@@ -1972,10 +1972,14 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     const exec = _paraHtml(cd.execSummary || cd.analysis);
     // RETRO-COMPAT : sans `employmentPrints` ni `rubriquesVides`, le rapport est antérieur au
     // découpage croissance/emploi et son intitulé était « Croissance & Emploi ».
+    // v52 (façon mentor) : la lecture d'une rubrique s'ouvre sur « → », avant ses prints.
+    const _lect = t => _md(t) ? _puce(`<span style="color:${TOK.or};font-weight:700;">→</span> ${_esc(_md(t))}`) : '';
     const titreCroi = (Array.isArray(cd.employmentPrints) && cd.employmentPrints.length) || rv ? 'Croissance économique' : 'Croissance & Emploi';
-    const croiL = listeP(cd.growthPrints);
-    const empL = ((Array.isArray(cd.employmentPrints) && cd.employmentPrints.length) || rv) ? listeP(cd.employmentPrints) : '';
-    const infTxt = _md(cd.inflation) ? _puce(_esc(_md(cd.inflation))) : '';
+    const croiP = listeP(cd.growthPrints);
+    const croiL = croiP ? _lect(cd.growth) + croiP : '';
+    const empP = ((Array.isArray(cd.employmentPrints) && cd.employmentPrints.length) || rv) ? listeP(cd.employmentPrints) : '';
+    const empL = empP ? _lect(cd.employment) + empP : '';
+    const infTxt = _lect(cd.inflation);
     const infPr = listeP(cd.inflationPrints);
     const infL = infTxt + infPr;
     // Banque centrale : intitulé UNIQUE pour les huit devises (15/08) + posture accolée.
@@ -2034,9 +2038,11 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       .map(d => _ligne(d.n, _esc(d.w))).join('');
     // Deux lignes de clôture, comme dans le rapport.
     const wa = (Array.isArray(cd.weekAhead) ? cd.weekAhead : []).map(_md).filter(Boolean);
+    // v52 : les rendez-vous en puces datées, comme le desk (et le mentor).
     const sav = (wa.length || _md(cd.conclusion))
-      ? _ligne('Semaine à venir', `${_esc(_md(cd.conclusion))}${wa.length ? ` <span style="color:${TOK.grisDoux};">${_esc(wa.join(' · '))}</span>` : ''}`) : '';
-    const bsc = _md(cd.biasRationale) ? _ligne('Biais', _esc(_md(cd.biasRationale))) : '';
+      ? _ligne('Semaine à venir', _esc(_md(cd.conclusion))) + wa.map(x => _puce(`<span style="color:${TOK.grisDoux};">${_esc(x)}</span>`)).join('') : '';
+    const bsc = (_md(cd.biasRationale) ? _ligne('Biais', _esc(_md(cd.biasRationale))) : '')
+      + (_md(cd.verdict) ? `<div style="margin:10px 0 4px;padding:8px 10px;border-left:2px solid ${TOK.or};color:#e6e9ee;font-size:13px;line-height:1.7;"><span style="color:${TOK.or};font-weight:800;">⇒</span> ${_esc(_md(cd.verdict))}</div>` : '');
     // « Semaine à venir » et « Biais » ne sont PAS des moteurs : rendus avec la
     // même grammaire juste sous l'intertitre « Moteurs », ils étaient lus comme deux moteurs
     // de plus. Ils regardent devant, ils ont leur propre intertitre.
@@ -2812,6 +2818,9 @@ function _recapQuotidienFull(fx) {
      rubrique près (public/js/app.js) : filtrée là-bas, filtrée ici, même geste que « Commerce
      International & Tarifs » avant elle. Le serveur continue de produire `fx.autres`. */
   S('Macro', _macroHtml);
+  // LECTURE DE MARCHÉ (23/09, façon mentor) : miroir du desk, juste sous Macro.
+  S('Lecture de marché', puces((Array.isArray(fx.lectures) ? fx.lectures : [])
+    .filter(x => x && x.ccy && _md(x.text)).map(x => '**' + String(x.ccy).slice(0, 3) + '** : ' + x.text)));
 
   /* ── LES CHIFFRES DU JOUR, RANGÉS PAR FAMILLE — SOUS MACRO (25/08, demande user). Duplication
      assumée du desk : le mail doit montrer le même rapport, donc il porte le même bloc et la même
