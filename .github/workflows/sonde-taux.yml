@@ -57,3 +57,32 @@ jobs:
             echo "banques citées : $(grep -oiE '\b(fed|ecb|boe|boj|boc|rba|rbnz|snb)\b' /tmp/h.html | tr 'A-Z' 'a-z' | sort | uniq -c | paste -sd ' ' -)"
             echo "traces de probabilités : $(grep -oE '[0-9]{1,3}\.[0-9]%' /tmp/h.html | head -10 | paste -sd ' ' -)"
           done
+
+      # ═══ TEST NAVIGATEUR HEADLESS (23/09) ════════════════════════════════════════════════════════
+      # MESURÉ : rateprobability est passé derrière un DÉFI CLOUDFLARE (« Just a moment… », HTTP 403)
+      # qui bloque TOUTE requête sans navigateur — VPS, runner GitHub, allorigins, codetabs, jina.
+      # Seul un vrai navigateur qui exécute le JS du défi peut passer (c'est ce que fait le desk pour
+      # myfxbook). On VALIDE ici, sur le runner (IP datacenter, comme le VPS), qu'un Chromium headless
+      # franchit le défi et lit le JSON — AVANT de brancher ce mécanisme dans le serveur.
+      - name: Navigateur headless contre le défi Cloudflare
+        run: |
+          npm i -s playwright@1.47.2 >/dev/null 2>&1 || npm i -s playwright >/dev/null 2>&1
+          npx playwright install chromium >/dev/null 2>&1 || true
+          node <<'EOF'
+          const { chromium } = require('playwright');
+          (async () => {
+            const b = await chromium.launch({ args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'] });
+            const ctx = await b.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' });
+            const p = await ctx.newPage();
+            try {
+              const r = await p.goto('https://rateprobability.com/api/fed/latest', { waitUntil: 'domcontentloaded', timeout: 45000 });
+              console.log('status initial :', r && r.status());
+              let corps = '';
+              for (let i = 0; i < 7; i++) { await p.waitForTimeout(2500); corps = await p.evaluate(() => document.body ? document.body.innerText : ''); if (corps.includes('today') || corps.trim().startsWith('{')) { console.log('défi résolu après ~' + ((i + 1) * 2.5) + ' s'); break; } }
+              console.log('BODY fed (300c) :', corps.slice(0, 300).replace(/\s+/g, ' '));
+              const j = await p.evaluate(async () => { try { const rr = await fetch('/api/ecb/latest', { headers: { Accept: 'application/json' } }); return rr.status + ' :: ' + (await rr.text()).slice(0, 160); } catch (e) { return 'fetch KO ' + e.message; } });
+              console.log('IN-PAGE ecb :', String(j).replace(/\s+/g, ' '));
+            } catch (e) { console.log('ERREUR :', e.message); }
+            await b.close();
+          })();
+          EOF
