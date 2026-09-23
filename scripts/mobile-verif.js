@@ -335,9 +335,10 @@ function phaseServiceWorker() {
       } catch (e) { R = null; }
       try {
           ongletTaux = await page.evaluate(() => {
-            /* L'onglet TAUX porte l'en-tête le plus long du desk (« Taux directeurs des banques
-               centrales » + ses commandes) : c'est lui qui passe le premier sur deux lignes, donc lui
-               qui révèle une hauteur fixe. La Semaine à venir, signalée, partage la même règle. */
+            /* L'onglet TAUX est une vue ADOPTÉE : son en-tête (« Taux des banques » + ses commandes)
+               doit tenir sans être rogné ni repoussé sur une seconde ligne sur téléphone — c'est le
+               cas de figure qui révèle une hauteur fixe. La Semaine à venir, signalée, partage la
+               même règle. */
             const t = [...document.querySelectorAll('.wdgt-bar .wdgt-tab')].find(x => /^\W*TAUX\s*$/i.test(x.textContent || ''));
             if (!t) return false; t.click(); return true;
           });
