@@ -134,6 +134,25 @@ v('un cycle de fond pré-traduit les propos', /async function _prechaufferPropos
 v('… et il est bien branché au planificateur', /_prechaufferProposFr\(\)\.catch/.test(SRV));
 const srcCycle = extraire(SRV, '_prechaufferProposFr') || '';
 v('… en priorité « background » (il cède avant les autres travaux)', /priority: 'background'/.test(srcCycle), srcCycle.slice(0, 200));
+/* 18/09, capture user : le fil entièrement en anglais un soir chargé (« à chaque fois on tape le
+   quota met un truc intelligent »). Les cinq tâches de fond du cycle news appellent TOUTES
+   aiSmart('news', …) : même catégorie, même enveloppe de 60 % du budget Gemini journalier — donc
+   un ORDRE D'APPEL implicite, la première tâche exécutée dans le tick voit le quota AVANT les
+   suivantes. Les titres tournaient EN DERNIER, derrière quatre tâches de contenu qui ne s'affiche
+   qu'AU CLIC (analyse, titre de citation, description, impact marché) : sur une journée chargée,
+   elles épuisaient le budget avant que le titre — affiché D'EMBLÉE dans le fil — n'ait sa chance.
+   Il doit désormais passer EN PREMIER. */
+{
+  const iTitres      = SRV.indexOf('_prechaufferProposFr().catch');
+  const iAnalyses    = SRV.indexOf('_enrichAnalyses().catch');
+  const iInfoTitles  = SRV.indexOf('_enrichInfoTitles().catch');
+  const iDescription = SRV.indexOf('_enrichDescriptionsFr().catch');
+  const iImpacts     = SRV.indexOf('_enrichImpacts().catch');
+  const tousTrouves  = [iTitres, iAnalyses, iInfoTitles, iDescription, iImpacts].every(i => i > 0);
+  v('… et appelée EN PREMIER parmi les tâches de fond du cycle news (le titre du fil, affiché d\'emblée, réclame le quota partagé avant tout ce qui n\'est vu qu\'au clic)',
+    tousTrouves && iTitres < iAnalyses && iTitres < iInfoTitles && iTitres < iDescription && iTitres < iImpacts,
+    'positions : titres=' + iTitres + ' analyses=' + iAnalyses + ' infoTitles=' + iInfoTitles + ' description=' + iDescription + ' impacts=' + iImpacts);
+}
 v('… sous un plafond journalier propre, désactivable sans redéploiement',
   /PROPOS_FR_MAX_JOUR <= 0/.test(srcCycle) && /process\.env\.PROPOS_FR_MAX_JOUR/.test(SRV));
 /* ⚠️ CE CONTRÔLE ÉTAIT LEXICAL ET IL A ACCUSÉ UN CODE CORRECT (27/08). Il exigeait la présence

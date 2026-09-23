@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260923-fil-priorite-titres', ts: Date.UTC(2026, 8, 23, 4, 0), title: 'Fil d’actualité : les titres ne repassent plus en anglais sur une soirée chargée', desc: 'Vous nous avez signalé le fil entièrement en anglais un soir de forte actualité. LA CAUSE. Le titre affiché dans le fil et le contenu affiché seulement quand vous ouvrez une dépêche (analyse, description, impact marché) partagent le même quota de traduction quotidien. Sur une soirée chargée, ce contenu au clic partait EN PREMIER dans le cycle de traduction et épuisait sa part avant que le titre, lui visible d’emblée sans avoir à cliquer, n’ait jamais sa chance. CE QUI CHANGE. Le titre du fil passe désormais en premier : c’est la partie la plus regardée du desk, elle réclame le quota partagé avant tout ce qui n’est vu qu’au clic. Le contenu au clic continue d’être traduit avec ce qu’il reste, comme avant. Rien ne change le jour où le quota suffit largement : cette bascule d’ordre ne se voit que les jours où il devient serré.' },
   { id: 'dtpu-20260922-fluidite-fil', ts: Date.UTC(2026, 8, 22, 7, 0), title: 'Le desk reste fluide même quand l’actualité tombe en rafale', desc: 'Retour utilisateur, symptôme précis : « fluide à la connexion, puis lent au bout de quelques secondes ». La cause était le fil d’actualité, et elle n’avait rien à voir avec le serveur, qui répond vite. À chaque nouvelle dépêche reçue en direct, le desk reconstruisait l’intégralité de la liste visible du fil. Les jours de forte actualité, plusieurs dépêches arrivent en une fraction de seconde : ces reconstructions s’enchaînaient alors sans répit et occupaient le navigateur en continu, ce qui ralentissait TOUT le desk - le fil comme le passage d’un module à l’autre, l’ouverture des panneaux, les fenêtres. Cela n’apparaissait qu’une fois connecté et le flux en marche, d’où le « après quelques secondes ». CE QUI CHANGE. Quand plusieurs dépêches arrivent coup sur coup, le fil ne se reconstruit plus qu’une seule fois par rafraîchissement d’écran, au lieu d’une fois par dépêche. Le direct reste tout aussi instantané - vous ne perdez aucune dépêche et rien n’est retardé à l’œil - mais il cesse de monopoliser le navigateur : la navigation entre les onglets redevient fluide même en plein flux. Le premier affichage à la connexion et vos propres actions (filtres, recherche, bouton « charger plus ») sont inchangés : seule la cadence des reconstructions déclenchées par le direct a été lissée.' },
   { id: 'dtpu-20260918-calendrier-parite', ts: Date.UTC(2026, 8, 18, 13, 0), title: 'Calendrier économique : parité totale avec forexfactory.com, tous impacts confondus', desc: 'Suite des deux correctifs de ce matin. Le calendrier ne reprenait jusqu’ici que les rendez-vous que ForexFactory classe en impact moyen ou fort : un rendez-vous publié en impact faible sur forexfactory.com - comme le PPI allemand mensuel évoqué plus tôt aujourd’hui - n’apparaissait jamais chez nous, même une fois corrigé le défaut du matin. CE QUI CHANGE. Le calendrier reprend désormais TOUT ce que publie forexfactory.com, faible impact compris, avec le même niveau d’impact affiché qu’en face. Vous verrez donc sensiblement plus de lignes qu’avant, sur toutes les devises : discours secondaires, publications mineures, tout ce qui figure sur la page de référence. Les autres widgets du desk (Radar de Biais, Semaine à Venir, alertes) continuent de ne retenir que les rendez-vous réellement significatifs pour le trading, exactement comme avant : seul l’onglet Calendrier s’aligne sur la totalité de ForexFactory.' },
   { id: 'dtpu-20260918-calendrier-fantome', ts: Date.UTC(2026, 8, 18, 12, 30), title: 'Calendrier économique : une publication que forexfactory.com n’affiche pas ne s’affiche plus non plus chez nous', desc: 'Suite du correctif de ce matin sur German PPI. Il empêchait déjà d’attribuer le mauvais chiffre à la bonne case, mais la ligne fautive elle-même restait affichée comme un rendez-vous à part entière, absent de forexfactory.com ce jour-là. LA CAUSE. Notre fournisseur de temps réel publie parfois une seule des deux variantes d’un indicateur (l’annuelle, pas la mensuelle, par exemple) quand ForexFactory, lui, n’en publie qu’une seule aussi, mais l’autre. Sans contrepartie chez ForexFactory, cette variante isolée restait affichée comme si elle en faisait partie. CE QUI CHANGE. Une publication dont ForexFactory ne montre, ce jour-là, QUE l’autre variante du même indicateur n’est plus affichée : notre calendrier ne montre plus que ce que forexfactory.com montre, sans ligne fantôme en plus. Quatre contrôles automatiques rejouent ce scénario exact à chaque livraison, dont un témoin qui prouve que le retrait ne se déclenche jamais sans preuve directe (un pays différent sous la même devise, par exemple, ne fait disparaître aucune ligne).' },
@@ -23023,6 +23024,19 @@ async function refreshNews() {
   // aller-retour vers Expo ne doit jamais retarder le fil des lecteurs connectés).
   _pushEnvoyer(added).catch(() => {});
 
+  /* ORDRE D'APPEL = ORDRE DE PRIORITÉ SUR LE QUOTA PARTAGÉ (18/09, capture user : le fil entièrement
+     en anglais un soir chargé, « à chaque fois on tape le quota met un truc intelligent »). Les cinq
+     tâches ci-dessous appellent TOUTES `aiSmart('news', …, {priority:'background'})` : même catégorie,
+     même enveloppe de 60 % du budget Gemini journalier (`aiAllowed`), donc un ORDRE D'APPEL implicite
+     — la première tâche du cycle consomme le budget avant que les suivantes ne le voient. Les TITRES
+     (`_prechaufferProposFr`) tournaient EN DERNIER : sur une journée chargée, les quatre tâches
+     précédentes — toutes du contenu affiché seulement AU DÉPLIAGE d'une news (analyse, titre de
+     citation, description, impact marché) — avaient déjà consommé les 60 % avant que le titre, LUI
+     AFFICHÉ D'EMBLÉE DANS LE FIL (« c'est ce qu'on regarde le plus », déjà écrit plus haut dans ce
+     fichier), n'ait jamais sa chance. Le résultat mesuré : un fil entier en anglais un soir chargé,
+     pendant que le contenu au clic restait traduisible. Les titres passent donc EN PREMIER — la
+     surface la PLUS visible réclame le budget partagé avant tout ce qui n'est vu qu'au clic. */
+  _prechaufferProposFr().catch(() => {});
   // Analyse IA PRE-CALCULEE = la TRADUCTION FR affichee au depliage -> lancee a CHAQUE cycle (60s) pour que le
   // francais apparaisse VITE (bornee par AI_ANALYSE_DAILY_MAX + cooldowns providers + pression sante Phase 3).
   _enrichAnalyses().catch(() => {});
@@ -23032,9 +23046,6 @@ async function refreshNews() {
   _enrichDescriptionsFr().catch(() => {});
   // « Impact marché » sur les statistiques tier-1 du fil (2/cycle, plafond journalier propre, cache durable).
   _enrichImpacts().catch(() => {});
-  // Pré-traduction FR des PROPOS listés dans le panneau Info : hors du chemin critique, sinon le
-  // repli client de 2,5 s fige l'anglais avant que la traduction ne revienne (voir _prechaufferProposFr).
-  _prechaufferProposFr().catch(() => {});
   // Affinage des TAGS (moins urgent) : reste throttle 1 cycle sur 3 pour lisser le RPM. Tag heuristique deja affiche.
   globalThis._newsAiTick = (globalThis._newsAiTick || 0) + 1;
   if (globalThis._newsAiTick % 3 === 0) _smartTagNews().catch(() => {});
