@@ -153,8 +153,22 @@ const XAI_BASE   = process.env.XAI_URL || 'https://api.x.ai/v1';
 const XAI_MODELS = (process.env.XAI_MODELS || 'grok-3-mini,grok-2-1212')
   .split(',').map(s => s.trim()).filter(Boolean);
 
+// ── Cloudflare Workers AI — endpoint OpenAI-compatible, free-tier (neurones/jour). Repli GRATUIT ajouté
+//    le 23/09 (demande user). ⚠️ NÉCESSITE DEUX variables dans le .env du VPS : le jeton CLOUDFLARE_KEY_API
+//    **et** l'identifiant de compte CLOUDFLARE_ACCOUNT_ID — l'endpoint Workers AI en a besoin dans l'URL.
+//    Sans les DEUX → liste de clés vide → sauté partout (comme un fournisseur absent). Jamais de clé en dur.
+const CF_ACCOUNT = (process.env.CLOUDFLARE_ACCOUNT_ID || '').trim();
+const CLOUDFLARE_KEYS = (() => {
+  const tok = (process.env.CLOUDFLARE_KEY_API || process.env.CLOUDFLARE_API_KEY || '').trim();
+  return (tok && CF_ACCOUNT) ? [tok] : [];   // inactif tant que le compte n'est pas renseigné
+})();
+const _cfCur = { v: 0 };
+const CF_BASE   = CF_ACCOUNT ? `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT}/ai/v1` : '';
+const CF_MODELS = (process.env.CLOUDFLARE_MODELS || '@cf/meta/llama-3.3-70b-instruct-fp8-fast,@cf/meta/llama-3.1-8b-instruct')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
 // Visibilité au démarrage : combien de ressources IA sont chargées (jamais les valeurs).
-console.log(`[AI] Ressources → Gemini: ${GEMINI_KEYS.length} clés · Groq: ${GROQ_KEYS.length} clé(s)${GROQ_KEYS.length ? ' (' + GROQ_MODELS.join('/') + ')' : ''} · GitHub Models: ${GITHUB_TOKENS.length} token(s)${GITHUB_TOKENS.length ? ' (' + GITHUB_MODELS.join('/') + ')' : ''} · OpenRouter: ${OPENROUTER_KEYS.length} clé(s)${OPENROUTER_KEYS.length ? ' (' + OPENROUTER_MODELS.length + ' :free)' : ''} · Cohere: ${COHERE_KEYS.length} clé(s) · xAI: ${XAI_KEYS.length} clé(s) (payant) · Claude: ${ANTHROPIC_KEYS.length} clés`);
+console.log(`[AI] Ressources → Gemini: ${GEMINI_KEYS.length} clés · Groq: ${GROQ_KEYS.length} clé(s)${GROQ_KEYS.length ? ' (' + GROQ_MODELS.join('/') + ')' : ''} · GitHub Models: ${GITHUB_TOKENS.length} token(s)${GITHUB_TOKENS.length ? ' (' + GITHUB_MODELS.join('/') + ')' : ''} · OpenRouter: ${OPENROUTER_KEYS.length} clé(s)${OPENROUTER_KEYS.length ? ' (' + OPENROUTER_MODELS.length + ' :free)' : ''} · Cohere: ${COHERE_KEYS.length} clé(s) · Cloudflare: ${CLOUDFLARE_KEYS.length} clé(s)${CLOUDFLARE_KEYS.length ? '' : (CF_ACCOUNT ? '' : ' (compte manquant)')} · xAI: ${XAI_KEYS.length} clé(s) (payant) · Claude: ${ANTHROPIC_KEYS.length} clés`);
 
 // ── CONTEXTE SYSTÈME PARTAGÉ ──────────────────────────────────────────────────
 // Injecté dans CHAQUE appel (Gemini ET Claude, toutes les clés) → même "vision" du site,
@@ -190,7 +204,7 @@ function _buildSystem() {
 // ── Lecture du champ usage (tokens réels) des 3 providers ────────────────────
 // Les 3 APIs renvoient la consommation exacte ; on l'agrège (reset quotidien avec _aiStats)
 // → coût réel visible dans status(), et hook onUsage pour la persistance (ai_events, Phase 1).
-let _aiTok = { geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, openrouterIn: 0, openrouterOut: 0, groqIn: 0, groqOut: 0, cohereIn: 0, cohereOut: 0, xaiIn: 0, xaiOut: 0, claudeIn: 0, claudeOut: 0 };
+let _aiTok = { geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, openrouterIn: 0, openrouterOut: 0, groqIn: 0, groqOut: 0, cohereIn: 0, cohereOut: 0, cloudflareIn: 0, cloudflareOut: 0, xaiIn: 0, xaiOut: 0, claudeIn: 0, claudeOut: 0 };
 let _onUsage = null;
 function onUsage(fn) { _onUsage = (typeof fn === 'function') ? fn : null; }
 function _noteUsage(provider, model, inTok, outTok) {
@@ -349,8 +363,8 @@ function _gemCool(model, idx, status, retryDelayMs, quotaDaily) {
 }
 function _gemIsCool(model, idx) { const t = _gemCooldown.get(model + '|' + idx); return !!t && t > Date.now(); }
 // Suivi quotidien (visibilité "combien d'appels / 429 par jour").
-const _AI_STATS_ZERO = () => ({ gemini: 0, gemini429: 0, github: 0, githubFail: 0, openrouter: 0, openrouterFail: 0, groq: 0, groqFail: 0, cohere: 0, cohereFail: 0, xai: 0, xaiFail: 0, claude: 0, claudeFail: 0, fallback: 0 });
-const _AI_TOK_ZERO   = () => ({ geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, openrouterIn: 0, openrouterOut: 0, groqIn: 0, groqOut: 0, cohereIn: 0, cohereOut: 0, xaiIn: 0, xaiOut: 0, claudeIn: 0, claudeOut: 0 });
+const _AI_STATS_ZERO = () => ({ gemini: 0, gemini429: 0, github: 0, githubFail: 0, openrouter: 0, openrouterFail: 0, groq: 0, groqFail: 0, cohere: 0, cohereFail: 0, cloudflare: 0, cloudflareFail: 0, xai: 0, xaiFail: 0, claude: 0, claudeFail: 0, fallback: 0 });
+const _AI_TOK_ZERO   = () => ({ geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, openrouterIn: 0, openrouterOut: 0, groqIn: 0, groqOut: 0, cohereIn: 0, cohereOut: 0, cloudflareIn: 0, cloudflareOut: 0, xaiIn: 0, xaiOut: 0, claudeIn: 0, claudeOut: 0 });
 let _aiDay = '', _aiStats = _AI_STATS_ZERO();
 function _aiStat(f, err) {
   const d = new Date().toISOString().slice(0, 10);
@@ -541,6 +555,7 @@ function budgetSur() {
   if (GITHUB_TOKENS.length) dispo.push('github');
   if (OPENROUTER_KEYS.length) dispo.push('openrouter');
   if (COHERE_KEYS.length) dispo.push('cohere');
+  if (CLOUDFLARE_KEYS.length) dispo.push('cloudflare');
   if (ANTHROPIC_KEYS.length) dispo.push('claude');
   let best = null, inconnu = false;
   for (const p of dispo) { const pl = plafondDe(p); if (pl == null) inconnu = true; else if (best == null || pl > best) best = pl; }
@@ -748,7 +763,7 @@ function _mkCool() {
     coolingNow: () => [...m.values()].filter(t => t > Date.now()).length,
   };
 }
-const _groqCool = _mkCool(), _cohereCool = _mkCool(), _xaiCool = _mkCool();
+const _groqCool = _mkCool(), _cohereCool = _mkCool(), _xaiCool = _mkCool(), _cfCool = _mkCool();
 
 // ── Appelleur OpenAI-compatible GÉNÉRIQUE (Groq + xAI) — rotation clés × modèles, cooldown par clé.
 //    Même contrat que _openrouter : 401/403/402 gèle la clé (morte/sans crédit) ; 429 = clé rate-limited
@@ -794,6 +809,7 @@ async function _oaiCompatible(cfg, prompt, maxTokens) {
 }
 function _groq(prompt, maxTokens) { return _oaiCompatible({ name: 'Groq', base: GROQ_BASE, keys: GROQ_KEYS, models: GROQ_MODELS, cool: _groqCool, cur: _groqCur, stat: 'groq' }, prompt, maxTokens); }
 function _xai(prompt, maxTokens)  { return _oaiCompatible({ name: 'xAI',  base: XAI_BASE,  keys: XAI_KEYS,  models: XAI_MODELS,  cool: _xaiCool,  cur: _xaiCur,  stat: 'xai'  }, prompt, maxTokens); }
+function _cloudflare(prompt, maxTokens) { return _oaiCompatible({ name: 'Cloudflare', base: CF_BASE, keys: CLOUDFLARE_KEYS, models: CF_MODELS, cool: _cfCool, cur: _cfCur, stat: 'cloudflare' }, prompt, maxTokens); }
 
 // ── Cohere v2 (api.cohere.com/v2/chat) — forme DIFFÉRENTE : réponse message.content[].text, usage.tokens.
 async function _cohere(prompt, maxTokens) {
@@ -1127,7 +1143,7 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
   // claudeOff = jamais en flux de fond). Groq n'apparaît plus ici : il est PRINCIPAL (tenté en tête).
   // Chaque provider garde SA fonction/logs/cooldown. L'apprentissage ne réordonne QUE github/openrouter.
   const _mid = (_fallbackOrder && _fallbackOrder.length) ? _fallbackOrder : ['github', 'openrouter'];
-  const _order = [..._mid, 'cohere', 'xai'];
+  const _order = [..._mid, 'cohere', 'cloudflare', 'xai'];   // Cloudflare Workers AI = repli GRATUIT (après Cohere, avant le payant)
   for (const prov of _order) {
     if (prov === 'github' && GITHUB_TOKENS.length && !_saute('github')) {
       try { const out = await _githubModels(prompt, maxTokens); notePlafondOk('github', _bud); _aiStat('github'); return out; }
@@ -1138,6 +1154,9 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
     } else if (prov === 'cohere' && COHERE_KEYS.length && !_saute('cohere')) {
       try { const out = await _cohere(prompt, maxTokens); notePlafondOk('cohere', _bud); _aiStat('cohere'); return out; }
       catch (e) { if (estRefusTaille(e)) notePlafondKo('cohere', _bud); console.warn(`[AI] Cohere échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('cohereFail', e); }
+    } else if (prov === 'cloudflare' && CLOUDFLARE_KEYS.length && !_saute('cloudflare')) {
+      try { const out = await _cloudflare(prompt, maxTokens); notePlafondOk('cloudflare', _bud); _aiStat('cloudflare'); return out; }
+      catch (e) { if (estRefusTaille(e)) notePlafondKo('cloudflare', _bud); console.warn(`[AI] Cloudflare échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('cloudflareFail', e); }
     } else if (prov === 'xai' && XAI_KEYS.length && !claudeOff && !_saute('xai')) {   // xAI = PAYANT → JAMAIS sur un flux de fond « noClaude » (protège le budget)
       try { const out = await _xai(prompt, maxTokens); notePlafondOk('xai', _bud); _aiStat('xai'); return out; }
       catch (e) { if (estRefusTaille(e)) notePlafondKo('xai', _bud); console.warn(`[AI] xAI échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)}${claudeOff ? '' : ' → Claude'}`); _aiStat('xaiFail', e); }
@@ -1183,6 +1202,7 @@ function status() {
       budget: { capHaut: GH_CAP_HIGH, capBas: GH_CAP_LOW, gapMs: GH_MIN_GAP, jour: _ghBudgetEtat() } },
     openrouter: { keys: OPENROUTER_KEYS.length, models: OPENROUTER_MODELS.length, coolingNow: [..._orCooldown.values()].filter(t => t > Date.now()).length },
     cohere: { keys: COHERE_KEYS.length, models: COHERE_MODELS.length, coolingNow: _cohereCool.coolingNow() },
+    cloudflare: { keys: CLOUDFLARE_KEYS.length, models: CF_MODELS.length, coolingNow: _cfCool.coolingNow(), account: !!CF_ACCOUNT },
     xai: { keys: XAI_KEYS.length, models: XAI_MODELS.length, coolingNow: _xaiCool.coolingNow(), paid: true },
     anthropicKeys: ANTHROPIC_KEYS.length,
     claudeModel: CLAUDE_MODEL,

@@ -88,7 +88,7 @@ console.log('\n── Des deux côtés : la cascade s\'en sert, le Récap aussi 
 const AI_SRC = fs.readFileSync(path.join(__dirname, '..', 'ai.js'), 'utf8');
 v('la cascade calcule le budget de l\'appel', /const _bud = budgetAppel\(prompt, maxTokens\)/.test(AI_SRC));
 const sautes = (AI_SRC.match(/_saute\('(\w+)'\)/g) || []).map(x => x.slice(8, -2));
-v('les six fournisseurs de la cascade sont gardés', new Set(sautes).size === 6, 'gardés : ' + [...new Set(sautes)].join(', '));
+v('les sept fournisseurs de la cascade sont gardés', new Set(sautes).size === 7, 'gardés : ' + [...new Set(sautes)].join(', '));
 const notesOk = (AI_SRC.match(/notePlafondOk\('/g) || []).length;
 const notesKo = (AI_SRC.match(/notePlafondKo\('/g) || []).length;
 v('chaque fournisseur apprend de ses réussites', notesOk >= 6, notesOk + ' point(s)');
