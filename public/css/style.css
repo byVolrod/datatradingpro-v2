@@ -16385,7 +16385,17 @@ body.home-mode .view-panel { visibility: hidden; }
    horizontal — d'où « RADAR DE BIAIS » collé au rebord alors que le bandeau de nom des autres
    widgets (.wdgt-subname) est à 10 px. Même gabarit pour tout le monde. */
 #view-widgets .wdg-vuehost .panel-header {
-  height: var(--navbar-h); padding: 0 10px; display: flex; align-items: center; gap: 6px;
+  min-height: var(--navbar-h); height: auto; padding: 0 10px; display: flex; align-items: center; gap: 6px;
+}
+/* ⚠️ UNE HAUTEUR MINIMALE, JAMAIS UNE HAUTEUR FIXE (23/09, capture user : widget « Semaine à venir »
+   sur téléphone, le titre « SEMAINE À VENIR » coupé en deux par le haut de la carte). Sous 560 px,
+   `.panel-header` passe en `flex-wrap: wrap` pour que titre et commandes tiennent sur deux lignes ;
+   mais cette règle-ci, plus spécifique, lui imposait `height: var(--navbar-h)` : une seule ligne de
+   haut pour deux lignes de contenu. Le surplus débordait de part et d'autre, et la première ligne
+   (le titre) sortait PAR LE HAUT, rognée par la carte. Sur grand écran rien ne change : l'en-tête
+   ne passe pas à la ligne, et la hauteur minimale est exactement l'ancienne hauteur fixe. */
+@media (max-width: 560px) {
+  #view-widgets .wdg-vuehost .panel-header { flex-wrap: wrap; row-gap: 4px; padding-top: 6px; padding-bottom: 6px; }
 }
 #view-widgets .wdg-vuehost .panel-header .panel-title { padding-left: 0; margin-left: 0; }
 

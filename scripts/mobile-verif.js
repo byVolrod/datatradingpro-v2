@@ -267,7 +267,7 @@ function phaseServiceWorker() {
       await new Promise(r => srvAdmin.listen(PORT + 1, r));
       const page = await nav.newPage();
       await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-      let R = null, plancherPetit = null;
+      let R = null, plancherPetit = null, ongletTaux = false, _ent = null;
       try {
         await page.goto(`http://localhost:${PORT + 1}/index.html`, { waitUntil: 'networkidle0', timeout: 45000 });
         await new Promise(r => setTimeout(r, 2400));
@@ -333,6 +333,20 @@ function phaseServiceWorker() {
           });
         }
       } catch (e) { R = null; }
+      try {
+          ongletTaux = await page.evaluate(() => {
+            /* L'onglet TAUX porte l'en-tête le plus long du desk (« Taux directeurs des banques
+               centrales » + ses commandes) : c'est lui qui passe le premier sur deux lignes, donc lui
+               qui révèle une hauteur fixe. La Semaine à venir, signalée, partage la même règle. */
+            const t = [...document.querySelectorAll('.wdgt-bar .wdgt-tab')].find(x => /^\W*TAUX\s*$/i.test(x.textContent || ''));
+            if (!t) return false; t.click(); return true;
+          });
+          if (ongletTaux) await new Promise(r => setTimeout(r, 2200));
+          _ent = await page.evaluate(() => [...document.querySelectorAll('.wdg-vuehost .panel-header')].filter(h => h.offsetParent).map(h => {
+            const t = h.querySelector('.panel-title'); const hb = h.getBoundingClientRect(); const tb = t ? t.getBoundingClientRect() : null;
+            return { nom: t ? (t.textContent || '').trim().slice(0, 28) : '?', debord: h.scrollHeight - h.clientHeight, haut: tb ? Math.round(tb.top - hb.top) : 0 };
+          }));
+      } catch (e) { console.log('  ~ mesure de l\'en-tête Taux impossible : ' + e.message); }
       await page.close();
       /* ⚠️ LE BOUCHON RESTE OUVERT JUSQU'À LA FIN DE LA SECTION. Il était fermé ICI, avant les
          contrôles : la page ouverte plus bas pour mesurer la chaîne de défilement ne pouvait donc
@@ -359,6 +373,13 @@ function phaseServiceWorker() {
         v('aucun contenu de widget n\'est coupé (hors fil d\'actualité, qui défile par nature)',
           R.coupes.length === 0,
           R.coupes.map(x => x.cls + ' : ' + x.cache + ' px cachés').join(' · '));
+        /* 23/09 : l'en-tête d'une vue adoptée ne rogne rien. Le relevé des coupures ci-dessus ne le
+           voyait pas : il n'examine que les éléments de plus de 40 px de haut, et l'en-tête en
+           faisait 40, pile la hauteur fixe qui le coupait (capture user : « SEMAINE À VENIR » tronqué
+           par le haut sur téléphone). On ouvre donc l'onglet SIGNALÉ et on mesure son en-tête. */
+        v('l\'en-tête d\'une vue adoptée garde son titre entier (rien ne déborde par le haut)',
+          ongletTaux && (_ent = _ent || []).length > 0 && _ent.every(e => e.debord <= 1 && e.haut >= -1),
+          _ent.length ? _ent.map(e => '« ' + e.nom + ' » : ' + e.debord + ' px débordés, titre à ' + e.haut + ' px du haut').join(' · ') : 'onglet Taux introuvable ou sans en-tête : le contrôle ne prouve rien');
       }
       /* ══ LE DOIGT N'EST PAS ENFERMÉ DANS UN WIDGET (02/09, capture user) ═══════════════════════
          « Je ne peux pas descendre plus bas dans le fil d'actualité, ça me bloque. »
