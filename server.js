@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260923-recap-hebdo-a-l-heure', ts: Date.UTC(2026, 8, 23, 12, 30), title: 'Récap Hebdo : prêt le samedi, sans attendre', desc: 'Ces dernières semaines, le Récap Hebdo arrivait parfois plusieurs jours après la fin de la semaine, et la liste des Notes d’analystes restait sans récap en attendant. La cause est corrigée : quand la rédaction du samedi n’aboutit pas du premier coup, le desk la relance désormais tout seul, régulièrement, jusqu’à ce que le récap soit publié, sans attendre qu’un lecteur ouvre l’onglet. Le récap de la semaine du 14 au 18 septembre est en ligne, au nouveau format.' },
   { id: 'dtpu-20260923-recaps-mentor', ts: Date.UTC(2026, 8, 23, 7, 0), title: 'Récaps : la lecture du marché, pas seulement les faits', desc: 'Nos récaps disaient ce qui s’est passé ; ils expliquent désormais aussi pourquoi le marché a réagi ainsi. Dans le Récap Quotidien, une nouvelle rubrique « Lecture de marché » décrypte la réaction d’une devise au fait majeur du jour : le mécanisme en jeu, ses causes, et ce que le marché attendait face à ce qu’il a obtenu. Dans le Récap Hebdo, chaque devise s’ouvre sur ce que le marché a retenu de sa semaine, chaque rubrique chiffrée (inflation, emploi, croissance) porte sa lecture en une ligne, les rendez-vous de la semaine à venir passent en liste, et la devise se conclut sur « ⇒ » : sa dynamique, puis le principal risque qui pourrait la casser. Le récap de la semaine en cours est complété de ces lectures, sans être réécrit.' },
   { id: 'dtpu-20260923-taux-relais', ts: Date.UTC(2026, 8, 23, 6, 10), title: 'Onglet Taux : les probabilités de marché reviennent en temps réel', desc: 'Le panneau de contrôle a mis le doigt sur la vraie cause du retard de l’onglet Taux : notre fournisseur de probabilités de marché refuse désormais, depuis le 9 septembre, les requêtes venant de notre serveur (réponse « accès refusé » pour les huit banques), alors qu’il répond normalement ailleurs. Attendre ne l’aurait jamais débloqué. Quand l’accès direct est refusé, le desk passe désormais par un relais de lecture public, déjà utilisé pour certains rapports de banques qui bloquent les serveurs de la même façon : les probabilités de la Fed, de la BCE, de la BoE, de la BoJ, de la BoC et de la RBA reviennent à jour automatiquement, sans intervention. Les données reçues par le relais sont vérifiées exactement comme les autres, et rien n’est inventé s’il échoue : la carte garde alors la dernière valeur de marché valable, ou l’estimation, en le disant.' },
   { id: 'dtpu-20260923-widget-entete-mobile', ts: Date.UTC(2026, 8, 23, 5, 45), title: 'Mon Desk sur téléphone : le titre des modules n’est plus coupé', desc: 'Vous nous avez signalé que le widget Semaine à venir était mal calé sur téléphone : son titre apparaissait coupé en deux par le haut de la carte. Sur un écran étroit, l’en-tête d’un module du desk monté dans Mon Desk passe sur deux lignes (le titre, puis la navigation et les réglages), mais on lui imposait la hauteur d’une seule ligne : le titre débordait par le haut et se faisait rogner. L’en-tête prend désormais la hauteur de son contenu. La correction vaut pour tous les modules du desk montés dans un widget (Taux, Banques, Biais, Semaine à venir…), et rien ne change sur grand écran.' },
@@ -26660,7 +26661,10 @@ setTimeout(() => { _condenserWeekly47().catch(() => {}); }, 3 * 60 * 1000);   //
 let _mentor52Essais = 0;
 async function _enrichirWeeklyMentor52() {
   try {
-    const item = (allNews || []).find(i => i && i._weekly && i._weekly.summary);
+    // ⚠️ LE TYPE D'ABORD : le Récap Éco (GEW) porte aussi un `_weekly`, et il est horodaté à 16 h le
+    // samedi, APRÈS le Récap Hebdo (6 h). Chercher « le premier `_weekly` » tombait donc sur lui, qui
+    // n'a pas de devises : la passe se déclarait finie sans avoir touché au Récap Hebdo.
+    const item = (allNews || []).find(i => i && i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.summary);
     const w = item ? item._weekly : _weeklyDurable;
     if (!w || w._mentor52 || (w.v || 0) >= 52 || !w.currencies) return true;
     if (++_mentor52Essais > 6) return true;
@@ -26716,6 +26720,51 @@ ${JSON.stringify(doc).slice(0, 16000)}`;
 }
 // Au boot (4 min, après la condensation v47), puis toutes les 2 h tant que la chaîne IA n'a pas répondu.
 setTimeout(function _m52() { _enrichirWeeklyMentor52().then(fini => { if (!fini) setTimeout(_m52, 2 * 3600e3); }).catch(() => {}); }, 4 * 60 * 1000);
+
+/* ══ GARDIEN DU RÉCAP HEBDO (23/09, capture user : la liste Notes d'analystes sans Récap Hebdo,
+   « faut que ce soit instantané quand on arrive dessus, tout doit bien s'afficher ») ═══════════════
+   MESURÉ en base (la date de rédaction est encodée dans l'id de chaque rapport) : le récap de la
+   semaine du 14 au 18/09 a été rédigé le MERCREDI 23/09, celui du 7 au 11/09 le VENDREDI 18/09, celui
+   du 31/08 au 04/09 le VENDREDI 11/09. Prévu le samedi 02 h 05, il arrivait donc avec quatre à sept
+   jours de retard, et pendant ce temps la liste n'avait tout simplement pas de récap de la semaine.
+   POURQUOI. Le créneau du samedi tente UNE fois. S'il échoue (chaîne IA saturée : Gemini est le seul
+   fournisseur qui répond depuis des semaines), il ne restait que deux rattrapages, et aucun ne tient :
+     · au démarrage du serveur, mais SEULEMENT samedi et dimanche ;
+     · à l'ouverture de l'onglet par un client, mais JAMAIS pendant une pause IA (backoff), c'est-à-dire
+       précisément quand la chaîne est tendue.
+   Le rapport attendait donc qu'un client ouvre l'onglet au bon moment.
+   DÉSORMAIS le serveur vérifie lui-même, sans attendre personne. Tant que le récap de la semaine écoulée
+   manque (ou n'existe qu'en repli), il relance la rédaction, avec la voie prioritaire, pause IA ou pas :
+   c'est la règle du Récap Quotidien depuis le 23/09 (une tentative espacée ne martèle rien). Espacement
+   20 min, doublé à chaque échec, plafonné à 3 h, remis à zéro dès que le récap est là : une chaîne IA en
+   panne ne se fait pas harceler, une chaîne qui revient est saisie dans l'heure. Verrou partagé avec la
+   route de l'onglet (`_weeklyGenLock`) : jamais deux rédactions en même temps. */
+const _GARDIEN_HEBDO_MIN_MS = 20 * 60 * 1000, _GARDIEN_HEBDO_MAX_MS = 3 * 3600 * 1000;
+let _gardienHebdoPas = _GARDIEN_HEBDO_MIN_MS, _gardienHebdoProchain = 0;
+function _recapHebdoCourantPresent() {
+  const sat = _expectedRecapSatTs();
+  return (allNews || []).some(i => i && i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= RECAP_MIN_OK && (i.timestamp || 0) >= sat);
+}
+async function _gardienHebdo() {
+  const now = Date.now();
+  if (_recapHebdoCourantPresent()) { _gardienHebdoPas = _GARDIEN_HEBDO_MIN_MS; _gardienHebdoProchain = 0; return 'present'; }
+  // Samedi avant 00 h 30 UTC : le créneau de 02 h 05 Paris (00 h 05 UTC) a la main, on ne le double pas.
+  const d = new Date(now);
+  if (d.getUTCDay() === 6 && d.getUTCHours() === 0 && d.getUTCMinutes() < 30) return 'creneau';
+  if (now < _gardienHebdoProchain) return 'attente';
+  if (now - _weeklyGenLock < 15 * 60 * 1000) return 'verrou';
+  _weeklyGenLock = now;
+  _gardienHebdoProchain = now + _gardienHebdoPas;
+  _gardienHebdoPas = Math.min(_gardienHebdoPas * 2, _GARDIEN_HEBDO_MAX_MS);
+  try { _aiPrioriteRapport(); } catch (e) {}
+  console.log('[Weekly Recap] gardien : récap de la semaine écoulée absent, rédaction relancée');
+  try { await generateWeeklyMarketRecap(false); } catch (e) { console.warn('[Weekly Recap] gardien :', e.message); }
+  return _recapHebdoCourantPresent() ? 'redige' : 'echec';
+}
+setTimeout(() => {
+  _gardienHebdo().catch(() => {});
+  setInterval(() => { _gardienHebdo().catch(() => {}); }, 5 * 60 * 1000);
+}, 6 * 60 * 1000);   // après le rattrapage du boot (25 s) et le rechargement Supabase
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 //  MOTEUR DE CONTEXTE NEWSLETTER — lit l'etat REEL du desk et le condense pour les mails intelligents.
