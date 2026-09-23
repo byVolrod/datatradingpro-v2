@@ -81,12 +81,16 @@ const GITHUB_TOKENS = (() => {
   return out.map(t => (t || '').trim()).filter(Boolean).filter((t, i, a) => a.indexOf(t) === i);
 })();
 let _ghCursor = 0;
-const GITHUB_BASE  = process.env.GITHUB_MODELS_URL || 'https://models.inference.ai.azure.com';
+// ⚠️ ENDPOINT GA (23/09) : l'ancien hôte `models.inference.ai.azure.com` est DÉCOMMISSIONNÉ par GitHub →
+// requêtes qui échouent AU RÉSEAU (pas de réponse HTTP), d'où « échec sans code » dans le Moniteur IA. Le
+// nouvel endpoint est models.github.ai/inference (jeton fin « Models: read »). Surchargeable par GITHUB_MODELS_URL.
+const GITHUB_BASE  = process.env.GITHUB_MODELS_URL || 'https://models.github.ai/inference';
 // Cascade de modèles GitHub : le plafond GRATUIT est PAR MODÈLE *et* PAR TOKEN (≈50/j « high » type
 // gpt-4o, ≈150/j « low » type gpt-4o-mini) → tourner sur PLUSIEURS modèles MULTIPLIE la capacité
 // gratuite/jour. Tâches courtes (≤LITE_MAXTOK) : mini d'abord (quota + élevé) ; tâches longues :
 // qualité d'abord (gpt-4o) puis repli mini. Surchargeable via GITHUB_MODELS (CSV).
-const GITHUB_MODELS = (process.env.GITHUB_MODELS || process.env.GITHUB_MODEL || 'gpt-4o,gpt-4o-mini')
+// GA : les modèles se nomment « éditeur/modèle » (openai/gpt-4o…), l'endpoint azure nu ne répond plus.
+const GITHUB_MODELS = (process.env.GITHUB_MODELS || process.env.GITHUB_MODEL || 'openai/gpt-4o,openai/gpt-4o-mini')
   .split(',').map(s => s.trim()).filter(Boolean);
 const GITHUB_MODELS_MINI_FIRST = [...GITHUB_MODELS].sort((a, b) => (a.includes('mini') ? 0 : 1) - (b.includes('mini') ? 0 : 1));
 const GITHUB_MODEL = GITHUB_MODELS[0];   // modèle « primaire » (affichage status/ai-test)
