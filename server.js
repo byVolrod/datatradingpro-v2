@@ -4624,6 +4624,18 @@ setInterval(() => { _whopGhostSweep().catch(e => console.error('[Whop fantôme] 
 // JAMAIS réinitialisés. Résultat : même si un envoi échoue à la création, le client reçoit son accès en
 // quelques heures, tout seul — plus jamais de création manuelle.
 let _welcomeHealBusy = false;
+/* ⚠️ FENÊTRE MAXIMALE : LE FILET NE TOUCHE JAMAIS UN CLIENT ÉTABLI (23/09, incident client).
+   Le 22/09 à 03:00, ce filet a envoyé « Bienvenue confirmée » — AVEC UN MOT DE PASSE RÉINITIALISÉ — à
+   cinq clients installés depuis JUIN (axelajt2, heikilea987, anismessaoud05, azedinerotchiz,
+   n.berthe). Mesuré en base : les cinq avaient un `last_login`, deux d'entre eux bien AVANT le 22/09
+   (le 16/09 et le 09/06). Le filet a donc lu ces comptes sans leur date de connexion, et comme ils
+   dataient d'avant le système de marqueurs `welcome:`/`welcomeok:`, AUCUNE des deux gardes n'a tenu.
+   Le défaut de fond n'est pas la lecture glitchée : c'est que RIEN n'empêchait le filet d'agir sur un
+   compte vieux de trois mois. Or sa raison d'être est un onboarding raté, qui se rattrape en quelques
+   heures (le cycle tourne toutes les 6 h, après une attente de 12 h). Un compte plus vieux que cette
+   fenêtre n'est JAMAIS un onboarding raté : c'est un client — dont on n'a pas le droit de changer le
+   mot de passe. La borne tient même si `last_login` ET le journal d'envoi mentent en même temps. */
+const _WELCOME_HEAL_FENETRE_MS = 7 * 24 * 3600 * 1000;
 async function _welcomeAutoHeal(send = true, cap = 20) {
   if (_welcomeHealBusy) return { busy: true };
   _welcomeHealBusy = true;
@@ -4637,6 +4649,7 @@ async function _welcomeAutoHeal(send = true, cap = 20) {
       if (u.last_login) continue;                                          // déjà connecté → a un accès
       const created = u.created_at ? new Date(u.created_at).getTime() : 0;
       if (created && now - created < 12 * 3600 * 1000) continue;           // trop récent → onboarding peut être en cours
+      if (!created || now - created > _WELCOME_HEAL_FENETRE_MS) continue;  // trop ancien (ou âge inconnu) → client ÉTABLI, jamais touché (incident 22/09)
       const exp = u.expires_at ? new Date(u.expires_at).getTime() : Number.MAX_SAFE_INTEGER;
       if (exp < now) { out.skippedExpired++; continue; }                   // abonnement expiré → pas de relance
       let done = false;
