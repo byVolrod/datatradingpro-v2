@@ -189,9 +189,14 @@ fi
 #                           connecter quand la base ne repond pas ;
 #   users_pending.json    : les ecritures faites hors ligne, en attente de rejeu vers la base.
 # L archive etant chiffree, les empreintes y sont protegees.
+# PERF (23/09) : perf_optims.json porte les optimisations APPLIQUEES depuis le panneau admin (onglet
+# Performance), perf_historique.json leur journal avec l instantane AVANT (celui qui permet le retour
+# arriere). Les perdre annulerait en silence un reglage choisi, et le moyen de le defaire proprement.
+# Les MESURES (perf_beacon.json), elles, se reconstituent en quelques heures de navigation.
 for f in cache_email_log.json news_history.json users_mirror.json users_deleted.json users_blacklist.json users_pending.json cache_bank_positions.json \
          cache_smart_bias_history.json cache_smart_bias.json cache_ai_usage.json \
-         cache_session_wraps.json cache_bank_research.json cache_rates_state.json; do
+         cache_session_wraps.json cache_bank_research.json cache_rates_state.json \
+         perf_optims.json perf_historique.json; do
   [ -f "$REPO/data/app/$f" ] && cp -a "$REPO/data/app/$f" donnees/ 2>/dev/null
 done
 

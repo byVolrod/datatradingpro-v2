@@ -205,6 +205,7 @@ async function suite() {
     'cache_lastseen.json': 'dernière visite par compte : se reconstruit à la visite suivante ; au pire le tri de la boîte de réception est approximatif quelques jours (users.last_login, lui, EST en base)',
     'disque_historique.json': 'historique de remplissage du disque : la sentinelle le réapprend en quelques heures',
     'disque_prudence.json': 'cran de prudence appris : réappris, et il ne fait que RENDRE PLUS PRUDENT (jamais moins)',
+    'perf_beacon.json': 'mesures agrégées de navigation (onglet Performance) : se reconstituent en quelques heures de visites. Les optimisations APPLIQUÉES et leur journal, eux, sont archivés',
     /* ⚠️ NI DURABLE NI CACHE : ÉPHÉMÈRE, et c'est une troisième catégorie qu'il faut nommer plutôt
        que de la ranger de force dans l'une des deux. Ce fichier est un ORDRE déposé par le panneau
        admin à destination de la sentinelle de l'hôte (« libère de la place »), consommé à son

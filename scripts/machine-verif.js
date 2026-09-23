@@ -223,14 +223,20 @@ const MONITEUR = (variante) => {
        on révèle le conteneur : il reste un cadre vide, sans erreur. C'est le piège du 02/09 sur
        les widgets montés dans un onglet, et il mord identiquement ici. Le banc fait donc l'aller
        ET le retour, puis mesure le graphe de l'onglet d'origine. */
-    console.log('\n── Les quatre onglets du moniteur ──');
+    /* ⚠️ UN CINQUIÈME ONGLET, « Performance », EST ARRIVÉ LE 22/09 (commit 4902ac3, panneau qui mesure la
+       vraie navigation des membres) SANS QUE CE BANC SOIT MIS À JOUR. Conséquence mesurée le 23/09 :
+       les cinq déploiements suivants (runs #231 à #235) ont échoué ici, et la production n'a plus rien
+       reçu pendant une journée — les correctifs poussés entre-temps attendaient derrière. Le banc
+       fait son travail en rougissant : un onglet de plus doit être un choix écrit, pas une surprise.
+       Il l'est désormais. Le prochain ajout doit se déclarer ICI, dans le même commit. */
+    console.log('\n── Les cinq onglets du moniteur ──');
     const onglets = await page.evaluate(() => [...document.querySelectorAll('#aimt-bar .aimt')].map(b => ({ cle: b.dataset.aimt, nom: b.textContent.trim() })));
-    v('la barre porte quatre onglets nommés', onglets.length === 4,
+    v('la barre porte cinq onglets nommés', onglets.length === 5,
       onglets.map(o => o.nom).join(' · ') || 'aucun onglet');
     /* Des noms EXPLICITES, c'est la demande : « renomme bien les onglets ». Un onglet nommé par sa
        technique plutôt que par ce qu'on y cherche oblige à l'ouvrir pour savoir s'il est le bon. */
     v('… et leurs noms disent ce qu\'on y cherche',
-      onglets.map(o => o.nom).join('|') === 'Chaîne IA|Serveur|Services|Journal',
+      onglets.map(o => o.nom).join('|') === 'Chaîne IA|Serveur|Services|Journal|Performance',
       onglets.map(o => o.nom).join(' · '));
     const visibles = async () => page.evaluate(() => [...document.querySelectorAll('[data-aimt-p]')]
       .filter(p => !p.hidden).map(p => p.dataset.aimtP));
