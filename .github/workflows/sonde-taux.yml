@@ -64,25 +64,34 @@ jobs:
       # Seul un vrai navigateur qui exécute le JS du défi peut passer (c'est ce que fait le desk pour
       # myfxbook). On VALIDE ici, sur le runner (IP datacenter, comme le VPS), qu'un Chromium headless
       # franchit le défi et lit le JSON — AVANT de brancher ce mécanisme dans le serveur.
-      - name: Navigateur headless contre le défi Cloudflare
+      # Le headless simple ÉCHOUE (mesuré run #7 : « Performing security verification », jamais résolu)
+      # → défi Cloudflare « Managed Challenge » qui détecte l'automatisation. On tente la parade la plus
+      # forte SANS service payant : puppeteer-extra + plugin STEALTH, en HEADFUL sous xvfb (un vrai
+      # affichage virtuel), UA et locale réalistes. C'est ce qui bat le plus souvent ce type de défi.
+      - name: Navigateur furtif (puppeteer-extra stealth, headful xvfb)
         run: |
-          npm i -s playwright@1.47.2 >/dev/null 2>&1 || npm i -s playwright >/dev/null 2>&1
-          npx playwright install chromium >/dev/null 2>&1 || true
-          node <<'EOF'
-          const { chromium } = require('playwright');
+          npm i -s puppeteer@23 puppeteer-extra puppeteer-extra-plugin-stealth >/dev/null 2>&1
+          sudo apt-get update -qq >/dev/null 2>&1 || true
+          sudo apt-get install -y xvfb >/dev/null 2>&1 || true
+          cat > /tmp/furtif.js <<'EOF'
+          const puppeteer = require('puppeteer-extra');
+          puppeteer.use(require('puppeteer-extra-plugin-stealth')());
           (async () => {
-            const b = await chromium.launch({ args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'] });
-            const ctx = await b.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' });
-            const p = await ctx.newPage();
+            const b = await puppeteer.launch({ headless: false, args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,900', '--lang=en-US'] });
+            const p = await b.newPage();
+            await p.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+            await p.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
             try {
-              const r = await p.goto('https://rateprobability.com/api/fed/latest', { waitUntil: 'domcontentloaded', timeout: 45000 });
-              console.log('status initial :', r && r.status());
-              let corps = '';
-              for (let i = 0; i < 7; i++) { await p.waitForTimeout(2500); corps = await p.evaluate(() => document.body ? document.body.innerText : ''); if (corps.includes('today') || corps.trim().startsWith('{')) { console.log('défi résolu après ~' + ((i + 1) * 2.5) + ' s'); break; } }
-              console.log('BODY fed (300c) :', corps.slice(0, 300).replace(/\s+/g, ' '));
-              const j = await p.evaluate(async () => { try { const rr = await fetch('/api/ecb/latest', { headers: { Accept: 'application/json' } }); return rr.status + ' :: ' + (await rr.text()).slice(0, 160); } catch (e) { return 'fetch KO ' + e.message; } });
-              console.log('IN-PAGE ecb :', String(j).replace(/\s+/g, ' '));
+              // 1) On passe d'abord par la PAGE (le défi vise la navigation), puis on lit l'API en in-page.
+              const r = await p.goto('https://rateprobability.com/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+              console.log('status accueil :', r && r.status());
+              let titre = '';
+              for (let i = 0; i < 16; i++) { await new Promise(z => setTimeout(z, 3000)); titre = await p.title(); const corps = await p.evaluate(() => document.body ? document.body.innerText.slice(0, 60) : ''); if (!/just a moment|security verification/i.test(titre + corps)) { console.log('défi FRANCHI après ~' + ((i + 1) * 3) + ' s (titre: ' + titre + ')'); break; } }
+              console.log('titre final :', titre);
+              const j = await p.evaluate(async () => { try { const rr = await fetch('/api/fed/latest', { headers: { Accept: 'application/json' } }); return rr.status + ' :: ' + (await rr.text()).slice(0, 200); } catch (e) { return 'KO ' + e.message; } });
+              console.log('IN-PAGE fed :', String(j).replace(/\s+/g, ' '));
             } catch (e) { console.log('ERREUR :', e.message); }
             await b.close();
           })();
           EOF
+          xvfb-run -a --server-args="-screen 0 1280x900x24" node /tmp/furtif.js
