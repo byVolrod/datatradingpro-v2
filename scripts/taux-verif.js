@@ -752,10 +752,11 @@ v('… et la persistance loggue désormais son échec au lieu de le taire',
   const src2 = (iDebut2 >= 0) ? SRV.slice(iDebut2, iFin2) : null;
   v('`_tauxEtat` est extractible de server.js', !!src2);
   if (src2) {
-    const PARAMS = ['_rpCache', '_rpPanne', '_rpAlerteEnvoyee', '_RP_SEUIL_ALERTE_MS', '_aiRatesBiasAt', '_AIBIAS_SEUIL_ALERTE_MS', '_rpRelais'];
+    const PARAMS = ['_rpCache', '_rpPanne', '_rpAlerteEnvoyee', '_RP_SEUIL_ALERTE_MS', '_aiRatesBiasAt', '_AIBIAS_SEUIL_ALERTE_MS', '_rpRelais', '_fcEtat', '_rbaWatch'];
+    const _fcStub = () => ({ pose: false, capJour: 40, jour: '', n: 0, okAt: null, errAt: null, err: '' });   // 23/09 : la télémétrie Firecrawl (dernier recours ASX) figure aussi dans _tauxEtat
     const monterEtat = (rpCache, rpPanne, alerteEnvoyee, biaisAt) => new Function(
       ...PARAMS, src2 + '\nreturn _tauxEtat;'
-    )(rpCache, rpPanne, alerteEnvoyee, 20 * 60 * 1000, biaisAt || 0, 9 * 86400000, {});
+    )(rpCache, rpPanne, alerteEnvoyee, 20 * 60 * 1000, biaisAt || 0, 9 * 86400000, {}, _fcStub, null);
 
     const frais = monterEtat({ at: Date.now() - 2 * 60 * 1000, banks: { fed: 1, ecb: 1 } }, {}, false)();
     v('cache frais : `perime` est faux', frais.perime === false, JSON.stringify(frais));
@@ -786,7 +787,7 @@ v('… et la persistance loggue désormais son échec au lieu de le taire',
       'la ligne a changé de forme : ce témoin ne prouve plus rien');
     if (mut2 !== src2) {
       const figeMut = new Function(...PARAMS,
-        mut2 + '\nreturn _tauxEtat;')({ at: Date.now() - 5 * 3600e3, banks: {} }, {}, false, 20 * 60 * 1000, 0, 9 * 86400000)();
+        mut2 + '\nreturn _tauxEtat;')({ at: Date.now() - 5 * 3600e3, banks: {} }, {}, false, 20 * 60 * 1000, 0, 9 * 86400000, {}, _fcStub, null)();
       v('(témoin) sans la comparaison, un cache vieux de 5 h se dirait faussement frais',
         figeMut.perime === false, JSON.stringify(figeMut));
     }
@@ -797,7 +798,7 @@ v('… et la persistance loggue désormais son échec au lieu de le taire',
       'la ligne a changé de forme : ce témoin ne prouve plus rien');
     if (mut3 !== src2) {
       const biaisMut = new Function(...PARAMS,
-        mut3 + '\nreturn _tauxEtat;')({ at: Date.now(), banks: {} }, {}, false, 20 * 60 * 1000, Date.now() - 14 * 86400000, 9 * 86400000)();
+        mut3 + '\nreturn _tauxEtat;')({ at: Date.now(), banks: {} }, {}, false, 20 * 60 * 1000, Date.now() - 14 * 86400000, 9 * 86400000, {}, _fcStub, null)();
       v('(témoin) sans la comparaison, un biais figé depuis 14 j se dirait faussement frais',
         biaisMut.biaisPerime === false, JSON.stringify(biaisMut));
     }

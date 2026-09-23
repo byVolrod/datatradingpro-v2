@@ -20809,6 +20809,9 @@ async function _asxIbItems() {
       if (r.ok) { const items = _asxIbParse(await r.text()); if (items) return items; }
     } catch {} finally { clearTimeout(t2); }
   }
+  // Dernier recours : Firecrawl (clé dans le .env du VPS), budgété — source ASX publique et légitime.
+  const fc = await _firecrawlFetch(ASX_IB_URL);
+  if (fc) { const items = _asxIbParse(fc); if (items) return items; }
   return null;
 }
 let _rbaWatch = null;
@@ -20866,6 +20869,54 @@ async function _computeRbaWatch() {
 auth.aiCacheGet('rates:rbawatch').then(v => { if (v && v.at) _rbaWatch = v; }).catch(() => {});
 setTimeout(_computeRbaWatch, 11000);
 setInterval(_computeRbaWatch, 10 * 60 * 1000);   // ~10 min (règlement ASX quotidien + suivi des échanges intrajournaliers)
+
+// ── Firecrawl : passerelle de DERNIER RECOURS pour les sources de MARCHÉ LÉGITIMES (23/09) ──
+// L'utilisateur a posé sa clé Firecrawl dans le .env du VPS (JAMAIS dans le dépôt). Firecrawl récupère
+// une page/endpoint depuis SON infrastructure : utile quand l'adresse du VPS est refusée par une source
+// PUBLIQUE (ex. l'API ASX) et que les passerelles publiques ne passent pas non plus. On l'emploie
+// UNIQUEMENT pour des sources dont l'accès programmatique est légitime (ASX, API publiques de marché) —
+// JAMAIS pour forcer une protection anti-robot : rateprobability et son défi Cloudflare restent hors de
+// portée, contourner leur sécurité n'est pas une option. Budget PROACTIF pour ne pas cramer le quota
+// gratuit (même idiome que le budget GitHub Models) : plafond/jour + espacement, surchargeables par .env.
+const FC_KEY = process.env.FIRECRAWL_API_KEY || process.env.FIRECRAWL_KEY || '';
+const FC_CAP_JOUR = parseInt(process.env.FIRECRAWL_DAILY, 10) || 40;      // plafond d'appels/jour (préserve le quota)
+const FC_MIN_GAP = parseInt(process.env.FIRECRAWL_MIN_GAP_MS, 10) || 4000; // espacement minimal entre deux appels
+const _fcTel = { jour: '', n: 0, last: 0, okAt: 0, errAt: 0, err: '' };
+function _fcJour() { return new Date().toISOString().slice(0, 10); }
+function _fcBudgetOk() {
+  if (!FC_KEY) return false;                                  // pas de clé → fonction éteinte (jamais d'appel à vide)
+  const j = _fcJour();
+  if (_fcTel.jour !== j) { _fcTel.jour = j; _fcTel.n = 0; }   // nouveau jour → réserve pleine
+  if (_fcTel.n >= FC_CAP_JOUR) return false;                  // plafond quotidien atteint
+  if (Date.now() - _fcTel.last < FC_MIN_GAP) return false;    // trop rapproché
+  return true;
+}
+function _fcNote() { const j = _fcJour(); if (_fcTel.jour !== j) { _fcTel.jour = j; _fcTel.n = 0; } _fcTel.n++; _fcTel.last = Date.now(); }
+function _fcEtat() {
+  return { pose: !!FC_KEY, capJour: FC_CAP_JOUR, jour: _fcTel.jour || _fcJour(), n: _fcTel.n,
+           okAt: _fcTel.okAt || null, errAt: _fcTel.errAt || null, err: _fcTel.err || '' };
+}
+async function _firecrawlFetch(url, formats) {
+  if (!_fcBudgetOk()) return null;
+  _fcNote();
+  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 25000);
+  try {
+    const r = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + FC_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, formats: formats || ['rawHtml'], onlyMainContent: false, timeout: 20000 }),
+      signal: ctrl.signal,
+    });
+    if (!r.ok) { _fcTel.errAt = Date.now(); _fcTel.err = 'HTTP ' + r.status; return null; }
+    const j = await r.json();
+    const data = j && j.data;
+    const contenu = data && (data.rawHtml || data.html || data.markdown);
+    if (!contenu || String(contenu).length > 400000) { _fcTel.errAt = Date.now(); _fcTel.err = contenu ? 'réponse trop grosse' : 'réponse sans contenu'; return null; }
+    _fcTel.okAt = Date.now(); _fcTel.err = '';
+    return String(contenu);
+  } catch (e) { _fcTel.errAt = Date.now(); _fcTel.err = (e && e.message ? e.message : 'réseau').slice(0, 80); return null; }
+  finally { clearTimeout(to); }
+}
 
 // ─── SOURCE RÉELLE : rateprobability.com — probabilités implicites de MARCHÉ par banque centrale ───
 // API JSON publique par banque (taux implicites OIS/futures, par réunion). Fed/BCE/BoE/BoJ/BoC/RBA = gratuits ;
@@ -21164,6 +21215,8 @@ function _tauxEtat() {
     alerteEnvoyee: _rpAlerteEnvoyee, banques: Object.keys(_rpCache.banks || {}).length,
     pannes: { ..._rpPanne },
     relais: { ..._rpRelais },   // banques servies via une passerelle publique (nom dans `via`) parce que l'accès direct est refusé
+    firecrawl: _fcEtat(),       // passerelle Firecrawl (dernier recours pour l'ASX) : clé posée ?, appels du jour, dernier OK/erreur
+    rbaWatch: _rbaWatch ? { at: _rbaWatch.at, hike: _rbaWatch.hike, impliedRate: _rbaWatch.impliedRate, meth: _rbaWatch.meth } : null,   // pricing marché RBA (futures ASX)
     // Biais IA (poids monétaire du Radar de Biais + résolution CB non ancrée) : visibilité SÉPARÉE,
     // mesurée le 17/09 après avoir trouvé `rates:aibias` figée 14 jours sans que rien ne le dise.
     biaisAt, biaisAgeMs: biaisAt ? Date.now() - biaisAt : null,

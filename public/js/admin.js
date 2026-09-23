@@ -2022,6 +2022,18 @@
       if (pannes.length) h += `<div class="aim-kpi-s" style="margin-top:4px;color:#8b93a1;line-height:1.5">${pannes.map(([s, r]) => `${_esc2(s)} : ${_esc2(String(r).slice(0, 70))}`).join('<br>')}</div>`;
       const relais = Object.entries(T.relais || {});   // 23/09 : servies par le lecteur r.jina.ai (accès direct refusé)
       if (relais.length) h += `<div class="aim-kpi-s" style="margin-top:4px;color:#b8a36a;line-height:1.5">${relais.map(([s, r]) => `${_esc2(s)} : via ${_esc2(String((r && r.via) || 'relais'))} (direct : ${_esc2(String((r && r.direct) || '?').slice(0, 40))})`).join('<br>')}</div>`;
+      // RBA : pricing de marché servi par les futures ASX (comme la Fed par les futures CME). 23/09.
+      const RW = T.rbaWatch;
+      if (RW) h += `<div class="aim-kv"><span>RBA · futures ASX</span><b style="color:#22c55e">hausse ${Math.round(RW.hike)}% · taux ${Number(RW.impliedRate).toFixed(2)}%</b></div>`;
+      // Firecrawl : passerelle de dernier recours pour l'ASX (clé dans le .env du VPS), budgétée. 23/09.
+      const FC = T.firecrawl;
+      if (FC) {
+        const _fcAge = ms => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? '<1 min' : m < 60 ? m + ' min' : Math.round(m / 60) + ' h'; };
+        const fcCol = !FC.pose ? '#6b7280' : (FC.err ? '#ffb300' : '#22c55e');
+        const fcTxt = !FC.pose ? 'clé absente (.env du VPS)'
+          : `${FC.n}/${FC.capJour} appel(s) aujourd’hui${FC.okAt ? ' · dernier OK il y a ' + _fcAge(FC.okAt) : ''}${FC.err ? ' · ' + _esc2(String(FC.err).slice(0, 40)) : ''}`;
+        h += `<div class="aim-kv"><span>Firecrawl (recours ASX)</span><b style="color:${fcCol}">${fcTxt}</b></div>`;
+      }
       /* Biais IA (rates:aibias) : cycle HEBDO, pas 90 s — trouvé figé 14 jours le 17/09 sans que rien
          ne le dise (le cycle du samedi 02h réussissait pour ses 3 voisins, pas pour celui-ci). */
       if (T.biaisAt) {
