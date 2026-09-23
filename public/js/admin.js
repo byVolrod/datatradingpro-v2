@@ -1785,8 +1785,8 @@
   let _aimNextAt = 0, _aimBusy = false;   // source de vérité du compte à rebours (barre de statut)
   let _aimHours = 24, _aimJFilter = '', _aimLastData = null;
   // Groq en 1re clé = ordre de la cascade réelle (Groq principal depuis juil. 2026) → légende + empilement du graphe.
-  const AIM_PCOL = { groq: 0xec4899, gemini: 0x60a5fa, github: 0xa78bfa, openrouter: 0x00cc99, cohere: 0x38bdf8, xai: 0x94a3b8, claude: 0xe3b23a };
-  const AIM_PLBL = { groq: 'Groq', gemini: 'Gemini', github: 'GitHub', openrouter: 'OpenRouter', cohere: 'Cohere', xai: 'xAI', claude: 'Claude' };
+  const AIM_PCOL = { groq: 0xec4899, gemini: 0x60a5fa, github: 0xa78bfa, openrouter: 0x00cc99, cohere: 0x38bdf8, cloudflare: 0xf6821f, xai: 0x94a3b8, claude: 0xe3b23a };
+  const AIM_PLBL = { groq: 'Groq', gemini: 'Gemini', github: 'GitHub', openrouter: 'OpenRouter', cohere: 'Cohere', cloudflare: 'Cloudflare', xai: 'xAI', claude: 'Claude' };
   const _hcol = s => s == null ? '#6b7280' : s >= 75 ? '#22c55e' : s >= 40 ? '#ffb300' : '#ef4444';
   function aimRenderKpis(d) {
     const b = d.budget, g = (d.providers || {}).gemini || {};
@@ -1805,7 +1805,7 @@
   }
   function aimRenderProviders(d) {
     const h = d.health || {}, P = d.providers || {};
-    const g = P.gemini || {}, gh = P.github || {}, or = P.openrouter || {}, cl = P.claude || {}, gr = P.groq || {}, co = P.cohere || {}, xa = P.xai || {};
+    const g = P.gemini || {}, gh = P.github || {}, or = P.openrouter || {}, cl = P.claude || {}, gr = P.groq || {}, co = P.cohere || {}, xa = P.xai || {}, cf = P.cloudflare || {};
     /* 23/09 : la dernière erreur de CHAQUE fournisseur, avec son code. 14 jours de télémétrie
        montraient Groq, GitHub et OpenRouter à zéro succès sans que l'écran dise pourquoi. */
     const ERR = P.erreurs || {};
@@ -1831,10 +1831,7 @@
     };
     const chip = (txt, cls) => `<span class="aim-chip${cls ? ' ' + cls : ''}">${txt}</span>`;
     document.getElementById('aim-providers').innerHTML =
-      card('Groq', 'gratuit', h.groq, gr.keys ? [
-        ['Clés', gr.keys + ''], ['Appels aujourd’hui', gr.callsToday + ''], ['Échecs (jour)', (gr.failToday || 0) + ''], ['Modèles', gr.models + ''],
-      ] : [['État', 'non configuré']], gr.keys ? [chip('fournisseur principal', 'aim-chip--ok'), gr.coolingKeys ? chip(gr.coolingKeys + ' clé(s) en cooldown') : chip('nominal · rapide', 'aim-chip--ok')] : [], 'groq')
-      + card('Gemini', 'gratuit', h.gemini, [
+      card('Gemini', 'gratuit', h.gemini, [
         ['Clés', g.keys + ' (' + (g.coolingKeys || 0) + ' gelées)'], ['Appels aujourd’hui', g.callsToday + ''], ['Erreurs 429', g.err429Today + ''], ['RPM effectif', (g.effRpm || 0) + ' / ' + (g.rpmTarget || 0)],
       ], [chip('repli n°1'), g.coolingKeys ? chip(g.coolingKeys + ' clé(s) en cooldown') : chip('clés OK', 'aim-chip--ok'), g.breakersOpen ? chip(g.breakersOpen + ' breaker ouvert') : ''].filter(Boolean), 'gemini')
       + card('GitHub Models', 'gratuit', h.github, gh.tokens ? [
@@ -1846,14 +1843,14 @@
       + card('Cohere', 'gratuit', h.cohere, co.keys ? [
         ['Clés', co.keys + ''], ['Appels aujourd’hui', co.callsToday + ''], ['Échecs (jour)', (co.failToday || 0) + ''], ['Modèles', co.models + ''],
       ] : [['État', 'non configuré']], co.keys ? [co.coolingKeys ? chip(co.coolingKeys + ' clé(s) en cooldown') : chip('nominal · trial', 'aim-chip--ok')] : [], 'cohere')
-      + card('xAI (Grok)', 'payant', h.xai, xa.keys ? [
-        ['Clés', xa.keys + ''], ['Appels aujourd’hui', xa.callsToday + ''], ['Échecs (jour)', (xa.failToday || 0) + ''], ['Modèles', xa.models + ''],
-      ] : [['État', 'non configuré']], xa.keys ? [chip('repli payant avant Claude'), xa.coolingKeys ? chip(xa.coolingKeys + ' clé(s) en cooldown', 'aim-chip--bad') : ''].filter(Boolean) : [], 'xai')
+      + card('Cloudflare', 'gratuit', h.cloudflare, cf.keys ? [
+        ['Modèles', cf.models + ''], ['Appels aujourd’hui', cf.callsToday + ''], ['Échecs (jour)', (cf.failToday || 0) + ''],
+      ] : [['État', cf.account ? 'clé absente' : 'compte (ID) manquant']], cf.keys ? [chip('repli gratuit'), cf.coolingKeys ? chip(cf.coolingKeys + ' clé(s) en cooldown') : chip('nominal', 'aim-chip--ok')] : [chip('Workers AI · à configurer')], 'cloudflare')
       + card('Claude', 'payant', h.claude, cl.keys ? [
         ['Clés', cl.keys + ''], ['Utilisé (jour)', cl.usedToday + ' / ' + cl.dailyMax], ['Disponibilité', cl.usable ? 'disponible' : 'indisponible'],
       ] : [['État', 'non configuré']], cl.keys ? [cl.usable ? chip('réservé macro importante', 'aim-chip--ok') : chip('crédit épuisé', 'aim-chip--bad'), (cl.cooling && cl.cooling.length) ? chip(cl.cooling.length + ' clé(s) en cooldown') : ''].filter(Boolean) : [], 'claude');
     const sub = document.getElementById('aim-prov-sub');
-    if (sub) { const scores = [h.gemini, h.groq, h.github, h.openrouter, h.cohere, h.xai, h.claude].filter(s => s != null); sub.textContent = scores.length ? ('santé moyenne ' + Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) + '/100') : ''; }
+    if (sub) { const scores = [h.gemini, h.github, h.openrouter, h.cohere, h.cloudflare, h.claude].filter(s => s != null); sub.textContent = scores.length ? ('santé moyenne ' + Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) + '/100') : ''; }
   }
   function aimRenderLegend(d) {
     const P = d.providers || {};

@@ -7987,6 +7987,7 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       github: { tokens: (st.github || {}).tokens || 0, models: ((st.github || {}).models || []).length || 1, coolingKeys: (st.github || {}).coolingNow || 0, callsToday: u.github || 0, failToday: u.githubFail || 0, failWindow: sum('github', 'fail'), callsWindow: sum('github', 'calls') },
       openrouter: { keys: (st.openrouter || {}).keys || 0, models: (st.openrouter || {}).models || 0, coolingKeys: (st.openrouter || {}).coolingNow || 0, callsToday: u.openrouter || 0, failToday: u.openrouterFail || 0, failWindow: sum('openrouter', 'fail'), callsWindow: sum('openrouter', 'calls') },
       cohere: { keys: (st.cohere || {}).keys || 0, models: (st.cohere || {}).models || 0, coolingKeys: (st.cohere || {}).coolingNow || 0, callsToday: u.cohere || 0, failToday: u.cohereFail || 0, failWindow: sum('cohere', 'fail'), callsWindow: sum('cohere', 'calls') },
+      cloudflare: { keys: (st.cloudflare || {}).keys || 0, models: (st.cloudflare || {}).models || 0, coolingKeys: (st.cloudflare || {}).coolingNow || 0, account: !!(st.cloudflare || {}).account, callsToday: u.cloudflare || 0, failToday: u.cloudflareFail || 0, failWindow: sum('cloudflare', 'fail'), callsWindow: sum('cloudflare', 'calls') },
       xai: { keys: (st.xai || {}).keys || 0, models: (st.xai || {}).models || 0, coolingKeys: (st.xai || {}).coolingNow || 0, paid: true, callsToday: u.xai || 0, failToday: u.xaiFail || 0, failWindow: sum('xai', 'fail'), callsWindow: sum('xai', 'calls') },
       claude: { keys: st.anthropicKeys || 0, usable: !!st.claudeUsable, usedToday: st.claudeUsedToday || 0, dailyMax: st.claudeDailyMax || 0, cooling: st.claudeCooling || [], callsToday: u.claude || 0, callsWindow: sum('claude', 'calls') },
       // ESSAI PRE-TRADUCTION (21/08, un mois) : remonte dans le moniteur IA, regle du desk. Sans
@@ -8004,6 +8005,7 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       github: providers.github.tokens ? _telHealthScore(providers.github.tokens, providers.github.coolingKeys, 0, providers.github.callsWindow, providers.github.failWindow) : null,
       openrouter: providers.openrouter.keys ? _telHealthScore(providers.openrouter.keys, providers.openrouter.coolingKeys, 0, providers.openrouter.callsWindow, providers.openrouter.failWindow) : null,
       cohere: providers.cohere.keys ? _telHealthScore(providers.cohere.keys, providers.cohere.coolingKeys, 0, providers.cohere.callsWindow, providers.cohere.failWindow) : null,
+      cloudflare: providers.cloudflare.keys ? _telHealthScore(providers.cloudflare.keys, providers.cloudflare.coolingKeys, 0, providers.cloudflare.callsWindow, providers.cloudflare.failWindow) : null,
       xai: providers.xai.keys ? _telHealthScore(providers.xai.keys, providers.xai.coolingKeys, 0, providers.xai.callsWindow, providers.xai.failWindow) : null,
       claude: providers.claude.keys ? (providers.claude.usable ? Math.max(20, 100 - Math.round(providers.claude.usedToday / Math.max(1, providers.claude.dailyMax) * 100)) : 5) : null,
     };
@@ -20943,6 +20945,15 @@ async function _jsonGet(url) {
   if (fc) { try { return JSON.parse(fc); } catch {} }
   return null;
 }
+async function _textGet(url) {   // même chemin que _jsonGet mais rend le TEXTE brut (pour les sources CSV)
+  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': ASX_UA }, signal: ctrl.signal });
+    if (r.ok) { const t = await r.text(); if (t && t.length < 400000) return t; }
+  } catch {} finally { clearTimeout(to); }
+  const fc = await _firecrawlFetch(url, ['rawHtml']);
+  return fc || null;
+}
 async function _bocValet() {   // Bank of Canada Valet : bons du Trésor (rendements de marché), JSON officiel
   const j = await _jsonGet('https://www.bankofcanada.ca/valet/observations/group/tbill_all/json?recent=1');
   if (!j || !Array.isArray(j.observations)) return null;
@@ -20960,9 +20971,21 @@ async function _ecbYield() {   // BCE Data Portal : courbe AAA zone euro, spot 3
     return (isFinite(y3) && y3 > -2 && y3 < 25) ? { y3, y1y: null, at: Date.now() } : null;
   } catch { return null; }
 }
+async function _jgbFetch() {   // Japon : rendements JGB (ministère des Finances), CSV officiel. Colonne la plus courte = 1 an.
+  // ⚠️ Source pas vérifiable depuis le conteneur de dev (page anti-robot servie au scraper) : le VPS, adresse
+  // dédiée, peut y arriver là où le scraper échoue. Parseur FORMAT-AGNOSTIQUE (1re colonne numérique = 1 an) et
+  // repli honnête si rien ne revient → la carte JPY reste sur l'estimation maison, jamais un chiffre inventé.
+  const txt = await _textGet('https://www.mof.go.jp/english/policy/jgbs/reference/interest_rate/jgbcme.csv');
+  if (!txt) return null;
+  const lines = String(txt).trim().split(/\r?\n/);
+  const last = (lines[lines.length - 1] || '').split(',');
+  for (let i = 1; i < last.length; i++) { const val = parseFloat(last[i]); if (isFinite(val) && val > -3 && val < 25) return { y3: val, y1y: null, at: Date.now() }; }
+  return null;
+}
 const SOV = {
   CAD: { fetch: _bocValet, src: 'courbe souveraine (bons du Trésor, Banque du Canada)' },
   EUR: { fetch: _ecbYield, src: 'courbe souveraine (AAA zone euro 3M, BCE)' },
+  JPY: { fetch: _jgbFetch, src: 'courbe souveraine (JGB 1 an, min. des Finances Japon)' },
 };
 async function _computeSovCurve(code) {
   try {

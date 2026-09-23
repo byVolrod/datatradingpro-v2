@@ -32,10 +32,12 @@ const ECB = { dataSets: [{ series: { '0:0:0:0:0:0:0': { observations: { '0': [2.
 const A = (() => { const s = SRV.indexOf('const _sovCurve = {};'); return s >= 0 ? SRV.slice(s, s + 'const _sovCurve = {};'.length) : null; })();
 const B = (() => { const d = SRV.indexOf('async function _bocValet()'); const f = SRV.indexOf('function _refreshSovCurve()'); return (d >= 0 && f > d) ? SRV.slice(d, f) : null; })();
 
-function monter(bB, jsonGet, cur) {
-  return new Function('_jsonGet', '_ratesState', 'CB', 'auth', 'console',
-    A + '\n' + bB + '\nreturn { _bocValet, _ecbYield, _computeSovCurve, _sovCurve, SOV };')(
-    jsonGet, { banks: { CAD: { rate: cur }, EUR: { rate: cur } } }, [{ code: 'CAD', rate: cur }, { code: 'EUR', rate: cur }],
+function monter(bB, jsonGet, cur, textGet) {
+  return new Function('_jsonGet', '_textGet', '_ratesState', 'CB', 'auth', 'console',
+    A + '\n' + bB + '\nreturn { _bocValet, _ecbYield, _jgbFetch, _computeSovCurve, _sovCurve, SOV };')(
+    jsonGet, textGet || (async () => null),
+    { banks: { CAD: { rate: cur }, EUR: { rate: cur }, JPY: { rate: cur } } },
+    [{ code: 'CAD', rate: cur }, { code: 'EUR', rate: cur }, { code: 'JPY', rate: cur }],
     { aiCacheSet: async () => {}, aiCacheGet: async () => null }, { log() {}, warn() {}, error() {} });
 }
 const stub = () => async (url) => (String(url).includes('bankofcanada') ? BOC : String(url).includes('ecb.europa') ? ECB : null);
@@ -65,6 +67,14 @@ const stub = () => async (url) => (String(url).includes('bankofcanada') ? BOC : 
   v('… conviction BORNÉE et modérée (≤ 0,80, jamais la certitude d\'un future)', cad && cad.conv <= 0.80 && cad.conv >= 0.55 && near(cad.conv, 0.62, 0.02), String(cad && cad.conv));
   const eur = await api._computeSovCurve('EUR');
   v('EUR : écart +0,32 pt → biais HAUSSE, conviction ~0,71', eur && eur.bias === 'hike' && near(eur.spread, 0.318, 0.005) && near(eur.conv, 0.71, 0.02), JSON.stringify(eur));
+  // JPY : source CSV (min. des Finances Japon), parseur format-agnostique (1re colonne numérique = 1 an).
+  const MOF = 'Date,1Y,2Y,5Y,10Y\r\n2026-09-18,1.10,1.28,1.60,2.10\r\n2026-09-21,1.15,1.30,1.62,2.12\r\n';
+  const jpApi = monter(B, stub(), 1.00, async () => MOF);
+  const jgb = await jpApi._jgbFetch();
+  v('JGB (min. Finances Japon) → 1 an lu = 1,15 (colonne la plus courte, pas la date)', jgb && near(jgb.y3, 1.15), JSON.stringify(jgb));
+  const jp = await jpApi._computeSovCurve('JPY');
+  v('JPY : écart +0,15 pt (1,15 vs 1,00) → biais hausse', jp && jp.bias === 'hike' && near(jp.spread, 0.15), JSON.stringify(jp));
+  v('JPY est branché sur la source JGB officielle', /JPY: \{ fetch: _jgbFetch/.test(SRV));
 
   console.log('\n── 4. Rien n\'est inventé : donnée absente ou aberrante → aucun biais ──');
   v('aucune donnée (réseau KO) → null (repli maison)', (await monter(B, async () => null, 2.25)._computeSovCurve('CAD')) === null);
