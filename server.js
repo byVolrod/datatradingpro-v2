@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260923-taux-relais', ts: Date.UTC(2026, 8, 23, 6, 10), title: 'Onglet Taux : les probabilités de marché reviennent en temps réel', desc: 'Le panneau de contrôle a mis le doigt sur la vraie cause du retard de l’onglet Taux : notre fournisseur de probabilités de marché refuse désormais, depuis le 9 septembre, les requêtes venant de notre serveur (réponse « accès refusé » pour les huit banques), alors qu’il répond normalement ailleurs. Attendre ne l’aurait jamais débloqué. Quand l’accès direct est refusé, le desk passe désormais par un relais de lecture public, déjà utilisé pour certains rapports de banques qui bloquent les serveurs de la même façon : les probabilités de la Fed, de la BCE, de la BoE, de la BoJ, de la BoC et de la RBA reviennent à jour automatiquement, sans intervention. Les données reçues par le relais sont vérifiées exactement comme les autres, et rien n’est inventé s’il échoue : la carte garde alors la dernière valeur de marché valable, ou l’estimation, en le disant.' },
   { id: 'dtpu-20260923-widget-entete-mobile', ts: Date.UTC(2026, 8, 23, 5, 45), title: 'Mon Desk sur téléphone : le titre des modules n’est plus coupé', desc: 'Vous nous avez signalé que le widget Semaine à venir était mal calé sur téléphone : son titre apparaissait coupé en deux par le haut de la carte. Sur un écran étroit, l’en-tête d’un module du desk monté dans Mon Desk passe sur deux lignes (le titre, puis la navigation et les réglages), mais on lui imposait la hauteur d’une seule ligne : le titre débordait par le haut et se faisait rogner. L’en-tête prend désormais la hauteur de son contenu. La correction vaut pour tous les modules du desk montés dans un widget (Taux, Banques, Biais, Semaine à venir…), et rien ne change sur grand écran.' },
   { id: 'dtpu-20260923-login-mobile', ts: Date.UTC(2026, 8, 23, 5, 30), title: 'Connexion sur téléphone : le mur de photos animé en fond', desc: 'Vous trouviez l’écran de connexion sur téléphone trop simple, un fond blanc. Il reprend désormais le mur de photos d’actualité animé de la version ordinateur, en fond plein écran, derrière une carte sombre aux couleurs de la maison. Le mur défile en arrière-plan sans prendre de place : le formulaire, le choix de la langue et les téléchargements restent tous visibles d’un coup d’œil, sans avoir à faire défiler la page.' },
   { id: 'dtpu-20260923-recap-toujours-redige', ts: Date.UTC(2026, 8, 23, 5, 20), title: 'Récap Quotidien et Point Marché : rédigés même quand la chaîne d’analyse est chargée', desc: 'Vous nous avez montré un Récap Quotidien en « Version provisoire », avec ce mot : cela ne doit jamais arriver. CE QUI SE PASSAIT. Quand la chaîne d’analyse venait d’essuyer plusieurs échecs d’affilée, elle se mettait en pause quelques minutes pour ne pas insister, et le rapport, au lieu d’essayer malgré tout, publiait directement sa version de secours. CE QUI CHANGE. En pause, le rapport saute seulement sa rédaction la plus lourde et tente aussitôt sa version resserrée, rédigée en français, qui passe même quand la chaîne est tendue. Pendant ces trois minutes, les tâches de fond du desk (traductions, enrichissements) lui cèdent la place. ET LE QUOTA SUIT DÉSORMAIS VOTRE RYTHME. Le desk apprend depuis des semaines à quelles heures vous l’utilisez ; cet apprentissage ne servait qu’à préparer les rapports à l’avance. Il règle maintenant la dépense de la journée entière : peu la nuit, davantage aux heures où vous êtes nombreux, au lieu d’un débit identique à 4 h du matin et à l’ouverture de New York. Le plafond du jour ne change pas, seule sa répartition suit la demande.' },
@@ -20797,10 +20798,44 @@ function _rpNoterEchec(slug, status) {
 async function _rpFetchBank(slug) {
   const att = _rpAttente[slug];
   if (att && Date.now() < att.reprise) return null;   // en recul : on ne réinterroge pas avant l'heure (la raison reste dans _rpPanne)
-  const r0 = await _rpFetchBankBrut(slug);
+  let r0 = await _rpFetchBankBrut(slug);
+  /* ⚠️ HTTP 403 SUR LES HUIT BANQUES, FIGÉ 329 H (23/09, capture du panneau « Pipeline taux »).
+     Le fournisseur refuse l'adresse du VPS (bloc de centre de données, comme les CDN de KBC/CIBC
+     plus haut), pendant qu'il répond 200 d'ailleurs (sonde du même jour). Attendre ne réglera rien :
+     on passe alors par le lecteur public r.jina.ai, la parade déjà éprouvée dans ce fichier pour
+     ces CDN. Jamais pour un 401 (payant : le relais ne l'ouvrirait pas). La réponse est vérifiée
+     comme la directe (même forme `today.rows`), et le panneau dit qu'elle est arrivée par là. */
+  if (!r0 && !/401|abonnement/.test(_rpPanne[slug] || '')) {
+    const direct = _rpPanne[slug] || 'échec';
+    const rel = await _rpViaRelais(slug);
+    if (rel) { r0 = rel; _rpRelais[slug] = { at: Date.now(), direct }; }
+  } else if (r0) delete _rpRelais[slug];
   if (r0) delete _rpAttente[slug];
   else _rpNoterEchec(slug, /HTTP 401/.test(_rpPanne[slug] || '') || /abonnement/.test(_rpPanne[slug] || '') ? 401 : 0);
   return r0;
+}
+const _rpRelais = {};   // slug → { at, direct } : servi par le relais parce que l'accès direct a échoué (raison gardée)
+async function _rpViaRelais(slug) {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 25000);
+  try {
+    const r = await fetch('https://r.jina.ai/https://rateprobability.com/api/' + slug + '/latest', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'X-Return-Format': 'text' }, signal: ctrl.signal });
+    if (!r.ok) { _rpPanne[slug] = (_rpPanne[slug] || 'direct KO') + ' ; relais HTTP ' + r.status; return null; }
+    const txt = await r.text();
+    if (txt.length > 400000) return null;
+    const j = _rpJsonDansTexte(txt);
+    if (!j || j.error || !j.today || !Array.isArray(j.today.rows)) { _rpPanne[slug] = (_rpPanne[slug] || 'direct KO') + ' ; relais : format inattendu'; return null; }
+    delete _rpPanne[slug];
+    return j;
+  } catch (e) { _rpPanne[slug] = (_rpPanne[slug] || 'direct KO') + ' ; relais injoignable'; return null; } finally { clearTimeout(to); }
+}
+// Le lecteur rend le JSON enveloppé (« Title: … Markdown Content: {…} ») : on prend le bloc entre la
+// première accolade et la dernière, et on ne garde que ce qui se relit comme du JSON.
+function _rpJsonDansTexte(txt) {
+  const t = String(txt || ''); const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a < 0 || b <= a) return null;
+  try { return JSON.parse(t.slice(a, b + 1)); } catch { return null; }
 }
 async function _rpFetchBankBrut(slug) {
   const ctrl = new AbortController();
@@ -20957,6 +20992,7 @@ function _tauxEtat() {
     perime: !!(at && (Date.now() - at) >= _RP_SEUIL_ALERTE_MS),
     alerteEnvoyee: _rpAlerteEnvoyee, banques: Object.keys(_rpCache.banks || {}).length,
     pannes: { ..._rpPanne },
+    relais: { ..._rpRelais },   // banques servies via le lecteur r.jina.ai parce que l'accès direct est refusé
     // Biais IA (poids monétaire du Radar de Biais + résolution CB non ancrée) : visibilité SÉPARÉE,
     // mesurée le 17/09 après avoir trouvé `rates:aibias` figée 14 jours sans que rien ne le dise.
     biaisAt, biaisAgeMs: biaisAt ? Date.now() - biaisAt : null,
