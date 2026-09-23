@@ -58,41 +58,49 @@ jobs:
             echo "traces de probabilités : $(grep -oE '[0-9]{1,3}\.[0-9]%' /tmp/h.html | head -10 | paste -sd ' ' -)"
           done
 
-      # ═══ TEST NAVIGATEUR HEADLESS (23/09) ════════════════════════════════════════════════════════
-      # MESURÉ : rateprobability est passé derrière un DÉFI CLOUDFLARE (« Just a moment… », HTTP 403)
-      # qui bloque TOUTE requête sans navigateur — VPS, runner GitHub, allorigins, codetabs, jina.
-      # Seul un vrai navigateur qui exécute le JS du défi peut passer (c'est ce que fait le desk pour
-      # myfxbook). On VALIDE ici, sur le runner (IP datacenter, comme le VPS), qu'un Chromium headless
-      # franchit le défi et lit le JSON — AVANT de brancher ce mécanisme dans le serveur.
-      # Le headless simple ÉCHOUE (mesuré run #7 : « Performing security verification », jamais résolu)
-      # → défi Cloudflare « Managed Challenge » qui détecte l'automatisation. On tente la parade la plus
-      # forte SANS service payant : puppeteer-extra + plugin STEALTH, en HEADFUL sous xvfb (un vrai
-      # affichage virtuel), UA et locale réalistes. C'est ce qui bat le plus souvent ce type de défi.
-      - name: Navigateur furtif (puppeteer-extra stealth, headful xvfb)
+
+      # ═══ SOURCES LÉGITIMES DE TAUX (23/09) ═══════════════════════════════════════════════════════
+      # rateprobability bloque les robots (défi Cloudflare) → on N'Y TOUCHE PLUS. On valide ici, sur le
+      # runner (sortie internet libre), ce que rendent les sources qui AUTORISENT l'accès programmatique :
+      #   · Polymarket Gamma (API publique, lecture libre) — quels marchés de décision de banque centrale ?
+      #   · ASX RBA Rate Tracker (page publique, pas de mur) — quelle donnée exploitable ?
+      #   · Yahoo Finance (déjà utilisé pour les futures Fed Funds ZQ) — quels symboles STIR pour les
+      #     autres banques (Euribor, SONIA, BAX, ASX IB) rendent une donnée ?
+      # But : savoir EXACTEMENT quoi brancher AVANT d'écrire le moteur, banque par banque.
+      - name: Polymarket Gamma — marchés de décision de banque centrale
         run: |
-          npm init -y >/dev/null 2>&1
-          npm i puppeteer@23 puppeteer-extra puppeteer-extra-plugin-stealth 2>&1 | tail -2
-          sudo apt-get update -qq >/dev/null 2>&1 || true
-          sudo apt-get install -y xvfb >/dev/null 2>&1 || true
-          cat > furtif.js <<'EOF'
-          const puppeteer = require('puppeteer-extra');
-          puppeteer.use(require('puppeteer-extra-plugin-stealth')());
-          (async () => {
-            const b = await puppeteer.launch({ headless: false, args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,900', '--lang=en-US'] });
-            const p = await b.newPage();
-            await p.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
-            await p.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
-            try {
-              // 1) On passe d'abord par la PAGE (le défi vise la navigation), puis on lit l'API en in-page.
-              const r = await p.goto('https://rateprobability.com/', { waitUntil: 'domcontentloaded', timeout: 60000 });
-              console.log('status accueil :', r && r.status());
-              let titre = '';
-              for (let i = 0; i < 16; i++) { await new Promise(z => setTimeout(z, 3000)); titre = await p.title(); const corps = await p.evaluate(() => document.body ? document.body.innerText.slice(0, 60) : ''); if (!/just a moment|security verification/i.test(titre + corps)) { console.log('défi FRANCHI après ~' + ((i + 1) * 3) + ' s (titre: ' + titre + ')'); break; } }
-              console.log('titre final :', titre);
-              const j = await p.evaluate(async () => { try { const rr = await fetch('/api/fed/latest', { headers: { Accept: 'application/json' } }); return rr.status + ' :: ' + (await rr.text()).slice(0, 200); } catch (e) { return 'KO ' + e.message; } });
-              console.log('IN-PAGE fed :', String(j).replace(/\s+/g, ' '));
-            } catch (e) { console.log('ERREUR :', e.message); }
-            await b.close();
-          })();
-          EOF
-          xvfb-run -a --server-args="-screen 0 1280x900x24" node furtif.js
+          for q in "fed" "ecb" "bank-of-england" "interest-rate" "central-bank"; do
+            echo "═══ recherche tag/slug: $q ═══"
+            curl -s -m 20 "https://gamma-api.polymarket.com/events?closed=false&active=true&limit=6&tag_slug=$q" \
+              | jq -r 'if type=="array" then (.[] | "• \(.title)  [id \(.id)]  \((.markets // []) | length) marché(s)") else "(réponse non-array) \(.|tostring|.[0:200])" end' 2>/dev/null | head -12 || echo "jq KO"
+          done
+          echo "═══ un événement en détail (structure des probabilités) ═══"
+          ev=$(curl -s -m 20 "https://gamma-api.polymarket.com/events?closed=false&active=true&limit=1&tag_slug=fed" | jq -r '.[0].id' 2>/dev/null)
+          echo "event id: $ev"
+          curl -s -m 20 "https://gamma-api.polymarket.com/events?id=$ev" \
+            | jq -r '.[0].markets[]? | "  \(.question) → outcomes \(.outcomes)  prix \(.outcomePrices)  last \(.lastTradePrice)"' 2>/dev/null | head -20 || true
+      - name: ASX RBA Rate Tracker — donnée exploitable
+        run: |
+          echo "═══ page RBA Rate Tracker (embarque-t-elle un JSON / une API ?) ═══"
+          curl -sSL -m 20 -o /tmp/asx.html -w "HTTP %{http_code} · %{size_download} o\n" \
+            -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36' \
+            "https://www.asx.com.au/markets/trade-our-derivatives-market/futures-market/rba-rate-tracker" || echo KO
+          echo "titre : $(grep -oiE '<title>[^<]*' /tmp/asx.html | head -1 | sed 's/<title>//I')"
+          echo "URLs de données citées dans la page :"
+          grep -oiE 'https?://[a-z0-9./_-]*(api|data|markit|json|curve|expectation)[a-z0-9./_?=-]*' /tmp/asx.html | sort -u | head -15
+          echo "═══ endpoints candidats (JSON direct ?) ═══"
+          for u in \
+            "https://asx.api.markitdigital.com/asx-research/1.0/companies/rba-rate-tracker" \
+            "https://www.asx.com.au/data/trt/ib_expectation_curve_graph.json"; do
+            echo "— $u"; curl -s -m 15 -o /tmp/a.json -w "  HTTP %{http_code} · %{size_download} o\n" "$u"; head -c 160 /tmp/a.json 2>/dev/null; echo
+          done
+      - name: Yahoo Finance — symboles STIR des autres banques
+        run: |
+          # Fed ZQ = référence connue (marche). On teste des candidats pour ECB/BoE/BoC/RBA.
+          for sym in "ZQ=F" "GE=F" "FEI=F" "I=F" "L=F" "SO3=F" "BAX=F" "IR=F" "YIB=F"; do
+            u="https://query1.finance.yahoo.com/v8/finance/chart/$sym?interval=1d&range=5d"
+            code=$(curl -s -m 15 -o /tmp/y.json -w '%{http_code}' -H 'User-Agent: Mozilla/5.0' "$u")
+            px=$(jq -r '.chart.result[0].meta.regularMarketPrice // "—"' /tmp/y.json 2>/dev/null)
+            nm=$(jq -r '.chart.result[0].meta.shortName // .chart.result[0].meta.symbol // "?"' /tmp/y.json 2>/dev/null)
+            echo "$sym → HTTP $code · prix $px · $nm"
+          done
