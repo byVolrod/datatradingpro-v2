@@ -298,7 +298,7 @@ async function _anthropic(prompt, maxTokens) {
       const u = msg.usage; if (u) _noteUsage('claude', CLAUDE_MODEL, u.input_tokens, u.output_tokens);
       return text;
     } catch (e) {
-      lastErr = e; _aiStat('claudeFail');
+      lastErr = e; _aiStat('claudeFail', e);
       const reason = _anthCool(idx, e);
       const status = e?.status || e?.response?.status;
       console.warn(`[AI] Claude clé #${idx + 1}/${n} échec${status ? ' (' + status + ')' : ''} [gel: ${reason}]: ${String(e.message).slice(0, 120)} → clé suivante`);
@@ -349,7 +349,7 @@ function _gemIsCool(model, idx) { const t = _gemCooldown.get(model + '|' + idx);
 const _AI_STATS_ZERO = () => ({ gemini: 0, gemini429: 0, github: 0, githubFail: 0, openrouter: 0, openrouterFail: 0, groq: 0, groqFail: 0, cohere: 0, cohereFail: 0, xai: 0, xaiFail: 0, claude: 0, claudeFail: 0, fallback: 0 });
 const _AI_TOK_ZERO   = () => ({ geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, openrouterIn: 0, openrouterOut: 0, groqIn: 0, groqOut: 0, cohereIn: 0, cohereOut: 0, xaiIn: 0, xaiOut: 0, claudeIn: 0, claudeOut: 0 });
 let _aiDay = '', _aiStats = _AI_STATS_ZERO();
-function _aiStat(f) {
+function _aiStat(f, err) {
   const d = new Date().toISOString().slice(0, 10);
   if (d !== _aiDay) {
     _aiDay = d;
@@ -357,6 +357,34 @@ function _aiStat(f) {
     _aiTok = _AI_TOK_ZERO();
   }
   if (f !== '_touch') _aiStats[f] = (_aiStats[f] || 0) + 1;
+  if (err && /(Fail|429)$/.test(f)) _noteErreur(f.replace(/(Fail|429)$/, ''), err);
+}
+/* ══ LA DERNIÈRE ERREUR DE CHAQUE FOURNISSEUR, LISIBLE SANS ACCÈS AU SERVEUR (23/09) ════════════════
+   MESURÉ dans la télémétrie (`aitel:*`, 14 jours) : Groq, GitHub Models et OpenRouter n'ont RÉUSSI
+   AUCUN appel — des milliers d'échecs, zéro succès — pendant que Gemini portait seul la chaîne, et
+   que chaque 429 de Gemini mettait tout le desk en pause (Récap Quotidien en « Version provisoire »).
+   Le moniteur comptait les échecs mais n'en disait jamais la CAUSE : elle ne s'écrivait que dans le
+   journal du conteneur (`console.warn`), que personne ne lit depuis un téléphone. Une clé expirée
+   (401), un compte bloqué (403), un quota (429) ou un modèle retiré (404) se traitent de quatre
+   façons différentes, et se présentaient pareil. On garde donc, par fournisseur, le dernier code et
+   le dernier message, SANS SECRET (tout ce qui ressemble à une clé est masqué avant d'être gardé). */
+const _derniereErreur = {};
+function _sansSecret(t) {
+  return String(t == null ? '' : t)
+    .replace(/([?&](?:key|token|api_key)=)[^&\s]+/gi, '$1[masqué]')
+    .replace(/(Bearer\s+)[\w.\-]+/gi, '$1[masqué]')
+    .replace(/\b(sk-[\w-]{6,}|sk-ant-[\w-]{6,}|gsk_[\w]{6,}|ghp_[\w]{6,}|github_pat_[\w]{6,}|gho_[\w]{6,}|AIza[\w-]{10,}|xai-[\w-]{6,}|co-[\w]{10,})/g, '[clé masquée]');
+}
+
+function _noteErreur(fournisseur, err) {
+  try {
+    const prev = _derniereErreur[fournisseur] || { n: 0 };
+    _derniereErreur[fournisseur] = {
+      status: (err && (err.status || err.statusCode)) || null,
+      msg: _sansSecret((err && (err.message || err)) || '').slice(0, 180),
+      at: Date.now(), n: prev.n + 1,
+    };
+  } catch {}
 }
 
 // ── Backoff GLOBAL de panne : signale aux boucles de fond de s'espacer ────────
@@ -880,7 +908,7 @@ async function _anthropicStream(prompt, maxTokens, onChunk) {
       _claudeCount++; _aiStat('claude');
       const u = msg.usage; if (u) _noteUsage('claude', CLAUDE_MODEL, u.input_tokens, u.output_tokens);
       return text;
-    } catch (e) { lastErr = e; _aiStat('claudeFail'); _anthCool(idx, e); if (full.trim()) return full.trim(); }   // partiel émis → on garde
+    } catch (e) { lastErr = e; _aiStat('claudeFail', e); _anthCool(idx, e); if (full.trim()) return full.trim(); }   // partiel émis → on garde
   }
   throw lastErr || new Error('Claude stream: échec');
 }
@@ -895,11 +923,11 @@ async function generateTextStream(prompt, maxTokens = 380, opts = {}, onChunk = 
   const _emet = d => onChunk(_flux(d));
   if (GROQ_KEYS.length) {
     try { const out = await _groqStream(prompt, maxTokens, _emet); _noteTotalOk(); return typoDesk(out); }   // Groq = le + rapide → chat fluide
-    catch (e) { console.warn('[AI stream] Groq: ' + String(e.message).slice(0, 90)); _aiStat('groqFail'); }
+    catch (e) { console.warn('[AI stream] Groq: ' + String(e.message).slice(0, 90)); _aiStat('groqFail', e); }
   }
   if (OPENROUTER_KEYS.length) {
     try { const out = await _openrouterStream(prompt, maxTokens, _emet); _noteTotalOk(); return typoDesk(out); }
-    catch (e) { console.warn('[AI stream] OpenRouter: ' + String(e.message).slice(0, 90)); _aiStat('openrouterFail'); }
+    catch (e) { console.warn('[AI stream] OpenRouter: ' + String(e.message).slice(0, 90)); _aiStat('openrouterFail', e); }
   }
   if (!opts.noClaude && claudeUsable()) {
     try { const out = await _anthropicStream(prompt, maxTokens, _emet); _noteTotalOk(); return typoDesk(out); }
@@ -1011,7 +1039,7 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
   // multi-clés + multi-modèles + cooldowns (_groqCool) — un échec ici bascule sur Gemini.
   if (GROQ_KEYS.length && !_saute('groq')) {
     try { const out = await _groq(prompt, maxTokens); notePlafondOk('groq', _bud); _aiStat('groq'); return out; }
-    catch (e) { if (estRefusTaille(e)) notePlafondKo('groq', _bud); console.warn(`[AI] Groq (principal) échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → Gemini`); _aiStat('groqFail'); }
+    catch (e) { if (estRefusTaille(e)) notePlafondKo('groq', _bud); console.warn(`[AI] Groq (principal) échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → Gemini`); _aiStat('groqFail', e); }
   }
 
   // ── Repli n°1 : Google Gemini (gratuit) — multi-clés + multi-modèles ─────────
@@ -1042,6 +1070,7 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
           lastErr = e; const is429 = e.status === 429;
           if (estRefusTaille(e)) notePlafondKo('gemini', _bud);
           _hFail(model, idx, is429);
+          _noteErreur('gemini', e);
           if (is429) { _gemCool(model, idx, 429, e.retryDelayMs, e.quotaDaily); _aiStat('gemini429'); }
           else if (e.status === 404 || e.status === 503 || e.status === 500) _gemCool(model, idx, e.status);
           console.warn(`[AI] Gemini ${model} clé #${idx + 1}/${n} échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suivant`);
@@ -1061,16 +1090,16 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
   for (const prov of _order) {
     if (prov === 'github' && GITHUB_TOKENS.length && !_saute('github')) {
       try { const out = await _githubModels(prompt, maxTokens); notePlafondOk('github', _bud); _aiStat('github'); return out; }
-      catch (e) { if (estRefusTaille(e)) notePlafondKo('github', _bud); console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('githubFail'); }
+      catch (e) { if (estRefusTaille(e)) notePlafondKo('github', _bud); console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('githubFail', e); }
     } else if (prov === 'openrouter' && OPENROUTER_KEYS.length && !_saute('openrouter')) {
       try { const out = await _openrouter(prompt, maxTokens); notePlafondOk('openrouter', _bud); _aiStat('openrouter'); return out; }
-      catch (e) { if (estRefusTaille(e)) notePlafondKo('openrouter', _bud); console.warn(`[AI] OpenRouter échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('openrouterFail'); }
+      catch (e) { if (estRefusTaille(e)) notePlafondKo('openrouter', _bud); console.warn(`[AI] OpenRouter échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('openrouterFail', e); }
     } else if (prov === 'cohere' && COHERE_KEYS.length && !_saute('cohere')) {
       try { const out = await _cohere(prompt, maxTokens); notePlafondOk('cohere', _bud); _aiStat('cohere'); return out; }
-      catch (e) { if (estRefusTaille(e)) notePlafondKo('cohere', _bud); console.warn(`[AI] Cohere échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('cohereFail'); }
+      catch (e) { if (estRefusTaille(e)) notePlafondKo('cohere', _bud); console.warn(`[AI] Cohere échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('cohereFail', e); }
     } else if (prov === 'xai' && XAI_KEYS.length && !claudeOff && !_saute('xai')) {   // xAI = PAYANT → JAMAIS sur un flux de fond « noClaude » (protège le budget)
       try { const out = await _xai(prompt, maxTokens); notePlafondOk('xai', _bud); _aiStat('xai'); return out; }
-      catch (e) { if (estRefusTaille(e)) notePlafondKo('xai', _bud); console.warn(`[AI] xAI échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)}${claudeOff ? '' : ' → Claude'}`); _aiStat('xaiFail'); }
+      catch (e) { if (estRefusTaille(e)) notePlafondKo('xai', _bud); console.warn(`[AI] xAI échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)}${claudeOff ? '' : ' → Claude'}`); _aiStat('xaiFail', e); }
     }
   }
 
@@ -1122,7 +1151,8 @@ function status() {
     today: _aiDay,
     usageToday: _aiStats,                                                   // {gemini, gemini429, claude, fallback} → "le nombre par jour"
     tokensToday: _aiTok,                                                    // tokens RÉELS in/out par provider (lus du champ usage)
-    backoff: { active: backoffActive(), totalFails: _totalFails },          // panne totale en cours ? (les self-heals s'espacent)
+    backoff: { active: backoffActive(), totalFails: _totalFails },
+    erreurs: JSON.parse(JSON.stringify(_derniereErreur)),                   // dernière erreur PAR fournisseur (code, message sans secret, date) — cf. _noteErreur          // panne totale en cours ? (les self-heals s'espacent)
     geminiCoolingNow: [..._gemCooldown.entries()].filter(([, t]) => t > Date.now()).length,   // couples (modèle,clé) en cooldown 429
     // ── AI Traffic Intelligence ──
     intel: {

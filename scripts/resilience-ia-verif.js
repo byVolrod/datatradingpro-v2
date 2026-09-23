@@ -293,5 +293,34 @@ if (bloc) {
     'si cette ligne reste verte malgré la mutation, le contrôle ci-dessus ne mord pas');
 }
 
+/* ══ LA DERNIÈRE ERREUR DE CHAQUE FOURNISSEUR (23/09) ══════════════════════════════════════════
+   Télémétrie mesurée : Groq, GitHub Models, OpenRouter à ZÉRO succès sur 14 jours, sans que le
+   moniteur dise pourquoi. `_noteErreur` garde le dernier code + message ; `_sansSecret` masque tout
+   ce qui ressemble à une clé AVANT de le garder (un message d'erreur de fournisseur peut recopier la
+   clé reçue, et ce texte part vers le panneau admin). */
+console.log('\n── La dernière erreur de chaque fournisseur, sans secret ──');
+{
+  const a = AI.indexOf('const _derniereErreur = {};');
+  const b = AI.indexOf('\n}', AI.indexOf('function _noteErreur(')) + 2;
+  const src = (a >= 0 && b > a) ? AI.slice(a, b) : null;
+  v('_sansSecret + _noteErreur sont extractibles de ai.js', !!src);
+  if (src) {
+    const api = new Function(src + '\nreturn { _sansSecret, _noteErreur, _derniereErreur };')();
+    const fuite = api._sansSecret('401 invalid x-api-key sk-ant-api03-o1yqU_AbCdEfGhIjKl ; gsk_0123456789abc ; github_pat_11ABCDEFGH ; AIzaSyA1234567890123 ; Bearer abc.def ; ?key=zzz');
+    v('aucune clé ne survit au masquage (Anthropic, Groq, GitHub, Google, Bearer, paramètre)',
+      !/o1yqU|gsk_0|github_pat_1|AIzaSy|abc\.def|key=zzz/.test(fuite), fuite);
+    api._noteErreur('groq', Object.assign(new Error('Invalid API Key gsk_0123456789abc'), { status: 401 }));
+    api._noteErreur('groq', Object.assign(new Error('Invalid API Key'), { status: 401 }));
+    const g = api._derniereErreur.groq || {};
+    v('le code HTTP et le compte sont gardés par fournisseur', g.status === 401 && g.n === 2 && !/gsk_/.test(g.msg || ''), JSON.stringify(g));
+  }
+  v('chaque échec compté transmet son erreur (9 sites + Gemini)',
+    (AI.match(/_aiStat\('(?:claude|groq|openrouter|github|cohere|xai)Fail', e\)/g) || []).length === 9 && /_noteErreur\('gemini', e\);/.test(AI));
+  v('ai.status() expose les erreurs', /erreurs: JSON\.parse\(JSON\.stringify\(_derniereErreur\)\)/.test(AI));
+  const SRV2 = lire('server.js'), ADM = lire('public/js/admin.js');
+  v('… le moniteur les reçoit', /erreurs: st\.erreurs \|\| \{\},/.test(SRV2));
+  v('… et chaque carte fournisseur affiche la sienne', (ADM.match(/, '(groq|gemini|github|openrouter|cohere|xai|claude)'\)/g) || []).length >= 7 && /Dernière erreur/.test(ADM));
+}
+
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);

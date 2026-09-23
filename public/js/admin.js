@@ -1806,8 +1806,23 @@
   function aimRenderProviders(d) {
     const h = d.health || {}, P = d.providers || {};
     const g = P.gemini || {}, gh = P.github || {}, or = P.openrouter || {}, cl = P.claude || {}, gr = P.groq || {}, co = P.cohere || {}, xa = P.xai || {};
-    const card = (label, tier, score, rows, chips) => {
+    /* 23/09 : la dernière erreur de CHAQUE fournisseur, avec son code. 14 jours de télémétrie
+       montraient Groq, GitHub et OpenRouter à zéro succès sans que l'écran dise pourquoi. */
+    const ERR = P.erreurs || {};
+    const cause = st => st === 401 ? 'clé refusée (expirée ou révoquée)' : st === 403 ? 'accès refusé (compte ou région)'
+      : st === 402 ? 'crédit épuisé' : st === 429 ? 'quota ou débit dépassé' : st === 404 ? 'modèle introuvable (retiré ?)'
+      : (st >= 500 && st < 600) ? 'panne côté fournisseur' : '';
+    const errRow = (k) => {
+      const e = ERR[k]; if (!e || !e.at) return [];
+      const min = Math.max(0, Math.round((Date.now() - e.at) / 60000));
+      const quand = min < 1 ? 'à l’instant' : min < 60 ? 'il y a ' + min + ' min' : 'il y a ' + Math.round(min / 60) + ' h';
+      const code = e.status ? 'HTTP ' + e.status + (cause(e.status) ? ' · ' + cause(e.status) : '') : 'sans code';
+      const esc2 = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      return [['Dernière erreur', `<span title="${esc2(e.msg)}">${esc2(code)} · ${quand}</span>`]];
+    };
+    const card = (label, tier, score, rows, chips, cle) => {
       const col = _hcol(score);
+      rows = rows.concat(cle ? errRow(cle) : []);
       return `<div class="aim-prov"><div class="aim-prov-top"><span class="aim-prov-dot" style="background:${col};box-shadow:0 0 5px ${col}66"></span><span class="aim-prov-name">${label} <small>${tier}</small></span><span class="aim-prov-score" style="color:${col}">${score == null ? '-' : score}</span></div>`
         + `<div class="aim-prov-bar"><i style="width:${score == null ? 0 : score}%;background:${col}"></i></div>`
         + rows.map(r => `<div class="aim-kv"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')
@@ -1818,25 +1833,25 @@
     document.getElementById('aim-providers').innerHTML =
       card('Groq', 'gratuit', h.groq, gr.keys ? [
         ['Clés', gr.keys + ''], ['Appels aujourd’hui', gr.callsToday + ''], ['Échecs (jour)', (gr.failToday || 0) + ''], ['Modèles', gr.models + ''],
-      ] : [['État', 'non configuré']], gr.keys ? [chip('fournisseur principal', 'aim-chip--ok'), gr.coolingKeys ? chip(gr.coolingKeys + ' clé(s) en cooldown') : chip('nominal · rapide', 'aim-chip--ok')] : [])
+      ] : [['État', 'non configuré']], gr.keys ? [chip('fournisseur principal', 'aim-chip--ok'), gr.coolingKeys ? chip(gr.coolingKeys + ' clé(s) en cooldown') : chip('nominal · rapide', 'aim-chip--ok')] : [], 'groq')
       + card('Gemini', 'gratuit', h.gemini, [
         ['Clés', g.keys + ' (' + (g.coolingKeys || 0) + ' gelées)'], ['Appels aujourd’hui', g.callsToday + ''], ['Erreurs 429', g.err429Today + ''], ['RPM effectif', (g.effRpm || 0) + ' / ' + (g.rpmTarget || 0)],
-      ], [chip('repli n°1'), g.coolingKeys ? chip(g.coolingKeys + ' clé(s) en cooldown') : chip('clés OK', 'aim-chip--ok'), g.breakersOpen ? chip(g.breakersOpen + ' breaker ouvert') : ''].filter(Boolean))
+      ], [chip('repli n°1'), g.coolingKeys ? chip(g.coolingKeys + ' clé(s) en cooldown') : chip('clés OK', 'aim-chip--ok'), g.breakersOpen ? chip(g.breakersOpen + ' breaker ouvert') : ''].filter(Boolean), 'gemini')
       + card('GitHub Models', 'gratuit', h.github, gh.tokens ? [
         ['Tokens × modèles', gh.tokens + ' × ' + (gh.models || 1)], ['Appels aujourd’hui', gh.callsToday + ''], ['Échecs (jour)', (gh.failToday || 0) + ''],
-      ] : [['État', 'non configuré']], gh.tokens ? [gh.coolingKeys ? chip(gh.coolingKeys + ' (modèle,token) gelés') : chip('nominal', 'aim-chip--ok')] : [])
+      ] : [['État', 'non configuré']], gh.tokens ? [gh.coolingKeys ? chip(gh.coolingKeys + ' (modèle,token) gelés') : chip('nominal', 'aim-chip--ok')] : [], 'github')
       + card('OpenRouter', 'gratuit', h.openrouter, or.keys ? [
         ['Clés (comptes)', or.keys + ' · ~' + (or.keys * 50) + ' req/j'], ['Appels aujourd’hui', or.callsToday + ''], ['Échecs (jour)', (or.failToday || 0) + ''], ['Modèles :free', or.models + ''],
-      ] : [['État', 'non configuré']], or.keys ? [or.coolingKeys ? chip(or.coolingKeys + ' en cooldown') : chip('nominal', 'aim-chip--ok')] : [])
+      ] : [['État', 'non configuré']], or.keys ? [or.coolingKeys ? chip(or.coolingKeys + ' en cooldown') : chip('nominal', 'aim-chip--ok')] : [], 'openrouter')
       + card('Cohere', 'gratuit', h.cohere, co.keys ? [
         ['Clés', co.keys + ''], ['Appels aujourd’hui', co.callsToday + ''], ['Échecs (jour)', (co.failToday || 0) + ''], ['Modèles', co.models + ''],
-      ] : [['État', 'non configuré']], co.keys ? [co.coolingKeys ? chip(co.coolingKeys + ' clé(s) en cooldown') : chip('nominal · trial', 'aim-chip--ok')] : [])
+      ] : [['État', 'non configuré']], co.keys ? [co.coolingKeys ? chip(co.coolingKeys + ' clé(s) en cooldown') : chip('nominal · trial', 'aim-chip--ok')] : [], 'cohere')
       + card('xAI (Grok)', 'payant', h.xai, xa.keys ? [
         ['Clés', xa.keys + ''], ['Appels aujourd’hui', xa.callsToday + ''], ['Échecs (jour)', (xa.failToday || 0) + ''], ['Modèles', xa.models + ''],
-      ] : [['État', 'non configuré']], xa.keys ? [chip('repli payant avant Claude'), xa.coolingKeys ? chip(xa.coolingKeys + ' clé(s) en cooldown', 'aim-chip--bad') : ''].filter(Boolean) : [])
+      ] : [['État', 'non configuré']], xa.keys ? [chip('repli payant avant Claude'), xa.coolingKeys ? chip(xa.coolingKeys + ' clé(s) en cooldown', 'aim-chip--bad') : ''].filter(Boolean) : [], 'xai')
       + card('Claude', 'payant', h.claude, cl.keys ? [
         ['Clés', cl.keys + ''], ['Utilisé (jour)', cl.usedToday + ' / ' + cl.dailyMax], ['Disponibilité', cl.usable ? 'disponible' : 'indisponible'],
-      ] : [['État', 'non configuré']], cl.keys ? [cl.usable ? chip('réservé macro importante', 'aim-chip--ok') : chip('crédit épuisé', 'aim-chip--bad'), (cl.cooling && cl.cooling.length) ? chip(cl.cooling.length + ' clé(s) en cooldown') : ''].filter(Boolean) : []);
+      ] : [['État', 'non configuré']], cl.keys ? [cl.usable ? chip('réservé macro importante', 'aim-chip--ok') : chip('crédit épuisé', 'aim-chip--bad'), (cl.cooling && cl.cooling.length) ? chip(cl.cooling.length + ' clé(s) en cooldown') : ''].filter(Boolean) : [], 'claude');
     const sub = document.getElementById('aim-prov-sub');
     if (sub) { const scores = [h.gemini, h.groq, h.github, h.openrouter, h.cohere, h.xai, h.claude].filter(s => s != null); sub.textContent = scores.length ? ('santé moyenne ' + Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) + '/100') : ''; }
   }

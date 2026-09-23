@@ -7973,6 +7973,9 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       claude: { keys: st.anthropicKeys || 0, usable: !!st.claudeUsable, usedToday: st.claudeUsedToday || 0, dailyMax: st.claudeDailyMax || 0, cooling: st.claudeCooling || [], callsToday: u.claude || 0, callsWindow: sum('claude', 'calls') },
       // ESSAI PRE-TRADUCTION (21/08, un mois) : remonte dans le moniteur IA, regle du desk. Sans
       // ce chiffre, la decision de poursuivre ou d arreter se prendrait a l impression.
+      // Dernière erreur PAR fournisseur (code HTTP, message sans secret, horodatage) — cf. _noteErreur (ai.js).
+      // Sans elle, « 190 échecs/heure » ne disait jamais POURQUOI : clé expirée, compte bloqué, quota ?
+      erreurs: st.erreurs || {},
       descFr: _descFrStats(),
       proposFr: _proposFrStats(),
       impacts: _impactStats(),   // « Impact marché » sur les stats du fil : généré/tenté/plafond du jour
