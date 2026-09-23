@@ -239,8 +239,16 @@ function lum(css) {
       if (b && b.curseurs) {
         v('la ligne du fil rend le curseur classique (elle n\'est pas cliquable)',
           b.curseurs.ligne === 'default', 'curseur = ' + b.curseurs.ligne);
-        v('… mais le TITRE, lui, garde la main : c\'est lui qui porte le clic',
-          b.curseurs.titre === 'pointer', 'curseur = ' + b.curseurs.titre);
+        /* ⚠️ DÉCISION UTILISATEUR DU 22/09 : PLUS DE MAIN NULLE PART (commit 66d77b1, « curseur
+           normal partout », bloc `* { cursor: default !important; }` en fin de style.css). Les deux
+           contrôles qui EXIGEAIENT la main sur ce qui répond (titre cliquable, étiquette active)
+           défendaient la règle du 02/09, que l'utilisateur a remplacée : ils ont bloqué les
+           déploiements #231 à #235 sur un choix assumé. Ils vérifient désormais la règle en vigueur
+           — la flèche partout, clic compris — et le reste du bloc (la main jamais dans le vide) garde
+           son sens : il ne peut plus y avoir de main du tout. Revenir à la main « là où ça répond »
+           serait une nouvelle décision, à prendre avec l'utilisateur, pas un retour silencieux. */
+        v('… et le TITRE aussi rend la flèche (décision du 22/09 : plus de main nulle part)',
+          b.curseurs.titre === 'default', 'curseur = ' + b.curseurs.titre);
         /* ══ CE CONTRÔLE ÉTAIT FAUX, ET IL A MIS TROIS JOURS À LE MONTRER (05/09) ══════════════
            Il lisait `querySelector('.news-tags .tag')` — LA PREMIÈRE étiquette venue — et exigeait
            qu'elle porte la main. Or une rangée d'étiquettes mélange deux espèces :
@@ -256,8 +264,8 @@ function lum(css) {
            On désigne donc les deux espèces par ce qu'elles FONT (la présence d'un `onclick`), et on
            les éprouve TOUTES LES DEUX : sans la seconde, « tout mettre en main » repasserait au
            vert alors que c'est le défaut d'origine. */
-        v('… et une étiquette qui RÉPOND garde la main',
-          b.curseurs.etiqAct === 'pointer',
+        v('… une étiquette qui RÉPOND rend aussi la flèche (décision du 22/09)',
+          b.curseurs.etiqAct === 'default',
           '« ' + b.curseurs.etiqActNom +' » → ' + b.curseurs.etiqAct);
         v('… tandis qu\'une étiquette qui ne répond pas rend le curseur classique',
           b.curseurs.etiqInerte === 'default',

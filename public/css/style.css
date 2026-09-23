@@ -23166,6 +23166,30 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
 .jr-grid-fx.jr-au-bout::after { opacity: 0; }
 .jr-grid-fx:not(.jr-deborde)::after { opacity: 0; }   /* rien à annoncer quand tout tient */
 
+/* ═══ CURSEUR NORMAL SUR TOUT LE SITE (demande utilisateur, 22/09/2026) ══════════════════════════
+   Plus de « main » (cursor: pointer) nulle part : flèche standard partout, boutons et lignes de
+   contenu comprises. On PRÉSERVE uniquement les curseurs FONCTIONNELS — ce ne sont pas « la main » :
+   la saisie de texte, le redimensionnement des splitters, le glisser des widgets, le zoom des images.
+   Bloc placé APRÈS toutes les règles de la feuille + !important pour l'emporter sur les ~249 règles
+   `pointer` existantes. ⚠️ JUSTE AVANT LA SENTINELLE, JAMAIS APRÈS (23/09) : posé en toute fin de
+   fichier, il a fait rougir coquille-verif et bloqué les déploiements. La sentinelle ne porte aucun
+   curseur : l'ordre est équivalent.
+   Entièrement RÉVERSIBLE : supprimer ce bloc restitue exactement les curseurs d'origine. */
+* { cursor: default !important; }
+/* Saisie : sans quoi écrire dans un champ devient déroutant */
+input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+textarea, [contenteditable="true"], [contenteditable=""] { cursor: text !important; }
+/* Redimensionnement (splitters synchrones, poignées de widgets) */
+.bank-chart-grip, .is-resizing, .jrd-resize, .jrd-resizing, .layout-resizer, .sbs-split, .sym-vsplit, .wa3-vsplit { cursor: col-resize !important; }
+.is-resizing-v, .sbm-vsplit, .sym-hsplit, .wa3-hsplit { cursor: row-resize !important; }
+.wdg-resize { cursor: nwse-resize !important; }
+.wdg-resize-e { cursor: ew-resize !important; }
+/* Glisser (réorganisation d'onglets, poignées de widgets) */
+.nav-item--dragging, .nav-reordering, .wdg-card--tabs, .wdg-grip, .wdg-head, .wdg-mgr-grip, .wdg-set-tabgrip { cursor: grab !important; }
+/* Zoom (images agrandies) */
+.jrd-imgblock--filled { cursor: zoom-in !important; }
+.chat-lightbox, .jrd-lightbox { cursor: zoom-out !important; }
+
 /* ══ SENTINELLE D'ARRIVÉE — DOIT RESTER LA DERNIÈRE RÈGLE DU FICHIER (09/09) ═════════════════════
    Elle ne peint rien. Elle PROUVE que la feuille est arrivée jusqu'au bout : un transfert coupé en
    route ne donne pas une erreur franche, il donne un fichier tronqué que le navigateur applique
@@ -23186,24 +23210,3 @@ body.theme-light .arl-row--imp.arl-row--read { background: rgba(220, 38, 38, 0.0
 }
 
 :root { --dtp-coquille: 1; }
-
-/* ═══ CURSEUR NORMAL SUR TOUT LE SITE (demande utilisateur, 22/09/2026) ══════════════════════════
-   Plus de « main » (cursor: pointer) nulle part : flèche standard partout, boutons et lignes de
-   contenu comprises. On PRÉSERVE uniquement les curseurs FONCTIONNELS — ce ne sont pas « la main » :
-   la saisie de texte, le redimensionnement des splitters, le glisser des widgets, le zoom des images.
-   Bloc en FIN de feuille + !important pour l'emporter sur les ~249 règles `pointer` existantes.
-   Entièrement RÉVERSIBLE : supprimer ce bloc restitue exactement les curseurs d'origine. */
-* { cursor: default !important; }
-/* Saisie : sans quoi écrire dans un champ devient déroutant */
-input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
-textarea, [contenteditable="true"], [contenteditable=""] { cursor: text !important; }
-/* Redimensionnement (splitters synchrones, poignées de widgets) */
-.bank-chart-grip, .is-resizing, .jrd-resize, .jrd-resizing, .layout-resizer, .sbs-split, .sym-vsplit, .wa3-vsplit { cursor: col-resize !important; }
-.is-resizing-v, .sbm-vsplit, .sym-hsplit, .wa3-hsplit { cursor: row-resize !important; }
-.wdg-resize { cursor: nwse-resize !important; }
-.wdg-resize-e { cursor: ew-resize !important; }
-/* Glisser (réorganisation d'onglets, poignées de widgets) */
-.nav-item--dragging, .nav-reordering, .wdg-card--tabs, .wdg-grip, .wdg-head, .wdg-mgr-grip, .wdg-set-tabgrip { cursor: grab !important; }
-/* Zoom (images agrandies) */
-.jrd-imgblock--filled { cursor: zoom-in !important; }
-.chat-lightbox, .jrd-lightbox { cursor: zoom-out !important; }
