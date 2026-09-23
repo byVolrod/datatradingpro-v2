@@ -162,6 +162,12 @@ titre("L'archive ne rejoue pas une publication déjà à l'écran sous un autre 
     rouge('`_calHistMerge` introuvable dans server.js', "ce contrôle n'éprouve plus rien, il faut le recâbler");
   } else {
     vert(`\`_calHistMerge\` extrait de server.js (${src.length} caractères)`);
+    /* 23/09 : `_calHistMerge` rend sa sortie par `_calResultatsCoherents` (un résultat doit avoir la
+       forme de sa ligne). On lui fournit le VRAI jugement, extrait de server.js — une doublure
+       « tout passe » éprouverait une sortie que la production ne sert pas. */
+    const iC = SRV.indexOf('const _CAL_SANS_CHIFFRE_RX'), iC2 = SRV.indexOf('function _calResultatsCoherents(');
+    const COH = (iC >= 0 && iC2 > iC) ? SRV.slice(iC, SRV.indexOf('\n}', iC2) + 2) + '\n' : '';
+    if (!COH) rouge('le jugement de cohérence (`_calActualCoherent`) est introuvable dans server.js', 'la sortie de _calHistMerge ne peut plus être éprouvée');
     const RENOMME = { 'Inflation Rate YoY': 'CPI y/y', 'Core Inflation Rate YoY': 'Core CPI y/y' };
     const monter = (archive) => {
       const _calHist = new Map();
@@ -175,7 +181,7 @@ titre("L'archive ne rejoue pas une publication déjà à l'écran sous un autre 
       const seuil = mSeuil ? Function('"use strict";return (' + mSeuil[1] + ')')() : null;
       if (!seuil) throw new Error('_CAL_MEME_PUBLI_MS introuvable dans server.js');
       const f = new Function('_calHist', '_calHistKey', '_ffDisplayTitle', '_CAL_SPEECH_RX', '_CAL_MEME_PUBLI_MS',
-        src + '\nreturn _calHistMerge;');
+        COH + src + '\nreturn _calHistMerge;');
       return f(_calHist, _calHistKey, e => RENOMME[e.title] || e.title, /speaks|speech|testimony|press conf/i, seuil);
     };
     const hier = Date.now() - 6 * 3600000;
@@ -237,7 +243,7 @@ titre("L'archive ne rejoue pas une publication déjà à l'écran sous un autre 
       const _calHist = new Map();
       const kf = e => e.currency + '|' + String(e.ctry || '') + '|' + String(e.title).toLowerCase().replace(/\s+/g, ' ').trim();
       for (const e of archive) _calHist.set(kf(e), { ...e, _k: kf(e) });
-      const sansGarde = new Function('_calHist', '_calHistKey', '_ffDisplayTitle', '_CAL_SPEECH_RX', mute + '\nreturn _calHistMerge;')(
+      const sansGarde = new Function('_calHist', '_calHistKey', '_ffDisplayTitle', '_CAL_SPEECH_RX', COH + mute + '\nreturn _calHistMerge;')(
         _calHist, kf, e => RENOMME[e.title] || e.title, /speaks|speech|testimony|press conf/i);
       const n = sansGarde(fenetre).filter(e => (RENOMME[e.title] || e.title) === 'CPI y/y').length;
       if (n === 2) vert('témoin : sans la garde, les deux « CPI y/y » reviennent bien');

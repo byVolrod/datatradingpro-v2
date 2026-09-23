@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260923-taux-fed-a-jour', ts: Date.UTC(2026, 8, 23, 4, 30), title: 'Onglet Taux : la Fed de nouveau à jour, et sa fourchette écrite en clair', desc: 'Vous nous avez signalé que l’onglet Taux affichait encore la Fed à 3,75 % une semaine après sa hausse du 16 septembre. TROIS CAUSES, TOUTES CORRIGÉES. D’abord, notre source de probabilités de marché ne répondait plus depuis le 9 septembre : le desk l’interrogeait bien trop souvent (plusieurs milliers de fois par jour, alors qu’elle ne recalcule sa courbe qu’une fois par jour). Il l’interroge désormais toutes les 30 minutes (10 minutes à l’approche d’une décision), banque par banque, et laisse reposer une banque qui ne répond pas au lieu d’insister. Ensuite, une valeur fantaisiste (« 2.425 ») s’était glissée dans le calendrier sur la décision de la Fed, recopiée d’une dépêche : face à deux chiffres contradictoires le même jour, le desk refusait prudemment de mettre le taux à jour. Le calendrier vérifie maintenant qu’un résultat a la forme de sa ligne (un pourcentage pour une décision de taux, rien pour une conférence de presse ou un communiqué) : ces faux chiffres disparaissent, y compris de l’historique déjà enregistré, et la vraie décision (4 %) reprend sa place. Enfin, quand la courbe de marché manque, la carte ne répète plus « 97 % de hausse » à chaque réunion future : la réunion la plus proche reprend les contrats à terme de la Fed, et les suivantes montrent des probabilités qui décroissent avec l’horizon, comme sur le marché. CE QUI CHANGE À L’ÉCRAN. La carte Fed affiche désormais sa fourchette telle que la Fed l’annonce (3,75-4,00 %), le milieu au survol. Et un relevé de marché datant de la veille reste affiché tant qu’aucune réunion n’a eu lieu depuis, au lieu de basculer sur une estimation à la première nuit sans réponse.' },
   { id: 'dtpu-20260923-fil-priorite-titres', ts: Date.UTC(2026, 8, 23, 4, 0), title: 'Fil d’actualité : les titres ne repassent plus en anglais sur une soirée chargée', desc: 'Vous nous avez signalé le fil entièrement en anglais un soir de forte actualité. LA CAUSE. Le titre affiché dans le fil et le contenu affiché seulement quand vous ouvrez une dépêche (analyse, description, impact marché) partagent le même quota de traduction quotidien. Sur une soirée chargée, ce contenu au clic partait EN PREMIER dans le cycle de traduction et épuisait sa part avant que le titre, lui visible d’emblée sans avoir à cliquer, n’ait jamais sa chance. CE QUI CHANGE. Le titre du fil passe désormais en premier : c’est la partie la plus regardée du desk, elle réclame le quota partagé avant tout ce qui n’est vu qu’au clic. Le contenu au clic continue d’être traduit avec ce qu’il reste, comme avant. Rien ne change le jour où le quota suffit largement : cette bascule d’ordre ne se voit que les jours où il devient serré.' },
   { id: 'dtpu-20260922-fluidite-fil', ts: Date.UTC(2026, 8, 22, 7, 0), title: 'Le desk reste fluide même quand l’actualité tombe en rafale', desc: 'Retour utilisateur, symptôme précis : « fluide à la connexion, puis lent au bout de quelques secondes ». La cause était le fil d’actualité, et elle n’avait rien à voir avec le serveur, qui répond vite. À chaque nouvelle dépêche reçue en direct, le desk reconstruisait l’intégralité de la liste visible du fil. Les jours de forte actualité, plusieurs dépêches arrivent en une fraction de seconde : ces reconstructions s’enchaînaient alors sans répit et occupaient le navigateur en continu, ce qui ralentissait TOUT le desk - le fil comme le passage d’un module à l’autre, l’ouverture des panneaux, les fenêtres. Cela n’apparaissait qu’une fois connecté et le flux en marche, d’où le « après quelques secondes ». CE QUI CHANGE. Quand plusieurs dépêches arrivent coup sur coup, le fil ne se reconstruit plus qu’une seule fois par rafraîchissement d’écran, au lieu d’une fois par dépêche. Le direct reste tout aussi instantané - vous ne perdez aucune dépêche et rien n’est retardé à l’œil - mais il cesse de monopoliser le navigateur : la navigation entre les onglets redevient fluide même en plein flux. Le premier affichage à la connexion et vos propres actions (filtres, recherche, bouton « charger plus ») sont inchangés : seule la cadence des reconstructions déclenchées par le direct a été lissée.' },
   { id: 'dtpu-20260918-calendrier-parite', ts: Date.UTC(2026, 8, 18, 13, 0), title: 'Calendrier économique : parité totale avec forexfactory.com, tous impacts confondus', desc: 'Suite des deux correctifs de ce matin. Le calendrier ne reprenait jusqu’ici que les rendez-vous que ForexFactory classe en impact moyen ou fort : un rendez-vous publié en impact faible sur forexfactory.com - comme le PPI allemand mensuel évoqué plus tôt aujourd’hui - n’apparaissait jamais chez nous, même une fois corrigé le défaut du matin. CE QUI CHANGE. Le calendrier reprend désormais TOUT ce que publie forexfactory.com, faible impact compris, avec le même niveau d’impact affiché qu’en face. Vous verrez donc sensiblement plus de lignes qu’avant, sur toutes les devises : discours secondaires, publications mineures, tout ce qui figure sur la page de référence. Les autres widgets du desk (Radar de Biais, Semaine à Venir, alertes) continuent de ne retenir que les rendez-vous réellement significatifs pour le trading, exactement comme avant : seul l’onglet Calendrier s’aligne sur la totalité de ForexFactory.' },
@@ -5467,7 +5468,7 @@ function _backfillActualsFromNews() {
   let filled = 0;
   for (const ev of getCalendarRaw()) {
     if (!ev || ev.timestamp > now) continue;                        // futur → pas d'actual
-    if (/speaks|speech|holiday|meeting|member/i.test(ev.title || '')) continue;   // pas de valeur chiffrée
+    if (/speaks|speech|holiday|meeting|member/i.test(ev.title || '') || _CAL_SANS_CHIFFRE_RX.test(ev.title || '')) continue;   // pas de valeur chiffrée (communiqué, conférence, projections… : cf. _calActualCoherent)
     const k = _calKeyDated(ev.currency, ev.title, ev.timestamp);
     if (_calActualsMap.get(k)?.actual) continue;                    // déjà rempli
     const cre = _eventCountryRe(ev);
@@ -5487,7 +5488,7 @@ function _backfillActualsFromNews() {
       if (!sigOk) continue;
       const actual = _calExtractActual(text, ev.forecast, ev.previous, acronyms.length ? acronyms : [longest]);
       const na = _calNormNum(actual);
-      if (actual && na !== _calNormNum(ev.forecast) && na !== _calNormNum(ev.previous)) {
+      if (actual && na !== _calNormNum(ev.forecast) && na !== _calNormNum(ev.previous) && _calActualCoherent(ev, actual)) {
         const prev = _calActualsMap.get(k) || {};
         _calActualsMap.set(k, { actual, forecast: ev.forecast || prev.forecast || '', previous: ev.previous || prev.previous || '' });
         filled++;
@@ -5532,6 +5533,61 @@ function _calPeriode(tok) {
   return null;
 }
 function _calPeriodeConflit(a, b) { const pa = _calPeriode(a), pb = _calPeriode(b); return !!(pa && pb && pa !== pb); }
+
+/* ══ UN RÉSULTAT DOIT AVOIR LA FORME DE SA LIGNE (23/09, capture user : « l'onglet taux n'est pas à
+   jour », Fed affichée à 3,75 % une semaine après la hausse du 16/09 à 3,75-4,00 %) ════════════════
+   MESURÉ dans `cal_actuals_v1` et `calhist:events` : « Federal Funds Rate » portait l'actual « 2.425 »
+   (prévision 4.00 %, précédent 3.75 %), « FOMC Statement » et « FOMC Economic Projections » aussi,
+   « FOMC Press Conference » portait « 25b », et côté RBNZ « Official Cash Rate » portait « 25b » et
+   « RBNZ Press Conference » « 0.4% ». Aucun de ces chiffres n'est une publication : ce sont des
+   nombres cueillis dans le texte d'une dépêche (« relève de 25 bp… ») par le remplissage de secours
+   `_backfillActualsFromNews`, ou recopiés d'une ligne voisine par l'appariement à un seul mot commun
+   (« fomc »). Le calendrier les affichait comme des résultats officiels.
+   ET C'EST CE QUI A FIGÉ LE TAUX FED : `_calendrierEcritTaux` lit la dernière décision réelle de
+   chaque devise. Pour le 16/09 il trouvait DEUX valeurs le même jour — 4 (la vraie, « Fed Interest
+   Rate Decision ») et 2,425 (la fausse) —, donc il s'abstenait, comme il doit le faire face à deux
+   chiffres contradictoires. Un faux résultat n'a pas seulement menti dans le calendrier : il a
+   bâillonné la seule voie par laquelle la décision réelle atteint l'onglet Taux.
+   LA RÈGLE, indépendante de la source (on ne court pas après chaque remplisseur) :
+   1. une prise de parole, un communiqué, une conférence, des projections ou des minutes SANS
+      prévision ni précédent n'ont pas de résultat chiffré — forexfactory.com n'en affiche aucun ;
+   2. le résultat parle la même UNITÉ que la prévision (ou, à défaut, que le précédent) : un « % »
+      appelle un « % », un volume (K/M/B/T, interchangeables : « 1 950K » et « 1.95M » sont le même
+      chiffre) appelle un volume, un indice nu appelle un nombre nu ;
+   3. une décision de taux ne bouge pas de plus de 150 points de base d'un coup (le plus gros
+      mouvement de la Fed depuis 1994 est de 100 pb, en mars 2020).
+   Un chiffre qui échoue n'est PAS corrigé ni deviné : il est simplement retiré, la ligne redevient
+   vide, comme une publication pas encore relevée. Le pire cas est donc un blanc, jamais un faux. */
+const _CAL_SANS_CHIFFRE_RX = /\b(statement|press conference|conference|projections?|minutes|testimony|speaks|speech|remarks|hearing|summit|holiday|beige book|meeting)\b/i;
+const _CAL_DECISION_TAUX_RX = /interest rate decision|rate decision|funds rate|cash rate|bank rate|policy rate|overnight rate|refinancing rate|deposit facility|deposit rate/i;
+function _calUniteFamille(s) {
+  const t = String(s == null ? '' : s).trim();
+  if (!t) return null;
+  const m = t.match(/^[<>]?\s*[-+]?\s*\d[\d.,]*\s*([%KMBT])?\s*$/i);
+  if (!m) return 'autre';
+  if (!m[1]) return 'nu';
+  return m[1] === '%' ? '%' : 'volume';
+}
+function _calActualCoherent(ev, actual) {
+  const a = String(actual == null ? '' : actual).trim();
+  if (!a || !ev) return true;   // rien à juger
+  const fc = String(ev.forecast || '').trim(), pv = String(ev.previous || '').trim();
+  if (!fc && !pv && _CAL_SANS_CHIFFRE_RX.test(ev.title || '')) return false;   // règle 1
+  const ref = _calUniteFamille(fc) || _calUniteFamille(pv);
+  const fa = _calUniteFamille(a);
+  if (ref && ref !== 'autre' && fa !== 'autre' && fa !== ref) return false;       // règle 2
+  if (ref === '%' && fa === '%' && _CAL_DECISION_TAUX_RX.test(ev.title || '') && !/projection/i.test(ev.title || '')) {   // règle 3
+    const p = parseFloat((pv || fc).replace(',', '.')), v = parseFloat(a.replace(',', '.'));
+    if (isFinite(p) && isFinite(v) && Math.abs(v - p) > 1.5) return false;
+  }
+  return true;
+}
+/* Le même jugement, appliqué à une LISTE à la sortie : un actual incohérent redevient vide (champ
+   conservé, comme `_calSansResultatFutur`). C'est ce qui désarme aussi les valeurs DÉJÀ persistées
+   (`cal_actuals_v1`, `calhist:events`), sans attendre qu'elles vieillissent hors de la fenêtre. */
+function _calResultatsCoherents(events) {
+  return (events || []).map(ev => (ev && ev.actual && !_calActualCoherent(ev, ev.actual)) ? { ...ev, actual: '' } : ev);
+}
 
 /* ══ LIBELLÉS FOREXFACTORY À L'AFFICHAGE (11/08, demande user) ═════════════════════════════════════
    Le calendrier est servi par TradingView (actuals natifs, temps réel, historique) mais TV nomme ses
@@ -5808,7 +5864,27 @@ async function _refreshTVActualsInner(force) {
       if (_calPeriodeConflit(et, x.tok)) continue;   // ← même garde qu'en fusion FF : jamais un m/m avec un y/y (cf. commentaire à _calOverlap)
       if (ov > bs || (ov === bs && diff < bd)) { bs = ov; bd = diff; best = x.t; }
     }
-    if (best && bs >= 1) {
+    /* DÉCISION DE TAUX SANS MOT COMMUN (23/09). ForexFactory écrit « Federal Funds Rate » / « Official
+       Cash Rate », TradingView « Fed Interest Rate Decision » / « RBNZ Interest Rate Decision » :
+       zéro mot partagé, donc jamais apparié, et la ligne que lit le trader restait sans résultat (ou
+       prenait celui d'une dépêche, cf. _calActualCoherent). Pour ces seules lignes, on accepte la
+       décision TV de la même devise et de la même heure dont le chiffre est le PLUS PROCHE de la
+       prévision (à défaut du précédent), à 50 pb au plus : c'est ce qui départage la BCE, qui publie
+       refi ET dépôt à la même seconde. Les projections de taux (« Interest Rate Projection - 1st Yr »)
+       sont exclues : ce sont des prévisions de membres, pas la décision. */
+    if (!best && _CAL_DECISION_TAUX_RX.test(ev.title || '') && !/projection/i.test(ev.title || '')) {
+      const ref = parseFloat(String(ev.forecast || ev.previous || '').replace(',', '.'));
+      let bdist = Infinity;
+      for (const x of tvTok) {
+        if (x.t.currency !== ev.currency || !x.t.actual) continue;
+        if (Math.abs((x.t.ts - offset) - ev.timestamp) > 45 * 60 * 1000) continue;
+        if (!_CAL_DECISION_TAUX_RX.test(x.t.title || '') || /projection/i.test(x.t.title || '')) continue;
+        const v = parseFloat(String(x.t.actual).replace(',', '.'));
+        const dist = isFinite(ref) && isFinite(v) ? Math.abs(v - ref) : Infinity;
+        if (dist <= 0.5 && dist < bdist) { bdist = dist; best = x.t; bs = 1; }
+      }
+    }
+    if (best && bs >= 1 && _calActualCoherent(ev, best.actual)) {
       _calActualsMap.set(k, { actual: best.actual, forecast: best.forecast || ev.forecast || '', previous: best.previous || ev.previous || '' });
       filled++;
     }
@@ -5856,7 +5932,9 @@ function _overlayActuals(events) {
     if (ev.actual && ev.actual !== '') return ev;                 // déjà un actual → on garde
     const a = _calActualsMap.get(_calKeyDated(ev.currency, ev.title, ev.timestamp));
     if (a && (a.actual || a.forecast || a.previous)) {
-      return { ...ev, actual: a.actual || '', forecast: ev.forecast || a.forecast || '', previous: ev.previous || a.previous || '' };
+      const out = { ...ev, actual: a.actual || '', forecast: ev.forecast || a.forecast || '', previous: ev.previous || a.previous || '' };
+      if (out.actual && !_calActualCoherent(out, out.actual)) out.actual = '';   // cf. _calActualCoherent : un chiffre sans la forme de sa ligne n'est pas un résultat
+      return out;
     }
     return ev;
   });
@@ -6102,7 +6180,7 @@ function _calFusionFF(tvItems) {
   // `_calSansResultatFutur` ferme la porte en dernier, après l'overlay ci-dessus : quelle que soit la
   // source d'un `actual` mal daté (overlay day-only, XML FF, flux TV brut), une ligne encore à venir
   // ne le garde jamais (cf. le commentaire qui l'accompagne, juste avant `_overlayActuals`).
-  return _calSansResultatFutur(_overlayActuals(sortie.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))));
+  return _calResultatsCoherents(_calSansResultatFutur(_overlayActuals(sortie.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)))));
 }
 let _tvCalCache = { ts: 0, items: [] };
 async function _buildTVCalendar(force) {
@@ -6228,6 +6306,7 @@ function _calHistAbsorb(items) {
     for (const e of items || []) {
       if (!e || !e.currency || !e.title || e.actual == null || e.actual === '' || !((e.timestamp || 0) > cut)) continue;
       if ((e.timestamp || 0) > now) continue;   // VERROU 1 : un résultat daté du FUTUR n'existe pas — ne jamais l'archiver.
+      if (!_calActualCoherent(e, e.actual)) continue;   // VERROU 1 bis (23/09) : un chiffre sans la forme de sa ligne n'est pas une publication (cf. _calActualCoherent)
       const k = _calHistKey(e);
       const prev = _calHist.get(k);
       if (prev && (e.timestamp || 0) === (prev.timestamp || 0)) {
@@ -6259,6 +6338,18 @@ function _calHistAbsorb(items) {
     for (const [k, e] of _calHist) {
       if (!e || !((e.timestamp || 0) > now)) continue;
       const h = (e._h || []).filter(x => x && x.a != null && x.a !== '' && (x.t || 0) <= now);
+      const dernier = h[h.length - 1];
+      if (dernier) _calHist.set(k, Object.assign({}, e, { timestamp: dernier.t, actual: dernier.a, forecast: dernier.f || '', previous: dernier.p || '', _k: k, _h: h.slice(0, -1) }));
+      else _calHist.delete(k);
+      _calHistDirty = true;
+    }
+    // VERROU 4 (23/09) : RÉPARATION des résultats incohérents déjà archivés (« Federal Funds Rate » = 2.425,
+    // « Official Cash Rate » = 25b…). Même geste que le verrou 3 : on repromeut la dernière valeur
+    // COHÉRENTE de `_h`, sinon l'entrée sort de l'archive. Sans ça, le stock persisté rejouerait le faux
+    // chiffre six mois durant — et `_calendrierEcritTaux`, qui lit cette archive, resterait bâillonné.
+    for (const [k, e] of _calHist) {
+      if (!e || _calActualCoherent(e, e.actual)) continue;
+      const h = (e._h || []).filter(x => x && x.a != null && x.a !== '' && (x.t || 0) <= now && _calActualCoherent({ title: e.title, forecast: x.f, previous: x.p }, x.a));
       const dernier = h[h.length - 1];
       if (dernier) _calHist.set(k, Object.assign({}, e, { timestamp: dernier.t, actual: dernier.a, forecast: dernier.f || '', previous: dernier.p || '', _k: k, _h: h.slice(0, -1) }));
       else _calHist.delete(k);
@@ -6349,7 +6440,7 @@ function _calHistMerge(items) {
       out.push({ currency: e.currency, ctry: e.ctry, title: e.title, impact: e.impact, timestamp: h.t, actual: h.a, forecast: h.f, previous: h.p });
     }
   }
-  return out;
+  return _calResultatsCoherents(out);   // dernier verrou (23/09) : ni la fenêtre ni l'archive ne ressortent un chiffre incohérent
 }
 
 // ── IA : fourchette LOW/HIGH estimée par événement (cachée DURABLEMENT + préchauffée, JAMAIS à l'ouverture). ──
@@ -20348,7 +20439,17 @@ const CB = [
   // the end of this year » — le biais hausse reste donc justifié, sans confiance chiffrée précise.
   { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:2.75, bias:'hike',              conv:0.60, step:25, floor:1.75, ceil:3.50, ancre:'2026-09-02' },   // OCR 2,75 (relevé confirmé le 02/09, rbnz.govt.nz) ; prochaine réunion 28/10, pas de pricing marché vérifié (paywall) → conv générique
 ];
-// Modèle maison : scénario d'une réunion (idx 0 = prochaine ; la conviction du biais croît avec l'horizon).
+// Modèle maison : scénario d'une réunion (idx 0 = prochaine).
+/* ⚠️ PROBABILITÉ PAR RÉUNION, PAS CUMULÉE (23/09, capture user sur la carte Fed en repli maison :
+   « 97,00 % · +24,10 bps » répété sur CHAQUE réunion future, de décembre à l'an prochain). Le modèle
+   faisait CROÎTRE la conviction avec l'horizon (+11 points par réunion, plafond 97 %) : c'est la
+   probabilité qu'un mouvement ait eu lieu À UN MOMENT, pas celle qu'il ait lieu À CETTE réunion —
+   or la colonne, comme chez le fournisseur de marché, se lit réunion par réunion. Le résultat
+   affirmait une hausse quasi certaine à chaque réunion, soit 2 points de taux en un an, ce que
+   personne ne price. Un marché en cycle de hausse montre au contraire des probabilités qui
+   S'ÉTIOLENT avec l'horizon (sonde rateprobability du 23/09 pour la Fed : 75, 53, 53, 59, 31, 28,
+   14…). La réunion la plus proche garde la conviction calibrée ; les suivantes décroissent de 20 %
+   chacune, sans descendre sous 15 %. */
 function _rateScenario(b, idx) {
   let hold, hike, cut;
   if (b.bias === 'hold') {
@@ -20357,10 +20458,12 @@ function _rateScenario(b, idx) {
     cut  = leanCut ? rest * share : rest * (1 - share);
     hike = rest - cut;
   } else if (b.bias === 'cut') {
-    cut  = Math.max(0.30, Math.min(0.97, b.conv + idx * 0.11));
+    const c0 = Math.max(0.30, Math.min(0.97, b.conv));
+    cut  = idx > 0 ? Math.max(0.15, c0 * Math.pow(0.8, idx)) : c0;
     const rest = 1 - cut; hold = rest * 0.82; hike = rest - hold;
   } else { // hike
-    hike = Math.max(0.30, Math.min(0.97, b.conv + idx * 0.11));
+    const h0 = Math.max(0.30, Math.min(0.97, b.conv));
+    hike = idx > 0 ? Math.max(0.15, h0 * Math.pow(0.8, idx)) : h0;
     const rest = 1 - hike; hold = rest * 0.82; cut = rest - hold;
   }
   const s = hold + hike + cut || 1; hold /= s; hike /= s; cut /= s;
@@ -20538,7 +20641,17 @@ const RP_MAP = {
   CHF: { slug: 'snb',  rate: t => _rpRate(t, 'policy_rate', 'snb_policy_rate', 'current_target') },
   NZD: { slug: 'rbnz', rate: t => _rpRate(t, 'official_cash_rate', 'ocr', 'cash_rate_target', 'current_target') },
 };
-const RP_TTL = 3 * 60 * 1000;   // refetch rateprobability au max toutes les 3 min (demande user « temps réel » ; leur donnée bouge ~horaire donc 3 min = frais sans matraquer l'API) — le front interroge /api/rates toutes les 30s
+/* ⚠️ LE RYTHME D'INTERROGATION ÉTAIT CELUI D'UN ROBOT HOSTILE (23/09). Huit banques toutes les 3 min
+   (toutes les 90 s dès qu'une réunion approchait), en rafale parallèle, depuis UNE adresse de centre
+   de données : jusqu'à 7 700 requêtes par jour — dont près de 2 000 réponses 401 pour SNB et RBNZ,
+   réinterrogées sans fin alors qu'elles sont payantes. Mesuré le même jour : `rates:rateprob` figé
+   depuis le 09/09 (lendemain d'une fenêtre BCE à 90 s), alors que l'API répond normalement d'ailleurs
+   (sonde du 23/09 : HTTP 200, format inchangé, `run_date` quotidien à minuit New York). Un fournisseur
+   qui ne recalcule sa courbe qu'une fois par jour n'a rien à nous donner toutes les 90 s — et tout à
+   nous retirer. Désormais : 30 min en temps normal, 10 min à l'approche d'une décision, requêtes
+   ÉCHELONNÉES, et chaque banque en échec attend de plus en plus longtemps avant d'être réessayée
+   (`_rpAttente`). */
+const RP_TTL = 30 * 60 * 1000;
 let _rpCache = { at: 0, banks: {} };
 let _rpRefreshing = false;
 const RP_HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'Accept': 'application/json', 'Referer': 'https://rateprobability.com/' };
@@ -20557,7 +20670,26 @@ try { auth.aiCacheGet('rates:rateprob').then(c => { if (c && c.banks && c.at) _r
    réponse (le premier se règle avec un abonnement ou une autre source, la seconde s'attend), et
    jusqu'ici les deux disparaissaient dans le même `null` silencieux. */
 const _rpPanne = {};
+/* Recul par banque : { slug → { echecs, reprise } }. 401 = payant, rien ne changera dans l'heure →
+   24 h. 403/429/5xx/réseau = on s'est peut-être fait remarquer → 15 min, doublé à chaque échec
+   consécutif, plafonné à 6 h. Un succès remet tout à zéro. */
+const _rpAttente = {};
+function _rpNoterEchec(slug, status) {
+  const a = _rpAttente[slug] || { echecs: 0, reprise: 0 };
+  a.echecs++;
+  const attente = status === 401 ? 24 * 3600e3 : Math.min(6 * 3600e3, 15 * 60e3 * Math.pow(2, a.echecs - 1));
+  a.reprise = Date.now() + attente;
+  _rpAttente[slug] = a;
+}
 async function _rpFetchBank(slug) {
+  const att = _rpAttente[slug];
+  if (att && Date.now() < att.reprise) return null;   // en recul : on ne réinterroge pas avant l'heure (la raison reste dans _rpPanne)
+  const r0 = await _rpFetchBankBrut(slug);
+  if (r0) delete _rpAttente[slug];
+  else _rpNoterEchec(slug, /HTTP 401/.test(_rpPanne[slug] || '') || /abonnement/.test(_rpPanne[slug] || '') ? 401 : 0);
+  return r0;
+}
+async function _rpFetchBankBrut(slug) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 8000);
   try {
@@ -20585,6 +20717,16 @@ function _rpDirMove(meetings, rate) {
   const dirBps = +(((mh.impliedRate - rate) * 100).toFixed(1));
   return dirBps >= BAND ? 'HIKE' : (dirBps <= -BAND ? 'CUT' : 'HOLD');
 }
+/* La Fed annonce une FOURCHETTE (« current band »: "3.75 - 4.00"), le fournisseur en donne aussi le
+   milieu (`midpoint`, ce que porte `rate`). On garde les deux bornes : la carte peut enfin écrire la
+   fourchette telle que la Fed l'annonce, au lieu d'un chiffre dont personne ne sait s'il est le haut,
+   le bas ou le milieu (23/09). */
+function _rpBande(t) {
+  const m = String((t && (t['current band'] || t.current_band || t.band)) || '').match(/(-?\d+(?:\.\d+)?)\s*[-–]\s*(-?\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const lo = +m[1], hi = +m[2];
+  return (isFinite(lo) && isFinite(hi) && hi > lo && hi - lo <= 1) ? { lo, hi } : null;
+}
 function _rpTransform(code, j, now) {
   const map = RP_MAP[code]; if (!map) return null;
   let rate = +map.rate(j.today);
@@ -20608,7 +20750,8 @@ function _rpTransform(code, j, now) {
     return { date: x.meeting_iso, days, hold, hike, cut, impliedBps, baseCase, impliedRate: isFinite(impl) ? +impl.toFixed(3) : null };
   });
   const m0 = meetings[0];
-  return { code, rate, next: m0.date, nextDays: m0.days, move: _rpDirMove(meetings, rate),
+  const band = _rpBande(j.today);
+  return { code, rate, band, next: m0.date, nextDays: m0.days, move: _rpDirMove(meetings, rate),
     prob: Math.max(m0.hold, m0.hike, m0.cut), expBps: m0.impliedBps,
     scenario: { hold: m0.hold, hike: m0.hike, cut: m0.cut }, meetings, source: 'market' };
 }
@@ -20616,9 +20759,10 @@ function _rpTransform(code, j, now) {
 // on rafraîchit toutes les 90s au lieu de 3 min — c'est là que les probabilités bougent le plus vite, donc
 // là qu'il faut coller au temps réel de rateprobability. Hors fenêtre : 3 min (la donnée bouge ~horaire).
 function _rpEffectiveTTL() {
-  for (const b of Object.values(_rpCache.banks || {})) {
-    const m0 = b && b.meetings && b.meetings[0];
-    if (m0 && typeof m0.days === 'number' && m0.days <= 2) return 90 * 1000;
+  const now = Date.now();
+  for (const code of Object.keys(RP_MAP)) {   // les dates viennent de CB_MEETINGS : un cache vide ou figé ne doit pas faire croire qu'aucune décision n'approche
+    const prochaine = (CB_MEETINGS[code] || []).map(d => Date.parse(d + 'T00:00:00Z')).find(t => t > now - 20 * 3600e3);
+    if (prochaine && prochaine - now <= 2 * 86400e3) return 10 * 60 * 1000;
   }
   return RP_TTL;
 }
@@ -20628,7 +20772,13 @@ async function _refreshRateProb(force = false) {
   _rpRefreshing = true;
   try {
     const now = Date.now(), codes = Object.keys(RP_MAP);
-    const results = await Promise.allSettled(codes.map(c => _rpFetchBank(RP_MAP[c].slug).then(j => j && _rpTransform(c, j, now))));
+    // ÉCHELONNÉ (1,5 s entre deux banques) plutôt qu'une rafale de 8 requêtes simultanées.
+    const results = [];
+    for (let i = 0; i < codes.length; i++) {
+      if (i) await new Promise(r => setTimeout(r, 1500));
+      try { const j = await _rpFetchBank(RP_MAP[codes[i]].slug); results.push({ status: 'fulfilled', value: j && _rpTransform(codes[i], j, now) }); }
+      catch (e) { results.push({ status: 'rejected', reason: e }); }
+    }
     // FIABILITÉ : on FUSIONNE par banque, on ne REMPLACE jamais tout le cache. Un échec transitoire d'UNE
     // banque (timeout/429) conserve sa DERNIÈRE valeur marché connue au lieu de la faire chuter sur le repli
     // maison. Horodatage PAR banque → /api/rates juge la fraîcheur banque par banque (12 h de tolérance).
@@ -20655,7 +20805,7 @@ async function _refreshRateProb(force = false) {
    résultat d'un seul cycle — et on prévient aussi du retour à la normale, pour ne pas laisser
    croire que ça dure encore une fois résolu. */
 let _rpAlerteEnvoyee = false;
-const _RP_SEUIL_ALERTE_MS = 20 * 60 * 1000;   // 20 min : très au-dessus du cycle normal (90 s à 3 min, jusqu'à 90 s en fenêtre de décision)
+const _RP_SEUIL_ALERTE_MS = 3 * 3600 * 1000;   // 3 h : six cycles normaux manqués (30 min, 10 min en fenêtre de décision) — au-dessous, un simple recul après un échec isolé suffirait à alerter
 function _rpVerifierFraicheur() {
   const depuisMs = Date.now() - (_rpCache.at || 0);
   if (depuisMs < _RP_SEUIL_ALERTE_MS) {
@@ -20673,12 +20823,12 @@ function _rpVerifierFraicheur() {
   const pannes = Object.entries(_rpPanne).map(([slug, raison]) => '<li><b>' + slug + '</b> : ' + raison + '</li>').join('');
   mailer.sendAdminAlert({
     subject: 'DTP : les taux de marché ne se sont pas rafraîchis depuis ' + h + ' h',
-    html: '<p>Le pricing des banques centrales (rateprobability.com) n’a pas été mis à jour avec succès depuis <b>' + h + ' h</b> — bien au-delà du cycle normal (90 s à 3 min).</p>'
+    html: '<p>Le pricing des banques centrales (rateprobability.com) n’a pas été mis à jour avec succès depuis <b>' + h + ' h</b> — bien au-delà du cycle normal (30 min, 10 min à l’approche d’une décision).</p>'
       + (pannes ? '<p>Dernières pannes connues par banque :</p><ul>' + pannes + '</ul>' : '')
       + '<p style="color:#6b7280;font-size:12px;">Les cartes affichées peuvent rester correctes si une autre base a une copie plus fraîche (la lecture prend la plus récente), mais ce pipeline précis ne progresse plus.</p>',
   }).catch(e => console.warn('[Taux] alerte fraîcheur non envoyée :', e.message));
 }
-setInterval(() => { _refreshRateProb().then(_rpVerifierFraicheur).catch(() => { _rpVerifierFraicheur(); }); }, 90 * 1000);   // tick 90s ; le refetch RÉEL respecte le TTL adaptatif (3 min normal, 90s si réunion ≤2 j)
+setInterval(() => { _refreshRateProb().then(_rpVerifierFraicheur).catch(() => { _rpVerifierFraicheur(); }); }, 90 * 1000);   // tick 90s (ne coûte rien) ; le refetch RÉEL respecte le TTL adaptatif (30 min normal, 10 min si réunion ≤2 j) et le recul par banque
 setTimeout(() => { _refreshRateProb(true).catch(() => {}); }, 9000);  // amorçage au démarrage
 // Même horloge que l'alerte mail ci-dessus, SANS attendre son seuil (17/09, demande user : « vérifie
 // que tout est à jour et le badge est toujours présent... met dans le panel admin que je puisse
@@ -20732,6 +20882,7 @@ function _calDecisionsTaux() {   // décisions de taux RÉELLES (actual publié)
       if (!e || !e.currency || !e.title || e.actual == null || e.actual === '') continue;
       if (!SB_CURRENCIES.includes(e.currency) || !((e.timestamp || 0) > cutoff)) continue;
       if (!_CAL_TAUX_RX.test(e.title)) continue;
+      if (!_calActualCoherent(e, e.actual)) continue;   // 23/09 : le « 2.425 » d'une dépêche bâillonnait la vraie décision Fed (deux valeurs le même jour → abstention)
       const k = e.currency + '|' + String(e.title).toLowerCase().trim() + '|' + new Date(e.timestamp).toISOString().slice(0, 10);
       if (!vu.has(k)) vu.set(k, e);
     }
@@ -20856,6 +21007,25 @@ function _derniereReunion(code, now) {
      le lendemain. Le banc l'a attrapé avant la production. */
   return { date: d, jours: Math.max(0, Math.floor((now - Date.parse(d + 'T00:00:00Z')) / 86400000)) };
 }
+/* UN INSTANTANÉ DE MARCHÉ VIEILLI RESTE DU MARCHÉ — TANT QU'AUCUNE RÉUNION N'EST PASSÉE ENTRE-TEMPS
+   (23/09). La règle était « moins de 12 h, sinon modèle maison ». Or le fournisseur ne recalcule sa
+   courbe qu'une fois par jour : une seule nuit d'échec suffisait à remplacer des probabilités de
+   marché par une estimation. Ce qui périme vraiment un instantané, ce n'est pas l'horloge, c'est une
+   DÉCISION : après une réunion, le taux a pu bouger et la première ligne de la courbe n'existe plus.
+   On garde donc l'instantané jusqu'à 7 jours, sauf si une réunion de cette banque a eu lieu depuis
+   (on compte la journée de réunion ENTIÈRE : un instantané pris le matin d'une décision tombée le
+   soir est déjà périmé). Les jours restants sont recalculés à l'instant du service. */
+function _rpInstantaneUtilisable(code, rp, at, now) {
+  if (!rp || !at || now - at > 7 * 86400e3) return null;
+  const reunionDepuis = (CB_MEETINGS[code] || []).some(d => { const t = Date.parse(d + 'T00:00:00Z'); return t <= now && at < t + 86400e3; });
+  if (reunionDepuis) return null;
+  if (now - at < 3600e3) return rp;   // frais : tel quel
+  const meetings = (rp.meetings || []).filter(m => m && Date.parse(m.date + 'T00:00:00Z') >= now - 20 * 3600e3)
+    .map(m => ({ ...m, days: Math.max(0, Math.round((Date.parse(m.date + 'T00:00:00Z') - now) / 86400e3)) }));
+  if (!meetings.length) return null;
+  return { ...rp, meetings, next: meetings[0].date, nextDays: meetings[0].days };
+}
+function _bandeFedDepuisMilieu(mid) { return isFinite(mid) ? { lo: +(mid - 0.125).toFixed(2), hi: +(mid + 0.125).toFixed(2) } : null; }
 function _buildRatesPayload() {
   try { _refreshRates(); } catch {}
   try { _calendrierEcritTaux(); } catch {}   // recale st.rate sur la dernière décision réelle (throttle interne ~10 min)
@@ -20865,13 +21035,15 @@ function _buildRatesPayload() {
   // si l'API tombe), banque par banque → une banque momentanément en échec n'entraîne pas les autres.
   const _rpBanks = _rpCache.banks || {}, _rpBankAt = _rpCache.bankAt || {};
   const banks = CB.map(b => {
-    const rp = _rpBanks[b.code];
-    const _rpAge = now - (_rpBankAt[b.code] || _rpCache.at || 0);
+    const _rpAt = _rpBankAt[b.code] || _rpCache.at || 0;
+    const rp = _rpInstantaneUtilisable(b.code, _rpBanks[b.code], _rpAt, now);
+    const _rpAge = now - _rpAt;
     // `move` = TENDANCE cumulée ~6,5 mois (rateprobability) — conservée telle quelle (alimente GEW, bias5, chat).
     // `stance` = PROCHAIN MOUVEMENT (FedWatch/biais maison curé) = MÊME source que le Radar de Biais → header TAUX cohérent.
     const stance = _sbStanceMove(b.code);
     const _der = _derniereReunion(b.code, now);
-    if (rp && _rpAge < 12 * 3600 * 1000) return { code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: rp.rate,
+    if (rp) return { code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: rp.rate,
+      band: rp.band || (b.code === 'USD' ? _bandeFedDepuisMilieu(rp.rate) : null), stale: _rpAge >= 12 * 3600 * 1000,
       next: rp.next, nextDays: rp.nextDays, last: _der.date, lastDays: _der.jours, move: _rpDirMove(rp.meetings, rp.rate), stance, prob: rp.prob, expBps: rp.expBps,
       scenario: rp.scenario, meetings: rp.meetings, source: 'market',
       srcAt: _rpBankAt[b.code] || _rpCache.at || null,   // fraîcheur PAR banque → le badge de la carte peut dire « actualisé à HH:MM »
@@ -20895,9 +21067,25 @@ function _buildRatesPayload() {
       return { date: d, days, hold: Math.round(sc.hold * 10000) / 100, hike: Math.round(sc.hike * 10000) / 100, cut: Math.round(sc.cut * 10000) / 100,
                impliedBps: +sc.impliedBps.toFixed(1), baseCase: sc.baseCase };
     });
-    const n = meetings[0], sc0 = _rateScenario(bb, 0);
+    let sc0 = _rateScenario(bb, 0);
+    /* FED EN REPLI : LA PROCHAINE RÉUNION RESTE DU MARCHÉ (23/09). Les contrats à terme Fed Funds de
+       la CME (`_fedWatch`, rafraîchis toutes les 10 min, source indépendante du fournisseur de courbe)
+       pricent la prochaine réunion. Quand la courbe complète manque, c'est toujours mieux qu'un
+       modèle : on reprend leurs probabilités pour CETTE réunion-là, et seulement si c'est bien la même
+       date et que la mesure a moins de 6 h. */
+    let fwUtilise = false;
+    if (b.code === 'USD' && meetings[0] && _fedWatch && _fedWatch.meeting === meetings[0].date && now - (_fedWatch.at || 0) < 6 * 3600e3) {
+      const fw = _fedWatch, base = fw.hike >= 50 ? 'HIKE' : (fw.cut >= 50 ? 'CUT' : 'HOLD');
+      meetings[0] = { ...meetings[0], hold: fw.hold, hike: fw.hike, cut: fw.cut, impliedBps: +(+fw.changeBps || 0).toFixed(1), baseCase: base };
+      sc0 = { hold: fw.hold / 100, hike: fw.hike / 100, cut: fw.cut / 100, impliedBps: +fw.changeBps || 0 };
+      fwUtilise = true;
+    }
+    const n = meetings[0];
+    const bandeFed = b.code === 'USD' ? { lo: +(st.rate - 0.25).toFixed(2), hi: +(+st.rate).toFixed(2) } : null;   // l'état maison Fed porte la BORNE HAUTE (convention de CB[] et du calendrier)
     return {
-      code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: st.rate,
+      code: b.code, cc: b.cc, bank: b.bank, full: b.full,
+      rate: bandeFed ? +((bandeFed.lo + bandeFed.hi) / 2).toFixed(3) : st.rate,   // Fed : le MILIEU, comme en mode marché — une seule convention par carte, quelle que soit la source
+      band: bandeFed, fedWatch: fwUtilise,
       next: n ? n.date : null, nextDays: n ? n.days : null,
       last: _der.date, lastDays: _der.jours,
       move: ({ hike: 'HIKE', cut: 'CUT', hold: 'HOLD' }[bb.bias] || 'HOLD'),   // en-tête DIRECTIONNEL (cohérent avec les cartes marché ; le biais maison EST déjà une direction)

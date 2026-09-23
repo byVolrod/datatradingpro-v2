@@ -67,7 +67,7 @@ function extraire(nom) {
 
 const NOMS = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_calPeriode', '_calPeriodeConflit', '_FF_EURO_CTRY_ADJ',
   '_CAL_VITAL_RX', '_calVitalLift', '_calKey', '_calKeyDated', '_calActualsMap', '_overlayActuals',
-  '_calSansResultatFutur',
+  '_calSansResultatFutur', '_CAL_SANS_CHIFFRE_RX', '_CAL_DECISION_TAUX_RX', '_calUniteFamille', '_calActualCoherent', '_calResultatsCoherents',
   '_FF_JOUR_MIN', '_FF_APPARIEMENT_MIN', '_FF_FENETRE_MS', '_calJourUTC', '_FF_ADJ_CTRY', '_ffCtry',
   '_calBaseTokens', '_calMemeSujetAutrePeriode',
   '_calFusionFF'];
@@ -85,12 +85,12 @@ try {
   fusion = eval('(function(){' +
     'const getCalendarRaw = () => FLUX;' +
     'const _WA = { poidsMajeur: e => /jackson hole|powell|symposium/i.test(e.title || "") ? 5 : 3 };' +
-    bloc + '\nreturn { _calFusionFF, _ffCtry, _calActualsMap, _calKeyDated, _calSansResultatFutur };})()');
+    bloc + '\nreturn { _calFusionFF, _ffCtry, _calActualsMap, _calKeyDated, _calSansResultatFutur, _calActualCoherent };})()');
 } catch (e) {
   verif('il s\'évalue sans erreur', false, e.message);
   console.log('\n✗ ' + ko + ' ÉCHEC(S)\n'); process.exit(1);
 }
-const { _calFusionFF, _ffCtry, _calActualsMap, _calKeyDated, _calSansResultatFutur } = fusion;
+const { _calFusionFF, _ffCtry, _calActualsMap, _calKeyDated, _calSansResultatFutur, _calActualCoherent } = fusion;
 
 // ── Fixture : mercredi 2 septembre 2026, une journée de calendrier ordinaire ────────────────────
 const J = Date.UTC(2026, 8, 2);
@@ -229,7 +229,7 @@ verif('TradingView muet et sans instantané → le calendrier sort quand même d
 verif('les résultats déjà collectés sont reposés sur la liste fusionnée (`_overlayActuals`)',
   /_overlayActuals\(sortie\.sort/.test(srcNu));
 verif('… et une ligne encore à venir ne peut pas ressortir avec un résultat publié (`_calSansResultatFutur`)',
-  /return _calSansResultatFutur\(_overlayActuals\(sortie\.sort/.test(srcNu));
+  /return _calResultatsCoherents\(_calSansResultatFutur\(_overlayActuals\(sortie\.sort/.test(srcNu));
 
 // ── 9. Ordre chronologique (le calendrier se lit de haut en bas) ────────────────────────────────
 {
@@ -327,7 +327,8 @@ console.log('\n── 10. Une ligne à venir ne porte jamais de résultat publi�
 console.log('\n── 11. L\'archive ne ressuscite jamais un résultat encore à venir ──');
 {
   let blocH;
-  try { blocH = ['_calHistKey', '_calHistAbsorb', '_calHistMerge'].map(extraire).join('\n'); }
+  try { blocH = ['_CAL_SANS_CHIFFRE_RX', '_CAL_DECISION_TAUX_RX', '_calUniteFamille', '_calActualCoherent', '_calResultatsCoherents',
+    '_calHistKey', '_calHistAbsorb', '_calHistMerge'].map(extraire).join('\n'); }   // + le jugement de cohérence (23/09) : `_calHistAbsorb`/`_calHistMerge` s'en servent
   catch (e) { verif('le code de l\'archive est extractible de server.js', false, e.message); blocH = null; }
   if (blocH) {
     verif('le code de l\'archive (3 déclarations) est extractible de server.js', true);
@@ -441,7 +442,8 @@ console.log('\n── 12. Garde périodicité : un m/m ne récupère jamais les 
 (async () => {
   let blocR;
   try {
-    blocR = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_calPeriode', '_calPeriodeConflit', '_calKey', '_calKeyDated', '_calActualsMap', '_refreshTVActualsInner'].map(extraire).join('\n');
+    blocR = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_calPeriode', '_calPeriodeConflit', '_calKey', '_calKeyDated', '_calActualsMap',
+      '_CAL_SANS_CHIFFRE_RX', '_CAL_DECISION_TAUX_RX', '_calUniteFamille', '_calActualCoherent', '_refreshTVActualsInner'].map(extraire).join('\n');
   } catch (e) { verif('le code du rattrapage TradingView est extractible de server.js', false, e.message); blocR = null; }
   if (blocR) {
     verif('le code du rattrapage (8 déclarations) est extractible de server.js', true);
@@ -484,6 +486,31 @@ console.log('\n── 12. Garde périodicité : un m/m ne récupère jamais les 
       const bon = _calActualsMap.get(K);
       verif('… avec les BONNES valeurs (celles du m/m, jamais celles du y/y)',
         !!bon && bon.actual === '1.1%' && bon.forecast === '0.4%' && bon.previous === '1.1%', JSON.stringify(bon));
+
+      // c. DÉCISION DE TAUX SANS MOT COMMUN (23/09) : « Federal Funds Rate » (FF) ↔ « Fed Interest Rate
+      //    Decision » (TV). Zéro mot partagé : sans l'appariement par nature, la ligne que lit le trader
+      //    restait vide — ou prenait le « 2.425 » d'une dépêche. Et une projection de taux, même plus
+      //    proche en heure, ne doit JAMAIS passer pour la décision.
+      _calActualsMap.clear();
+      const TF = Date.UTC(2026, 8, 16, 18, 0);
+      FLUXOurs = [{ currency: 'USD', title: 'Federal Funds Rate', timestamp: TF, actual: '', forecast: '4.00%', previous: '3.75%' }];
+      poserTV([
+        { ts: TF, currency: 'USD', title: 'Interest Rate Projection - 1st Yr', actual: '4.1%', forecast: '', previous: '3.6%' },
+        { ts: TF, currency: 'USD', title: 'Fed Interest Rate Decision', actual: '4%', forecast: '4%', previous: '3.75%' },
+      ]);
+      const n3 = await _refreshTVActualsInner(false);
+      const ffr = _calActualsMap.get('USD|federalfundsrate|2026-09-16');
+      verif('« Federal Funds Rate » reçoit la décision TradingView (4 %), sans mot commun', n3 === 1 && !!ffr && ffr.actual === '4%', 'rempli = ' + n3 + ' ' + JSON.stringify(ffr));
+      // témoin : sans la décision, la projection seule ne remplit rien
+      _calActualsMap.clear();
+      poserTV([{ ts: TF, currency: 'USD', title: 'Interest Rate Projection - 1st Yr', actual: '4.1%', forecast: '', previous: '3.6%' }]);
+      const n4 = await _refreshTVActualsInner(false);
+      verif('… et une projection de taux seule ne se fait jamais passer pour la décision (0 rempli)', n4 === 0, 'rempli = ' + n4);
+      // d. Un « Official Cash Rate » ne prend pas une décision TV à plus de 50 pb de sa prévision
+      _calActualsMap.clear();
+      FLUXOurs = [{ currency: 'NZD', title: 'Official Cash Rate', timestamp: TF, actual: '', forecast: '2.75%', previous: '2.50%' }];
+      poserTV([{ ts: TF, currency: 'NZD', title: 'RBNZ Interest Rate Decision', actual: '4.5%', forecast: '', previous: '' }]);
+      verif('… ni une décision dont le chiffre est à plus de 50 pb de la prévision (0 rempli)', (await _refreshTVActualsInner(false)) === 0);
     }
   }
 
@@ -580,6 +607,48 @@ console.log('\n── 12. Garde périodicité : un m/m ne récupère jamais les 
     const ligne = a(out, 'EUR', 'German PPI m/m');
     verif('… avec son impact d\'origine conservé (Low, pas relevé artificiellement)',
       !!ligne && ligne.impact === 'Low', ligne && ligne.impact);
+  }
+
+  // ── 16. UN RÉSULTAT A LA FORME DE SA LIGNE (23/09) ─────────────────────────────────────────────
+  /* Les valeurs EXACTES relevées dans `cal_actuals_v1` / `calhist:events` le 23/09 : « 2.425 » sur la
+     décision Fed (prévision 4.00 %), « 25b » sur l'OCR néo-zélandais et sur une conférence de presse,
+     « 0.4% » sur une autre. Toutes affichées comme des résultats officiels ; la première a en plus
+     figé l'onglet Taux (cf. taux-verif, section g). On éprouve la VRAIE fonction, et la sortie de la
+     fusion, avec des TÉMOINS légitimes qui ne doivent pas tomber avec eux. */
+  console.log('\n── 16. Un résultat a la forme de sa ligne ──');
+  {
+    const C = _calActualCoherent;
+    const ev = (title, forecast, previous) => ({ currency: 'USD', title, forecast, previous });
+    verif('« Federal Funds Rate » = 2.425 (prévision 4.00 %) est refusé', C(ev('Federal Funds Rate', '4.00%', '3.75%'), '2.425') === false);
+    verif('« Official Cash Rate » = 25b (prévision 2.75 %) est refusé', C(ev('Official Cash Rate', '2.75%', '2.50%'), '25b') === false);
+    verif('« FOMC Press Conference » = 25b (sans prévision ni précédent) est refusé', C(ev('FOMC Press Conference', '', ''), '25b') === false);
+    verif('« RBNZ Press Conference » = 0.4% est refusé', C(ev('RBNZ Press Conference', '', ''), '0.4%') === false);
+    verif('« FOMC Statement » = 2.425 est refusé', C(ev('FOMC Statement', '', ''), '2.425') === false);
+    verif('une décision qui bondirait de 3,75 % à 6 % est refusée', C(ev('Fed Interest Rate Decision', '4%', '3.75%'), '6%') === false);
+    // témoins : ce qui doit continuer à passer
+    verif('(témoin) la vraie décision Fed 4 % passe', C(ev('Fed Interest Rate Decision', '4%', '3.75%'), '4%') === true);
+    verif('(témoin) un CPI m/m 0.4% face à 0.3% passe', C(ev('CPI m/m', '0.3%', '0.2%'), '0.4%') === true);
+    verif('(témoin) un volume en M face à une prévision en K passe (1.95M ≡ 1950K)', C(ev('Continuing Jobless Claims', '1950K', '1940K'), '1.95M') === true);
+    verif('(témoin) un indice nu face à un indice nu passe (ISM 48.5)', C(ev('ISM Manufacturing PMI', '49.0', '48.7'), '48.5') === true);
+    verif('(témoin) une surprise énorme mais de même unité passe (Import Prices 13.8% vs -0.7%)', C(ev('Import Prices QoQ', '', '-0.7%'), '13.8%') === true);
+    verif('(témoin) une projection de taux sans prévision garde son chiffre', C(ev('Interest Rate Projection - 1st Yr', '', '3.6%'), '4.1%') === true);
+    verif('(témoin) un titre inconnu sans prévision ni précédent garde son chiffre', C(ev('ANZ Roy Morgan Consumer Confidence', '', ''), '98') === true);
+    // la sortie de la fusion applique le jugement (le stock persisté est désarmé à l'affichage).
+    // Journée de la fixture (horloge figée à 22h) + deux rendez-vous de remplissage (verrou de densité).
+    FLUX = [
+      ffEv('USD', 'Federal Funds Rate', h(18, 0), 'High', { forecast: '4.00%', previous: '3.75%' }),
+      ffEv('USD', 'Crude Oil Inventories', h(14, 30), 'Low', { forecast: '-1.2M', previous: '0.8M' }),
+      ffEv('USD', 'Building Permits', h(12, 30), 'Medium', { forecast: '1.40M', previous: '1.39M' }),
+    ];
+    _calActualsMap.clear();
+    _calActualsMap.set(_calKeyDated('USD', 'Federal Funds Rate', h(18, 0)), { actual: '2.425', forecast: '4.00%', previous: '3.75%' });
+    _calActualsMap.set(_calKeyDated('USD', 'Crude Oil Inventories', h(14, 30)), { actual: '-2.1M', forecast: '-1.2M', previous: '0.8M' });
+    const out16 = _calFusionFF([]);
+    const l16 = out16.find(e => e.title === 'Federal Funds Rate');
+    verif('la fusion ne ressort plus le « 2.425 » persisté sur « Federal Funds Rate »', !!l16 && l16.actual === '', l16 && JSON.stringify({ a: l16.actual, f: l16.forecast }));
+    const c16 = out16.find(e => e.title === 'Crude Oil Inventories');
+    verif('(témoin) le résultat cohérent persisté à côté, lui, ressort (-2.1M)', !!c16 && c16.actual === '-2.1M', c16 && JSON.stringify({ a: c16.actual }));
+    _calActualsMap.clear();
   }
 
   /* ⚠️ LE BILAN EST À LA FIN, ET IL DOIT Y RESTER (01/09). Il était posé juste après la section 9,

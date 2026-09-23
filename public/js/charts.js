@@ -4102,7 +4102,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const d = window._dtpJSON ? await window._dtpJSON('/api/rates') : await (await fetch('/api/rates')).json();   // fetch RÉSILIENT (retry sur 502/non-JSON transitoire)
       const banks = (d && d.banks) || [];
       if (!banks.length) { if (!hasCards()) host.innerHTML = '<div class="taux-empty">Aucune donnée.</div>'; return; }
-      const sig = (d.rpAt || 0) + '|' + (d.updatedAt || 0) + '|' + banks.length;
+      const sig = (d.rpAt || 0) + '|' + (d.updatedAt || 0) + '|' + banks.map(b => b.code + ':' + b.rate + ':' + b.prob + ':' + (b.next || '')).join(',');   // 23/09 : le contenu, pas seulement les horodatages — un taux recalé par le calendrier ou un pricing CME ne bougent ni l'un ni l'autre
       if (sig === _tauxSig && hasCards()) return;   // données inchangées → pas de re-rendu (évite tout clignotement)
       _tauxSig = sig;
       host.innerHTML = banks.map(_rtcCard).join('');
@@ -4128,9 +4128,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const _RTC_EN = { USD: 'Réserve fédérale (OIS)', EUR: 'Banque centrale européenne', GBP: 'Banque d’Angleterre', JPY: 'Banque du Japon', CHF: 'Banque nationale suisse', CAD: 'Banque du Canada', AUD: 'Banque de réserve d’Australie', NZD: 'Banque de réserve de Nouvelle-Zélande' };
 /* LA MESURE EXACTE QUE PORTE CHAQUE CARTE. Vide = « Taux actuel » suffit (une seule mesure
    publiée). Renseignée là où la banque en publie PLUSIEURS, donc là où le doute est possible. */
+/* ⚠️ CLÉ = `b.code` TEL QUE /api/rates LE SERT (USD, EUR…), PAS le nom de la banque (23/09). La table
+   était clée « ECB » / « FED » alors que chaque carte porte le code DEVISE : elle n'a jamais rien
+   affiché, et la carte Fed disait « Taux actuel 3,7500 % » — un chiffre dont personne ne pouvait dire
+   s'il était le haut, le bas ou le milieu de la fourchette. Le banc taux-verif compare désormais ces
+   clés aux codes réellement servis. */
 const _RTC_MESURE = {
-  ECB: 'Taux de dépôt',        // et non le refi, supérieur de 15 pb depuis septembre 2024
-  FED: 'Fed funds (haut)',     // la Fed annonce une FOURCHETTE : on affiche le haut
+  EUR: 'Taux de dépôt',          // et non le refi, supérieur de 15 pb depuis septembre 2024
+  USD: 'Fed funds (fourchette)', // la Fed annonce une FOURCHETTE : on l'écrit telle quelle
 };
 /* ⚠️ ET L'AUTRE CHIFFRE, AU SURVOL. Nommer la mesure ferme la moitié du doute ; l'autre moitié
    vient de ce qu'on lit AILLEURS. Les sites grand public (TradingEconomics par exemple) titrent le
@@ -4142,8 +4147,9 @@ const _RTC_MESURE_AIDE = {
      + 'supérieur de 15 points de base depuis la réforme du corridor de septembre 2024. '
      + 'Le dépôt est le taux directeur effectif que le marché price : c’est lui qui commande les probabilités ci-dessous. '
      + 'Les sites grand public titrent souvent le refinancement : d’où l’écart si vous comparez.',
-  FED: 'La Fed annonce une FOURCHETTE (par exemple 3,50-3,75%). La carte affiche sa borne HAUTE, '
-     + 'la convention des tables de taux et des contrats à terme.',
+  USD: 'La Fed annonce une FOURCHETTE (par exemple 3,75-4,00%), affichée ici telle quelle. '
+     + 'Les probabilités et les deltas ci-dessous se lisent par rapport à son MILIEU (3,875% dans cet exemple), '
+     + 'la convention des contrats à terme Fed Funds.',
 };
   function _rtcCard(b) {
     const MVC = { HOLD: { txt: 'Maintien', cls: 'w' }, HIKE: { txt: 'Hausse', cls: 'g' }, CUT: { txt: 'Baisse', cls: 'r' } };
@@ -4242,7 +4248,9 @@ const _RTC_MESURE_AIDE = {
          retrouvé seul face à la prochaine question du même genre. */
       + '<div class="rtc-m"><span class="rtc-k"'
       + (_RTC_MESURE_AIDE[b.code] ? ' title="' + _RTC_MESURE_AIDE[b.code].replace(/"/g, '&quot;') + '"' : '')
-      + '>' + (_RTC_MESURE[b.code] || 'Taux actuel') + '</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
+      + '>' + (_RTC_MESURE[b.code] || 'Taux actuel') + '</span><span class="rtc-v w"'
+      + (b.band ? ' title="milieu ' + num(b.rate, 3) + '%"' : '') + '>'
+      + (b.band ? num(b.band.lo, 2) + '–' + num(b.band.hi, 2) + '%' : num(b.rate, 4) + '%') + '</span></div>'
       /* ⚠️ « DATE DE RÉUNION » NE DISAIT PAS LAQUELLE (11/09, demande user : « on a les dates réu
          futures, ajoute aussi la dernière qui est passée, pour toutes les banques »). La carte ne
          montrait que la PROCHAINE : on savait quand la question serait reposée, jamais quand elle

@@ -308,7 +308,7 @@ if (SRC_CAL && SRC_APPLY) {
   const T_JUIL = Date.UTC(2026, 6, 8, 2, 0), T_MAI = Date.UTC(2026, 4, 28, 2, 0);
   const CAL_FIX = () => ([
     { currency: 'NZD', title: 'RBNZ Interest Rate Decision', actual: '2.50%', timestamp: T_JUIL },
-    { currency: 'NZD', title: 'RBNZ Rate Statement', actual: '2.50%', timestamp: T_JUIL },
+    { currency: 'NZD', title: 'RBNZ Rate Statement', actual: '2.50%', forecast: '2.50%', previous: '2.25%', timestamp: T_JUIL },   // forme réelle (calhist:events) : un communiqué ne porte un chiffre qu'accompagné de sa prévision
     { currency: 'NZD', title: 'RBNZ Interest Rate Decision', actual: '2.25%', timestamp: T_MAI },
     { currency: 'NZD', title: 'GDT Price Index', actual: '1.2%', timestamp: Date.UTC(2026, 6, 9, 2, 0) },
     { currency: 'EUR', title: 'ECB Interest Rate Decision', actual: '2.40%', timestamp: Date.UTC(2026, 5, 11, 12, 15) },
@@ -334,15 +334,24 @@ if (SRC_CAL && SRC_APPLY) {
      On alimente désormais par les VRAIS canaux (l'instantané du calendrier fusionné, l'archive
      `_calHist`, le flux brut), et le contrôle `f.` ci-dessous rejoue la panne : la même fixture
      posée dans `allCalendar` SEUL, à la forme réelle du fil, ne doit rien produire. */
+  /* 23/09 : `_calDecisionsTaux` n'entend plus que des résultats COHÉRENTS avec leur ligne
+     (`_calActualCoherent`) — on lui passe la VRAIE fonction, extraite de server.js. */
+  const SRC_COH = (() => {
+    const d = SRV.indexOf('const _CAL_SANS_CHIFFRE_RX');
+    const f = SRV.indexOf('\n}', SRV.indexOf('function _calActualCoherent('));
+    return (d < 0 || f < 0) ? null : SRV.slice(d, f + 2);
+  })();
+  v('_calActualCoherent est extractible (le filtre de cohérence des décisions)', !!SRC_COH);
+  const COH = SRC_COH ? new Function(SRC_COH + '\nreturn _calActualCoherent;')() : (() => true);
   const bac = (src, cal, etat, saves, canaux) => new Function(
     'allCalendar', 'SB_CURRENCIES', 'CB', '_ratesState', '_saveRatesState', 'CB_MEETINGS', 'console',
-    '_calHist', '_tvCalCache', '_overlayActuals', 'getCalendarRaw',
+    '_calHist', '_tvCalCache', '_overlayActuals', 'getCalendarRaw', '_calActualCoherent',
     src + '\nreturn { _calDecisionsTaux, _actualsDerniereDecision, _calendrierEcritTaux };'
   )((canaux && canaux.allCalendar) || [], SBC, CB_FIX(), etat, () => { saves.n++; }, MEET_FIX, MUET,
     (canaux && canaux.hist) || new Map(),
     { ts: Date.now(), items: (canaux && canaux.hist) ? [] : cal },
     x => x,
-    () => (canaux && canaux.brut) || []);
+    () => (canaux && canaux.brut) || [], COH);
   /* a. La fenêtre de corroboration ne croit QUE le dernier jour de décision. */
   {
     const S = bac(SRC_CAL, CAL_FIX(), { banks: {} }, { n: 0 });
@@ -377,6 +386,29 @@ if (SRC_CAL && SRC_APPLY) {
     v('… le flux ForexFactory brut aussi', parCanal({ hist: new Map(), brut: CAL_FIX() }) > 0);
     v('… et l\'instantané du calendrier fusionné aussi (canal par défaut de ce banc)',
       bac(SRC_CAL, CAL_FIX(), { banks: {} }, { n: 0 })._calDecisionsTaux().length === 6);
+  }
+  /* g. L'INCIDENT DU 23/09, REJOUÉ : la hausse Fed du 16/09 (4 %) ne s'écrivait pas, parce qu'une
+     dépêche avait déposé « 2.425 » sur « Federal Funds Rate » le même jour (valeurs relevées telles
+     quelles dans calhist:events). Deux chiffres le même jour → abstention → carte figée à 3,75. */
+  {
+    const T_FOMC = Date.UTC(2026, 8, 16, 18, 0);
+    const CAL_FOMC = () => ([
+      { currency: 'USD', title: 'Fed Interest Rate Decision', actual: '4%', forecast: '4%', previous: '3.75%', timestamp: T_FOMC },
+      { currency: 'USD', title: 'Federal Funds Rate', actual: '2.425', forecast: '4.00%', previous: '3.75%', timestamp: T_FOMC },
+      { currency: 'USD', title: 'FOMC Statement', actual: '2.425', forecast: '', previous: '', timestamp: T_FOMC },
+    ]);
+    const etat1 = { banks: { USD: { rate: 3.75, lastMeeting: '2026-09-16' } } };
+    new Function('allCalendar', 'SB_CURRENCIES', 'CB', '_ratesState', '_saveRatesState', 'CB_MEETINGS', 'console',
+      '_calHist', '_tvCalCache', '_overlayActuals', 'getCalendarRaw', '_calActualCoherent', SRC_CAL + '\nreturn _calendrierEcritTaux;')(
+      [], SBC, [{ code: 'USD', rate: 3.75 }], etat1, () => {}, { USD: ['2026-09-16'] }, MUET, new Map(), { ts: Date.now(), items: CAL_FOMC() }, x => x, () => [], COH)(true);
+    v('Fed 16/09 : la hausse à 4 % s\'écrit malgré le « 2.425 » d\'une dépêche sur « Federal Funds Rate »',
+      etat1.banks.USD.rate === 4, 'obtenu : ' + etat1.banks.USD.rate);
+    const etat2 = { banks: { USD: { rate: 3.75, lastMeeting: '2026-09-16' } } };
+    new Function('allCalendar', 'SB_CURRENCIES', 'CB', '_ratesState', '_saveRatesState', 'CB_MEETINGS', 'console',
+      '_calHist', '_tvCalCache', '_overlayActuals', 'getCalendarRaw', '_calActualCoherent', SRC_CAL + '\nreturn _calendrierEcritTaux;')(
+      [], SBC, [{ code: 'USD', rate: 3.75 }], etat2, () => {}, { USD: ['2026-09-16'] }, MUET, new Map(), { ts: Date.now(), items: CAL_FOMC() }, x => x, () => [], () => true)(true);
+    v('(témoin) sans le filtre de cohérence, la carte reste figée à 3,75 — l\'incident exact',
+      etat2.banks.USD.rate === 3.75, 'obtenu : ' + etat2.banks.USD.rate + ' — si 4, le témoin ne mord plus');
   }
   /* b. L'incident, rejoué : l'état persisté porte le 2,25 empoisonné → le calendrier le répare. */
   {
@@ -502,9 +534,20 @@ console.log('\n── La carte nomme la mesure exacte qu’elle affiche ──')
   v('une table _RTC_MESURE existe (pas un cas particulier codé en dur)',
     /const _RTC_MESURE = \{/.test(CH) && !/b\.code === 'ECB' \?/.test(CH),
     'un `if (code === ECB)` se retrouverait seul face à la prochaine banque qui publie deux mesures');
-  v('… la carte BCE annonce le TAUX DE DÉPÔT', /ECB: 'Taux de dépôt'/.test(CH));
-  v('… la carte Fed annonce le HAUT de fourchette', /FED: 'Fed funds \(haut\)'/.test(CH),
-    'la Fed annonce une fourchette ; CB[] commente « 3,75 = borne HAUTE »');
+  v('… la carte BCE annonce le TAUX DE DÉPÔT', /EUR: 'Taux de dépôt'/.test(CH));
+  v('… la carte Fed annonce la FOURCHETTE', /USD: 'Fed funds \(fourchette\)'/.test(CH),
+    'la Fed annonce une fourchette : un chiffre seul ne dit ni haut, ni bas, ni milieu');
+  /* ⚠️ LA TABLE ÉTAIT MORTE (23/09) : clée « ECB »/« FED » quand chaque carte porte le code DEVISE
+     servi par /api/rates. Les deux contrôles ci-dessus lisaient le TEXTE et passaient au vert. On
+     compare donc les clés aux codes que CB[] sert réellement. */
+  {
+    const mT = /const _RTC_MESURE = \{([\s\S]*?)\n\};/.exec(CH);
+    const cles = mT ? [...mT[1].matchAll(/^\s*([A-Z]{3}):/gm)].map(x => x[1]) : [];
+    const codes = [...SRV.slice(SRV.indexOf('const CB = ['), SRV.indexOf('\n];', SRV.indexOf('const CB = ['))).matchAll(/code:'([A-Z]{3})'/g)].map(x => x[1]);
+    v('… et chaque clé de _RTC_MESURE est un code réellement servi (sinon la table ne s\'affiche jamais)',
+      cles.length >= 2 && codes.length >= 8 && cles.every(c => codes.includes(c)), 'clés ' + cles.join(',') + ' / codes ' + codes.join(','));
+    v('… la carte écrit la fourchette quand le serveur la fournit', /b\.band \? num\(b\.band\.lo, 2\) \+ '–' \+ num\(b\.band\.hi, 2\)/.test(CH));
+  }
   v('… et l’intitulé est bien branché sur la table, pas figé', /_RTC_MESURE\[b\.code\] \|\| 'Taux actuel'/.test(CH),
     'sans ce branchement la table existe et ne s’affiche nulle part');
   v('le haut de fourchette est bien ce que porte la config Fed', /3,75 = borne HAUTE/.test(SRV) || /borne HAUTE/.test(SRV),
@@ -658,13 +701,14 @@ console.log('\n── Le pipeline de taux le dit quand il s\'arrête (17/09) ─
     fnA();
     v('cache frais (2 min) : aucune alerte', appelsA.length === 0, appelsA.length + ' appel(s)');
 
-    // ── Cas B : cache figé depuis 25 min → une alerte, avec la durée et les pannes connues ──
-    const cacheB = { at: Date.now() - 25 * 60 * 1000 };
+    // ── Cas B : cache figé depuis 4 h → une alerte, avec la durée et les pannes connues ──
+    // (seuil 3 h depuis le 23/09 : le cycle normal est passé à 30 min, 10 min en fenêtre de décision)
+    const cacheB = { at: Date.now() - 4 * 3600 * 1000 };
     const { fn: fnB, appels: appelsB } = monter(bloc, cacheB, { snb: 'abonnement Pro requis chez le fournisseur (HTTP 401)' });
     fnB();
-    v('cache figé depuis 25 min : une alerte part', appelsB.length === 1, appelsB.length + ' appel(s)');
+    v('cache figé depuis 4 h : une alerte part', appelsB.length === 1, appelsB.length + ' appel(s)');
     if (appelsB.length) {
-      v('… le sujet donne la durée en heures', /ne se sont pas rafraîchis depuis 0[.,]4 h/.test(appelsB[0].subject), appelsB[0].subject);
+      v('… le sujet donne la durée en heures', /ne se sont pas rafraîchis depuis 4 h/.test(appelsB[0].subject), appelsB[0].subject);
       v('… le corps liste les pannes connues par banque', /snb/.test(appelsB[0].html) && /abonnement Pro requis/.test(appelsB[0].html), appelsB[0].html);
     }
     fnB();   // rejoué immédiatement, toujours figé
@@ -684,7 +728,7 @@ console.log('\n── Le pipeline de taux le dit quand il s\'arrête (17/09) ─
     v('(témoin) la mutation retire bien le garde-fou anti-répétition', mut !== bloc,
       'la ligne a changé de forme : ce témoin ne prouve plus rien');
     if (mut !== bloc) {
-      const cacheMut = { at: Date.now() - 25 * 60 * 1000 };
+      const cacheMut = { at: Date.now() - 4 * 3600 * 1000 };
       const { fn: fnMut, appels: appelsMut } = monter(mut, cacheMut, {});
       fnMut(); fnMut(); fnMut();
       v('(témoin) sans le garde-fou, trois passages figés alertent bien trois fois',
@@ -769,6 +813,87 @@ v('… et la persistance loggue désormais son échec au lieu de le taire',
     /_aiRatesBias = cached\.banks; _aiRatesBiasAt = cached\.at;/.test(SRV));
   v('`_aiRatesBiasAt` est posé après une génération IA fraîche (cache-miss)',
     /_aiRatesBias = clean; _aiRatesBiasAt = Date\.now\(\);/.test(SRV));
+}
+
+/* ══ LA FED À JOUR APRÈS SA HAUSSE DU 16/09 (23/09) ═══════════════════════════════════════════════
+   Trois défauts cumulés, chacun éprouvé sur le VRAI code : (1) le fournisseur interrogé comme un
+   robot hostile (8 banques toutes les 90 s à 3 min, 401 compris) — figé depuis le 09/09 ; (2) un
+   instantané de marché jeté au bout de 12 h, alors que le fournisseur ne recalcule qu'une fois par
+   jour ; (3) le modèle de repli qui affichait « 97 % » sur CHAQUE réunion future. */
+console.log('\n── La Fed à jour après sa hausse du 16/09 ──');
+{
+  const extraireFn = nom => {
+    const d = SRV.indexOf('function ' + nom + '(');
+    if (d < 0) return null;
+    let prof = 0;
+    for (let k = SRV.indexOf('{', d); k < SRV.length; k++) {
+      if (SRV[k] === '{') prof++;
+      else if (SRV[k] === '}') { prof--; if (prof === 0) return SRV.slice(d, k + 1); }
+    }
+    return null;
+  };
+  // (1) rythme
+  const mTTL = /const RP_TTL = ([0-9* ]+);/.exec(SRV);
+  const ttl = mTTL ? Function('return ' + mTTL[1])() : 0;
+  v('le fournisseur n\'est plus interrogé plus d\'une fois par 30 min en temps normal', ttl >= 30 * 60 * 1000, 'RP_TTL = ' + ttl + ' ms');
+  const srcTTL = extraireFn('_rpEffectiveTTL');
+  v('… ni plus d\'une fois par 10 min à l\'approche d\'une décision', !!srcTTL && /return 10 \* 60 \* 1000;/.test(srcTTL) && !/90 \* 1000/.test(srcTTL), srcTTL);
+  v('… et les huit banques partent ÉCHELONNÉES, plus en rafale parallèle',
+    /await new Promise\(r => setTimeout\(r, 1500\)\)/.test(SRV) && !/Promise\.allSettled\(codes\.map\(c => _rpFetchBank/.test(SRV));
+  const srcRecul = extraireFn('_rpNoterEchec');
+  v('une banque en échec recule (24 h sur un 401 payant, sinon 15 min doublés, plafond 6 h)', !!srcRecul);
+  if (srcRecul) {
+    const att = {};
+    const noter = new Function('_rpAttente', srcRecul + '\nreturn _rpNoterEchec;')(att);
+    const t0 = Date.now();
+    noter('snb', 401);
+    v('… 401 → 24 h', Math.abs(att.snb.reprise - t0 - 24 * 3600e3) < 5000, JSON.stringify(att.snb));
+    noter('fed', 0); const r1 = att.fed.reprise - t0; noter('fed', 0); const r2 = att.fed.reprise - t0;
+    for (let i = 0; i < 10; i++) noter('fed', 0);
+    const r12 = att.fed.reprise - t0;
+    v('… 15 min, puis 30 min, puis plafonné à 6 h', Math.abs(r1 - 15 * 60e3) < 5000 && Math.abs(r2 - 30 * 60e3) < 5000 && Math.abs(r12 - 6 * 3600e3) < 5000,
+      [r1, r2, r12].map(x => Math.round(x / 60e3) + ' min').join(' / '));
+  }
+  v('_rpFetchBank respecte le recul avant d\'interroger', /if \(att && Date\.now\(\) < att\.reprise\) return null;/.test(SRV));
+  // (2) instantané vieilli
+  const srcInst = extraireFn('_rpInstantaneUtilisable');
+  v('_rpInstantaneUtilisable est extractible', !!srcInst);
+  if (srcInst) {
+    const CBM = { USD: ['2026-09-16', '2026-10-28', '2026-12-09'] };
+    const inst = new Function('CB_MEETINGS', srcInst + '\nreturn _rpInstantaneUtilisable;')(CBM);
+    const rp = { rate: 3.875, meetings: [{ date: '2026-10-28', days: 30 }, { date: '2026-12-09', days: 72 }], next: '2026-10-28', nextDays: 30 };
+    const now = Date.UTC(2026, 8, 25, 12, 0);
+    const r1 = inst('USD', rp, Date.UTC(2026, 8, 23, 4, 0), now);
+    v('un instantané de 2 jours, sans réunion depuis, reste du MARCHÉ', !!r1 && r1.rate === 3.875);
+    v('… avec ses jours recalculés à l\'instant du service', !!r1 && r1.meetings[0].days === Math.round((Date.UTC(2026, 9, 28) - now) / 864e5), r1 && JSON.stringify(r1.meetings[0]));
+    v('un instantané pris AVANT la réunion du 16/09 est périmé après elle (l\'incident)',
+      inst('USD', rp, Date.UTC(2026, 8, 9, 15, 0), Date.UTC(2026, 8, 23, 4, 0)) === null);
+    v('… y compris pris le MATIN même de la décision (tombée le soir)',
+      inst('USD', rp, Date.UTC(2026, 8, 16, 9, 0), Date.UTC(2026, 8, 17, 9, 0)) === null);
+    v('au-delà de 7 jours, même sans réunion, on retombe sur le repli', inst('USD', rp, Date.UTC(2026, 8, 17, 4, 0), Date.UTC(2026, 8, 25, 5, 0)) === null);
+  }
+  // bande Fed
+  const srcB = extraireFn('_rpBande');
+  if (srcB) {
+    const bande = new Function(srcB + '\nreturn _rpBande;')();
+    const b = bande({ 'current band': '3.75 - 4.00', midpoint: 3.875 });
+    v('la fourchette Fed est lue telle que le fournisseur la publie (3,75-4,00)', !!b && b.lo === 3.75 && b.hi === 4, JSON.stringify(b));
+    v('… et un champ absent ou aberrant ne fabrique rien', bande({}) === null && bande({ 'current band': '4.00 - 3.75' }) === null);
+  } else v('_rpBande est extractible', false);
+  v('en repli, la carte Fed sert le MILIEU de sa fourchette (une seule convention quelle que soit la source)',
+    /rate: bandeFed \? \+\(\(bandeFed\.lo \+ bandeFed\.hi\) \/ 2\)\.toFixed\(3\) : st\.rate/.test(SRV));
+  v('… et la prochaine réunion Fed reprend le pricing CME quand la courbe manque',
+    /_fedWatch\.meeting === meetings\[0\]\.date/.test(SRV));
+}
+// (3) modèle de repli : probabilité PAR réunion
+{
+  const d2 = SRV.indexOf('function _rateScenario(b, idx)');
+  const f2 = SRV.indexOf('\n}', d2);
+  const sc = new Function(SRV.slice(d2, f2 + 2) + '\nreturn _rateScenario;')();
+  const serie = [0, 1, 2, 3, 4, 5].map(i => Math.round(sc({ bias: 'hike', conv: 0.8, step: 25 }, i).hike * 100));
+  v('en repli, la probabilité de hausse DÉCROÎT avec l\'horizon (plus de 97 % sur chaque réunion)',
+    serie.every((x, i) => i === 0 || x <= serie[i - 1]) && serie[5] < 50 && !serie.slice(1).includes(97), serie.join(' / '));
+  v('… et la prochaine réunion garde sa conviction calibrée (80 %)', serie[0] === 80, serie.join(' / '));
 }
 
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
