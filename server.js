@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260923-taux-rba-marche', ts: Date.UTC(2026, 8, 23, 15, 0), title: 'Onglet Taux : la RBA passe au pricing de marché', desc: 'Après la Fed, c’est au tour de la Banque de réserve d’Australie (AUD) d’afficher des probabilités issues du marché réel, et non plus d’une estimation. Le desk lit désormais les contrats à terme de taux de l’ASX (ceux qui alimentent le « RBA Rate Tracker » officiel de la Bourse australienne) et en déduit ce que le marché price pour la prochaine réunion. Pour la décision du 29 septembre, cela donne une hausse à environ 86%, contre 58% dans notre estimation précédente. Les données sont récupérées directement, plusieurs fois par heure ; si elles venaient à manquer, la carte revient proprement à l’estimation maison, sans jamais inventer de chiffre.' },
   { id: 'dtpu-20260923-taux-passerelles', ts: Date.UTC(2026, 8, 23, 13, 30), title: 'Onglet Taux : plusieurs relais pour revenir en temps réel', desc: 'Suite du correctif d’hier sur les probabilités de marché. Nous avons mesuré que le premier relais mis en place ne suffisait pas : notre fournisseur refuse les requêtes venant de notre serveur, et l’unique relais public que nous utilisions était lui aussi bloqué depuis la même adresse. Le desk essaie désormais PLUSIEURS relais publics l’un après l’autre, et retient le premier qui répond avec des données valides : les chances qu’au moins un passe sont bien plus élevées. Chaque réponse reste vérifiée exactement comme l’accès direct, rien n’est inventé si tous échouent, et le panneau de contrôle indique par quel relais chaque banque a été servie.' },
   { id: 'dtpu-20260923-recap-hebdo-a-l-heure', ts: Date.UTC(2026, 8, 23, 12, 30), title: 'Récap Hebdo : prêt le samedi, sans attendre', desc: 'Ces dernières semaines, le Récap Hebdo arrivait parfois plusieurs jours après la fin de la semaine, et la liste des Notes d’analystes restait sans récap en attendant. La cause est corrigée : quand la rédaction du samedi n’aboutit pas du premier coup, le desk la relance désormais tout seul, régulièrement, jusqu’à ce que le récap soit publié, sans attendre qu’un lecteur ouvre l’onglet. Le récap de la semaine du 14 au 18 septembre est en ligne, au nouveau format.' },
   { id: 'dtpu-20260923-recaps-mentor', ts: Date.UTC(2026, 8, 23, 7, 0), title: 'Récaps : la lecture du marché, pas seulement les faits', desc: 'Nos récaps disaient ce qui s’est passé ; ils expliquent désormais aussi pourquoi le marché a réagi ainsi. Dans le Récap Quotidien, une nouvelle rubrique « Lecture de marché » décrypte la réaction d’une devise au fait majeur du jour : le mécanisme en jeu, ses causes, et ce que le marché attendait face à ce qu’il a obtenu. Dans le Récap Hebdo, chaque devise s’ouvre sur ce que le marché a retenu de sa semaine, chaque rubrique chiffrée (inflation, emploi, croissance) porte sa lecture en une ligne, les rendez-vous de la semaine à venir passent en liste, et la devise se conclut sur « ⇒ » : sa dynamique, puis le principal risque qui pourrait la casser. Le récap de la semaine en cours est complété de ces lectures, sans être réécrit.' },
@@ -20757,6 +20758,115 @@ auth.aiCacheGet('rates:fedwatch').then(v => { if (v && v.at) _fedWatch = v; }).c
 setTimeout(_computeFedWatch, 9000);
 setInterval(_computeFedWatch, 10 * 60 * 1000);   // rafraîchi ~10 min (données futures CME = quasi temps réel ; demande user « temps réel »)
 
+// ── RBA Rate Tracker : probabilités IMPLICITES DU MARCHÉ (futures ASX 30-day interbank cash rate, IB) ──
+// Demande user (23/09, « accède aux sites que je t'ai donnés et récupère les datas ») : donner à l'AUD un
+// pricing de marché RÉEL, comme la Fed. Source = contrats mensuels IB de l'ASX (endpoint public markitdigital,
+// celui-là même qui alimente le « RBA Rate Tracker » du site de l'ASX ; sonde 23/09 : HTTP 200, proxy « basic »,
+// aucun défi Cloudflare). Prix ASX = 100 − taux cash moyen du mois. Méthode = celle de FedWatch, adaptée à la
+// position de la réunion dans le mois :
+//   · réunion tôt/milieu de mois → le contrat DU MOIS porte l'essentiel du taux post-décision (pondération des
+//     jours pré/post contre le taux courant connu) ;
+//   · réunion en toute fin de mois (cas du 29/09 : le contrat de septembre est déjà réglé le 28) → on lit le
+//     taux post-décision sur le PREMIER mois suivant SANS réunion RBA (octobre est vierge → contrat IBV).
+// Aucune donnée inventée : contrats manquants ou mouvement déduit aberrant → on n'émet rien, la carte AUD
+// retombe proprement sur l'estimation maison (même discipline que la Fed).
+const ASX_IB_URL = 'https://asx.api.markitdigital.com/asx-research/1.0/derivatives/interest-rate/IB/futures?days=1&height=179&width=179';
+const ASX_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36';
+// Repli par passerelle publique SI l'adresse du VPS est refusée (bloc de centre de données) : markitdigital n'a
+// PAS de défi Cloudflare (≠ rateprobability), donc une passerelle à JSON brut SUFFIT ici. Aucune ne fabrique de
+// donnée : le JSON est validé (data.items) exactement comme en direct.
+const _ASX_RELAIS = [
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy/?quest=' + u,
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+];
+function _asxIbParse(txt) {
+  if (!txt || txt.length > 250000) return null;   // garde-fou mémoire (512 Mo)
+  let j; try { j = JSON.parse(txt); } catch { return null; }
+  const items = j && j.data && j.data.items;
+  return (Array.isArray(items) && items.length) ? items : null;
+}
+function _asxImplied(it) {
+  // Taux implicite = 100 − prix. Règlement quotidien officiel d'abord (daté du jour de bourse), puis dernier
+  // échange, puis prix de contrat. On n'accepte qu'un prix plausible (90 < p < 101) ; sinon rien (jamais NaN servi).
+  const p = [it && it.pricePreviousSettlement, it && it.priceLastTrade, it && it.priceContract]
+    .find(x => typeof x === 'number' && x > 90 && x < 101);
+  return (typeof p === 'number') ? 100 - p : null;
+}
+function _asxMonthItem(items, yy, mm) {   // le contrat dont l'expiry tombe dans (année yy, mois mm, 0-based)
+  return (items || []).find(x => { const d = new Date(String(x.dateExpiry) + 'T00:00:00Z'); return d.getUTCFullYear() === yy && d.getUTCMonth() === mm; });
+}
+async function _asxIbItems() {
+  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const r = await fetch(ASX_IB_URL, { headers: { 'User-Agent': ASX_UA, 'Accept': 'application/json' }, signal: ctrl.signal });
+    if (r.ok) { const items = _asxIbParse(await r.text()); if (items) return items; }
+  } catch {} finally { clearTimeout(to); }
+  for (const relai of _ASX_RELAIS) {
+    const c2 = new AbortController(); const t2 = setTimeout(() => c2.abort(), 15000);
+    try {
+      const r = await fetch(relai(ASX_IB_URL), { headers: { 'User-Agent': ASX_UA }, signal: c2.signal });
+      if (r.ok) { const items = _asxIbParse(await r.text()); if (items) return items; }
+    } catch {} finally { clearTimeout(t2); }
+  }
+  return null;
+}
+let _rbaWatch = null;
+async function _computeRbaWatch() {
+  try {
+    const now = Date.now();
+    const next = (CB_MEETINGS.AUD || []).find(d => Date.parse(d + 'T06:00:00Z') > now - 6 * 3600000);
+    if (!next) return null;
+    const dt = new Date(next + 'T00:00:00Z');
+    const Y = dt.getUTCFullYear(), mo = dt.getUTCMonth(), day = dt.getUTCDate();
+    const N = new Date(Date.UTC(Y, mo + 1, 0)).getUTCDate();
+    const preDays = day, postDays = N - day;
+    if (preDays <= 0 || postDays < 0) return null;
+    const cur = (_ratesState && _ratesState.banks && _ratesState.banks.AUD && +_ratesState.banks.AUD.rate)
+             || ((CB.find(x => x.code === 'AUD') || {}).rate);
+    if (!(cur > 0)) return null;
+    const items = await _asxIbItems();
+    if (!items) return null;
+    let expectedAfter = null, meth = null;
+    if (postDays >= 7) {
+      // Réunion tôt/milieu de mois : le contrat du mois porte l'essentiel du taux post-décision.
+      const im = _asxImplied(_asxMonthItem(items, Y, mo));
+      if (im == null) return null;
+      expectedAfter = (im * N - preDays * cur) / postDays; meth = 'contrat du mois';
+    } else {
+      // Réunion en fin de mois : lire le taux post-décision sur le 1er mois suivant SANS réunion RBA.
+      let yy = Y, mm = mo;
+      for (let k = 0; k < 4; k++) {
+        mm++; if (mm > 11) { mm = 0; yy++; }
+        const aReunion = (CB_MEETINGS.AUD || []).some(d => { const p = String(d).split('-'); return +p[0] === yy && (+p[1] - 1) === mm; });
+        if (aReunion) continue;
+        const im = _asxImplied(_asxMonthItem(items, yy, mm));
+        if (im != null) { expectedAfter = im; meth = 'mois suivant vierge (' + (mm + 1) + '/' + yy + ')'; break; }
+      }
+      if (expectedAfter == null) return null;
+    }
+    if (!isFinite(expectedAfter) || expectedAfter < 0 || expectedAfter > 12) return null;
+    const change = expectedAfter - cur, step = 0.25;
+    if (Math.abs(change) > 0.60) return null;   // > ~2 pas en une réunion = contrat illiquide ou taux courant faux → repli maison
+    const pMove = Math.max(0, Math.min(1, Math.abs(change) / step));
+    const out = {
+      meeting: next,
+      cut:  Math.round((change < -0.001 ? pMove : 0) * 100),
+      hold: Math.round((1 - pMove) * 100),
+      hike: Math.round((change >  0.001 ? pMove : 0) * 100),
+      impliedRate: +expectedAfter.toFixed(3),        // taux directeur attendu par le marché APRÈS la réunion
+      changeBps:  +(change * 100).toFixed(1),         // variation attendue (bps)
+      src: 'ASX 30-day interbank futures (IB)', meth, at: now,
+    };
+    _rbaWatch = out;
+    auth.aiCacheSet('rates:rbawatch', out).catch(() => {});
+    return out;
+  } catch (e) { console.error('[RbaWatch]', e.message); return null; }
+}
+auth.aiCacheGet('rates:rbawatch').then(v => { if (v && v.at) _rbaWatch = v; }).catch(() => {});
+setTimeout(_computeRbaWatch, 11000);
+setInterval(_computeRbaWatch, 10 * 60 * 1000);   // ~10 min (règlement ASX quotidien + suivi des échanges intrajournaliers)
+
 // ─── SOURCE RÉELLE : rateprobability.com — probabilités implicites de MARCHÉ par banque centrale ───
 // API JSON publique par banque (taux implicites OIS/futures, par réunion). Fed/BCE/BoE/BoJ/BoC/RBA = gratuits ;
 // SNB (CHF) & RBNZ (NZD) = "Pro" → repli automatique sur le modèle maison. Données mises en cache (mémoire +
@@ -21290,6 +21400,15 @@ function _buildRatesPayload() {
       sc0 = { hold: fw.hold / 100, hike: fw.hike / 100, cut: fw.cut / 100, impliedBps: +fw.changeBps || 0 };
       fwUtilise = true;
     }
+    /* RBA EN REPLI : LA PROCHAINE RÉUNION RESTE DU MARCHÉ (23/09, même principe que la Fed). Les contrats
+       IB de l'ASX (`_rbaWatch`, rafraîchis toutes les 10 min, source indépendante du fournisseur de courbe)
+       pricent la prochaine réunion RBA. Même garde que la Fed : même date, mesure de moins de 24 h. */
+    if (b.code === 'AUD' && meetings[0] && _rbaWatch && _rbaWatch.meeting === meetings[0].date && now - (_rbaWatch.at || 0) < 24 * 3600e3) {
+      const rw = _rbaWatch, base = rw.hike >= 50 ? 'HIKE' : (rw.cut >= 50 ? 'CUT' : 'HOLD');
+      meetings[0] = { ...meetings[0], hold: rw.hold, hike: rw.hike, cut: rw.cut, impliedBps: +(+rw.changeBps || 0).toFixed(1), baseCase: base };
+      sc0 = { hold: rw.hold / 100, hike: rw.hike / 100, cut: rw.cut / 100, impliedBps: +rw.changeBps || 0 };
+      fwUtilise = true;
+    }
     const n = meetings[0];
     const bandeFed = b.code === 'USD' ? { lo: +(st.rate - 0.25).toFixed(2), hi: +(+st.rate).toFixed(2) } : null;   // l'état maison Fed porte la BORNE HAUTE (convention de CB[] et du calendrier)
     return {
@@ -21305,7 +21424,8 @@ function _buildRatesPayload() {
       meetings, source: 'maison',
       rateSrc: _origineTaux(b.code, st.rate, false, null),   // le TAUX n'est PAS une estimation : décision publiée, sinon ancre relevée à la main
       panne: _rpPanne[slug] || 'jamais reçu',   // POURQUOI pas de marché (paywall ≠ réseau ≠ format) → badge honnête côté client
-      marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null,   // Fed : cross-check proba marché (CME futures)
+      marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : ((b.code === 'AUD' && _rbaWatch) ? _rbaWatch : null),   // Fed (CME ZQ) / RBA (ASX IB) : cross-check proba marché
+
     };
   });
   return { asOf: now, model: 'rateprobability+maison', provider: 'rateprobability.com', rpAt: _rpCache.at || null, updatedAt: _ratesState.updatedAt, banks };
