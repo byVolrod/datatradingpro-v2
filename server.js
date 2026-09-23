@@ -20918,6 +20918,79 @@ async function _firecrawlFetch(url, formats) {
   finally { clearTimeout(to); }
 }
 
+// ── Courbe souveraine : LECTURE DE MARCHÉ EN TEMPS RÉEL pour les banques sans futures gratuits (23/09) ──
+// Demande user : « un système ultra fiable, temps réel, basé sur des datas concrètes » pour les autres
+// banques. Là où aucun future de taux gratuit n'existe (BCE, BoE, BoC…), on lit la COURBE SOUVERAINE
+// COURTE — des PRIX DE MARCHÉ réels (rendements de bons du Trésor / govt courts), depuis les API
+// OFFICIELLES et gratuites des banques centrales (aucun contournement, aucune protection forcée) :
+//   · CAD → Bank of Canada « Valet » (bons du Trésor 3/6/12 mois) ;
+//   · EUR → BCE Data Portal (courbe AAA zone euro, taux spot 3 mois).
+// ⚠️ CE QUE ÇA DIT, ET CE QUE ÇA NE DIT PAS (mesuré) : les échéances des bons (3/6/12 mois) ne tombent
+// PAS sur les dates de réunion, et une fenêtre de 3 mois couvre souvent DEUX réunions. On n'en tire donc
+// PAS une probabilité par réunion (ça, c'est le rôle des futures Fed/RBA), mais la DIRECTION et la
+// CONVICTION que le marché obligataire price : l'écart (rendement 3M − taux directeur) et la pente. Ce
+// biais alimente le modèle par réunion — honnêtement « courbe souveraine (marché) », distinct des futures.
+// Jamais un chiffre inventé : données manquantes ou écart aberrant → on n'écrit rien, repli maison.
+const _sovCurve = {};   // code → { bias, conv, y, cur, spread, slope, src, at }
+async function _jsonGet(url) {
+  // Direct depuis le VPS, puis Firecrawl budgété en dernier recours (API publiques officielles, légitimes).
+  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': ASX_UA, 'Accept': 'application/json' }, signal: ctrl.signal });
+    if (r.ok) { const t = await r.text(); if (t && t.length < 400000) { try { return JSON.parse(t); } catch {} } }
+  } catch {} finally { clearTimeout(to); }
+  const fc = await _firecrawlFetch(url, ['rawHtml']);
+  if (fc) { try { return JSON.parse(fc); } catch {} }
+  return null;
+}
+async function _bocValet() {   // Bank of Canada Valet : bons du Trésor (rendements de marché), JSON officiel
+  const j = await _jsonGet('https://www.bankofcanada.ca/valet/observations/group/tbill_all/json?recent=1');
+  if (!j || !Array.isArray(j.observations)) return null;
+  const pick = id => { for (const o of j.observations) { if (o && o[id] && o[id].v != null) { const v = +o[id].v; if (isFinite(v)) return v; } } return null; };
+  const y3 = pick('V80691303'); const y3b = pick('V80691344');   // 3 mois : adjudication, sinon marché secondaire
+  const y1y = pick('V80691305'); const y1yb = pick('V80691346'); // 1 an
+  const y3f = (y3 != null) ? y3 : y3b, y1yf = (y1y != null) ? y1y : y1yb;
+  return (y3f != null && y3f > 0 && y3f < 25) ? { y3: y3f, y1y: (y1yf != null && y1yf > 0 && y1yf < 25) ? y1yf : null, at: Date.now() } : null;
+}
+async function _ecbYield() {   // BCE Data Portal : courbe AAA zone euro, spot 3 mois (SDMX-JSON officiel)
+  const j = await _jsonGet('https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_3M?lastNObservations=1&format=jsondata');
+  try {
+    const s = j.dataSets[0].series; const k = Object.keys(s)[0]; const obs = s[k].observations; const ok = Object.keys(obs)[0];
+    const y3 = +obs[ok][0];
+    return (isFinite(y3) && y3 > -2 && y3 < 25) ? { y3, y1y: null, at: Date.now() } : null;
+  } catch { return null; }
+}
+const SOV = {
+  CAD: { fetch: _bocValet, src: 'courbe souveraine (bons du Trésor, Banque du Canada)' },
+  EUR: { fetch: _ecbYield, src: 'courbe souveraine (AAA zone euro 3M, BCE)' },
+};
+async function _computeSovCurve(code) {
+  try {
+    const cfg = SOV[code]; if (!cfg) return null;
+    const cur = (_ratesState && _ratesState.banks && _ratesState.banks[code] && +_ratesState.banks[code].rate)
+             || ((CB.find(x => x.code === code) || {}).rate);
+    if (!(cur > 0)) return null;
+    const d = await cfg.fetch(); if (!d || !(d.y3 > 0)) return null;
+    const spread = d.y3 - cur;                          // rendement 3M − taux directeur (le signal de direction)
+    const slope = (d.y1y != null) ? d.y1y - d.y3 : 0;   // pente 3M→1A (renforce la direction)
+    if (Math.abs(spread) > 1.5) return null;            // écart aberrant (donnée cassée) → repli maison
+    let bias = 'hold';
+    if (spread > 0.10 || (spread > 0.04 && slope > 0.08)) bias = 'hike';
+    else if (spread < -0.10 || (spread < -0.04 && slope < -0.08)) bias = 'cut';
+    // Conviction MODÉRÉE et bornée : un écart de bon du Trésor porte une prime de terme, on ne prétend
+    // jamais à la quasi-certitude (plafond 0,80). Un plein écart de 50 pb → 0,80 ; 0 pb → 0,55.
+    const conv = Math.max(0.55, Math.min(0.80, 0.55 + Math.min(Math.abs(spread), 0.50) / 0.50 * 0.25));
+    const out = { bias, conv: +conv.toFixed(2), y: +d.y3.toFixed(3), cur: +cur, spread: +spread.toFixed(3), slope: +slope.toFixed(3), src: cfg.src, at: Date.now() };
+    _sovCurve[code] = out;
+    auth.aiCacheSet('rates:sov:' + code, out).catch(() => {});
+    return out;
+  } catch (e) { console.error('[SovCurve]', code, e && e.message); return null; }
+}
+function _refreshSovCurve() { for (const code of Object.keys(SOV)) { _computeSovCurve(code).catch(() => {}); } }
+Object.keys(SOV).forEach(code => { auth.aiCacheGet('rates:sov:' + code).then(v => { if (v && v.at) _sovCurve[code] = v; }).catch(() => {}); });
+setTimeout(_refreshSovCurve, 13000);
+setInterval(_refreshSovCurve, 30 * 60 * 1000);   // 30 min : les rendements bougent en continu, la décision est lente
+
 // ─── SOURCE RÉELLE : rateprobability.com — probabilités implicites de MARCHÉ par banque centrale ───
 // API JSON publique par banque (taux implicites OIS/futures, par réunion). Fed/BCE/BoE/BoJ/BoC/RBA = gratuits ;
 // SNB (CHF) & RBNZ (NZD) = "Pro" → repli automatique sur le modèle maison. Données mises en cache (mémoire +
@@ -21217,6 +21290,7 @@ function _tauxEtat() {
     relais: { ..._rpRelais },   // banques servies via une passerelle publique (nom dans `via`) parce que l'accès direct est refusé
     firecrawl: _fcEtat(),       // passerelle Firecrawl (dernier recours pour l'ASX) : clé posée ?, appels du jour, dernier OK/erreur
     rbaWatch: _rbaWatch ? { at: _rbaWatch.at, hike: _rbaWatch.hike, impliedRate: _rbaWatch.impliedRate, meth: _rbaWatch.meth } : null,   // pricing marché RBA (futures ASX)
+    sov: Object.fromEntries(Object.entries(_sovCurve).map(([c, s]) => [c, { spread: s.spread, bias: s.bias, at: s.at }])),   // lecture de courbe souveraine par banque (marché, temps réel)
     // Biais IA (poids monétaire du Radar de Biais + résolution CB non ancrée) : visibilité SÉPARÉE,
     // mesurée le 17/09 après avoir trouvé `rates:aibias` figée 14 jours sans que rien ne le dise.
     biaisAt, biaisAgeMs: biaisAt ? Date.now() - biaisAt : null,
@@ -21433,6 +21507,11 @@ function _buildRatesPayload() {
     const st = (_ratesState.banks && _ratesState.banks[b.code]) || { rate: b.rate };
     const rb = _cbResolved(b);
     const bb = { ...rb, bias: _effBias(rb, st.rate) };             // biais (IA si dispo) + arrêt au taux terminal
+    // COURBE SOUVERAINE EN DIRECT (23/09) : pour une banque sans futures gratuits, le marché obligataire
+    // donne le biais ET la conviction — temps réel, distinct des futures. Appliqué si la lecture est fraîche.
+    const _sov = _sovCurve[b.code];
+    const _sovFrais = !!(_sov && now - (_sov.at || 0) < 36 * 3600e3);
+    if (_sovFrais) { bb.bias = _sov.bias; bb.conv = _sov.conv; }
     const sched = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') >= now - 20 * 3600 * 1000).slice(0, 8);   // 8 réunions maison ; -20 h = pas de réunion déjà tenue affichée comme « prochaine »
     const meetings = sched.map((d, i) => {
       const sc = _rateScenario(bb, i);
@@ -21477,6 +21556,7 @@ function _buildRatesPayload() {
       meetings, source: 'maison',
       rateSrc: _origineTaux(b.code, st.rate, false, null),   // le TAUX n'est PAS une estimation : décision publiée, sinon ancre relevée à la main
       panne: _rpPanne[slug] || 'jamais reçu',   // POURQUOI pas de marché (paywall ≠ réseau ≠ format) → badge honnête côté client
+      sovCurve: _sovFrais ? { y: _sov.y, cur: _sov.cur, spread: _sov.spread, slope: _sov.slope, src: _sov.src, at: _sov.at } : null,   // lecture de la courbe souveraine (marché) quand pas de futures
       marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : ((b.code === 'AUD' && _rbaWatch) ? _rbaWatch : null),   // Fed (CME ZQ) / RBA (ASX IB) : cross-check proba marché
 
     };

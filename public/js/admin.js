@@ -2034,6 +2034,9 @@
           : `${FC.n}/${FC.capJour} appel(s) aujourd’hui${FC.okAt ? ' · dernier OK il y a ' + _fcAge(FC.okAt) : ''}${FC.err ? ' · ' + _esc2(String(FC.err).slice(0, 40)) : ''}`;
         h += `<div class="aim-kv"><span>Firecrawl (recours ASX)</span><b style="color:${fcCol}">${fcTxt}</b></div>`;
       }
+      // Courbe souveraine : lecture de marché en direct pour les banques sans futures (CAD, EUR…). 23/09.
+      const SV = T.sov && Object.entries(T.sov);
+      if (SV && SV.length) h += `<div class="aim-kpi-s" style="margin-top:4px;color:#8bb0c8;line-height:1.5">Courbe souveraine (marché) : ${SV.map(([c, s]) => `${_esc2(c)} ${Number(s.spread) >= 0 ? '+' : ''}${Number(s.spread).toFixed(2)} pt vs taux → ${_esc2(s.bias === 'hike' ? 'hausse' : s.bias === 'cut' ? 'baisse' : 'statu quo')}`).join(' · ')}</div>`;
       /* Biais IA (rates:aibias) : cycle HEBDO, pas 90 s — trouvé figé 14 jours le 17/09 sans que rien
          ne le dise (le cycle du samedi 02h réussissait pour ses 3 voisins, pas pour celui-ci). */
       if (T.biaisAt) {
@@ -2630,7 +2633,6 @@
       { l: 'Abonnés actifs',      v: k.activeSubs, sub: `${k.trials} essai(s) en cours` },
       { l: 'Clients',             v: k.clients, sub: `${k.newThisMonth} nouveau(x) ce mois` },
       { l: 'Encaissé · 30 jours', v: eur2(r.j30), sub: varHtml(r.j30Var) || `30j -1 : ${eur2(r.j30Prec)}` },
-      { l: 'Churn (30j)',         v: k.churnRate + '%', sub: `${k.churned30} expiré(s)` },
       { l: 'Revenu à risque',     v: eur(k.atRiskMrr), sub: `${k.expiringSoon} expire(nt) ≤ 7j · estimation` },
     ] : [
       { l: 'MRR · estimé', v: eur(k.mrr), sub: `ARPU ${eur(k.arpu)} / abonné · Whop injoignable`, accent: true },
@@ -2638,7 +2640,6 @@
       { l: 'Abonnés actifs',       v: k.activeSubs, sub: `${k.trials} essai(s) en cours` },
       { l: 'Clients',              v: k.clients, sub: `${k.newThisMonth} nouveau(x) ce mois` },
       { l: 'Ajout net (30j)',      v: sign(k.netAdds), sub: `<span class="${k.growthPct >= 0 ? 'fin-up' : 'fin-down'}">${sign(k.growthPct)}% vs mois -1</span>` },
-      { l: 'Churn (30j)',          v: k.churnRate + '%', sub: `${k.churned30} expiré(s)` },
       { l: 'Revenu à risque',      v: eur(k.atRiskMrr), sub: `${k.expiringSoon} expire(nt) ≤ 7j` },
     ];
     /* PROCHAIN(S) PAIEMENT(S) (23/09, demande user). Une carte dans la rangée (le prochain, sa date,
