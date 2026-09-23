@@ -578,6 +578,42 @@ function _ghCool(model, idx, status, retryMs) {
 }
 function _ghIsCool(model, idx) { const t = _ghCooldown.get(model + '|' + idx); return !!t && t > Date.now(); }
 
+// ── BUDGET PROACTIF (préserver le quota gratuit le plus longtemps possible, ne JAMAIS le cramer) ──
+// Le gratuit GitHub Models plafonne PAR (modèle, token) ET par jour — gpt-4o ≈ 50/j, gpt-4o-mini
+// ≈ 150/j — plus une limite de DÉBIT (~10/min par modèle/token). La temporisation `_ghCool` ci-dessus
+// est RÉACTIVE (elle attend qu'un 429 tombe) ; ce budget-ci est PROACTIF : on s'arrête AVANT le 429.
+// Provoquer des 429 en rafale, c'est le meilleur moyen de faire geler — voire signaler — un compte.
+// Deux garde-fous, tous deux surchargeables par env :
+//   · CAP JOURNALIER doux par (modèle, token), gardé SOUS le plafond GitHub (marge ~20 %) ;
+//   · ESPACEMENT minimal entre deux appels d'un même (modèle, token) → jamais au-dessus du débit.
+// GitHub reste un REPLI (après Gemini/Groq) : ces caps ne bornent que le fond, pas l'utilisateur.
+const GH_CAP_HIGH = parseInt(process.env.GITHUB_DAILY_HIGH, 10) || 40;    // gpt-4o & co (plafond GitHub ~50/j) → 80 %
+const GH_CAP_LOW  = parseInt(process.env.GITHUB_DAILY_LOW, 10)  || 120;   // modèles « mini/lite » (plafond ~150/j) → 80 %
+const GH_MIN_GAP  = parseInt(process.env.GITHUB_MIN_GAP_MS, 10) || 7000;  // ≥ 7 s entre 2 appels d'un même (modèle, token) → ≤ ~8,5/min, sous le plafond de 10/min
+const _ghDay = new Map();     // "model|idx" → { jour, n } : compteur journalier par (modèle, token)
+const _ghLast = new Map();    // "model|idx" → horodatage du dernier appel (espacement du débit)
+function _ghCapFor(model) { return /mini|lite|small|nano|flash|8b|1b|3b/i.test(model) ? GH_CAP_LOW : GH_CAP_HIGH; }
+function _ghBudgetOk(model, idx) {
+  const k = model + '|' + idx, jour = new Date().toISOString().slice(0, 10);
+  const e = _ghDay.get(k);
+  if (!e || e.jour !== jour) return true;                          // jour neuf (ou jamais vu) → réserve pleine
+  if (e.n >= _ghCapFor(model)) return false;                       // cap doux atteint → on PRÉSERVE ce qui reste
+  if (Date.now() - (_ghLast.get(k) || 0) < GH_MIN_GAP) return false;   // trop rapproché → on espace (anti-débit)
+  return true;
+}
+function _ghBudgetNote(model, idx) {   // à l'ENVOI (réussi OU non : GitHub facture la REQUÊTE, pas le succès)
+  const k = model + '|' + idx, jour = new Date().toISOString().slice(0, 10);
+  const e = _ghDay.get(k);
+  if (!e || e.jour !== jour) _ghDay.set(k, { jour, n: 1 }); else e.n++;
+  _ghLast.set(k, Date.now());
+}
+function _ghBudgetEtat() {   // pour le Moniteur : combien reste-t-il aujourd'hui, par (modèle, token)
+  const jour = new Date().toISOString().slice(0, 10), out = [];
+  for (const [k, e] of _ghDay) { if (e.jour === jour) out.push({ k, n: e.n, cap: _ghCapFor(k.split('|')[0]) }); }
+  return out;
+}
+// ── fin budget GitHub ──
+
 // Provider GitHub Models (OpenAI-compatible) — rotation MULTI-MODÈLES × multi-tokens. Le plafond
 // gratuit est par (modèle, token) → on cumule les quotas (ex. gpt-4o ≈50/j + gpt-4o-mini ≈150/j,
 // × chaque token). Tâches courtes → mini d'abord (quota + élevé) ; longues → qualité d'abord.
@@ -593,8 +629,9 @@ async function _githubModels(prompt, maxTokens) {
   for (const model of models) {
     for (let i = 0; i < n; i++) {
       const idx = (_ghCursor + i) % n;
-      if (_ghIsCool(model, idx)) continue;   // (modèle, token) gelé (plafond/j ou auth) → pas de re-test inutile
+      if (_ghIsCool(model, idx) || !_ghBudgetOk(model, idx)) continue;   // gelé (429/auth) OU budget/débit du jour épuisé → on préserve le quota
       const tok = GITHUB_TOKENS[idx];
+      _ghBudgetNote(model, idx);   // on compte la requête AVANT de l'envoyer (GitHub facture la requête, pas le succès)
       const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), _tmo);
       try {
         const r = await fetch(GITHUB_BASE + '/chat/completions', {
@@ -632,8 +669,9 @@ async function _githubModels(prompt, maxTokens) {
     for (const model of models) {
       for (let i = 0; i < n; i++) {
         const idx = (_ghCursor + i) % n;
-        if (_ghIsCool(model, idx)) continue;
+        if (_ghIsCool(model, idx) || !_ghBudgetOk(model, idx)) continue;
         const tok = GITHUB_TOKENS[idx];
+        _ghBudgetNote(model, idx);
         const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), _tmo);
         try {
           const r = await fetch(GITHUB_BASE + '/chat/completions', {
@@ -1138,7 +1176,8 @@ function status() {
     geminiKeys: GEMINI_KEYS.length,
     geminiModels: GEMINI_MODELS,
     groq: { keys: GROQ_KEYS.length, models: GROQ_MODELS.length, coolingNow: _groqCool.coolingNow() },
-    github: { tokens: GITHUB_TOKENS.length, model: GITHUB_MODEL, models: GITHUB_MODELS, coolingNow: [..._ghCooldown.values()].filter(t => t > Date.now()).length },
+    github: { tokens: GITHUB_TOKENS.length, model: GITHUB_MODEL, models: GITHUB_MODELS, coolingNow: [..._ghCooldown.values()].filter(t => t > Date.now()).length,
+      budget: { capHaut: GH_CAP_HIGH, capBas: GH_CAP_LOW, gapMs: GH_MIN_GAP, jour: _ghBudgetEtat() } },
     openrouter: { keys: OPENROUTER_KEYS.length, models: OPENROUTER_MODELS.length, coolingNow: [..._orCooldown.values()].filter(t => t > Date.now()).length },
     cohere: { keys: COHERE_KEYS.length, models: COHERE_MODELS.length, coolingNow: _cohereCool.coolingNow() },
     xai: { keys: XAI_KEYS.length, models: XAI_MODELS.length, coolingNow: _xaiCool.coolingNow(), paid: true },
