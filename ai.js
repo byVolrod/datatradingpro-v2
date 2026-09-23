@@ -109,10 +109,12 @@ const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS ||
   'openai/gpt-oss-120b:free,openai/gpt-oss-20b:free,qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free,nousresearch/hermes-3-llama-3.1-405b:free')
   .split(',').map(s => s.trim()).filter(Boolean);
 
-// ── Groq (api.groq.com) — API OpenAI-compatible, free-tier TRÈS généreux + latence extrême (idéal chat).
-//    FOURNISSEUR PRINCIPAL de la cascade bufferisée (tenté AVANT Gemini) et 1er maillon du streaming.
-//    Multi-clés (GROQ_API_KEY + _2.._20). Modèles surchargeables via GROQ_MODELS (CSV). Limites : RPM/RPD par clé.
+// ── Groq (api.groq.com) — API OpenAI-compatible. ⚠️ RETIRÉ DE LA CASCADE le 23/09 (demande user : Groq
+//    n'est plus gratuit et n'a fait qu'ÉCHOUER dans la télémétrie `aitel:*` — 0 réussite, que des `fail`).
+//    On vide ses clés → tous les tests `.length` le sautent PARTOUT (cascade, streaming, budget, statut) ;
+//    Gemini prend la tête de la cascade. Réactivable en posant DTP_GROQ_ON=1 dans le .env du VPS.
 const GROQ_KEYS = (() => {
+  if (process.env.DTP_GROQ_ON !== '1') return [];   // désactivé par défaut (payant/en échec) — voir ci-dessus
   const out = [];
   if (process.env.GROQ_API_KEY) out.push(process.env.GROQ_API_KEY);
   for (let i = 2; i <= 20; i++) { const v = process.env['GROQ_API_KEY' + i]; if (v) out.push(v); }
@@ -136,10 +138,11 @@ const COHERE_BASE   = process.env.COHERE_URL || 'https://api.cohere.com/v2';
 const COHERE_MODELS = (process.env.COHERE_MODELS || 'command-r-08-2024,command-r7b-12-2024')
   .split(',').map(s => s.trim()).filter(Boolean);
 
-// ── xAI / Grok (api.x.ai) — API OpenAI-compatible, mais PAYANT (crédits). Traité comme Claude : GATÉ par
-//    claudeOff → JAMAIS utilisé sur un flux de fond « noClaude » (protège le budget), seulement en dernier
-//    repli avant Claude sur les flux utilisateur. Modèle bon marché par défaut. Multi-clés (XAI_API_KEY + _2.._20).
+// ── xAI / Grok (api.x.ai) — API OpenAI-compatible, PAYANT (crédits). ⚠️ RETIRÉ DE LA CASCADE le 23/09
+//    (demande user : « c'est pas gratuit »). On vide ses clés → sauté partout par les tests `.length`.
+//    Réactivable en posant DTP_XAI_ON=1 dans le .env du VPS.
 const XAI_KEYS = (() => {
+  if (process.env.DTP_XAI_ON !== '1') return [];   // désactivé par défaut (payant) — voir ci-dessus
   const out = [];
   if (process.env.XAI_API_KEY) out.push(process.env.XAI_API_KEY);
   for (let i = 2; i <= 20; i++) { const v = process.env['XAI_API_KEY' + i]; if (v) out.push(v); }
