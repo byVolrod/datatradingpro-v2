@@ -486,6 +486,9 @@ const CAS = [
      parce que le cadrage dépend de la hauteur disponible. */
   { nom: 'un pic hyper haut qui redescend',        w: 950,  h: 480, p: 'hike' },
   { nom: 'un pic hyper haut, carte courte',        w: 600,  h: 200, p: 'hike' },
+  /* 23/09, capture user sur le rapport hebdo : le graphique d'UNE devise (USD) montrait encore les
+     pastilles des sept autres, dont la courbe est tracée à opacité nulle. Une seule pastille attendue. */
+  { nom: 'rapport hebdo : une devise isolée (USD)',  w: 900,  h: 300, p: 'paquet', o: { focusCurrency: 'USD', isolated: true } },
 ];
 
 module.exports = { JEUX, CAS, SONDE, SONDE_GRILLE, SONDE_OPACITES, SONDE_POS_LEGENDE, SONDE_POS_TRACE, serveur, trouverNavigateur, PORT, _regimes, _bornesPaquetReel };
@@ -961,7 +964,12 @@ function controler(mesures) {
   console.log('\n── Force des Devises : les huit devises sont-elles lisibles ? ──');
   for (const { cas, r } of mesures) {
     const m = r.modele || {};
-    const attendu = (cas.o && cas.o.onlyCurrencies) ? cas.o.onlyCurrencies.length : 8;
+    const attendu = (cas.o && cas.o.focusCurrency) ? 1 : (cas.o && cas.o.onlyCurrencies) ? cas.o.onlyCurrencies.length : 8;
+    if (cas.o && cas.o.focusCurrency) {
+      const vues = (r.pastilles || []).map(p => p.ccy);
+      v('graphique isolé : SEULE la devise de la courbe porte une pastille (' + cas.o.focusCurrency + ')',
+        vues.length === 1 && (vues[0] === cas.o.focusCurrency || vues[0] === ''), 'pastilles visibles : ' + (vues.join(', ') || 'aucune'));
+    }
     console.log(`\n  · ${cas.nom} (${cas.w}×${cas.h})  —  ${r.nPastilles}/${attendu} pastille(s), cadre [${m.yMin}, ${m.yMax}], paquet ${m.partPaquet}% (${m.nDedans} dedans), écart min ${m.ecartMin} px, légende ${m.legendeH} px, tracé ${m.plotH} px, échelle ${m.gradVisibles}/${m.gradTotal} repère(s)`);
     if (process.env.DTP_FORCE_DEBUG) console.log('      fins : ' + (m.fins || []).join(' '));
     v('aucune erreur d\'exécution', (r.err || []).length === 0, (r.err || []).join(' | '));

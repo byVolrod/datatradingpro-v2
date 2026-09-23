@@ -30,13 +30,13 @@ const HEADERS = {
 const GEO_DIPLO = /\b(cease[\s-]?fire|truce|armistice|peace\s+(?:deal|talks?|accord|agreement|plan|process|summit|treaty)|(?<!trade\s)(?:framework|trilateral|bilateral)\s+(?:agreement|framework|deal|accord|pact|understanding)|normaliz\w+\s+(?:deal|agreement|accord|of\s+(?:ties|relations))|hostage\s+(?:deal|release|exchange|swap)|prisoner\s+(?:swap|exchange|release)|de[\s-]?escalat\w+|diplomatic\s+(?:breakthrough|agreement|resolution|push)|withdraw\w*\s+(?:its\s+|their\s+)?troops|troop\s+withdrawal|sign\w*\s+(?:a\s+|an\s+|the\s+|initial\s+|framework\s+|landmark\s+|historic\s+)?(?:peace|ceasefire|cease-fire|security|framework|trilateral|bilateral)\s+(?:agreement|accord|pact|deal|treaty|framework))\b/i;
 function detectCategory(text) {
   const t = (text || '').toLowerCase();
-  if (/\bfed\b|federal reserve|fomc|powell|jerome|yellen/.test(t)) return 'Fed';
-  if (/\becb\b|lagarde|european central bank|frankfurt/.test(t)) return 'ECB';
-  if (/\bboj\b|bank of japan|ueda|kuroda/.test(t)) return 'BoJ';
-  if (/\bboe\b|bank of england|bailey|threadneedle/.test(t)) return 'BoE';
-  if (/\bboc\b|bank of canada|macklem/.test(t)) return 'BoC';
-  if (/\brba\b|reserve bank of australia|bullock/.test(t)) return 'RBA';
-  if (/\bsnb\b|swiss national bank|jordan/.test(t)) return 'SNB';
+  if (/\bfed\b|federal reserve|fomc|\bpowell\b|\byellen\b/.test(t)) return 'Fed';
+  if (/\becb\b|\blagarde\b|european central bank|frankfurt/.test(t)) return 'ECB';
+  if (/\bboj\b|bank of japan|\bueda\b|\bkuroda\b/.test(t)) return 'BoJ';
+  if (/\bboe\b|bank of england|\bbailey\b|threadneedle/.test(t)) return 'BoE';
+  if (/\bboc\b|bank of canada|\bmacklem\b/.test(t)) return 'BoC';
+  if (/\brba\b|reserve bank of australia|\bbullock\b/.test(t)) return 'RBA';
+  if (/\bsnb\b|swiss national bank/.test(t)) return 'SNB';
   if (/\brbnz\b|reserve bank of new zealand/.test(t)) return 'RBNZ';
   if (GEO_DIPLO.test(t)) return 'Geopolitical';   // accord/ceasefire/retrait diplomatique -> Geopolitical AVANT Energy
   if (/oil\b|crude|brent|wti|opec|adnoc|energy|gas price|natural gas|petroleum|refin|hormuz/.test(t)) return 'Energy & Power';

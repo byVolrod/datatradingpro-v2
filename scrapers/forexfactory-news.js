@@ -453,11 +453,11 @@ async function fetchFromPage() {
 const GEO_DIPLO = /\b(cease[\s-]?fire|truce|armistice|peace\s+(?:deal|talks?|accord|agreement|plan|process|summit|treaty)|(?<!trade\s)(?:framework|trilateral|bilateral)\s+(?:agreement|framework|deal|accord|pact|understanding)|normaliz\w+\s+(?:deal|agreement|accord|of\s+(?:ties|relations))|hostage\s+(?:deal|release|exchange|swap)|prisoner\s+(?:swap|exchange|release)|de[\s-]?escalat\w+|diplomatic\s+(?:breakthrough|agreement|resolution|push)|withdraw\w*\s+(?:its\s+|their\s+)?troops|troop\s+withdrawal|sign\w*\s+(?:a\s+|an\s+|the\s+|initial\s+|framework\s+|landmark\s+|historic\s+)?(?:peace|ceasefire|cease-fire|security|framework|trilateral|bilateral)\s+(?:agreement|accord|pact|deal|treaty|framework))\b/i;
 function detectCategory(text) {
   const t = (text || '').toLowerCase();
-  if (/\bfed\b|federal reserve|fomc|powell|yellen/.test(t))          return 'Fed';
-  if (/\becb\b|lagarde|european central bank/.test(t))               return 'ECB';
-  if (/\bboj\b|bank of japan|ueda|kuroda/.test(t))                   return 'BoJ';
-  if (/\bboe\b|bank of england|bailey/.test(t))                      return 'BoE';
-  if (/\bboc\b|bank of canada|macklem/.test(t))                      return 'BoC';
+  if (/\bfed\b|federal reserve|fomc|\bpowell\b|\byellen\b/.test(t))          return 'Fed';
+  if (/\becb\b|\blagarde\b|european central bank/.test(t))               return 'ECB';
+  if (/\bboj\b|bank of japan|\bueda\b|\bkuroda\b/.test(t))                   return 'BoJ';
+  if (/\bboe\b|bank of england|\bbailey\b/.test(t))                      return 'BoE';
+  if (/\bboc\b|bank of canada|\bmacklem\b/.test(t))                      return 'BoC';
   if (/\brba\b|reserve bank of australia/.test(t))                   return 'RBA';
   if (/\bsnb\b|swiss national bank/.test(t))                         return 'SNB';
   if (/\brbnz\b|reserve bank of new zealand/.test(t))               return 'RBNZ';

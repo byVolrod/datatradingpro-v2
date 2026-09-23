@@ -1359,6 +1359,10 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260923-recap-toujours-redige', ts: Date.UTC(2026, 8, 23, 5, 20), title: 'Récap Quotidien et Point Marché : rédigés même quand la chaîne d’analyse est chargée', desc: 'Vous nous avez montré un Récap Quotidien en « Version provisoire », avec ce mot : cela ne doit jamais arriver. CE QUI SE PASSAIT. Quand la chaîne d’analyse venait d’essuyer plusieurs échecs d’affilée, elle se mettait en pause quelques minutes pour ne pas insister, et le rapport, au lieu d’essayer malgré tout, publiait directement sa version de secours. CE QUI CHANGE. En pause, le rapport saute seulement sa rédaction la plus lourde et tente aussitôt sa version resserrée, rédigée en français, qui passe même quand la chaîne est tendue. Pendant ces trois minutes, les tâches de fond du desk (traductions, enrichissements) lui cèdent la place. ET LE QUOTA SUIT DÉSORMAIS VOTRE RYTHME. Le desk apprend depuis des semaines à quelles heures vous l’utilisez ; cet apprentissage ne servait qu’à préparer les rapports à l’avance. Il règle maintenant la dépense de la journée entière : peu la nuit, davantage aux heures où vous êtes nombreux, au lieu d’un débit identique à 4 h du matin et à l’ouverture de New York. Le plafond du jour ne change pas, seule sa répartition suit la demande.' },
+  { id: 'dtpu-20260923-calendrier-fiche', ts: Date.UTC(2026, 8, 23, 5, 10), title: 'Calendrier : la fiche d’un événement s’ouvre tout de suite, et ne reste plus bloquée', desc: 'Vous nous avez signalé un discours (« BOC Gov Macklem Speaks ») dont le détail restait sur « Les détails arrivent : la source est lente à répondre. Nouvel essai dans 5 secondes… ». TROIS CORRECTIONS. D’abord, le décryptage du desk (propos récents de la banque, ton, enjeux) s’affiche désormais immédiatement : il était prêt, mais restait caché derrière l’attente de la fiche de la source. Ensuite, la fiche d’un indicateur (description, effet habituel, fréquence) est gardée en mémoire durable : une fois récupérée, elle s’ouvre instantanément, y compris après une mise à jour du desk, et se rafraîchit en arrière-plan. Enfin, l’attente a une fin : quelques essais espacés, puis la ligne dit franchement que la fiche est indisponible pour le moment, au lieu d’annoncer un nouvel essai qui ne vient jamais.' },
+  { id: 'dtpu-20260923-recap-etiquettes', ts: Date.UTC(2026, 8, 23, 5, 0), title: 'Récap hebdo : le graphique d’une devise ne montre plus que sa propre étiquette', desc: 'Dans le rapport hebdomadaire, chaque devise a son graphique de force, où seule sa courbe est tracée. Vous avez remarqué que les étiquettes des sept autres devises restaient affichées à droite, sans courbe en face. Elles disparaissent : le graphique USD ne porte plus que l’étiquette USD, et de même pour chaque devise du rapport. La courbe, l’échelle et le cadrage sont inchangés.' },
+  { id: 'dtpu-20260923-fil-categories', ts: Date.UTC(2026, 8, 23, 4, 50), title: 'Fil d’actualité : une dépêche people ne se fait plus passer pour une banque centrale', desc: 'Vous nous avez montré deux dépêches sur le don du rappeur Macklemore, classées « BoC » et affichées deux fois. LA CAUSE. Le desk reconnaît les dépêches de la Banque du Canada au nom de son gouverneur, Tiff Macklem, et il le cherchait sans exiger le mot entier : « Macklemore » le contient. Classée banque centrale, la dépêche échappait en plus au filtre qui écarte l’actualité sans intérêt pour les marchés, et deux rédactions différentes de la même histoire passaient toutes les deux. CE QUI CHANGE. Les noms des banquiers centraux ne sont plus reconnus qu’entiers, et ce dans les six classeurs du desk (un par source), pas seulement dans celui de la capture. Le même défaut rangeait ailleurs tout article sur la Jordanie parmi la Banque nationale suisse : corrigé aussi. Et l’actualité des rappeurs et vedettes de la musique rejoint le reste du divertissement, hors du fil.' },
   { id: 'dtpu-20260923-taux-fed-a-jour', ts: Date.UTC(2026, 8, 23, 4, 30), title: 'Onglet Taux : la Fed de nouveau à jour, et sa fourchette écrite en clair', desc: 'Vous nous avez signalé que l’onglet Taux affichait encore la Fed à 3,75% une semaine après sa hausse du 16 septembre. TROIS CAUSES, TOUTES CORRIGÉES. D’abord, notre source de probabilités de marché ne répondait plus depuis le 9 septembre : le desk l’interrogeait bien trop souvent (plusieurs milliers de fois par jour, alors qu’elle ne recalcule sa courbe qu’une fois par jour). Il l’interroge désormais toutes les 30 minutes (10 minutes à l’approche d’une décision), banque par banque, et laisse reposer une banque qui ne répond pas au lieu d’insister. Ensuite, une valeur fantaisiste (« 2.425 ») s’était glissée dans le calendrier sur la décision de la Fed, recopiée d’une dépêche : face à deux chiffres contradictoires le même jour, le desk refusait prudemment de mettre le taux à jour. Le calendrier vérifie maintenant qu’un résultat a la forme de sa ligne (un pourcentage pour une décision de taux, rien pour une conférence de presse ou un communiqué) : ces faux chiffres disparaissent, y compris de l’historique déjà enregistré, et la vraie décision (4%) reprend sa place. Enfin, quand la courbe de marché manque, la carte ne répète plus « 97% de hausse » à chaque réunion future : la réunion la plus proche reprend les contrats à terme de la Fed, et les suivantes montrent des probabilités qui décroissent avec l’horizon, comme sur le marché. CE QUI CHANGE À L’ÉCRAN. La carte Fed affiche désormais sa fourchette telle que la Fed l’annonce (3,75-4,00%), le milieu au survol. Et un relevé de marché datant de la veille reste affiché tant qu’aucune réunion n’a eu lieu depuis, au lieu de basculer sur une estimation à la première nuit sans réponse.' },
   { id: 'dtpu-20260923-fil-priorite-titres', ts: Date.UTC(2026, 8, 23, 4, 0), title: 'Fil d’actualité : les titres ne repassent plus en anglais sur une soirée chargée', desc: 'Vous nous avez signalé le fil entièrement en anglais un soir de forte actualité. LA CAUSE. Le titre affiché dans le fil et le contenu affiché seulement quand vous ouvrez une dépêche (analyse, description, impact marché) partagent le même quota de traduction quotidien. Sur une soirée chargée, ce contenu au clic partait EN PREMIER dans le cycle de traduction et épuisait sa part avant que le titre, lui visible d’emblée sans avoir à cliquer, n’ait jamais sa chance. CE QUI CHANGE. Le titre du fil passe désormais en premier : c’est la partie la plus regardée du desk, elle réclame le quota partagé avant tout ce qui n’est vu qu’au clic. Le contenu au clic continue d’être traduit avec ce qu’il reste, comme avant. Rien ne change le jour où le quota suffit largement : cette bascule d’ordre ne se voit que les jours où il devient serré.' },
   { id: 'dtpu-20260922-fluidite-fil', ts: Date.UTC(2026, 8, 22, 7, 0), title: 'Le desk reste fluide même quand l’actualité tombe en rafale', desc: 'Retour utilisateur, symptôme précis : « fluide à la connexion, puis lent au bout de quelques secondes ». La cause était le fil d’actualité, et elle n’avait rien à voir avec le serveur, qui répond vite. À chaque nouvelle dépêche reçue en direct, le desk reconstruisait l’intégralité de la liste visible du fil. Les jours de forte actualité, plusieurs dépêches arrivent en une fraction de seconde : ces reconstructions s’enchaînaient alors sans répit et occupaient le navigateur en continu, ce qui ralentissait TOUT le desk - le fil comme le passage d’un module à l’autre, l’ouverture des panneaux, les fenêtres. Cela n’apparaissait qu’une fois connecté et le flux en marche, d’où le « après quelques secondes ». CE QUI CHANGE. Quand plusieurs dépêches arrivent coup sur coup, le fil ne se reconstruit plus qu’une seule fois par rafraîchissement d’écran, au lieu d’une fois par dépêche. Le direct reste tout aussi instantané - vous ne perdez aucune dépêche et rien n’est retardé à l’œil - mais il cesse de monopoliser le navigateur : la navigation entre les onglets redevient fluide même en plein flux. Le premier affichage à la connexion et vos propres actions (filtres, recherche, bouton « charger plus ») sont inchangés : seule la cadence des reconstructions déclenchées par le direct a été lissée.' },
@@ -6572,9 +6576,53 @@ app.get('/api/calendar-events', async (req, res) => {
    son côté et remplit le cache. Le second clic, lui, est instantané — le cache a répondu.
    ⚠️ ET ON NE VIDE PAS LE CACHE POUR AUTANT : une réponse tardive n'est pas une réponse perdue. */
 const _DETAIL_MAX = 6000;
+/* ══ LA FICHE D'UN ÉVÉNEMENT NE SE RE-CHERCHE PLUS À CHAQUE CLIC (23/09, capture user : « BOC Gov
+   Macklem Speaks » bloqué sur « Les détails arrivent : la source est lente à répondre… », « faut que
+   ce soit un problème corrigé, pour le futur aussi ») ════════════════════════════════════════════════
+   TROIS DÉFAUTS, un seul symptôme :
+   1. LA FICHE N'AVAIT AUCUNE MÉMOIRE DURABLE. Le cache de `fetchEventDetail` vit en RAM six heures :
+      chaque déploiement, chaque redémarrage le vide, et le premier clic de la journée repart ouvrir un
+      navigateur complet sur forexfactory.com. Or la page d'un événement est celle d'un INDICATEUR
+      (« /calendar/1-us-federal-funds-rate »), pas d'une occurrence : sa description, son effet usuel,
+      sa fréquence ne changent pas d'une semaine à l'autre. On la range donc en base (`caldet:`,
+      quelques centaines d'indicateurs au plus), et on la sert tout de suite ; au-delà de six heures, on
+      la rafraîchit EN FOND, sans faire attendre personne.
+   2. DEUX CLICS, DEUX NAVIGATEURS. Le desk relance la demande cinq secondes après un « je cherche
+      encore » ; la seconde requête ouvrait une SECONDE page pendant que la première tournait encore,
+      et les deux se disputaient la même machine de 512 Mo. Une seule récupération par adresse est
+      désormais en vol : la seconde demande attend la première.
+   3. L'ÉCHEC N'AVAIT PAS DE NOM. Une récupération qui échoue (source injoignable, page vide) rendait
+      la même réponse vide qu'une fiche sans contenu : on le dit (`indisponible`), pour que le desk
+      arrête d'annoncer une arrivée qui ne viendra pas. */
+const _DETAIL_FRAIS_MS = 6 * 3600e3;
+const _detailEnVol = new Map();   // url → Promise (une seule récupération par adresse)
+const _detailCle = url => 'caldet:' + require('crypto').createHash('sha1').update(String(url)).digest('hex').slice(0, 24);
+const _detailPlein = d => !!(d && ((Array.isArray(d.specs) && d.specs.length) || (Array.isArray(d.history) && d.history.length)));
+function _detailRecuperer(url) {
+  if (_detailEnVol.has(url)) return _detailEnVol.get(url);
+  const p = (async () => {
+    let d = null;
+    try { d = await fetchEventDetail(url); } catch {}
+    if (_detailPlein(d)) {
+      auth.aiCacheSet(_detailCle(url), { specs: d.specs || [], history: d.history || [], at: Date.now() }).catch(() => {});
+      return d;
+    }
+    return null;
+  })().finally(() => _detailEnVol.delete(url));
+  _detailEnVol.set(url, p);
+  return p;
+}
 app.get('/api/calendar-detail', async (req, res) => {
   const { url } = req.query;
-  if (!url) return res.json({ specs: [], history: [] });
+  if (!url || !/^https?:\/\/(www\.)?forexfactory\.com\/calendar\//i.test(String(url))) return res.json({ specs: [], history: [] });
+  // 1) la fiche DURABLE, servie tout de suite ; rafraîchie en fond si elle a plus de six heures
+  let durable = null;
+  try { durable = await auth.aiCacheGet(_detailCle(url), 180 * 864e5); } catch {}
+  if (_detailPlein(durable)) {
+    if (Date.now() - (durable.at || 0) > _DETAIL_FRAIS_MS) _detailRecuperer(url).catch(() => {});
+    return res.json({ specs: durable.specs || [], history: durable.history || [], at: durable.at || null });
+  }
+  // 2) sinon, on la cherche, borné : au-delà de _DETAIL_MAX, « je cherche encore » (la récupération continue)
   let rendu = false;
   const minuteur = setTimeout(() => {
     if (rendu) return;
@@ -6582,18 +6630,14 @@ app.get('/api/calendar-detail', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({ specs: [], history: [], pending: true });
   }, _DETAIL_MAX);
-  try {
-    const d = await fetchEventDetail(url);
-    clearTimeout(minuteur);
-    if (rendu) return;                                   // déjà répondu « je cherche » : le cache est rempli pour le prochain clic
-    rendu = true;
-    res.json({ specs: (d && d.specs) || [], history: (d && d.history) || [] });
-  } catch (e) {
-    clearTimeout(minuteur);
-    if (rendu) return;
-    rendu = true;
-    res.json({ specs: [], history: [], error: e.message });
-  }
+  let d = null;
+  try { d = await _detailRecuperer(url); } catch {}
+  clearTimeout(minuteur);
+  if (rendu) return;                                   // déjà répondu « je cherche » : la base est remplie pour la prochaine demande
+  rendu = true;
+  if (_detailPlein(d)) return res.json({ specs: d.specs || [], history: d.history || [] });
+  res.set('Cache-Control', 'no-store');
+  res.json({ specs: [], history: [], indisponible: true });
 });
 
 // Diagnostic des Actuals du calendrier (page HTML lisible → ouvre l'URL et screenshote-la).
@@ -8745,9 +8789,46 @@ function _aiQuietHours() {
   const mins = h * 60 + m;
   return AI_QUIET_START > AI_QUIET_END ? (mins >= AI_QUIET_START || mins < AI_QUIET_END) : (mins >= AI_QUIET_START && mins < AI_QUIET_END);
 }
+/* ══ VOIE PRIORITAIRE D'UN RAPPORT PLANIFIÉ (23/09) ═════════════════════════════════════════════════
+   Les fournisseurs gratuits plafonnent PAR MINUTE (Groq : 12 000 jetons/min). Un Récap Quotidien qui
+   part pendant que les traductions et enrichissements de fond tournent se dispute cette minute avec
+   eux, et c'est souvent lui qui perd : la passe la plus lourde du desk contre une file de petites
+   requêtes. Pendant trois minutes après le départ d'un rapport planifié, le FOND cède donc la place ;
+   l'utilisateur, lui, n'est jamais freiné. */
+let _aiPrioriteJusqua = 0;
+function _aiPrioriteRapport(ms) { _aiPrioriteJusqua = Math.max(_aiPrioriteJusqua, Date.now() + (ms || 3 * 60e3)); }
+/* ══ LE RYTHME DE LA JOURNÉE SUIT LA DEMANDE APPRISE, PLUS LA PENDULE (23/09, demande user : « j'ai
+   mis un système qui apprend dans le panneau admin, utilise-le pour ne pas fumer tout le quota
+   bêtement, et utilise-le dans les pics d'utilisation des users ») ════════════════════════════════
+   Le pacing autorisait, à chaque instant, la part ÉCOULÉE de la journée (linéaire : à midi, 50 % du
+   plafond). Or la demande n'est pas linéaire : le compteur `_aiDemand` l'apprend créneau par créneau
+   (jour de semaine × heure) depuis des semaines, et il ne servait qu'au préchauffage. Le quota se
+   dépensait donc au même rythme à 4 h du matin qu'à l'ouverture de New York.
+   Désormais la part autorisée est la part CUMULÉE de la demande apprise pour ce jour de semaine :
+   une heure creuse consomme peu, une heure de pointe beaucoup. On garde 30 % de linéaire pour que
+   la nuit ne soit jamais sèche (le préchauffage du matin en dépend), et on retombe sur le linéaire
+   pur tant que l'apprentissage est trop maigre pour parler (< 24 créneaux, ou < 24 sollicitations
+   ce jour-là). Rien ne change au plafond du jour ni aux réserves : seule la RÉPARTITION bouge. */
+function _aiDayFractionApprise() {
+  const lin = _aiDayFraction();
+  try {
+    if (Object.keys(_aiDemand).length < 24) return lin;
+    const p = _aiParis(), wd = p.getDay(), h = p.getHours();
+    const part = (p.getMinutes() * 60 + p.getSeconds()) / 3600;
+    let tot = 0, cum = 0;
+    for (let i = 0; i < 24; i++) {
+      const v = aiExpectedDemand(wd + '-' + i);
+      tot += v;
+      if (i < h) cum += v; else if (i === h) cum += v * part;
+    }
+    if (tot < 24) return lin;
+    return Math.min(1, 0.3 * lin + 0.7 * (cum / tot));
+  } catch { return lin; }
+}
 function aiAllowed(category, opts = {}) {
   _aiReset();
   const prio = opts.priority || 'normal';   // TIERS : 'user' (on-demand) > 'normal' > 'background' (préchauffage)
+  if (prio === 'background' && Date.now() < _aiPrioriteJusqua) return false;   // un rapport planifié a la voie (cf. _aiPrioriteRapport)
   if (_aiQuietHours() && !opts.scheduled && prio !== 'user') return false;   // heures calmes ARMÉES seulement (fenêtre vide par défaut → 24h/24 ; réarmement env = 21h→8h30) : fond coupé, l'user passe quand même
   const cap      = _aiDailyCap();
   const dayTotal = Object.values(_aiUsage.dayCounts).reduce((a, b) => a + b, 0);
@@ -8767,7 +8848,7 @@ function aiAllowed(category, opts = {}) {
   // On n'autorise au plus que la PART ÉCOULÉE du jour (+ un petit burst) → la conso s'étale jusqu'au reset.
   // Sauf : générations PLANIFIÉES (opts.scheduled) ET priorité 'user' (l'utilisateur n'est jamais freiné).
   if (!opts.scheduled && prio !== 'user') {
-    const pacedCeil = Math.ceil(cap * _aiDayFraction()) + AI_BURST;
+    const pacedCeil = Math.ceil(cap * _aiDayFractionApprise()) + AI_BURST;   // part CUMULÉE de la demande apprise, plus la pendule (cf. _aiDayFractionApprise)
     if (dayTotal >= pacedCeil) return false;
   }
   // Part du quota du jour allouée à une catégorie (PRIORITÉ = part plus grande). Le plafond DUR
@@ -13821,7 +13902,7 @@ const _RECAP_CCY_KW = {
   GBP: /\b(GBP|sterling|pound|livre|BoE|BOE|Bailey|Pill|Greene|Mann|gilt|UK|United Kingdom|Royaume-Uni|Britain|britannique)/i,
   CHF: /\b(CHF|franc suisse|\bfranc\b|SNB|BNS|Schlegel|Swiss|Suisse|KOF|SECO)/i,
   AUD: /\b(AUD|Aussie|RBA|Bullock|Australia|Australie|australien)/i,
-  CAD: /\b(CAD|loonie|BoC|BOC|Macklem|Canada|canadian|canadien|WTI|crude|\boil\b|pétrole|brut|Brent)/i,
+  CAD: /\b(CAD|loonie|BoC|BOC|Macklem\b|Canada|canadian|canadien|WTI|crude|\boil\b|pétrole|brut|Brent)/i,
   NZD: /\b(NZD|kiwi|RBNZ|New Zealand|Nouvelle-Zélande|néo-zélandais)/i,
 };
 // CADRE MACRO DE RÉFÉRENCE par devise (demande user) : posture BC / inflation / moteurs / biais de départ. Injecté
@@ -15329,8 +15410,19 @@ async function generateFXDailyRecap(force = false, dayKeyOverride = null) {
     let fxr = null;
     // La RAISON d'un éventuel repli, et la taille du prompt envoyé (voir _aiJsonOuRaison).
     let _fxrRaison = '', _fxrTailleP = 0;
-    if (ai.backoffActive && ai.backoffActive()) _fxrRaison = 'cha\u00eene IA en pause (backoff arm\u00e9 par des \u00e9checs r\u00e9p\u00e9t\u00e9s en amont)';
-    else {
+    /* ⚠️ LE BACKOFF NE SAUTE PLUS LA RÉDACTION, SEULEMENT SA PASSE LA PLUS LOURDE (23/09, capture
+       user : « Version provisoire… chaîne d'analyse momentanément indisponible », « ceci ne doit
+       jamais arriver »). Le backoff protège les tâches de FOND contre un fournisseur qu'on
+       martèlerait en boucle ; appliqué à CE rapport, il faisait publier le repli pour tout le
+       créneau alors qu'une seule requête courte, une fois par quart d'heure au plus (verrou de
+       l'appelant), ne martèle rien. En pause, on saute donc la passe complète (≈ 19 500 jetons, celle
+       qui échoue la première quand la chaîne est tendue) et on tente DIRECTEMENT la passe courte
+       (≈ 5 200 jetons), qui tient dans tous les plafonds gratuits. Et la voie est dégagée pendant
+       trois minutes (`_aiPrioriteRapport`) : les tâches de fond cèdent leurs requêtes par minute. */
+    const _fxrEnPause = !!(ai.backoffActive && ai.backoffActive());
+    if (_fxrEnPause) _fxrRaison = 'cha\u00eene IA en pause (backoff arm\u00e9 par des \u00e9checs r\u00e9p\u00e9t\u00e9s en amont)';
+    _aiPrioriteRapport();
+    {
       const prompt = `Tu es le stratège FX & macro senior de « DataTradingPro », tu rédiges le rapport analyste phare de fin de journée « FX Daily Recap » : même profondeur, ton et structure qu'un rapport analyste la référence. Le rapport couvre toute la journée de trading du ${dateLabel}.
 
 Rédige une NOTE DE DESK ULTRA-CONDENSÉE de la journée : droit à l'essentiel, UNIQUEMENT ce qui a compté pour les marchés : avec un FOCUS FX clair, en t'appuyant STRICTEMENT sur les données fournies ci-dessous. RÈGLES CENTRALES, NON NÉGOCIABLES :
@@ -15398,8 +15490,9 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
          et resterait bloqué sur la version courte à vie. */
       const _budPlein = ai.budgetAppel ? ai.budgetAppel(prompt, 7000) : null;
       const _sur = ai.budgetSur ? ai.budgetSur() : null;
-      const _tenterPlein = !(_budPlein && _sur != null && _budPlein > _sur);
-      if (!_tenterPlein) {
+      const _tenterPlein = !_fxrEnPause && !(_budPlein && _sur != null && _budPlein > _sur);
+      if (_fxrEnPause) { /* raison déjà posée : la chaîne est en pause, on va droit à la passe courte */ }
+      else if (!_tenterPlein) {
         _fxrRaison = `passe compl\u00e8te non tent\u00e9e : ${_budPlein} jetons demand\u00e9s, la cha\u00eene n'encaisse que ${_sur} (plafond appris)`;
         console.warn('[FX Recap] ' + _fxrRaison);
       } else {
@@ -15737,8 +15830,11 @@ async function generateDTPDaily(force = false) {
     // MÊME TRAITEMENT QUE LE FX RECAP, ET POUR LA MÊME RAISON. Les deux générateurs sont jumeaux :
     // corriger l'un en laissant l'autre muet ne fait que décaler le prochain signalement d'une semaine.
     let _dtpdRaison = '', _dtpdTailleP = 0;
-    if (ai.backoffActive && ai.backoffActive()) _dtpdRaison = 'cha\u00eene IA en pause (backoff arm\u00e9 par des \u00e9checs r\u00e9p\u00e9t\u00e9s en amont)';
-    else {
+    // Même règle que le Récap Quotidien (23/09) : en pause, on saute la passe complète, JAMAIS la courte.
+    const _dtpdEnPause = !!(ai.backoffActive && ai.backoffActive());
+    if (_dtpdEnPause) _dtpdRaison = 'cha\u00eene IA en pause (backoff arm\u00e9 par des \u00e9checs r\u00e9p\u00e9t\u00e9s en amont)';
+    _aiPrioriteRapport();
+    {
       const prompt = `Tu es le stratège macro & FX senior de « DataTradingPro ». Tu rédiges le rapport quotidien « Point Marché : Ouverture US », publié vers midi (Paris) : une synthèse PROFESSIONNELLE et structurée de la nuit asiatique et de la matinée européenne, jusqu'à l'ouverture des marchés américains, le ${dateLabel}.
 
 Rédige un rapport COMPLET et dense (même profondeur qu'un rapport analyste de référence). Appuie-toi STRICTEMENT sur les données fournies. FRANÇAIS professionnel et fluide. N'INVENTE aucun chiffre : n'utilise que ceux présents ci-dessous. N'inclus une section QUE si tu as de la matière réelle pour elle.
@@ -15792,7 +15888,7 @@ ${biasLine || '(n/d)'}
 === TAUX DIRECTEURS & PRICING (données desk par banque : taux actuel recalé sur la dernière décision réelle + scénario de la prochaine réunion + source) ===
 ${ratesLines || '(n/d)'}`;
       _dtpdTailleP = prompt.length;
-      try {
+      if (!_dtpdEnPause) try {
         _aiReset();
         const text = await ai.generateText(prompt, 7000);
         aiNote('dtpdaily');
@@ -21627,12 +21723,12 @@ function detectCategory(text) {
   // ── Geopolitical OVERRIDE: primary-actor geo statements beat CB categories ──
   if (_GEO_OVERRIDE_RX.test(text)) return 'Geopolitical';
 
-  if (/\bfed\b|federal reserve|fomc|powell|jerome|yellen/.test(t)) return 'Fed';
-  if (/\becb\b|lagarde|european central bank/.test(t)) return 'ECB';
-  if (/\bboj\b|bank of japan|ueda|kuroda/.test(t)) return 'BoJ';
-  if (/\bboe\b|bank of england|bailey|threadneedle/.test(t)) return 'BoE';
-  if (/\bboc\b|bank of canada|macklem/.test(t)) return 'BoC';
-  if (/\brba\b|reserve bank of australia|bullock/.test(t)) return 'RBA';
+  if (/\bfed\b|federal reserve|fomc|\bpowell\b|\byellen\b/.test(t)) return 'Fed';
+  if (/\becb\b|\blagarde\b|european central bank/.test(t)) return 'ECB';
+  if (/\bboj\b|bank of japan|\bueda\b|\bkuroda\b/.test(t)) return 'BoJ';
+  if (/\bboe\b|bank of england|\bbailey\b|threadneedle/.test(t)) return 'BoE';
+  if (/\bboc\b|bank of canada|\bmacklem\b/.test(t)) return 'BoC';
+  if (/\brba\b|reserve bank of australia|\bbullock\b/.test(t)) return 'RBA';
   if (/\bsnb\b|swiss national bank/.test(t)) return 'SNB';
   if (/\brbnz\b|reserve bank of new zealand/.test(t)) return 'RBNZ';
   if (GEO_DIPLO.test(t)) return 'Geopolitical';   // accord/ceasefire/retrait diplomatique -> Geopolitical AVANT Energy
@@ -21789,7 +21885,7 @@ const TABLOID_SOURCES = /\b(the sun|daily mail|daily mirror|the mirror|the times
 const GLOBAL_GOSSIP = /\b(communications? between|will be published|leaked? (documents?|messages?|emails?|texts?)|personal (messages?|texts?|emails?|communications?)|sources (say|told|claim|suggest)|reportedly (said|told|wrote|texted|emailed)|rumoured?|alleged (affair|feud|dispute|row|fight)|PM candidate|potential (prime minister|pm|president) candidate|leadership (race|contest|bid|challenge)|resigns? (over|amid|after personal)|quits? (over|amid|after personal))\b/i;
 
 // Sports, entertainment, lifestyle — never market-moving
-const GLOBAL_LIFESTYLE = /\b(football|soccer|nfl|nba|nhl|mlb|premier league|champions league|world cup|olympics?|tennis|formula.?1\b|f1 race|grand prix.*winner|celebrity|actor|actress|singer|musician|film|movie|box office|award|grammy|oscar|bafta|royal family gossip|prince|princess|kardashian|taylor swift|beyonc|royal baby|died aged|passes away|funeral|wedding of|divorce of|married to|dating|romance)\b/i;
+const GLOBAL_LIFESTYLE = /\b(football|soccer|nfl|nba|nhl|mlb|premier league|champions league|world cup|olympics?|tennis|formula.?1\b|f1 race|grand prix.*winner|celebrity|actor|actress|singer|musician|rapper|rap star|hip-hop|pop star|film|movie|box office|award|grammy|oscar|bafta|royal family gossip|prince|princess|kardashian|taylor swift|beyonc|royal baby|died aged|passes away|funeral|wedding of|divorce of|married to|dating|romance)\b/i;
 
 // Hors-sujet (sport + faits divers sociaux) — jamais market-moving. Couvre les trous de GLOBAL_LIFESTYLE
 // (futsal, championship, ligues…) + le drame social (fusillades scolaires, crimes). Garde-fou

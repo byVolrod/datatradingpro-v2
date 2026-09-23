@@ -984,6 +984,15 @@ function buildStrengthChart(containerId, data, opts = {}) {
      un appelant qui ne dit rien reçoit le code, un appelant qui demande la valeur la reçoit. */
   const _avecValeur = opts.avecValeur === true;
   const _focus = opts.focusCurrency || null;   // (optionnel) 1 devise mise en avant, les autres grisées
+  /* ⚠️ UNE DEVISE ESTOMPÉE N'A PAS D'ÉTIQUETTE (23/09, capture user sur le graphique USD du rapport
+     hebdo : la courbe USD seule, et à droite les pastilles AUD, CHF, GBP, EUR, CAD, NZD, JPY).
+     En mode isolé, les sept autres courbes sont TRACÉES À OPACITÉ NULLE (`strokeOpacity: 0`) : pour
+     amCharts elles restent visibles, donc les trois chemins qui RÉAFFICHENT une étiquette (la mise à
+     jour, l'anti-collision, et le filet « une courbe visible a une pastille visible ») la rendaient
+     aussitôt, pour une courbe que personne ne voit. Le masquage posé à la création ne tenait donc que
+     jusqu'au premier passage. Une seule définition, lue par les quatre endroits : c'est ce qui
+     empêche le prochain chemin de réafficher ce que les trois autres cachent. */
+  const _estompee = function (c) { return !!(_focus && c !== _focus); };
   const _iso   = !!opts.isolated;              // graphique autonome (rapport) → ne touche pas la réf. globale
   // (optionnel) n'afficher QUE ces devises (ex. les 2 de la paire EURAUD → EUR+AUD) : les autres
   // sont masquées d'emblée ET exclues de l'animation d'apparition (sinon `appear` les ré-affiche).
@@ -1638,7 +1647,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     // ⚠️ `visible` et NON `forceHidden` : plus bas, l'affichage/masquage d'une courbe remet
     // `forceHidden` à false sur cette grille — la ligne serait revenue au premier clic de légende.
     range.get('grid').setAll({ visible: false });
-    if (dim) range.get('label').set('visible', false);   // mode isolé : badge de la devise estompée
+    if (dim) range.get('label').setAll({ forceHidden: true, visible: false });   // mode isolé : badge de la devise estompée (forceHidden : aucun passage ne le rallume, cf. _estompee)
 
     seriesArr.push(series);
     seriesMap[ccy] = series;
@@ -1778,7 +1787,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       // 0×0) → ils force-cachaient des badges VISIBLES qui ne revenaient jamais (bug « on ne voit que USD » :
       // 2 devises aux valeurs proches se retrouvaient force-hidden pendant le build et restaient invisibles).
       const arr = Object.entries(labelMap).filter(([ccy, o]) => {
-        const hid = _hiddenCcy.has(ccy);
+        const hid = _hiddenCcy.has(ccy) || _estompee(ccy);
         try { o.range.get('label')?.set('forceHidden', !!hid); o.range.get('grid')?.set('forceHidden', !!hid); } catch {}
         return !hid;
       }).map(([ccy, o]) => {
@@ -2007,7 +2016,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
         Object.keys(labelMap).forEach(function (c) {
           var s2 = seriesMap[c], l2 = labelMap[c];
           if (!s2 || !l2 || !l2.range) return;
-          var cachee = _hiddenCcy.has(c) || (_only && !_only.has(c));
+          var cachee = _hiddenCcy.has(c) || (_only && !_only.has(c)) || _estompee(c);
           if (cachee) return;                                  // masquée pour de bon : on n'y touche pas
           var et = l2.range.get('label'); if (!et) return;
           if (et.get('forceHidden') === true || et.get('visible') === false) {
@@ -2112,7 +2121,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
         // le re-set du html ré-affichait le badge même masqué → on ré-applique l'état caché à chaque update,
         // d'après _hiddenCcy UNIQUEMENT (source de vérité des devises masquées via la légende). On n'utilise plus
         // s.isHidden()/get('visible') : transitoires (animation/course de layout) → ils force-cachaient à tort.
-        if (_hiddenCcy.has(ccy)) { try { lbl.range.get('label')?.setAll({ forceHidden: true, visible: false }); lbl.range.get('grid')?.set('forceHidden', true); } catch {} }
+        if (_hiddenCcy.has(ccy) || _estompee(ccy)) { try { lbl.range.get('label')?.setAll({ forceHidden: true, visible: false }); lbl.range.get('grid')?.set('forceHidden', true); } catch {} }
         else { try { lbl.range.get('label')?.setAll({ forceHidden: false, visible: true }); } catch {} }
       }
     }
@@ -5995,34 +6004,38 @@ async function toggleCalDetailRow(tr, ev) {
     return;
   }
 
-  // Cache navigateur
-  /* ⚠️ LE SERVEUR PEUT RÉPONDRE « JE CHERCHE ENCORE » (10/09, retour user : « il prend du temps à
-     charger »). Il ouvre un navigateur complet sur la page de l'événement ; au-delà de six
-     secondes il rend la main avec `pending: true` et poursuit sa récupération en fond. Le desk ne
-     doit donc pas retomber sur « Détails indisponibles » — ce serait dire faux — mais annoncer
-     l'attente ET redemander tout seul. Une seule relance, cinq secondes plus tard : à ce
-     moment-là le cache du serveur est rempli et la réponse est immédiate. Si elle ne l'est pas,
-     on le dit franchement plutôt que de tourner indéfiniment.
-     ⚠️ ET ON N'ENTRE JAMAIS UNE RÉPONSE D'ATTENTE DANS LE CACHE : elle est vide par construction,
-     la mettre en cache figerait le vide pour toute la session. */
+  /* ⚠️ LE CONTENU QU'ON A DÉJÀ NE S'EFFACE PLUS DERRIÈRE UNE ATTENTE (23/09, capture user : « BOC
+     Gov Macklem Speaks » réduit à « Les détails arrivent : la source est lente à répondre. Nouvel essai
+     dans 5 secondes… », rien d'autre). Le déroulé montrait l'attente À LA PLACE de tout : le
+     décryptage DTP (propos récents de la banque, ton, enjeux), déjà calculé AVANT la demande, restait
+     caché tant que la fiche ForexFactory n'était pas arrivée. Il s'affiche désormais tout de suite ;
+     SEULE la ligne de la fiche attend, sous lui, et dit où elle en est.
+     ⚠️ L'ATTENTE A UNE FIN, ET ELLE DIT LA VÉRITÉ : trois essais espacés (le serveur n'ouvre qu'une
+     récupération par adresse et la mémorise en base, donc chaque essai rejoint la même), puis la
+     ligne se retire si le décryptage suffit, ou dit « indisponible pour le moment » sinon. Jamais un
+     « nouvel essai dans 5 secondes » figé à l'écran.
+     ⚠️ ET ON N'ENTRE JAMAIS UNE RÉPONSE D'ATTENTE DANS LE CACHE : elle est vide par construction. */
+  const _ffLigne = '<div class="cal-detail-empty cal-detail-ff">';
   let d = _calDetailCache[ev.url];
   if (!d) {
-    /* fetch borné (dtpFetchBorne, app.js) : sans lui, un serveur qui ne répond jamais — même pas
-       par { pending: true } — laissait « Chargement des détails… » tourner à l'infini (capture
-       user 11/09, Core CPI m/m). 15 s = large marge au-delà des 6 s annoncées par le serveur
-       avant son propre relais en pending. */
+    if (bodyEl && bodyEl.isConnected) {
+      bodyEl.innerHTML = kbHtml + _ffLigne + (window.dtpLoader ? window.dtpLoader('Fiche de l\'indicateur…', { small: true }) : 'Fiche de l\'indicateur…') + '</div>';
+      if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(bodyEl, '.cal-kb-quote');
+    }
+    /* fetch borné (dtpFetchBorne, app.js) : un serveur qui ne répond jamais ne laisse plus tourner le
+       rond (capture user 11/09, Core CPI m/m). 15 s = large marge au-delà des 6 s du serveur. */
     const demander = () => (window.dtpFetchBorne ? window.dtpFetchBorne('/api/calendar-detail?url=' + encodeURIComponent(ev.url), {}, 15000) : fetch('/api/calendar-detail?url=' + encodeURIComponent(ev.url))).then(r => r.json()).catch(() => null);
+    const _ffEtat = (txt) => { try { const l = bodyEl && bodyEl.querySelector('.cal-detail-ff'); if (l) l.textContent = txt; } catch (e) {} };
     try {
+      const PAUSES = [4000, 8000];
       d = await demander();
-      if (d && d.pending) {
-        if (bodyEl && bodyEl.isConnected) {
-          bodyEl.innerHTML = '<div class="cal-detail-empty">Les détails arrivent : la source est lente à répondre. Nouvel essai dans 5 secondes…</div>';
-        }
-        await new Promise(r => setTimeout(r, 5000));
+      for (let i = 0; d && d.pending && i < PAUSES.length; i++) {
+        _ffEtat('Fiche de l\'indicateur : la source est lente, on insiste…');
+        await new Promise(r => setTimeout(r, PAUSES[i]));
         if (!bodyEl || !bodyEl.isConnected) return;      // déroulé refermé pendant l'attente
         d = await demander();
-        if (d && d.pending) d = null;                    // toujours rien : on tombera sur le message d'indisponibilité
       }
+      if (d && d.pending) d = null;
       if (d && ((d.specs && d.specs.length) || (d.history && d.history.length))) _calDetailCache[ev.url] = d;
     } catch { d = null; }
   }
@@ -6370,7 +6383,7 @@ window._retryCalendar = function() {
     GBP: 'pound|sterling|boe\\b|bailey|bank of england',
     AUD: 'aussie|rba\\b|reserve bank of australia',
     CHF: 'franc|snb\\b|bns\\b|swiss national bank|banque nationale suisse',
-    CAD: 'loonie|boc\\b|macklem|bank of canada|banque du canada',
+    CAD: 'loonie|boc\\b|macklem\\b|bank of canada|banque du canada',
     NZD: 'kiwi|rbnz\\b|reserve bank of new zealand',
   };
   const _RECENT_KEY = 'dtp_sym_recent';   // historique PERSISTANT (léger : ~6 codes de paire) : exception localStorage validée par l'utilisateur

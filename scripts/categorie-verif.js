@@ -127,6 +127,55 @@ v('… et sans lui, il tombait bien dans le fourre-tout',
   detectCategory('US Zorglub Activity Index rises in July') === 'Global News',
   'rendu : ' + detectCategory('US Zorglub Activity Index rises in July'));
 
+
+console.log('\n── 4. Un nom propre n\'est reconnu qu\'ENTIER, dans les SIX classeurs (23/09) ──');
+/* CAPTURE CLIENT DU 23/09 : deux dépêches sur le rappeur Macklemore (« Le don de 1 million de dollars
+   de Macklemore… ») classées « BoC ». Le classeur cherchait `macklem` — le gouverneur de la Banque
+   du Canada — SANS limite de mot : « Macklemore » le contient. Rangée sous une banque centrale, la
+   dépêche échappait en plus au filtre de pertinence, qui ne juge que le fourre-tout, et passait deux
+   fois (deux rédactions différentes de la même histoire).
+   Le défaut n'était pas dans UN classeur mais dans SIX (server.js et cinq scrapers), tous écrits sur
+   le même patron. On les éprouve donc tous, chacun extrait de son fichier : un banc qui n'en
+   testerait qu'un laisserait les cinq autres rejouer l'incident. */
+{
+  const SOURCES = ['server.js', 'scrapers/rss.js', 'scrapers/forexfactory-news.js', 'scrapers/fxstreet.js', 'scrapers/financialjuice.js'];
+  const PIEGES = [
+    ['Macklemore\'s $1 million donation brings relief and attention to Palestinian suffering', 'BoC'],
+    ['US rapper Macklemore pledges $1 million for Gaza relief', 'BoC'],
+    ['Jordan\'s king meets Egyptian president in Amman', 'SNB'],
+    ['Queensland farmers see bullocks prices jump', 'RBA'],
+  ];
+  const TEMOINS = [
+    ['BoC\'s Macklem says further rate cuts may be needed', 'BoC'],
+    ['Macklem: inflation risks are balanced', 'BoC'],
+    ['RBA\'s Bullock: board not considering rate hikes', 'RBA'],
+    ['Powell: Fed is well positioned to wait', 'Fed'],
+  ];
+  for (const f of SOURCES) {
+    let src = '';
+    try { src = fs.readFileSync(path.join(RACINE, f), 'utf8'); } catch { v(f + ' est lisible', false); continue; }
+    const d = src.indexOf('function detectCategory(text) {');
+    if (d < 0) { v(f + ' : detectCategory introuvable', false); continue; }
+    let prof = 0, fin = -1;
+    for (let k = src.indexOf('{', d); k < src.length; k++) {
+      if (src[k] === '{') prof++;
+      else if (src[k] === '}') { prof--; if (prof === 0) { fin = k + 1; break; } }
+    }
+    let pre = '';
+    for (const nom of ['_GEO_OVERRIDE_RX', 'GEO_DIPLO']) {
+      const m = new RegExp('^const ' + nom + '\\s*=[\\s\\S]*?;\\s*$', 'm').exec(src);
+      pre += m ? m[0] + '\n' : 'const ' + nom + ' = /(?!)/;\n';
+    }
+    let dc = null;
+    try { dc = new Function(pre + src.slice(d, fin) + '\nreturn detectCategory;')(); }
+    catch (e) { v(f + ' : detectCategory s\'évalue', false, e.message); continue; }
+    const fautes = PIEGES.filter(([h, interdit]) => dc(h) === interdit).map(([h]) => '« ' + h.slice(0, 40) + '… » → ' + dc(h));
+    v(f + ' : aucun nom propre reconnu à l\'intérieur d\'un autre mot', fautes.length === 0, fautes.join(' ; '));
+    const rates = TEMOINS.filter(([h, attendu]) => dc(h) !== attendu).map(([h, attendu]) => '« ' + h.slice(0, 40) + '… » → ' + dc(h) + ' (attendu ' + attendu + ')');
+    v(f + ' : (témoin) les vrais banquiers centraux restent reconnus', rates.length === 0, rates.join(' ; '));
+  }
+}
+
 console.log('');
 if (manquants.length) console.log('  · dépendances non extraites (sans effet ici) : ' + manquants.join(', ') + '\n');
 if (ko) { console.log('✗ ' + ko + ' ÉCHEC(S) — ' + ok + ' contrôle(s) OK, ' + ko + ' KO\n'); process.exit(1); }

@@ -79,11 +79,11 @@ function currencyToCategory(c) {
 
 function detectCBFromTitle(title) {
   const t = (title || '').toLowerCase();
-  if (/\bfed\b|fomc|powell|federal reserve/.test(t)) return 'Fed';
-  if (/\becb\b|lagarde|european central bank|governing council/.test(t)) return 'ECB';
-  if (/\bboe\b|bank of england|bailey/.test(t)) return 'BoE';
-  if (/\bboj\b|bank of japan|ueda/.test(t)) return 'BoJ';
-  if (/\bboc\b|bank of canada|macklem/.test(t)) return 'BoC';
+  if (/\bfed\b|fomc|\bpowell\b|federal reserve/.test(t)) return 'Fed';
+  if (/\becb\b|\blagarde\b|european central bank|governing council/.test(t)) return 'ECB';
+  if (/\bboe\b|bank of england|\bbailey\b/.test(t)) return 'BoE';
+  if (/\bboj\b|bank of japan|\bueda\b/.test(t)) return 'BoJ';
+  if (/\bboc\b|bank of canada|\bmacklem\b/.test(t)) return 'BoC';
   if (/\brba\b|reserve bank of australia/.test(t)) return 'RBA';
   if (/\bsnb\b|swiss national bank/.test(t)) return 'SNB';
   if (/\brbnz\b|reserve bank of new zealand/.test(t)) return 'RBNZ';
