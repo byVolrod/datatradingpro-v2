@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- MÊMES POLICES QUE LE DESK (Inter + Inter Tight pour les titres) : cohérence d'identité visuelle -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/admin.css?v=20260923bbg1211" />
+  <link rel="stylesheet" href="/css/admin.css?v=20260923bbg1212" />
   <!-- amCharts 5 : mêmes graphiques que le desk -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
@@ -92,6 +92,10 @@
       <!-- Bandeau SANTÉ GLOBALE : IA / Mail / incidents campagne / séquence -->
       <div class="health-bar" id="adm-health"></div>
       <div class="fin-kpis" id="fin-kpis"></div>
+      <div class="panel-card fin-panel fin-pro-card">
+        <div class="panel-head"><h2>Prochains paiements · 45 jours</h2></div>
+        <div class="panel-body" id="fin-prochains"></div>
+      </div>
       <div class="fin-row">
         <div class="panel-card fin-panel fin-panel--wide">
           <div class="panel-head"><h2 id="fin-rev-title">Encaissé mensuel · 12 mois</h2></div>
@@ -946,6 +950,6 @@
   </div>
 </div>
 
-<script src="/js/admin.js?v=20260923bbg1211"></script>
+<script src="/js/admin.js?v=20260923bbg1212"></script>
 </body>
 </html>

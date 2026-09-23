@@ -1303,3 +1303,14 @@ td .actions .btn, td .actions .btn-sm { padding: 2px 7px; font-size: var(--fs-me
 /* Jamais connecté : un état, pas une absence de donnée. Il se voit, sans crier. */
 .u-conx--jamais .u-conx-rel { color: #ef4444; font-weight: 700; }
 .u-conx--jamais .u-conx-abs { color: #6b7280; }
+
+/* ── PROCHAINS PAIEMENTS (23/09) : liste datée sous les indicateurs de la Vue d'ensemble ── */
+.fin-pro-card { margin-bottom: var(--sp-3, 12px); }
+.fin-pro-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.fin-pro-tbl th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); padding: 6px 8px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.fin-pro-tbl td { padding: 7px 8px; border-bottom: 1px solid rgba(255, 255, 255, .04); color: var(--text); white-space: nowrap; }
+.fin-pro-tbl td:nth-child(2) { white-space: normal; }
+.fin-pro-tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+.fin-pro-dans { color: var(--text3); font-size: 11.5px; margin-left: 4px; }
+.fin-pro-note { font-size: 11.5px; color: var(--text3); margin-top: 8px; line-height: 1.45; }
+@media (max-width: 600px) { .fin-pro-tbl td:nth-child(3), .fin-pro-tbl th:nth-child(3) { display: none; } }

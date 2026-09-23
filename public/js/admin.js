@@ -2612,6 +2612,26 @@
       { l: 'Churn (30j)',          v: k.churnRate + '%', sub: `${k.churned30} expiré(s)` },
       { l: 'Revenu à risque',      v: eur(k.atRiskMrr), sub: `${k.expiringSoon} expire(nt) ≤ 7j` },
     ];
+    /* PROCHAIN(S) PAIEMENT(S) (23/09, demande user). Une carte dans la rangée (le prochain, sa date,
+       son montant, et le total attendu sous 30 jours), puis la liste datée juste dessous. */
+    const pro = Array.isArray(d.prochains) ? d.prochains : [];
+    const escP = s2 => String(s2 == null ? '' : s2).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const jour = ts => new Date(ts).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    const dans = ts => { const j = Math.max(0, Math.round((ts - Date.now()) / 864e5)); return j === 0 ? 'aujourd\'hui' : j === 1 ? 'demain' : 'dans ' + j + ' j'; };
+    const pro30 = pro.filter(p => p.ts - Date.now() <= 30 * 864e5);
+    const tot30 = pro30.reduce((a, p) => a + (p.montant || 0), 0);
+    kpis.push(pro.length
+      ? { l: 'Prochain paiement', v: eur2(pro[0].montant), sub: `${jour(pro[0].ts)} (${dans(pro[0].ts)}) · ${escP(pro[0].nom)}` }
+      : { l: 'Prochain paiement', v: '—', sub: 'aucune échéance payante sous 45 j' });
+    kpis.push({ l: 'Attendu · 30 jours', v: eur2(tot30), sub: `${pro30.length} échéance(s) · estimation` });
+    const liste = document.getElementById('fin-prochains');
+    if (liste) {
+      liste.innerHTML = pro.length
+        ? `<table class="fin-pro-tbl"><thead><tr><th>Échéance</th><th>Abonné</th><th>Formule</th><th class="num">Montant</th></tr></thead><tbody>`
+          + pro.slice(0, 12).map(p => `<tr><td>${jour(p.ts)} <span class="fin-pro-dans">${dans(p.ts)}</span></td><td title="${escP(p.email)}">${escP(p.nom)}</td><td>${p.cycle === 'annual' ? 'Annuel' : 'Mensuel'}</td><td class="num">${eur2(p.montant)}</td></tr>`).join('')
+          + `</tbody></table><div class="fin-pro-note">Montants attendus à l’échéance de chaque abonnement actif (prix de sa formule). Une résiliation n’est connue qu’à la date : c’est une estimation, pas un encaissement.</div>`
+        : '<div class="fin-pro-note">Aucune échéance d’abonnement payant dans les 45 prochains jours.</div>';
+    }
     document.getElementById('fin-kpis').innerHTML = kpis.map(c =>
       `<div class="fin-kpi${c.accent ? ' fin-kpi--accent' : ''}"><div class="fin-kpi-label">${c.l}</div><div class="fin-kpi-val">${c.v}</div><div class="fin-kpi-sub">${c.sub || ''}</div></div>`).join('');
 

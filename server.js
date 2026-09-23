@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260923-login-mobile', ts: Date.UTC(2026, 8, 23, 5, 30), title: 'Connexion sur téléphone : le mur de photos animé en fond', desc: 'Vous trouviez l’écran de connexion sur téléphone trop simple, un fond blanc. Il reprend désormais le mur de photos d’actualité animé de la version ordinateur, en fond plein écran, derrière une carte sombre aux couleurs de la maison. Le mur défile en arrière-plan sans prendre de place : le formulaire, le choix de la langue et les téléchargements restent tous visibles d’un coup d’œil, sans avoir à faire défiler la page.' },
   { id: 'dtpu-20260923-recap-toujours-redige', ts: Date.UTC(2026, 8, 23, 5, 20), title: 'Récap Quotidien et Point Marché : rédigés même quand la chaîne d’analyse est chargée', desc: 'Vous nous avez montré un Récap Quotidien en « Version provisoire », avec ce mot : cela ne doit jamais arriver. CE QUI SE PASSAIT. Quand la chaîne d’analyse venait d’essuyer plusieurs échecs d’affilée, elle se mettait en pause quelques minutes pour ne pas insister, et le rapport, au lieu d’essayer malgré tout, publiait directement sa version de secours. CE QUI CHANGE. En pause, le rapport saute seulement sa rédaction la plus lourde et tente aussitôt sa version resserrée, rédigée en français, qui passe même quand la chaîne est tendue. Pendant ces trois minutes, les tâches de fond du desk (traductions, enrichissements) lui cèdent la place. ET LE QUOTA SUIT DÉSORMAIS VOTRE RYTHME. Le desk apprend depuis des semaines à quelles heures vous l’utilisez ; cet apprentissage ne servait qu’à préparer les rapports à l’avance. Il règle maintenant la dépense de la journée entière : peu la nuit, davantage aux heures où vous êtes nombreux, au lieu d’un débit identique à 4 h du matin et à l’ouverture de New York. Le plafond du jour ne change pas, seule sa répartition suit la demande.' },
   { id: 'dtpu-20260923-calendrier-fiche', ts: Date.UTC(2026, 8, 23, 5, 10), title: 'Calendrier : la fiche d’un événement s’ouvre tout de suite, et ne reste plus bloquée', desc: 'Vous nous avez signalé un discours (« BOC Gov Macklem Speaks ») dont le détail restait sur « Les détails arrivent : la source est lente à répondre. Nouvel essai dans 5 secondes… ». TROIS CORRECTIONS. D’abord, le décryptage du desk (propos récents de la banque, ton, enjeux) s’affiche désormais immédiatement : il était prêt, mais restait caché derrière l’attente de la fiche de la source. Ensuite, la fiche d’un indicateur (description, effet habituel, fréquence) est gardée en mémoire durable : une fois récupérée, elle s’ouvre instantanément, y compris après une mise à jour du desk, et se rafraîchit en arrière-plan. Enfin, l’attente a une fin : quelques essais espacés, puis la ligne dit franchement que la fiche est indisponible pour le moment, au lieu d’annoncer un nouvel essai qui ne vient jamais.' },
   { id: 'dtpu-20260923-recap-etiquettes', ts: Date.UTC(2026, 8, 23, 5, 0), title: 'Récap hebdo : le graphique d’une devise ne montre plus que sa propre étiquette', desc: 'Dans le rapport hebdomadaire, chaque devise a son graphique de force, où seule sa courbe est tracée. Vous avez remarqué que les étiquettes des sept autres devises restaient affichées à droite, sans courbe en face. Elles disparaissent : le graphique USD ne porte plus que l’étiquette USD, et de même pour chaque devise du rapport. La courbe, l’échelle et le cadrage sont inchangés.' },
@@ -3133,6 +3134,13 @@ app.get('/api/admin/finance', requireAdmin, async (req, res) => {
 
     let totalUsers = users.length, clients = 0, activeSubs = 0, trials = 0, suspended = 0, expired = 0;
     let mrr = 0, atRiskMrr = 0, expiringSoon = 0, newThisMonth = 0, newLastMonth = 0, churned30 = 0, newSubs30 = 0;
+    /* PROCHAINS PAIEMENTS (23/09, demande user sur la Vue d'ensemble : « ajoute prochain(s)
+       paiement(s) »). Le tableau disait ce qui ÉTAIT encaissé et ce qui était « à risque », jamais
+       CE QUI VA TOMBER, ni quand, ni de qui. L'échéance d'un abonné payant actif est le jour où son
+       renouvellement est attendu (Whop prélève à cette date ; un virement se règle à cette date) :
+       on liste les 45 prochains jours, au prix de sa cadence. C'est une ATTENTE, pas un encaissement
+       — une résiliation n'est connue qu'au passage — et l'écran le dit. */
+    const prochains = [];
 
     for (const u of users) {
       if (u.role === 'client') {
@@ -3149,6 +3157,10 @@ app.get('/api/admin/finance', requireAdmin, async (req, res) => {
         if (isActive && c.mrr > 0) { activeSubs++; mrr += c.mrr; }
         if (isActive && c.cycle === 'trial') trials++;
         if (isActive && c.mrr > 0 && exp && exp - now > 0 && exp - now <= 7 * DAY) { expiringSoon++; atRiskMrr += c.mrr; }
+        if (isActive && c.mrr > 0 && exp && exp - now > 0 && exp - now <= 45 * DAY) {
+          prochains.push({ ts: exp, nom: String(u.name || '').trim() || String(u.email || '').split('@')[0], email: u.email || '',
+            cycle: c.cycle, montant: c.cycle === 'annual' ? PRICE_ANNUAL : PRICE_MONTHLY });
+        }
       }
       // inscriptions par mois (tous comptes)
       if (u.created_at) {
@@ -3200,6 +3212,7 @@ app.get('/api/admin/finance', requireAdmin, async (req, res) => {
         churned30, churnRate: +churnRate.toFixed(1), netAdds,
         expiringSoon, atRiskMrr: +atRiskMrr.toFixed(2),
       },
+      prochains: prochains.sort((a, b) => a.ts - b.ts).slice(0, 40),
       distribution: dist,
       signupsByMonth,
       revenueByMonth,

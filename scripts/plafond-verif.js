@@ -94,7 +94,8 @@ const notesKo = (AI_SRC.match(/notePlafondKo\('/g) || []).length;
 v('chaque fournisseur apprend de ses réussites', notesOk >= 6, notesOk + ' point(s)');
 v('… et de ses refus de taille', notesKo >= 6, notesKo + ' point(s)');
 v('le Récap Quotidien interroge le plafond AVANT de tenter', /const _sur = ai\.budgetSur \? ai\.budgetSur\(\) : null;/.test(SRV));
-v('… et ne tente pas ce qu\'il sait refusé', /_tenterPlein = !\(_budPlein && _sur != null && _budPlein > _sur\)/.test(SRV));
+// 23/09 : la pause (backoff) s'ajoute à la condition — elle saute la passe complète, jamais la courte (cf. ia-rythme-verif).
+v('… et ne tente pas ce qu\'il sait refusé', /_tenterPlein = (?:!_fxrEnPause && )?!\(_budPlein && _sur != null && _budPlein > _sur\)/.test(SRV));
 v('… mais tente quand RIEN n\'est appris (sinon il n\'apprendrait jamais)', /_sur != null/.test(SRV));
 v('l\'apprentissage survit au déploiement (persisté en cache durable)', /aiCacheSet\('ai:plafonds'/.test(SRV) && /aiCacheGet\('ai:plafonds'\)/.test(SRV));
 v('… et il est restauré AVANT la première génération', /_plafHydrate\(\)\.catch/.test(SRV));

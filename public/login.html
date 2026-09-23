@@ -255,13 +255,56 @@
       html, body { height: auto; min-height: 100%; overflow: visible; overflow-x: hidden; }
       /* 100dvh et non 100vh : sur mobile la barre d'adresse fait varier vh et la page saute. */
       .lp-layout { flex-direction: column; height: auto; min-height: 100dvh; overflow: visible; }
-      /* LA MOSAÏQUE DISPARAÎT SUR MOBILE. Elle occupait 195 px, soit 24 % de l'écran, et c'est
-         elle qui repoussait les téléchargements hors de vue. Sur un petit écran, l'écran de
-         connexion doit montrer ce qui SERT : le formulaire, la langue, les téléchargements et
-         de quoi nous joindre. Elle reste entière dès 901 px de large. */
-      .lp-left { display: none; }
-      .lp-right { flex: 1 1 auto; padding: 32px 24px; overflow: visible; }
-      .lp-title { font-size: 30px; }
+      /* ══ LA MOSAÏQUE REVIENT SUR MOBILE, MAIS EN FOND, PAS EN BANDEAU (23/09, demande user : « trop
+         simple, fond blanc, j'aime pas ; mets les photos en fond animé ») ═══════════════════════════
+         Elle avait été retirée ici parce qu'elle occupait 195 px EN HAUT de l'écran (24 % de la
+         hauteur) et repoussait les téléchargements hors de vue. La raison tient toujours, et c'est
+         elle qui dicte la forme : la mosaïque ne prend AUCUNE place dans la page. Elle est posée en
+         fond FIXE, plein écran, derrière le formulaire ; le formulaire, lui, vit dans une carte sombre
+         translucide qui défile normalement. Tout reste atteignable, et l'écran n'est plus un fond
+         blanc. Les couleurs restent celles de la maison : or, anthracite, Fraunces. */
+      html, body { background: #0a0a0c; }
+      .lp-left {
+        display: block; position: fixed; inset: 0; z-index: 0; border-left: 0;
+      }
+      .lp-left-card { display: none; }                 /* le slogan central : la carte du formulaire le remplace */
+      .lp-left .im-tile { width: 132px; border-radius: 6px; }
+      .lp-left .im-veil { background: linear-gradient(180deg, rgba(8,7,5,0.62) 0%, rgba(8,7,5,0.48) 40%, rgba(8,7,5,0.74) 100%); }
+      .lp-right { flex: 1 1 auto; padding: 32px 24px; overflow: visible; background: transparent; position: relative; z-index: 1; }
+      .lp-right::before { display: none; }
+      .lp-card {
+        background: rgba(14, 14, 17, 0.80); border: 1px solid rgba(227, 178, 58, 0.22); border-radius: 16px;
+        padding: 26px 22px 22px; -webkit-backdrop-filter: blur(12px) saturate(1.1); backdrop-filter: blur(12px) saturate(1.1);
+        box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      }
+      .lp-title { font-size: 30px; color: #fff; }
+      .lp-title .em { color: var(--gold-bright); }
+      .lp-subtitle { color: rgba(255, 255, 255, 0.72); }
+      .lp-label, .lp-checkbox-label, .lp-lang-label { color: rgba(255, 255, 255, 0.78); }
+      .lp-input { background: rgba(10, 10, 12, 0.72); border-color: rgba(255, 255, 255, 0.12); color: #f3f3f6; }
+      .lp-input::placeholder { color: rgba(255, 255, 255, 0.38); }
+      .lp-input:focus { border-color: var(--gold-bright); box-shadow: 0 0 0 3px rgba(227, 178, 58, 0.18); }
+      .lp-input-icon { color: rgba(255, 255, 255, 0.5); }
+      .lp-forgot, .lp-contact a, .lp-dl-intel a { color: var(--gold-bright); }
+      .lp-btn { background: var(--grad-cta); color: #1c1205; border-color: transparent; }
+      .lp-btn:hover { background: var(--grad-cta); filter: brightness(1.06); border-color: transparent; }
+      .lp-contact, .lp-dl-intel { color: rgba(255, 255, 255, 0.55); }
+      .lp-divider { background: rgba(255, 255, 255, 0.08); }
+      .dtpsel-btn { background: rgba(10, 10, 12, 0.72); border-color: rgba(255, 255, 255, 0.12); color: #f3f3f6; }
+      .dtpsel-panel { background: #141417; border-color: rgba(255, 255, 255, 0.12); }
+      .dtpsel-item { color: rgba(255, 255, 255, 0.72); }
+      .dtpsel-item:hover, .dtpsel-item.sel { background: rgba(227, 178, 58, 0.12); color: #fff; }
+      .lp-dl-btn { background: rgba(10, 10, 12, 0.6); border-color: rgba(255, 255, 255, 0.10); }
+      .lp-dl-btn:hover { background: rgba(227, 178, 58, 0.08); border-color: rgba(227, 178, 58, 0.45); }
+      .lp-dl-btn svg { color: rgba(255, 255, 255, 0.7); }
+      .lp-dl-k { color: rgba(255, 255, 255, 0.5); }
+      .lp-dl-v { color: #fff; }
+      .lp-machint { background: rgba(10, 10, 12, 0.6); border-color: rgba(255, 255, 255, 0.08); }
+      .lp-machint-head, .lp-machint-steps b { color: rgba(255, 255, 255, 0.78); }
+      .lp-machint-steps li { color: rgba(255, 255, 255, 0.55); }
+      .lp-error { background: rgba(226, 59, 59, 0.14); color: #ff9b9b; }
+      .lp-renew-title { color: #fff; }
+      .lp-renew-msg { color: #f0b4ae; }
     }
     @media (max-width: 480px) {
       .lp-right { padding: 22px 18px; }
@@ -280,7 +323,7 @@
       .lp-dl-v { font-size: 12px; }
     }
   </style>
-  <script src="/js/noinspect.js?v=20260923bbg1211"></script>
+  <script src="/js/noinspect.js?v=20260923bbg1212"></script>
 </head>
 <body>
 
