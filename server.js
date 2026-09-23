@@ -1359,6 +1359,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260923-taux-passerelles', ts: Date.UTC(2026, 8, 23, 13, 30), title: 'Onglet Taux : plusieurs relais pour revenir en temps réel', desc: 'Suite du correctif d’hier sur les probabilités de marché. Nous avons mesuré que le premier relais mis en place ne suffisait pas : notre fournisseur refuse les requêtes venant de notre serveur, et l’unique relais public que nous utilisions était lui aussi bloqué depuis la même adresse. Le desk essaie désormais PLUSIEURS relais publics l’un après l’autre, et retient le premier qui répond avec des données valides : les chances qu’au moins un passe sont bien plus élevées. Chaque réponse reste vérifiée exactement comme l’accès direct, rien n’est inventé si tous échouent, et le panneau de contrôle indique par quel relais chaque banque a été servie.' },
   { id: 'dtpu-20260923-recap-hebdo-a-l-heure', ts: Date.UTC(2026, 8, 23, 12, 30), title: 'Récap Hebdo : prêt le samedi, sans attendre', desc: 'Ces dernières semaines, le Récap Hebdo arrivait parfois plusieurs jours après la fin de la semaine, et la liste des Notes d’analystes restait sans récap en attendant. La cause est corrigée : quand la rédaction du samedi n’aboutit pas du premier coup, le desk la relance désormais tout seul, régulièrement, jusqu’à ce que le récap soit publié, sans attendre qu’un lecteur ouvre l’onglet. Le récap de la semaine du 14 au 18 septembre est en ligne, au nouveau format.' },
   { id: 'dtpu-20260923-recaps-mentor', ts: Date.UTC(2026, 8, 23, 7, 0), title: 'Récaps : la lecture du marché, pas seulement les faits', desc: 'Nos récaps disaient ce qui s’est passé ; ils expliquent désormais aussi pourquoi le marché a réagi ainsi. Dans le Récap Quotidien, une nouvelle rubrique « Lecture de marché » décrypte la réaction d’une devise au fait majeur du jour : le mécanisme en jeu, ses causes, et ce que le marché attendait face à ce qu’il a obtenu. Dans le Récap Hebdo, chaque devise s’ouvre sur ce que le marché a retenu de sa semaine, chaque rubrique chiffrée (inflation, emploi, croissance) porte sa lecture en une ligne, les rendez-vous de la semaine à venir passent en liste, et la devise se conclut sur « ⇒ » : sa dynamique, puis le principal risque qui pourrait la casser. Le récap de la semaine en cours est complété de ces lectures, sans être réécrit.' },
   { id: 'dtpu-20260923-taux-relais', ts: Date.UTC(2026, 8, 23, 6, 10), title: 'Onglet Taux : les probabilités de marché reviennent en temps réel', desc: 'Le panneau de contrôle a mis le doigt sur la vraie cause du retard de l’onglet Taux : notre fournisseur de probabilités de marché refuse désormais, depuis le 9 septembre, les requêtes venant de notre serveur (réponse « accès refusé » pour les huit banques), alors qu’il répond normalement ailleurs. Attendre ne l’aurait jamais débloqué. Quand l’accès direct est refusé, le desk passe désormais par un relais de lecture public, déjà utilisé pour certains rapports de banques qui bloquent les serveurs de la même façon : les probabilités de la Fed, de la BCE, de la BoE, de la BoJ, de la BoC et de la RBA reviennent à jour automatiquement, sans intervention. Les données reçues par le relais sont vérifiées exactement comme les autres, et rien n’est inventé s’il échoue : la carte garde alors la dernière valeur de marché valable, ou l’estimation, en le disant.' },
@@ -20831,27 +20832,51 @@ async function _rpFetchBank(slug) {
   if (!r0 && !/401|abonnement/.test(_rpPanne[slug] || '')) {
     const direct = _rpPanne[slug] || 'échec';
     const rel = await _rpViaRelais(slug);
-    if (rel) { r0 = rel; _rpRelais[slug] = { at: Date.now(), direct }; }
+    if (rel) { r0 = rel.j; _rpRelais[slug] = { at: Date.now(), direct, via: rel.via }; }
   } else if (r0) delete _rpRelais[slug];
   if (r0) delete _rpAttente[slug];
   else _rpNoterEchec(slug, /HTTP 401/.test(_rpPanne[slug] || '') || /abonnement/.test(_rpPanne[slug] || '') ? 401 : 0);
   return r0;
 }
-const _rpRelais = {};   // slug → { at, direct } : servi par le relais parce que l'accès direct a échoué (raison gardée)
+const _rpRelais = {};   // slug → { at, direct, via } : servi par une passerelle parce que l'accès direct a échoué (raison directe + nom de la passerelle gardés)
+/* ⚠️ UNE SEULE PASSERELLE NE SUFFIT PAS (23/09, MESURÉ en base APRÈS le déploiement du relais jina :
+   `rates:rateprob` toujours figé au 9 septembre). L'adresse du VPS est un bloc de centre de données ;
+   rateprobability la refuse en 403, et r.jina.ai — qui exige de plus en plus une clé et limite le
+   trafic anonyme des centres de données — ne passe pas mieux depuis là. On essaie donc PLUSIEURS
+   passerelles publiques dans l'ordre, la première qui rend un JSON valide gagne. Les passerelles à
+   JSON BRUT d'abord (parsing direct par `_rpJsonDansTexte`), le lecteur jina en dernier (enveloppe
+   texte). Le nom de celle qui a marché est gardé (`via`) → le panneau admin le montre, et si toutes
+   échouent la panne est nommée. Aucune ne fabrique de donnée : la réponse est validée (`today.rows`)
+   exactement comme l'accès direct. Surchargeable/désactivable via DTP_RP_RELAIS (CSV de noms). */
+const _RP_RELAIS_TOUS = [
+  { nom: 'allorigins', url: s => 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://rateprobability.com/api/' + s + '/latest'), h: {} },
+  { nom: 'codetabs',   url: s => 'https://api.codetabs.com/v1/proxy/?quest=https://rateprobability.com/api/' + s + '/latest', h: {} },
+  { nom: 'corsproxy',  url: s => 'https://corsproxy.io/?url=' + encodeURIComponent('https://rateprobability.com/api/' + s + '/latest'), h: {} },
+  { nom: 'jina',       url: s => 'https://r.jina.ai/https://rateprobability.com/api/' + s + '/latest', h: { 'X-Return-Format': 'text' } },
+];
+const _RP_RELAIS = (() => {
+  const only = (process.env.DTP_RP_RELAIS || '').split(',').map(s => s.trim()).filter(Boolean);
+  return only.length ? _RP_RELAIS_TOUS.filter(r => only.includes(r.nom)) : _RP_RELAIS_TOUS;
+})();
 async function _rpViaRelais(slug) {
-  const ctrl = new AbortController();
-  const to = setTimeout(() => ctrl.abort(), 25000);
-  try {
-    const r = await fetch('https://r.jina.ai/https://rateprobability.com/api/' + slug + '/latest', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'X-Return-Format': 'text' }, signal: ctrl.signal });
-    if (!r.ok) { _rpPanne[slug] = (_rpPanne[slug] || 'direct KO') + ' ; relais HTTP ' + r.status; return null; }
-    const txt = await r.text();
-    if (txt.length > 400000) return null;
-    const j = _rpJsonDansTexte(txt);
-    if (!j || j.error || !j.today || !Array.isArray(j.today.rows)) { _rpPanne[slug] = (_rpPanne[slug] || 'direct KO') + ' ; relais : format inattendu'; return null; }
-    delete _rpPanne[slug];
-    return j;
-  } catch (e) { _rpPanne[slug] = (_rpPanne[slug] || 'direct KO') + ' ; relais injoignable'; return null; } finally { clearTimeout(to); }
+  let derniere = '';
+  for (const relai of _RP_RELAIS) {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const r = await fetch(relai.url(slug), {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', ...relai.h }, signal: ctrl.signal });
+      if (!r.ok) { derniere = relai.nom + ' HTTP ' + r.status; continue; }
+      const txt = await r.text();
+      if (txt.length > 400000) { derniere = relai.nom + ' trop gros'; continue; }
+      const j = _rpJsonDansTexte(txt);
+      if (!j || j.error || !j.today || !Array.isArray(j.today.rows)) { derniere = relai.nom + ' format inattendu'; continue; }
+      delete _rpPanne[slug];
+      return { j, via: relai.nom };
+    } catch (e) { derniere = relai.nom + ' injoignable'; } finally { clearTimeout(to); }
+  }
+  _rpPanne[slug] = (_rpPanne[slug] || 'direct KO') + ' ; relais : ' + (derniere || 'aucune passerelle');
+  return null;
 }
 // Le lecteur rend le JSON enveloppé (« Title: … Markdown Content: {…} ») : on prend le bloc entre la
 // première accolade et la dernière, et on ne garde que ce qui se relit comme du JSON.
@@ -21015,7 +21040,7 @@ function _tauxEtat() {
     perime: !!(at && (Date.now() - at) >= _RP_SEUIL_ALERTE_MS),
     alerteEnvoyee: _rpAlerteEnvoyee, banques: Object.keys(_rpCache.banks || {}).length,
     pannes: { ..._rpPanne },
-    relais: { ..._rpRelais },   // banques servies via le lecteur r.jina.ai parce que l'accès direct est refusé
+    relais: { ..._rpRelais },   // banques servies via une passerelle publique (nom dans `via`) parce que l'accès direct est refusé
     // Biais IA (poids monétaire du Radar de Biais + résolution CB non ancrée) : visibilité SÉPARÉE,
     // mesurée le 17/09 après avoir trouvé `rates:aibias` figée 14 jours sans que rien ne le dise.
     biaisAt, biaisAgeMs: biaisAt ? Date.now() - biaisAt : null,

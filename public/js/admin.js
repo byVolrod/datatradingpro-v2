@@ -2021,7 +2021,7 @@
       const pannes = Object.entries(T.pannes || {});
       if (pannes.length) h += `<div class="aim-kpi-s" style="margin-top:4px;color:#8b93a1;line-height:1.5">${pannes.map(([s, r]) => `${_esc2(s)} : ${_esc2(String(r).slice(0, 70))}`).join('<br>')}</div>`;
       const relais = Object.entries(T.relais || {});   // 23/09 : servies par le lecteur r.jina.ai (accès direct refusé)
-      if (relais.length) h += `<div class="aim-kpi-s" style="margin-top:4px;color:#b8a36a;line-height:1.5">${relais.map(([s, r]) => `${_esc2(s)} : via relais (direct : ${_esc2(String((r && r.direct) || '?').slice(0, 40))})`).join('<br>')}</div>`;
+      if (relais.length) h += `<div class="aim-kpi-s" style="margin-top:4px;color:#b8a36a;line-height:1.5">${relais.map(([s, r]) => `${_esc2(s)} : via ${_esc2(String((r && r.via) || 'relais'))} (direct : ${_esc2(String((r && r.direct) || '?').slice(0, 40))})`).join('<br>')}</div>`;
       /* Biais IA (rates:aibias) : cycle HEBDO, pas 90 s — trouvé figé 14 jours le 17/09 sans que rien
          ne le dise (le cycle du samedi 02h réussissait pour ses 3 voisins, pas pour celui-ci). */
       if (T.biaisAt) {

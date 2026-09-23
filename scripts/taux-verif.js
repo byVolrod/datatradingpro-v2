@@ -899,32 +899,40 @@ console.log('\n── La Fed à jour après sa hausse du 16/09 ──');
 /* ══ HTTP 403 SUR LES HUIT BANQUES : LE RELAIS (23/09, capture « Pipeline taux » figé 329 h) ══════
    Le fournisseur refuse l'adresse du VPS. On rejoue sur le VRAI `_rpFetchBank` : direct 403, relais
    qui rend la réponse enveloppée du lecteur → la banque est servie, et le panneau le dit. */
-console.log('\n── Accès direct refusé (403) : la donnée passe par le relais ──');
+console.log('\n── Accès direct refusé (403) : la donnée passe par une passerelle (cascade) ──');
 (async () => {
   const d = SRV.indexOf('const _rpAttente = {};');
   const f = SRV.indexOf('// Biais DIRECTIONNEL', d);
   const bloc = (d >= 0 && f > d) ? SRV.slice(d, f) : null;
-  v('le bloc de récupération (recul + relais) est extractible', !!bloc);
+  v('le bloc de récupération (recul + cascade de passerelles) est extractible', !!bloc);
   if (!bloc) return;
   const JSON_FED = JSON.stringify({ today: { midpoint: 3.875, 'current band': '3.75 - 4.00', rows: [{ meeting_iso: '2027-10-28', prob_move_pct: 74.8, implied_rate_post_meeting: 4.062 }] } });
-  const monter = (fetchImpl) => new Function('fetch', 'RP_HEADERS', '_rpPanne', 'AbortController', 'setTimeout', 'clearTimeout',
-    bloc + '\nreturn { _rpFetchBank, _rpRelais, _rpPanne };')(fetchImpl, {}, {}, AbortController, setTimeout, clearTimeout);
+  const monter = (fetchImpl) => new Function('fetch', 'RP_HEADERS', '_rpPanne', 'AbortController', 'setTimeout', 'clearTimeout', 'process',
+    bloc + '\nreturn { _rpFetchBank, _rpRelais, _rpPanne, _RP_RELAIS };')(fetchImpl, {}, {}, AbortController, setTimeout, clearTimeout, { env: {} });
   const rep = (status, body) => ({ ok: status === 200, status, text: async () => body });
-  // a. direct 403, relais 200 (réponse enveloppée comme celle du lecteur)
+  const direct = u => String(u).startsWith('https://rateprobability.com');
+  // a. direct 403, PREMIÈRE passerelle 200 (JSON brut, non enveloppé)
   let appels = [];
-  const A = monter(async (url) => { appels.push(url); return /r\.jina\.ai/.test(url) ? rep(200, 'Title: fed\nURL Source: x\n\nMarkdown Content:\n' + JSON_FED) : rep(403, 'Forbidden'); });
+  const A = monter(async (url) => { appels.push(url); return direct(url) ? rep(403, 'Forbidden') : rep(200, JSON_FED); });
   const j = await A._rpFetchBank('fed');
-  v('403 en direct → la banque est servie par le relais', !!(j && j.today && j.today.rows.length === 1), JSON.stringify(j).slice(0, 120));
-  v('… le relais n\'est appelé qu\'APRÈS l\'accès direct', appels.length === 2 && !/jina/.test(appels[0]) && /jina/.test(appels[1]), appels.join(' | '));
-  v('… et le panneau sait qu\'elle est arrivée par là (raison directe gardée)', !!(A._rpRelais.fed && /403/.test(A._rpRelais.fed.direct)) && !A._rpPanne.fed, JSON.stringify(A._rpRelais));
-  // b. 401 payant : pas de relais
+  v('403 en direct → la banque est servie par une passerelle', !!(j && j.today && j.today.rows.length === 1), JSON.stringify(j).slice(0, 120));
+  v('… la passerelle n\'est appelée qu\'APRÈS l\'accès direct', appels.length >= 2 && direct(appels[0]) && !direct(appels[1]), appels.join(' | '));
+  v('… et le panneau sait PAR QUELLE passerelle (via) et que le direct a échoué', !!(A._rpRelais.fed && A._rpRelais.fed.via && /403/.test(A._rpRelais.fed.direct)) && !A._rpPanne.fed, JSON.stringify(A._rpRelais));
+  // b. cascade : la 1re passerelle tombe, la 2e prend le relais
+  appels = [];
+  const premiere = A._RP_RELAIS[0].nom;
+  const D = monter(async (url) => { appels.push(url); if (direct(url)) return rep(403, 'x'); return url.includes(premiere === 'allorigins' ? 'allorigins' : premiere) ? rep(500, '') : rep(200, JSON_FED); });
+  const jd = await D._rpFetchBank('boe');
+  v('une passerelle en panne → on essaie la suivante (cascade)', !!(jd && jd.today) && D._rpRelais.boe && D._rpRelais.boe.via !== premiere, (D._rpRelais.boe || {}).via);
+  // c. 401 payant : aucune passerelle
   appels = [];
   const B = monter(async (url) => { appels.push(url); return rep(401, '{"error":"Pro subscription required"}'); });
   await B._rpFetchBank('snb');
   v('un 401 (payant) ne part jamais au relais', appels.length === 1, appels.join(' | '));
-  // c. témoin : relais qui échoue → rien d'inventé
-  const C = monter(async (url) => /jina/.test(url) ? rep(500, '') : rep(403, ''));
-  v('(témoin) relais en panne → aucune donnée inventée, panne nommée', (await C._rpFetchBank('ecb')) === null && /relais HTTP 500/.test(C._rpPanne.ecb || ''), JSON.stringify(C._rpPanne));
+  // d. témoin : TOUTES les passerelles échouent → rien d'inventé, panne nommée
+  const C = monter(async (url) => direct(url) ? rep(403, '') : rep(500, ''));
+  v('(témoin) toutes les passerelles en panne → aucune donnée inventée, panne nommée',
+    (await C._rpFetchBank('ecb')) === null && /relais/.test(C._rpPanne.ecb || ''), JSON.stringify(C._rpPanne));
 })().then(() => {
   console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
   process.exit(ko ? 1 : 0);
