@@ -70,10 +70,11 @@ jobs:
       # affichage virtuel), UA et locale réalistes. C'est ce qui bat le plus souvent ce type de défi.
       - name: Navigateur furtif (puppeteer-extra stealth, headful xvfb)
         run: |
-          npm i -s puppeteer@23 puppeteer-extra puppeteer-extra-plugin-stealth >/dev/null 2>&1
+          npm init -y >/dev/null 2>&1
+          npm i puppeteer@23 puppeteer-extra puppeteer-extra-plugin-stealth 2>&1 | tail -2
           sudo apt-get update -qq >/dev/null 2>&1 || true
           sudo apt-get install -y xvfb >/dev/null 2>&1 || true
-          cat > /tmp/furtif.js <<'EOF'
+          cat > furtif.js <<'EOF'
           const puppeteer = require('puppeteer-extra');
           puppeteer.use(require('puppeteer-extra-plugin-stealth')());
           (async () => {
@@ -94,4 +95,4 @@ jobs:
             await b.close();
           })();
           EOF
-          xvfb-run -a --server-args="-screen 0 1280x900x24" node /tmp/furtif.js
+          xvfb-run -a --server-args="-screen 0 1280x900x24" node furtif.js
