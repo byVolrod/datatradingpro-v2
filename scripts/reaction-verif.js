@@ -139,7 +139,7 @@ function phaseRepere() {
         /* Le jeu d'essai reproduit le cas de la capture : une séance ordinaire, puis UNE bougie de
            publication dont l'amplitude décroche. `amp0` la règle — c'est ce qui permet d'éprouver
            que le cercle SUIT la bougie au lieu d'être simplement « plus grand qu'avant ». */
-        const dessiner = async (amp0) => {
+        const dessiner = async (amp0, decalMin, finK) => {
           const page = await nav.newPage();
           await page.setViewport({ width: 1000, height: 420, deviceScaleFactor: 1 });
           await page.setContent('<html data-theme="dark"><head>'
@@ -147,16 +147,16 @@ function phaseRepere() {
             + '<script src="http://localhost:' + PORT + '/js/vendor/lightweight-charts-4.2.3.js"></script>'
             + '</head><body style="margin:20px;background:#0c0c0e"><div class="nrx-lwc" id="g" style="width:940px"></div></body></html>',
             { waitUntil: 'networkidle0' });
-          await page.evaluate((src, a0) => {
+          await page.evaluate((src, a0, dm, fk) => {
             const T0 = Date.UTC(2026, 7, 26, 12, 38, 0); const c = []; let px = 1.1680;
-            for (let k = -60; k <= 60; k++) {
+            for (let k = -60; k <= (fk == null ? 60 : fk); k++) {
               const amp = (k === 0) ? a0 : 0.00035;
               px += Math.sin(k / 7) * 0.00012;
               c.push({ t: T0 + k * 60000, o: px, h: px + amp / 2, l: px - amp / 2, c: px + amp / 6 });
             }
             eval(src);
-            _dessinerReaction(document.getElementById('g'), c, T0, 'EUR/USD');
-          }, SRC, amp0);
+            _dessinerReaction(document.getElementById('g'), c, T0 + (dm || 0) * 60000, 'EUR/USD');
+          }, SRC, amp0, decalMin, finK);
           // ⚠️ Attendre la POSE définitive du repère (cf. le piège décrit plus haut).
           await page.evaluate(() => new Promise(r => setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(r)), 300)));
           const geo = await page.evaluate(() => {
@@ -190,6 +190,23 @@ function phaseRepere() {
           await lec.close();
           return { geo, col };
         };
+
+        /* ══ 24/09 (capture user : « le cercle est souvent décalé, il doit être sur la grande bougie
+           verte, c'est la bougie de l'annonce éco ») ══ Une analyse sort ~11 min après la décision ;
+           le flux a ~10 min de retard. Avant : le repère tombait sur la DERNIÈRE bougie connue. */
+        console.log('\n── 1 ter. Le cercle se pose sur la bougie de l\'ANNONCE, pas sur l\'heure de la dépêche ──');
+        const cx = g => g.geo.rond.x + g.geo.rond.w / 2;
+        const ref = await dessiner(0.0020, 0, 6);           // repère posé à l'heure exacte de l'annonce
+        const tard = await dessiner(0.0020, 11, 6);         // dépêche 11 min après, flux arrêté à +6 min
+        v('dépêche 11 min après l\'annonce, flux en retard : le cercle est sur la bougie de l\'annonce',
+          Math.abs(cx(ref) - cx(tard)) <= 2, 'annonce x=' + Math.round(cx(ref)) + ' · dépêche x=' + Math.round(cx(tard)));
+        const ref60 = await dessiner(0.0020, 0, 60);         // même jeu de bougies (flux complet), même échelle
+        const flash = await dessiner(0.0020, 2, 60);        // flash 2 min après le chiffre
+        v('flash 2 min après le chiffre, flux complet : même bougie que l\'annonce', Math.abs(cx(ref60) - cx(flash)) <= 2,
+          'annonce x=' + Math.round(cx(ref60)) + ' · flash x=' + Math.round(cx(flash)));
+        const calme = await dessiner(0.00035, 11, 6);       // séance sans impulsion : rien à désigner
+        v('(témoin) séance calme : aucune bougie d\'annonce inventée, le repère reste en bout de flux',
+          cx(calme) - cx(ref) > 20, 'calme x=' + Math.round(cx(calme)) + ' · annonce x=' + Math.round(cx(ref)));
 
         console.log('\n── 2. Le repère de publication, mesuré dans un vrai graphique ──');
         const gros = await dessiner(0.0020);

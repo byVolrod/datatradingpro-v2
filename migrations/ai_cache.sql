@@ -15,3 +15,10 @@ create index if not exists ai_cache_created_idx on public.ai_cache (created_at d
 
 -- Le backend utilise la clé service_role (accès complet) — RLS non requis côté serveur.
 alter table public.ai_cache enable row level security;
+
+-- ACCÈS DATA API EXPLICITE (24/09) — Supabase cesse le 30/10/2026 d'accorder automatiquement
+-- l'accès aux NOUVELLES tables du schéma public. Sans ce GRANT, une restauration vers un nouveau
+-- projet créerait une table que le serveur ne pourrait ni lire ni écrire (« permission denied »).
+-- Le desk n'y accède QUE par la clé service_role (côté serveur) : on n'ouvre rien à anon ni à
+-- authenticated — aucune lecture directe depuis un navigateur, par construction.
+grant select, insert, update, delete on public.ai_cache to service_role;

@@ -1362,6 +1362,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260924-graphique-bougie-annonce', ts: Date.UTC(2026, 8, 24, 8, 10), title: 'Graphique de réaction : le repère tombe sur la bougie de l’annonce', desc: 'Vous nous avez signalé que le cercle rouge du graphique de réaction était souvent décalé par rapport à la grande bougie de l’annonce. Sur l’analyse de la BNS, il se posait à 09:36 alors que la décision, et la grande bougie verte, dataient de 09:30. La raison : le repère suivait l’heure de la dépêche, qui sort toujours quelques minutes après le chiffre, et même une dizaine pour une analyse. Désormais, une analyse s’ancre sur l’heure réelle de l’annonce, et pour toute autre dépêche, le repère se pose sur la bougie d’impulsion des quinze minutes précédentes, quand elle se détache nettement. La mesure de la réaction du marché part elle aussi de l’annonce, ce qui évite les « 0 point » quand les cotations suivantes n’étaient pas encore arrivées.' },
+  { id: 'dtpu-20260924-calendrier-fiche-instantanee', ts: Date.UTC(2026, 8, 24, 8, 0), title: 'Calendrier : la fiche de chaque indicateur s’ouvre instantanément', desc: 'Vous nous avez montré la fiche de « SNB Monetary Policy Assessment » bloquée sur « la source est lente, on insiste… ». La fiche d’un indicateur (description, effet habituel, fréquence, historique) n’était récupérée qu’au moment où vous cliquiez, et un indicateur rare, comme la BNS qui ne se réunit que quatre fois par an, tombait à chaque fois sur ce premier clic, le plus lent. Le desk prépare désormais d’avance, en tâche de fond, la fiche de chaque événement de la semaine, en commençant par les annonces à venir les plus importantes, et la remet à jour une fois le chiffre publié. Quand vous cliquez, la fiche est déjà là.' },
   { id: 'dtpu-20260924-ia-usage-reel', ts: Date.UTC(2026, 8, 24, 1, 0), title: 'Analyses IA : le quota suit ce que vous lisez, le fil d’actualité en tête', desc: 'Le desk dispose chaque jour d’un volume d’analyses IA gratuit et limité. Il le répartissait jusqu’ici selon des parts fixes, identiques pour toutes les fonctions. Désormais, il observe ce que vous ouvrez réellement (fil d’actualité, notes d’analystes, institutions, biais, taux, semaine à venir, copilote), heure par heure, et donne davantage aux fonctions les plus consultées à ce moment de la journée, sans jamais en éteindre une. Le fil d’actualité reste prioritaire en toutes circonstances : quand la journée est chargée, ses traductions passent avant tout le reste. Seule la présence sur chaque fonction est comptée, rien de ce que vous y faites.' },
   { id: 'dtpu-20260924-mobile-alignement', ts: Date.UTC(2026, 8, 24, 0, 30), title: 'Mon Desk sur téléphone : titres et boutons bien alignés', desc: 'Vous nous avez signalé deux décalages sur téléphone. Dans l’onglet Taux, le titre « Taux des banques » occupait seul sa ligne et ses boutons de réglage tombaient sur la suivante : ils sont maintenant côte à côte, sur une seule ligne. Dans le Calendrier, sur les petits écrans, la navigation de semaine (‹ 21 – 25 sept. ›) partait seule sous les filtres Tous, Élevé, Moyen et Faible : elle reste désormais sur la même ligne qu’eux. Les flèches gardent leur taille, pour rester faciles à toucher du doigt. Rien ne change sur grand écran.' },
   { id: 'dtpu-20260924-ia-gemini-modeles', ts: Date.UTC(2026, 8, 24, 0, 20), title: 'Analyses IA : le desk suit tout seul les modèles de Google', desc: 'Google a retiré une génération de ses modèles d’IA, celle qu’utilisait encore une partie de nos analyses. Le desk continuait de les appeler et prenait chaque refus pour une panne passagère : il ralentissait alors toutes ses rédactions de fond (traductions, enrichissements, récaps) sans raison. Désormais, le desk consulte régulièrement la liste officielle des modèles disponibles, écarte aussitôt un modèle retiré et le remplace par la version stable la plus récente. Les analyses repartent donc à plein régime, et le prochain retrait se gérera de lui-même, sans attendre une intervention.' },
@@ -6634,6 +6636,8 @@ const _DETAIL_MAX = 6000;
       la même réponse vide qu'une fiche sans contenu : on le dit (`indisponible`), pour que le desk
       arrête d'annoncer une arrivée qui ne viendra pas. */
 const _DETAIL_FRAIS_MS = 6 * 3600e3;
+const _detailMem = new Map();   // url → fiche (copie vive de `caldet:`, bornée)
+function _detailMemPut(url, fiche) { _detailMem.delete(url); _detailMem.set(url, fiche); if (_detailMem.size > 400) _detailMem.delete(_detailMem.keys().next().value); }
 const _detailEnVol = new Map();   // url → Promise (une seule récupération par adresse)
 const _detailCle = url => 'caldet:' + require('crypto').createHash('sha1').update(String(url)).digest('hex').slice(0, 24);
 const _detailPlein = d => !!(d && ((Array.isArray(d.specs) && d.specs.length) || (Array.isArray(d.history) && d.history.length)));
@@ -6643,7 +6647,9 @@ function _detailRecuperer(url) {
     let d = null;
     try { d = await fetchEventDetail(url); } catch {}
     if (_detailPlein(d)) {
-      auth.aiCacheSet(_detailCle(url), { specs: d.specs || [], history: d.history || [], at: Date.now() }).catch(() => {});
+      const fiche = { specs: d.specs || [], history: d.history || [], at: Date.now() };
+      auth.aiCacheSet(_detailCle(url), fiche).catch(() => {});
+      _detailMemPut(url, fiche);
       return d;
     }
     return null;
@@ -6654,9 +6660,11 @@ function _detailRecuperer(url) {
 app.get('/api/calendar-detail', async (req, res) => {
   const { url } = req.query;
   if (!url || !/^https?:\/\/(www\.)?forexfactory\.com\/calendar\//i.test(String(url))) return res.json({ specs: [], history: [] });
-  // 1) la fiche DURABLE, servie tout de suite ; rafraîchie en fond si elle a plus de six heures
-  let durable = null;
-  try { durable = await auth.aiCacheGet(_detailCle(url), 180 * 864e5); } catch {}
+  // 1) la fiche DURABLE, servie tout de suite ; rafraîchie en fond si elle a plus de six heures.
+  //    (24/09) La copie en MÉMOIRE passe avant la base : le préchauffage l'a remplie, le clic n'attend
+  //    même plus l'aller-retour vers Supabase.
+  let durable = _detailMem.get(url) || null;
+  if (!durable) { try { durable = await auth.aiCacheGet(_detailCle(url), 180 * 864e5); } catch {} if (_detailPlein(durable)) _detailMemPut(url, durable); }
   if (_detailPlein(durable)) {
     if (Date.now() - (durable.at || 0) > _DETAIL_FRAIS_MS) _detailRecuperer(url).catch(() => {});
     return res.json({ specs: durable.specs || [], history: durable.history || [], at: durable.at || null });
@@ -6678,6 +6686,63 @@ app.get('/api/calendar-detail', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({ specs: [], history: [], indisponible: true });
 });
+
+/* ══ LA FICHE EST PRÊTE AVANT LE CLIC (24/09, capture user : « SNB Monetary Policy Assessment » sur
+   « Fiche de l'indicateur : la source est lente, on insiste… » — « il faut que ce soit quasiment
+   instantané pour le calendrier éco ») ════════════════════════════════════════════════════════════
+   La mémoire durable du 23/09 ne servait qu'À PARTIR DU DEUXIÈME clic : le premier, lui, ouvrait
+   encore un navigateur complet sur ForexFactory, et un indicateur qu'on consulte rarement (la BNS
+   publie quatre fois par an) tombait à chaque fois sur ce premier clic. On récupère donc D'AVANCE,
+   en tâche de fond, la fiche de chaque événement de la semaine : une à la fois (un seul navigateur,
+   512 Mo), les plus proches et les plus importants d'abord, et on s'abstient si la mémoire est tendue.
+   Une fiche déjà connue n'est pas refaite, sauf UNE fois après la publication (son historique vient
+   de gagner une ligne) et au-delà de sept jours. Un échec n'est pas retenté avant trente minutes. */
+const _detailConnues = new Map();   // url → horodatage de la fiche durable (0 = aucune)
+const _detailEchecs = new Map();    // url → instant du dernier échec
+let _detailPrechBusy = false;
+function _detailFile(evs, now) {
+  const rang = e => (/high/i.test(e.impact || '') ? 0 : /medium/i.test(e.impact || '') ? 1 : 2);
+  const vus = new Set();
+  return (evs || [])
+    .filter(e => e && e.url && /^https?:\/\/(www\.)?forexfactory\.com\/calendar\//i.test(e.url) && !vus.has(e.url) && vus.add(e.url))
+    .sort((a, b) => {
+      const fa = (a.timestamp || 0) >= now - 3600e3 ? 0 : 1, fb = (b.timestamp || 0) >= now - 3600e3 ? 0 : 1;   // à venir (ou tout juste publié) d'abord
+      if (fa !== fb) return fa - fb;
+      if (rang(a) !== rang(b)) return rang(a) - rang(b);
+      return Math.abs((a.timestamp || 0) - now) - Math.abs((b.timestamp || 0) - now);
+    });
+}
+function _detailAFaire(e, at, now) {
+  if (!at) return true;
+  const ts = e.timestamp || 0;
+  if (ts && ts < now - 5 * 60e3 && now - ts < 36 * 3600e3 && at < ts + 5 * 60e3) return true;   // publié depuis la fiche : une mise à jour
+  return now - at > 7 * 864e5;
+}
+async function _detailPrechauffer() {
+  if (_detailPrechBusy) return;
+  _detailPrechBusy = true;
+  try {
+    if (process.memoryUsage().rss / 1048576 > _MEM_SEUIL_MO * 0.8) return;
+    const now = Date.now();
+    for (const e of _detailFile(getCalendarRaw(), now)) {
+      const ech = _detailEchecs.get(e.url);
+      if (ech && now - ech < 30 * 60e3) continue;
+      let at = _detailConnues.get(e.url);
+      if (at === undefined) {
+        let d = _detailMem.get(e.url) || null;
+        if (!d) { try { d = await auth.aiCacheGet(_detailCle(e.url), 180 * 864e5); } catch {} if (_detailPlein(d)) _detailMemPut(e.url, d); }
+        at = _detailPlein(d) ? (d.at || 1) : 0;
+        _detailConnues.set(e.url, at);
+      }
+      if (!_detailAFaire(e, at, now)) continue;
+      const d = await _detailRecuperer(e.url).catch(() => null);
+      if (d) { _detailConnues.set(e.url, Date.now()); _detailEchecs.delete(e.url); }
+      else _detailEchecs.set(e.url, Date.now());
+      return;                                                  // UNE fiche par tour : jamais deux navigateurs
+    }
+  } finally { _detailPrechBusy = false; }
+}
+setTimeout(() => { _detailPrechauffer().catch(() => {}); setInterval(() => { _detailPrechauffer().catch(() => {}); }, 40e3).unref?.(); }, 90e3).unref?.();
 
 // Diagnostic des Actuals du calendrier (page HTML lisible → ouvre l'URL et screenshote-la).
 app.get('/api/calendar-actuals-debug', async (_req, res) => {
@@ -16584,6 +16649,11 @@ ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
     category: cfg.category, source: 'DTP Markets', time: timeStr, timestamp: now,
     priority: 'high', tags: cfg.tags.slice(),
     _eventAnalysis: true, _reportType: cfg.report, _evaVer: EVA_VER,
+    /* L'HEURE DE L'ANNONCE, pas celle de l'analyse (24/09, capture user : le cercle du graphique posé
+       à 09:36 sur l'analyse BNS de 09:41, alors que la décision — et la grande bougie — datent de
+       09:30). L'analyse sort par construction plusieurs minutes APRÈS le chiffre : le graphique et
+       la mesure de réaction s'ancrent sur `_evTs`, jamais sur `timestamp`. */
+    _evTs: evTs,
     _evaSynth: synthese || null,                // la LECTURE du desk (tag Analyse) ; le lead, lui, va dans Info
     _pair: _EVA_PAIR[cfg.ccy] || null,          // paire la plus exposée (tag sur la news)
     /* L'INDICATEUR ANALYSÉ, NOMMÉ (31/08 : « il manque le tag comme ceci »). Une ligne de calendrier

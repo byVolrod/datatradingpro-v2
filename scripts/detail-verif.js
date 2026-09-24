@@ -38,7 +38,7 @@ const FICHE = { specs: [{ label: 'Usual Effect', value: 'More hawkish than expec
         aiCacheGet: async (k) => (base.has(k) ? base.get(k) : null),
         aiCacheSet: async (k, val) => { base.set(k, val); },
       };
-      const api = new Function('app', 'auth', 'fetchEventDetail', 'require', bloc + '\nreturn { _detailRecuperer, _detailCle };')(app, auth, fetchImpl, require);
+      const api = new Function('app', 'auth', 'fetchEventDetail', 'require', bloc + '\nreturn { _detailRecuperer, _detailCle, _detailMem };')(app, auth, fetchImpl, require);
       const appel = (url) => new Promise((resolve) => {
         const res = { _h: {}, set(k, x) { this._h[k] = x; return this; }, json(o) { resolve(o); return this; } };
         handler({ query: { url } }, res);
@@ -63,7 +63,9 @@ const FICHE = { specs: [{ label: 'Usual Effect', value: 'More hawkish than expec
     v('… et la demande suivante est servie depuis la base, sans rouvrir de navigateur', n === avant && r3.specs.length === 1, n + ' récupération(s)');
 
     // c. une fiche de plus de six heures est servie TOUT DE SUITE, et rafraîchie en fond
+    // (24/09) la fiche vit aussi en mémoire vive, écrite en même temps que la base : on la vieillit aux DEUX endroits
     base.set(cle, { ...FICHE, at: Date.now() - 7 * 3600e3 });
+    api._detailMem.set(URL_FF, { ...FICHE, at: Date.now() - 7 * 3600e3 });
     const t0 = Date.now();
     const r4 = await appel(URL_FF);
     v('une fiche vieillie est servie immédiatement (pas d\'attente)', r4.specs.length === 1 && Date.now() - t0 < 80, (Date.now() - t0) + ' ms');
@@ -94,6 +96,48 @@ const FICHE = { specs: [{ label: 'Usual Effect', value: 'More hawkish than expec
       await Promise.all([appel(URL_FF), appel(URL_FF)]);
       v('(témoin) sans elle, deux demandes ouvrent deux récupérations', m === 2, m + ' — si 1, le témoin ne mord plus');
     }
+  }
+
+  console.log('\n── 1 bis. La fiche est prête AVANT le clic : préchauffage de fond (24/09) ──');
+  if (bloc) {
+    const H = 3600e3, NOW = Date.now();   // le préchauffage lit la VRAIE horloge : le décor se cale dessus
+    const recup = [];
+    let handler = null;
+    const app = { get: (r, fn) => { handler = fn; } };
+    const base = new Map();
+    const auth = { aiCacheGet: async (k) => base.get(k) || null, aiCacheSet: async (k, val) => { base.set(k, val); } };
+    const evs = [
+      { url: 'https://www.forexfactory.com/calendar/1-us-new-home-sales', impact: 'Low', timestamp: NOW + 2 * H },
+      { url: 'https://www.forexfactory.com/calendar/2-ch-snb-monetary-policy-assessment', impact: 'High', timestamp: NOW + 30 * 60e3 },
+      { url: 'https://www.forexfactory.com/calendar/3-us-cpi', impact: 'High', timestamp: NOW - 3 * 864e5 },
+      { url: 'https://www.forexfactory.com/calendar/2-ch-snb-monetary-policy-assessment', impact: 'High', timestamp: NOW + 40 * 60e3 },
+      { url: 'https://evil.example.com/calendar/x', impact: 'High', timestamp: NOW },
+    ];
+    const P = new Function('app', 'auth', 'fetchEventDetail', 'require', 'getCalendarRaw', '_MEM_SEUIL_MO', 'setTimeout',
+      bloc + '\nreturn { _detailFile, _detailAFaire, _detailPrechauffer, _detailMem };')(
+      app, auth, async (u) => { recup.push(u); return { ...FICHE }; }, require, () => evs, 1e9, () => ({ unref() {} }));
+    const file = P._detailFile(evs, NOW).map(e => e.url.split('/').pop());
+    v('priorité : l\'annonce À VENIR la plus importante passe en tête (la BNS)', file[0] === '2-ch-snb-monetary-policy-assessment', file.join(' > '));
+    v('… une adresse n\'est prise qu\'une fois, et jamais hors forexfactory.com', file.length === 3 && !file.includes('x'), file.join(' > '));
+    v('… les événements passés viennent après ceux à venir', file[2] === '3-us-cpi', file.join(' > '));
+    v('une fiche inconnue est à faire', P._detailAFaire(evs[0], 0, NOW) === true);
+    v('une fiche récente n\'est PAS refaite', P._detailAFaire(evs[0], NOW - H, NOW) === false);
+    v('… sauf une fois après la publication (l\'historique vient de gagner une ligne)',
+      P._detailAFaire({ timestamp: NOW - 2 * H }, NOW - 3 * H, NOW) === true && P._detailAFaire({ timestamp: NOW - 2 * H }, NOW - H, NOW) === false);
+    v('… et au-delà de sept jours', P._detailAFaire({ timestamp: NOW + H }, NOW - 8 * 864e5, NOW) === true);
+    await P._detailPrechauffer();
+    v('un tour de préchauffage récupère UNE fiche (jamais deux navigateurs), la plus prioritaire', recup.length === 1 && /snb/.test(recup[0]), JSON.stringify(recup));
+    const cleSnb = [...base.keys()][0];
+    v('… et la range en base ET en mémoire', !!cleSnb && P._detailMem.has(evs[1].url));
+    const t0 = Date.now();
+    const r = await new Promise(res => handler({ query: { url: evs[1].url } }, { set() { return this; }, json: res }));
+    v('le clic qui suit est servi sans aucune récupération (instantané)', recup.length === 1 && r.specs.length === 1 && Date.now() - t0 < 30, (Date.now() - t0) + ' ms');
+    // mémoire tendue → on s'abstient
+    const Q = new Function('app', 'auth', 'fetchEventDetail', 'require', 'getCalendarRaw', '_MEM_SEUIL_MO', 'setTimeout',
+      bloc + '\nreturn { _detailPrechauffer };')(app, auth, async (u) => { recup.push(u); return { ...FICHE }; }, require, () => evs, 1, () => ({ unref() {} }));
+    await Q._detailPrechauffer();
+    v('mémoire tendue → le préchauffage s\'abstient', recup.length === 1);
+    v('le préchauffage démarre tout seul (minuterie non bloquante)', /setInterval\(\(\) => \{ _detailPrechauffer\(\)\.catch\(\(\) => \{\}\); \}, 40e3\)/.test(bloc));
   }
 
   console.log('\n── 2. Le desk : le décryptage s\'affiche tout de suite, l\'attente a une fin ──');

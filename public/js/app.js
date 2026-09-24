@@ -3086,6 +3086,19 @@ const _MOVE_KEYS = {
 // mise en page et leur conduite en cas de vide diffèrent (le panneau retire son onglet et bascule
 // sur Info, la grille se contente de ne rien afficher). On partage donc la DONNÉE, pas le rendu :
 // c'est ce qui empêche les deux affichages de diverger avec le temps.
+/* ══ L'INSTANT DE L'ANNONCE, PAS CELUI DE LA DÉPÊCHE (24/09, capture user : « le cercle est souvent
+   décalé par rapport à la bougie de la news, il doit être sur la grande bougie verte, c'est la bougie
+   de l'annonce éco ») ════════════════════════════════════════════════════════════════════════════
+   Une ANALYSE d'événement sort plusieurs minutes après le chiffre (BNS : décision 09:30, analyse
+   09:41). Tout partait de `item.timestamp` : le graphique, la mesure du mouvement, la réaction. Or
+   le flux de bougies a ~10 min de retard ; 09:41 n'existait pas encore et le repère retombait sur la
+   dernière bougie connue, et la « réaction » mesurée APRÈS 09:41 valait « 0 point ». Le serveur
+   pose désormais `_evTs` (heure de l'annonce) sur l'analyse ; on l'utilise quand elle précède la
+   dépêche de moins de trois heures (au-delà, c'est une autre histoire que la même publication). */
+function _tAncre(item) {
+  const t = item && item.timestamp, e = item && item._evTs;
+  return (e && t && e <= t && t - e <= 3 * 3600e3) ? e : t;
+}
 function _reactionMoves(item, ok, echec, paire) {
   // ⚠️ ÉCHAPPATOIRE VOLONTAIREMENT INEMPLOYÉE. Un item peut imposer ses propres mouvements ; plus
   // aucun ne le fait. Les news d'exemple s'en servaient, et cela produisait exactement ce qu'on
@@ -3099,17 +3112,17 @@ function _reactionMoves(item, ok, echec, paire) {
   // publication qui ne fait bouger le prix que de quelques points reste une publication majeure.
   const _pex = String(paire || item._pair || '').toUpperCase();
   if (/^[A-Z]{3}\/[A-Z]{3}$/.test(_pex)) {
-    fetch('/api/react-ohlc?pair=' + encodeURIComponent(_pex) + '&ts=' + item.timestamp)
+    fetch('/api/react-ohlc?pair=' + encodeURIComponent(_pex) + '&ts=' + _tAncre(item))
       .then(r => r.json())
       .then(d => {
-        const m = _mouvementPaire((d && d.candles) || [], item.timestamp, _pex);
+        const m = _mouvementPaire((d && d.candles) || [], _tAncre(item), _pex);
         if (m) { ok([m]); return; }
         if (echec) echec();   // cotations indisponibles : on ne prétend pas
       })
       .catch(() => { if (echec) echec(); });
     return;
   }
-  fetch('/api/market-moves?since=' + item.timestamp)
+  fetch('/api/market-moves?since=' + _tAncre(item))
     .then(r => r.json())
     .then(data => {
       // Ne garder QUE les mouvements PERTINENTS à la news (devise/matière première citée dans le
@@ -4323,7 +4336,7 @@ function buildNewsItem(item) {
       //     donc lightweight-charts, la bibliothèque LIBRE de TradingView (Apache 2.0, servie
       //     depuis nos propres fichiers) : même rendu, aucune barre d'outils, et surtout
       //     timeToCoordinate() qui donne la position exacte de la minute du chiffre.
-      const t0 = item.timestamp || Date.now();
+      const t0 = _tAncre(item) || Date.now();   // l'ANNONCE, pas la dépêche (cf. _tAncre)
       // Même ordre que le panneau Réaction, et pour la même raison : _pairActive est GLOBALE et
       // porte la dernière paire cliquée, quelle que soit la news. Ici elle est presque toujours
       // juste (on arrive par un clic sur le tag), mais s'appuyer sur une variable qui peut venir
@@ -10857,8 +10870,28 @@ function _dessinerReaction(hote, candles, t0, paire) {
   // Dans les deux cas le repère se pose sur la dernière cotation connue. Seul (b) l'écrit encore :
   // sans cette phrase il se lirait comme une réaction qui n'a pas eu lieu, alors qu'aucune cotation
   // n'arrivera avant la réouverture. En (a) elles arrivent — bandeau retiré le 24/08.
+  /* ══ LE REPÈRE SE POSE SUR LA BOUGIE DE L'ANNONCE (24/09) ══════════════════════════════════════
+     Une dépêche tombe presque toujours APRÈS le chiffre qu'elle rapporte (flash : une à deux
+     minutes ; commentaire : bien davantage). La bougie qui « contient » l'heure de la dépêche n'est
+     donc pas celle de l'annonce : c'est la suivante, ou une bougie calme d'après. On cherche, dans
+     les quinze minutes qui PRÉCÈDENT la dépêche (et la minute qui la suit), la bougie d'IMPULSION :
+     la plus grande amplitude haut/bas. On ne s'y déplace que si elle se détache nettement — au moins
+     2,5 fois l'amplitude médiane de l'heure d'avant — sinon rien ne distingue une annonce, et le
+     repère reste à l'heure de la dépêche plutôt que d'inventer un événement. */
+  const _impulsionDe = arr => {
+    const fen = arr.filter(d => d.time >= tSec - 15 * 60 && d.time <= tSec + 60);
+    if (!fen.length) return null;
+    const avant = arr.filter(d => d.time < fen[0].time && d.time >= fen[0].time - 3600).map(d => d.high - d.low).sort((x, y) => x - y);
+    if (avant.length < 6) return null;
+    const med = avant[Math.floor(avant.length / 2)];
+    let top = null;
+    for (const d of fen) if (!top || (d.high - d.low) > (top.high - top.low)) top = d;
+    return (top && med > 0 && (top.high - top.low) >= 2.5 * med) ? top : null;
+  };
+  const _impulsion = _impulsionDe(data);
+  if (_impulsion) bougie = _impulsion;
   const _dernier = data[data.length - 1];
-  if (tSec > _dernier.time + 120) {
+  if (!_impulsion && tSec > _dernier.time + 120) {
     bougie = _dernier;
     const _maintenant = Math.floor(Date.now() / 1000);
     const _retard = Math.max(0, _maintenant - _dernier.time);   // âge de la dernière bougie affichée
@@ -10966,6 +10999,8 @@ function _dessinerReaction(hote, candles, t0, paire) {
       if (d2[d2.length - 1].time > tSec) {
         // La publication est maintenant couverte : on recale le repère sur SA bougie.
         for (const d of d2) if (d.time <= tSec) bougie = d;
+        const imp2 = _impulsionDe(d2);   // même règle qu'au premier tracé : la bougie de l'annonce
+        if (imp2) bougie = imp2;
         const vieux = hote.querySelector('.nrx-ferme');
         if (vieux) vieux.remove();
       }

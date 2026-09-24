@@ -98,16 +98,15 @@ nano .env         # coller les valeurs depuis votre password manager / l'ancien 
 
 ### Étape 3 — Supabase
 - **Idéal** : réutiliser le **même projet** → utilisateurs, cache IA et KV déjà présents, rien à faire.
-- **Nouveau projet** : recréer la table de cache (le reste utilise Supabase Auth + KV auto) :
-```sql
-create table if not exists ai_cache (
-  key   text primary key,
-  value jsonb,
-  updated_at timestamptz default now()
-);
-```
-> Sans cette table, le code bascule sur un repli fichier (éphémère) : le site marche mais le cache IA
-> n'est plus durable entre redéploiements. La créer pour la persistance.
+- **Nouveau projet** : exécuter, dans l'éditeur SQL du projet, les CINQ fichiers de `migrations/`
+  (`users.sql` d'abord, puis `ai_cache.sql`, `chat_messages.sql`, `email_log.sql`, `weekly_reports.sql`).
+  ⚠️ **Chacun porte son `GRANT … to service_role`, et il est indispensable** : depuis le 30/10/2026,
+  Supabase n'accorde plus automatiquement l'accès aux nouvelles tables du schéma public. Sans ce
+  droit, la table existe mais le serveur reçoit « permission denied » à chaque lecture.
+  ⚠️ **Ne pas recréer `ai_cache` à la main** avec une colonne `updated_at` (ancienne version de cette
+  page) : le code lit `created_at` pour arbitrer la fraîcheur entre bases (`_TABLES_FRAICHEUR`).
+> Sans `ai_cache`, le code bascule sur un repli fichier (éphémère) : le site marche mais le cache IA
+> n'est plus durable entre redéploiements.
 
 ### Étape 4 — Lancer (Docker, comme en prod)
 ```bash
