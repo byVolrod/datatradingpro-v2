@@ -2165,6 +2165,85 @@ app.post('/api/push/stop', async (req, res) => {
   } catch { res.status(500).json({ ok: false }); }
 });
 
+/* ═══ WEB PUSH (24/09) : le téléphone SANS application native ═════════════════════════════════════
+   Même desk, même réglages de notifications, second canal : les abonnements Web Push d'un navigateur
+   (iPhone iOS 16.4+ quand DTP est sur l'écran d'accueil, Android, Chrome ordinateur). Chiffrement et
+   signature dans webpush.js (RFC 8291 / 8292), éprouvés par scripts/webpush-verif.js. */
+const webpush = require('./webpush');
+let _wpClesCache = null;
+const _wpCles = () => (_wpClesCache || (_wpClesCache = webpush.chargerCles(_CACHE_DIR)));
+const WP_IDX_KEY = 'wpushusers';
+let _wpIdx = null;
+const _wpCle = uid => 'wpush:' + String(uid);
+async function _wpIndex() {
+  if (_wpIdx) return _wpIdx;
+  try { const v = await auth.aiCacheGet(WP_IDX_KEY, 366 * 86400000); _wpIdx = new Set(Array.isArray(v) ? v.map(String) : []); }
+  catch { _wpIdx = new Set(); }
+  return _wpIdx;
+}
+async function _wpAbos(uid) {
+  try {
+    const v = await auth.aiCacheGet(_wpCle(uid), 366 * 86400000);
+    return (v && Array.isArray(v.abos) ? v.abos : []).filter(a => webpush.abonnementValide(a && a.s));
+  } catch { return []; }
+}
+async function _wpPoser(uid, abos) {
+  const idx = await _wpIndex();
+  try { await auth.aiCacheSet(_wpCle(uid), { abos: abos.slice(-PUSH_MAX_APPAREILS) }); } catch {}
+  const avait = idx.has(String(uid));
+  if (abos.length && !avait) idx.add(String(uid)); else if (!abos.length && avait) idx.delete(String(uid)); else return;
+  try { await auth.aiCacheSet(WP_IDX_KEY, [...idx]); } catch {}
+}
+// Service lisible par un humain, pour le retour du test (« Apple », « Google »…).
+const _wpService = ep => { try { const h = new URL(ep).hostname; return /apple/.test(h) ? 'Apple' : /google/.test(h) ? 'Google' : /mozilla/.test(h) ? 'Mozilla' : /windows/.test(h) ? 'Microsoft' : h; } catch { return '?'; } };
+// Envoie un message à tous les appareils Web Push d'un compte ; retire ceux qui n'existent plus.
+async function _wpEnvoyerA(uid, message) {
+  const abos = await _wpAbos(uid);
+  if (!abos.length) return [];
+  const res = await Promise.all(abos.map(a => webpush.envoyer(a.s, message, _wpCles()).then(r => Object.assign(r, { service: _wpService(a.s.endpoint), plat: a.plat }))));
+  const vivants = abos.filter((a, i) => !res[i].mort);
+  if (vivants.length !== abos.length) { await _wpPoser(uid, vivants); console.log('[WebPush] ' + (abos.length - vivants.length) + ' abonnement(s) expiré(s) retiré(s) du compte ' + uid); }
+  return res;
+}
+app.get('/api/webpush/cle', (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try { res.json({ ok: true, cle: _wpCles().publique }); } catch (e) { res.status(500).json({ ok: false }); }
+});
+app.post('/api/webpush/abonner', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  const s = req.body && req.body.abonnement;
+  if (!webpush.abonnementValide(s)) return res.status(400).json({ ok: false, error: 'abonnement invalide' });
+  const plat = ['ios', 'android', 'ordinateur'].includes(String(req.body.plat)) ? req.body.plat : 'inconnu';
+  const propre = { endpoint: String(s.endpoint), keys: { p256dh: String(s.keys.p256dh), auth: String(s.keys.auth) } };
+  try {
+    const abos = (await _wpAbos(req.session.userId)).filter(a => a.s.endpoint !== propre.endpoint);
+    abos.push({ s: propre, plat, at: Date.now() });
+    await _wpPoser(req.session.userId, abos);
+    res.json({ ok: true, appareils: Math.min(abos.length, PUSH_MAX_APPAREILS) });
+  } catch { res.status(500).json({ ok: false }); }
+});
+app.post('/api/webpush/desabonner', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  const ep = String((req.body && req.body.endpoint) || '');
+  try { await _wpPoser(req.session.userId, (await _wpAbos(req.session.userId)).filter(a => a.s.endpoint !== ep)); res.json({ ok: true }); }
+  catch { res.status(500).json({ ok: false }); }
+});
+/* Notification TEST (demande user : « je veux recevoir la notif comme une app installée ») : envoyée
+   à tous les appareils du compte, avec le verdict de chaque service de push. Une par 15 s au plus. */
+const _wpTestDernier = new Map();
+app.post('/api/webpush/test', async (req, res) => {
+  const uid = req.session?.userId;
+  if (!uid) return res.status(401).json({ ok: false });
+  const avant = _wpTestDernier.get(String(uid)) || 0;
+  if (Date.now() - avant < 15000) return res.status(429).json({ ok: false, error: 'Patientez quelques secondes avant un nouveau test.' });
+  _wpTestDernier.set(String(uid), Date.now());
+  try {
+    const r = await _wpEnvoyerA(uid, { title: 'DataTradingPro', body: 'Notification test : vos alertes arrivent bien sur cet appareil, même écran verrouillé.', url: '/', tag: 'dtp-test' });
+    if (!r.length) return res.json({ ok: false, error: 'Aucun appareil abonné sur ce compte : activez d’abord les notifications sur le téléphone.' });
+    res.json({ ok: r.some(x => x.ok), resultats: r.map(x => ({ service: x.service, plat: x.plat, ok: x.ok, statut: x.statut, erreur: x.erreur || null })) });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 // Ce que le push peut porter : deux clés seulement, projetées sur la taxonomie du panneau Filtre.
 const _pushClef = it => (/-?\d/.test(String((it && it.headline) || '')) ? 'eco' : 'news');
 function _pushTexte(it) {
@@ -2216,9 +2295,12 @@ async function _pushEnvoyer(items) {
   if (_pushDejaVus.size > 4000) { for (const id of _pushDejaVus) { _pushDejaVus.delete(id); if (_pushDejaVus.size <= 3000) break; } }
   _pushBusy = true;
   try {
-    const idx = await _pushIndex();
+    const idxExpo = await _pushIndex();
+    const idxWeb = await _wpIndex();
+    const idx = new Set([...idxExpo, ...idxWeb]);
     if (!idx.size) return;
     const messages = [];
+    const web = [];                                                // [uid, message] Web Push
     const parJeton = new Map();                                    // jeton → userId, pour retirer un appareil mort
     for (const uid of idx) {
       let cfg = null;
@@ -2229,6 +2311,8 @@ async function _pushEnvoyer(items) {
       if (!pourLui.length) continue;
       const place = _pushSousPlafond(uid, pourLui.length);
       if (!place) continue;
+      if (idxWeb.has(String(uid))) for (const it of pourLui.slice(0, place)) { const tx = _pushTexte(it); web.push([uid, { title: tx.title, body: tx.body, url: '/', tag: 'dtp-' + String(it.id).slice(0, 40) }]); }
+      if (!idxExpo.has(String(uid))) continue;
       const jetons = await _pushJetons(uid);
       if (!jetons.length) { await _pushIndexRetirer(uid); continue; }
       for (const it of pourLui.slice(0, place)) {
@@ -2239,6 +2323,8 @@ async function _pushEnvoyer(items) {
         }
       }
     }
+    for (const [uid, m] of web) { try { await _wpEnvoyerA(uid, m); } catch {} }
+    if (web.length) console.log('[WebPush] ' + web.length + ' notification(s) envoyée(s)');
     if (!messages.length) return;
     const morts = await _pushExpo(messages);
     for (const jeton of morts) {

@@ -646,3 +646,10 @@ html.dtp-app .v2a-ecran.v2a-visible { background: #0a0a0c !important; isolation:
 /* Icône du Copilote : celle du desk, étoile verte + « IA ». */
 html.dtp-app #v2a-ia { width: auto; padding: 0 6px; gap: 4px; color: #00e676; }
 html.dtp-app #v2a-ia .ai-spark-txt { font: 800 13px/1 'Inter Tight', system-ui, sans-serif; color: #00e676; letter-spacing: .02em; }
+
+/* ── Notifications du téléphone (Web Push, 24/09) : aide contextuelle et retour du test ── */
+.v2a-wp-aide { padding: 14px 16px; color: #b9b9c2; font: 14px/1.5 'Inter', sans-serif; border-bottom: 1px solid #1c1c20; }
+.v2a-wp-aide b { color: #ececf0; font-weight: 600; }
+.v2a-wp-aide > b:first-child { display: block; margin-bottom: 4px; color: var(--v2a-or, #e3b23a); }
+.v2a-wp-msg { padding: 12px 16px; color: #34d399; font: 13.5px/1.45 'Inter', sans-serif; background: rgba(0,230,118,.06); }
+.v2a-wp-msg.v2a-wp-err { color: #ff8a65; background: rgba(255,61,0,.07); }

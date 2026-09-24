@@ -533,8 +533,82 @@
     };
   };
 
+  /* ══ NOTIFICATIONS DU TÉLÉPHONE (Web Push, 24/09) ══════════════════════════════════════════════════
+     Demande user : « recevoir la notif sur mon iPhone comme une app installée, idem Android, jusqu'à
+     l'écran verrouillé ». Trois conditions, toutes vérifiées ici plutôt que supposées :
+       · iPhone : iOS 16.4 ou plus, ET DTP ouvert depuis l'icône de l'écran d'accueil (Safari seul
+         n'expose pas PushManager) ;
+       · l'autorisation se demande dans un TOUCHER de l'utilisateur, jamais au chargement ;
+       · l'abonnement suit la clé du serveur : si elle a changé, on se réabonne. */
+  var WP = { etat: '', message: '' };
+  var wpIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  var wpAutonome = (window.navigator.standalone === true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  var wpPossible = function () { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; };
+  var wpPlat = function () { return wpIOS ? 'ios' : (/Android/i.test(navigator.userAgent) ? 'android' : 'ordinateur'); };
+  function wpOctets(b) { var p = '='.repeat((4 - b.length % 4) % 4), r = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')), o = new Uint8Array(r.length); for (var i = 0; i < r.length; i++) o[i] = r.charCodeAt(i); return o; }
+  function wpMemeCle(sub, cle) {
+    try { var a = new Uint8Array(sub.options.applicationServerKey), b = wpOctets(cle); if (a.length !== b.length) return false; for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; } catch (e) { return true; }
+  }
+  function wpJson(url, corps) {
+    return fetch(url, corps ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps), credentials: 'same-origin' } : { credentials: 'same-origin' })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { d._statut = r.status; return d; }); });
+  }
+  function wpLireEtat() {
+    if (!wpPossible()) { WP.etat = (wpIOS && !wpAutonome) ? 'ecran' : 'impossible'; return Promise.resolve(); }
+    if (Notification.permission === 'denied') { WP.etat = 'refuse'; return Promise.resolve(); }
+    return navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); })
+      .then(function (sub) { WP.etat = (sub && Notification.permission === 'granted') ? 'actif' : 'inactif'; })
+      .catch(function () { WP.etat = 'inactif'; });
+  }
+  function wpActiver() {
+    return Notification.requestPermission().then(function (perm) {
+      if (perm !== 'granted') { WP.etat = perm === 'denied' ? 'refuse' : 'inactif'; throw new Error('Autorisation non accordée.'); }
+      return Promise.all([navigator.serviceWorker.ready, wpJson('/api/webpush/cle')]);
+    }).then(function (x) {
+      var reg = x[0], cle = x[1] && x[1].cle;
+      if (!cle) throw new Error('Clé du serveur indisponible.');
+      return reg.pushManager.getSubscription().then(function (sub) {
+        if (sub && !wpMemeCle(sub, cle)) return sub.unsubscribe().then(function () { return null; });
+        return sub;
+      }).then(function (sub) { return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: wpOctets(cle) }); });
+    }).then(function (sub) {
+      return wpJson('/api/webpush/abonner', { abonnement: sub.toJSON(), plat: wpPlat() });
+    }).then(function (d) { if (!d.ok) throw new Error('Enregistrement refusé par le serveur.'); WP.etat = 'actif'; });
+  }
+  function wpDesactiver() {
+    return navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
+      if (!sub) return;
+      var ep = sub.endpoint;
+      return sub.unsubscribe().then(function () { return wpJson('/api/webpush/desabonner', { endpoint: ep }); });
+    }).then(function () { WP.etat = 'inactif'; });
+  }
+  function wpTester() {
+    return wpJson('/api/webpush/test', {}).then(function (d) {
+      if (!d.ok) throw new Error(d.error || 'Échec de l’envoi.');
+      var r = d.resultats || [];
+      var bons = r.filter(function (x) { return x.ok; }).length;
+      return 'Envoyée à ' + bons + ' appareil' + (bons > 1 ? 's' : '') + ' (' + r.map(function (x) { return x.service + (x.ok ? ' ✓' : ' ✗ ' + (x.erreur || x.statut)); }).join(', ') + '). Verrouillez le téléphone : elle arrive en quelques secondes.';
+    });
+  }
+  function wpBloc() {
+    var ligne = function (ico, txt, act, extra) { return '<button type="button" class="v2a-ligne" data-act="' + act + '">' + svg(ico, 22) + '<span>' + txt + '</span>' + (extra || svg(I.suite, 18, 1.8)) + '</button>'; };
+    var h = '<h3 class="v2a-rubrique">Notifications du téléphone</h3><div class="v2a-groupe">';
+    if (WP.etat === 'ecran') {
+      h += '<div class="v2a-wp-aide"><b>Sur iPhone, une étape d’abord</b>Dans Safari, touchez <b>Partager</b> puis <b>Sur l’écran d’accueil</b>, et rouvrez DTP depuis son icône. Les notifications arrivent alors comme celles d’une application, écran verrouillé compris (iOS 16.4 ou plus).</div>';
+    } else if (WP.etat === 'impossible') {
+      h += '<div class="v2a-wp-aide">Ce navigateur ne prend pas en charge les notifications. Utilisez Chrome sur Android, ou DTP ajouté à l’écran d’accueil sur iPhone.</div>';
+    } else if (WP.etat === 'refuse') {
+      h += '<div class="v2a-wp-aide"><b>Notifications bloquées</b>Autorisez-les pour DataTradingPro dans les réglages du téléphone, puis revenez ici.</div>';
+    } else {
+      h += ligne(I.cloche, 'Recevoir les alertes sur cet appareil', 'wp', '<i class="v2a-bascule' + (WP.etat === 'actif' ? ' v2a-on-b' : '') + '"></i>');
+      if (WP.etat === 'actif') h += ligne(I.son, 'Envoyer une notification test', 'wptest');
+    }
+    if (WP.message) h += '<div class="v2a-wp-msg' + (WP.erreur ? ' v2a-wp-err' : '') + '">' + esc(WP.message) + '</div>';
+    return h + '</div>';
+  }
+
   /* ══ ÉCRAN COMPTE (référence « Account ») ══════════════════════════════════════════════════════════ */
-  RENDUS.compte = function () {
+  RENDUS.compte = function (relu) {
     var u = window._pdUser || {}, e = ecrans.compte;
     var fuseau = ''; try { fuseau = Intl.DateTimeFormat().resolvedOptions().timeZone.replace('_', ' ').replace('/', ' / '); } catch (x) {}
     var av = document.getElementById('topbar-avatar');
@@ -546,15 +620,26 @@
       + '<h3 class="v2a-rubrique">Préférences</h3><div class="v2a-groupe">'
       + ligne(I.etoile, 'Aperçu V3 (nouvelle interface)', 'v2', '<i class="v2a-bascule v2a-on-b"></i>')
       + ligne(I.son, 'Alertes sonores', 'son', '<i class="v2a-bascule' + (glob('_npEnabled') ? ' v2a-on-b' : '') + '"></i>') + '</div>'
+      + wpBloc()
       + '<h3 class="v2a-rubrique">Assistance</h3><div class="v2a-groupe">' + ligne(I.bulle, 'Écrire au support DTP', 'support') + '</div>'
       + '<button type="button" class="v2a-sortie" data-act="sortie">' + svg(I.sortie, 20) + 'Se déconnecter</button>';
     e.onclick = function (ev) {
       var b = ev.target.closest('[data-act]'); if (!b) return; var a = b.dataset.act; if (a === 'rien') return; vibre();
       if (a === 'support') appel('chatToggle');
-      else if (a === 'son') { appel('npToggleEnabled'); RENDUS.compte(); }
+      else if (a === 'son') { appel('npToggleEnabled'); RENDUS.compte(true); }
       else if (a === 'v2') { var s = document.getElementById('v2-interrupteur'); if (s) s.click(); }
       else if (a === 'sortie') appel('logoutUser');
+      else if (a === 'wp' || a === 'wptest') {
+        WP.message = a === 'wptest' ? 'Envoi…' : ''; WP.erreur = false;
+        var suite = a === 'wptest' ? wpTester().then(function (m) { WP.message = m; })
+          : (WP.etat === 'actif' ? wpDesactiver().then(function () { WP.message = 'Notifications coupées sur cet appareil.'; })
+            : wpActiver().then(function () { WP.message = 'Notifications activées. Touchez « Envoyer une notification test » pour vérifier.'; }));
+        RENDUS.compte(true);
+        suite.catch(function (x) { WP.message = (x && x.message) || 'Échec.'; WP.erreur = true; }).then(function () { RENDUS.compte(true); });
+      }
     };
+    // État réel de l'abonnement, relu à chaque ouverture (l'utilisateur a pu couper dans les réglages).
+    if (!relu) wpLireEtat().then(function () { if (e.isConnected) RENDUS.compte(true); });
   };
 
   /* ══ ALERTES : feuille plein écran, 4 filtres (référence « Alerts ») ══════════════════════════════

@@ -37,7 +37,7 @@
        téléphone du client, indéfiniment.
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'dtp-sw-20260924bbg1236';
+const VERSION = 'dtp-sw-20260924bbg1237';
 const CACHE_COQUILLE = VERSION + '-coquille';
 
 /* La coquille minimale : de quoi afficher QUELQUE CHOSE de DTP sans réseau. Volontairement courte —
@@ -172,6 +172,18 @@ self.addEventListener('fetch', (e) => {
   }
 });
 
+/* PUSH REÇU (24/09, Web Push) : le serveur envoie { title, body, url, tag } chiffré ; on l'affiche
+   TOUJOURS. iOS l'exige (userVisibleOnly) et retire l'autorisation à un site qui reçoit un push sans
+   notification. `tag` remplace une notification du même sujet au lieu de l'empiler. */
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (x) { try { d = { body: e.data.text() }; } catch (y) {} }
+  const titre = d.title || 'DataTradingPro';
+  const opts = { body: d.body || '', icon: '/icon-192.png', badge: '/icon-192.png', data: { url: d.url || '/' } };
+  if (d.tag) { opts.tag = d.tag; opts.renotify = true; }
+  e.waitUntil(self.registration.showNotification(titre, opts));
+});
+
 /* NOTIFICATION CLIQUÉE : on ramène l'onglet DTP déjà ouvert au premier plan plutôt que d'en ouvrir
    un second. Sur mobile, deux instances du desk c'est deux flux temps réel et deux fois la batterie
    — et le client se retrouve avec un desk qui n'est pas celui qu'il lisait. */
@@ -182,7 +194,8 @@ self.addEventListener('notificationclick', (e) => {
       for (const c of liste) {
         if (c.url.indexOf(self.location.origin) === 0 && 'focus' in c) return c.focus();
       }
-      return self.clients.openWindow ? self.clients.openWindow('/') : null;
+      const cible = (e.notification.data && e.notification.data.url) || '/';
+      return self.clients.openWindow ? self.clients.openWindow(cible) : null;
     })
   );
 });
