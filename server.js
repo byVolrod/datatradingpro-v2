@@ -24871,6 +24871,8 @@ app.post('/api/admin/merge-users', requireAdmin, async (req, res) => {
         try { await auth.emailLogAdd(`expired:${uDe.id}:${_v}`); } catch (e) {}
         try { await auth.emailLogAdd(`rfail:${uDe.id}:${_v}`); } catch (e) {}
       }
+      // Ces deux clés sont des VERROUS, pas des envois : le journal des envois doit le savoir (_estVerrouFusion).
+      try { await auth.emailLogAdd(`fusionmark:${uDe.id}`); } catch (e) {}
       console.log(`[Fusion] relances de paiement neutralisees sur le compte absorbe ${de}`);
     }
     _forceLogout.add(String(uDe.id));            // l absorbe est ejecte du desk s il y etait connecte
@@ -29692,6 +29694,10 @@ const _MAILLOG_TYPES = [
   [/^winback1m:/, 'Relance ancien abonné (1 mois)'], [/^winback3m:/, 'Relance ancien abonné (3 mois)'],
   [/^winback6m:/, 'Relance ancien abonné (6 mois)'], [/^winback12m:/, 'Relance ancien abonné (1 an)'],
   [/^reengage/, 'Réengagement'], [/^unsub:/, 'Désinscription'],
+  /* 24/09, capture user : « c'est quoi RFAIL ? ». Deux envois RÉELS n'avaient pas de nom : ils
+     partent quand Whop signale un paiement de renouvellement refusé (le compte est suspendu et le
+     client reçoit le mail pour régulariser), et quand le client désactive son renouvellement auto. */
+  [/^rfail:/, 'Paiement du renouvellement refusé'], [/^arnoff:/, 'Renouvellement automatique désactivé'],
 ];
 /* ── CE JOURNAL NE LISTE QUE DES MAILS RÉELLEMENT PARTIS ──────────────────────────────────────────
    ⚠️ 04/09, capture user : « c'est quoi ceci ? » — deux lignes « AUTRE », à l'heure du déploiement,
@@ -29703,7 +29709,15 @@ const _MAILLOG_TYPES = [
    toujours par raconter une histoire fausse.
    Le journal sert AUSSI de garde anti-doublon et d'index d'état : toutes ses clés ne sont pas des
    envois. Celles-ci n'en sont pas et sont écartées à la source. */
-const _MAILLOG_NON_ENVOIS = [/^unsubseed:/, /^unsubself:/];
+const _MAILLOG_NON_ENVOIS = [/^unsubseed:/, /^unsubself:/, /^fusionmark:/];
+/* Une FUSION de comptes pose, sur le compte absorbé, des clés `expired:` et `rfail:` qui ne sont PAS
+   des envois : ce sont des verrous qui empêchent justement ces mails de partir (voir la fusion). Elles
+   portent le même format que les vrais envois ; le marqueur `fusionmark:<id>` (posé depuis le 24/09)
+   permet de les écarter du journal, qui ne doit lister que ce qui est réellement parti. */
+function _estVerrouFusion(key, all) {
+  const m = /^(?:rfail|expired):([^:]+):/.exec(key);
+  return !!(m && all && Object.prototype.hasOwnProperty.call(all, 'fusionmark:' + m[1]));
+}
 function _estEnvoi(key) { return !_MAILLOG_NON_ENVOIS.some(rx => rx.test(key)); }
 function _mailLogType(key) {
   const m = key.match(/^drip:day:[^:]*-(\d):/);
@@ -29861,6 +29875,7 @@ app.get('/api/admin/email-log', requireAdmin, async (req, res) => {
     const rows = [];
     for (const [key, at] of Object.entries(all)) {
       if (!_estEnvoi(key)) continue;              // marqueur d'état interne : ce n'est pas un envoi
+      if (_estVerrouFusion(key, all)) continue;   // verrou posé par une fusion de comptes : rien n'est parti
       const type = _mailLogType(key);
       typesVus.add(type);
       if (ft && type !== ft) continue;
