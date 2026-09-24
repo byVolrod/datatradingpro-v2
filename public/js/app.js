@@ -13335,9 +13335,11 @@ function _sqwkRefresh() {
   if (tg) tg.classList.toggle('on', _sqwkAuto);
   // Bouton play = Flash Marche LIVE (audio) : carre rouge si live, triangle vert sinon
   if (play) { play.textContent = _sqwkLive ? '■' : '▶'; play.classList.toggle('sqwk-play--live', _sqwkLive); play.title = _sqwkLive ? 'Couper le squawk audio' : 'Activer le squawk audio (voix)'; }
-  if (status) status.innerHTML = active
-    ? '<span class="sqwk-dot sqwk-dot--live"></span> ' + (_sqwkLive ? (_sqwkPeutParler() ? 'Connecté · voix active' : 'Connecté · son coupé (notifications en muet)') : 'Connecté · texte seul')
-    : '<span class="sqwk-dot"></span> Déconnecté';
+  // Libellé court comme la référence (« Connected ») ; le détail de la voix passe en infobulle.
+  if (status) {
+    status.innerHTML = active ? '<span class="sqwk-dot sqwk-dot--live"></span> Connecté' : '<span class="sqwk-dot"></span> Déconnecté';
+    status.title = !active ? '' : (_sqwkLive ? (_sqwkPeutParler() ? 'Connecté · voix active' : 'Connecté · son coupé (notifications en muet)') : 'Connecté · texte seul');
+  }
   document.getElementById('sqwk-live-note')?.classList.toggle('hidden', !active);
   const note = document.getElementById('sqwk-live-note-txt');
   if (note) note.textContent = _sqwkMode === 'majeures'

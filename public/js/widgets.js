@@ -564,6 +564,40 @@
      On ne prend que les réglages de type « choix » et au plus DEUX : ce sont eux qui identifient
      (la paire, l'unité de temps, la banque, l'affichage). Une bascule oui/non ou un nombre de
      lignes ne dit pas de quoi parle la carte, et allongerait un en-tête qui doit rester court. */
+  /* Pastille de contexte de l'en-tête. Contexte d'une PAIRE (24/09, demande user sur la
+     Saisonnalité « [CAD/JPY] ») : les deux drapeaux devant la paire, comme dans la vue paire. */
+  function _ctxHtml(w, it) {
+    var c = _ctxHead(w, it);
+    if (!c) return '';
+    var m = /^([A-Z]{3})\/([A-Z]{3})$/.exec(c);
+    if (m && _DEV_ISO[m[1]] && _DEV_ISO[m[2]]) {
+      return '<span class="wdg-ctx wdg-ctx--paire" title="' + esc(c) + '"><span class="wdg-ctx-fl">'
+        + '<img src="https://flagcdn.com/w40/' + _DEV_ISO[m[1]] + '.png" alt="" loading="lazy">'
+        + '<img src="https://flagcdn.com/w40/' + _DEV_ISO[m[2]] + '.png" alt="" loading="lazy"></span>' + esc(c) + '</span>';
+    }
+    return '<span class="wdg-ctx" title="' + esc(c) + '">' + esc(c) + '</span>';
+  }
+  /* ⚠️ Le rendu ciblé de setOpt ne remonte que le CORPS : l'en-tête gardait l'ancien contexte
+     (« Compte » après avoir choisi CAD/JPY) jusqu'au rechargement. On le réécrit en place. */
+  // Pastille de paire du corps d'un widget (Saisonnalité) : drapeaux ronds + libellé, sans crochets.
+  function _paireAvecDrapeaux(code, lib) {
+    var c = String(code || '').toUpperCase().replace(/[^A-Z]/g, '');
+    var a = _DEV_ISO[c.slice(0, 3)], b = _DEV_ISO[c.slice(3, 6)];
+    if (c.length !== 6 || !a || !b) return esc('[' + lib + ']');
+    return '<span class="wdg-ctx-fl"><img src="https://flagcdn.com/w40/' + a + '.png" alt="" loading="lazy">'
+      + '<img src="https://flagcdn.com/w40/' + b + '.png" alt="" loading="lazy"></span>' + esc(lib);
+  }
+  function _majCtx(i) {
+    try {
+      var l = activeLayout(), it = l && l.items[i], w = it && byId(it.w);
+      var carte = w && document.querySelector('#' + HOST_ID + ' .wdg-card[data-idx="' + i + '"]');
+      var tete = carte && carte.querySelector(':scope > .wdg-head');
+      if (!tete) return;
+      var ancien = tete.querySelector(':scope > .wdg-ctx'), html = _ctxHtml(w, it);
+      if (ancien) ancien.remove();
+      if (html) { var t = tete.querySelector(':scope > .wdg-title'); if (t) t.insertAdjacentHTML('afterend', html); }
+    } catch (e) {}
+  }
   function _ctxHead(w, it) {
     var l = (w && w.opts) || [], out = [];
     for (var i = 0; i < l.length && out.length < 2; i++) {
@@ -888,7 +922,12 @@
       ? _SEASON_PAIRS.slice()
       : ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'EURJPY', 'GBPJPY'];
     L.sort(function (a, b) { return f(a).localeCompare(f(b), 'fr', { numeric: true, sensitivity: 'base' }); });
-    return [['', 'Compte']].concat(L.map(function (p) { return [p, f(p)]; }));
+    /* PAIRES SEULEMENT (24/09, capture user : « c quoi Compte ? faut juste les paires »). Le choix
+       vide « Compte » voulait dire « la paire suit celle du compte » : un sens interne que rien à
+       l'écran n'expliquait. Une carte sans réglage épingle désormais, au premier montage, la paire
+       qu'elle affichait déjà (voir les deux widgets Saisonnalité) : rien ne change pour l'utilisateur,
+       sauf qu'il voit enfin laquelle est cochée. */
+    return L.map(function (p) { return [p, f(p)]; });
   }
 
   /* ═══ VERDICTS DÉTERMINISTES — FAMILLE SAISONNALITÉ & POSITIONNEMENT (23/08) ══════════════════
@@ -6462,7 +6501,9 @@
 
         function dessiner() {
           var sym = opt(it, W, 'symbole') || '';
-          var url = sym ? ('/api/seasonality?symbol=' + encodeURIComponent(sym)) : '/api/seasonality';
+          // Sans réglage : EUR/USD (le défaut du serveur), désormais épinglé et coché dans les réglages.
+          if (!sym) { sym = 'EURUSD'; if (_ecrisOpt(host, it, 'symbole', sym)) { var ix = _hostIdx(host); if (ix != null) _majCtx(ix); } }
+          var url = '/api/seasonality?symbol=' + encodeURIComponent(sym);
           cur = sym;
           fetch(url).then(function (r) { return r.json(); }).then(function (d) {
             // Reponse perimee : le reglage a change pendant le vol.
@@ -7152,11 +7193,11 @@
         var cur = null;
         function load(p) {
           cur = p;
-          if (badge) badge.textContent = '[' + fmt(p) + ']';
+          if (badge) badge.innerHTML = _paireAvecDrapeaux(p, fmt(p));
           fetch('/api/seasonality?symbol=' + encodeURIComponent(p)).then(function (r) { return r.json(); }).then(function (data) {
             if (!host.isConnected || p !== cur) return;                    // réponse périmée (changement de paire)
             if (!data || !Array.isArray(data.rows) || !data.rows.length) return fallback(tblWrap, 'Aucune donnée');
-            if (badge && data.symbol) badge.textContent = '[' + data.symbol + ']';
+            if (badge && data.symbol) badge.innerHTML = _paireAvecDrapeaux(p, data.symbol);
             var yrs = data.years || [];
             var moisCourant = new Date().getMonth();
             var head = '<tr><th class="season-th season-th--m"></th>' + yrs.map(function (y) { return '<th class="season-th">\'' + String(y).slice(2) + '</th>'; }).join('') + '<th class="season-th season-th--avg">Moy.</th></tr>';
@@ -7184,9 +7225,14 @@
             if (elVie) elVie.innerHTML = _vieSpan(Date.parse((data && data.updatedAt) || '') || 0);
           }).catch(function () { if (host.isConnected && p === cur) fallback(tblWrap, 'Saisonnalité indisponible.'); });
         }
+        // Sans réglage (carte d'avant le 24/09) : la paire du compte, ÉPINGLÉE sur la carte.
+        var epingler = function (p) {
+          load(p);
+          if (_ecrisOpt(host, it, 'paire', p)) { var ix = _hostIdx(host); if (ix != null) _majCtx(ix); }
+        };
         if (pin) load(pin);
         else fetch('/api/season-pair').then(function (r) { return r.json(); }).then(function (d) {
-          load((d && d.pair) ? d.pair : 'EURUSD');
+          epingler((d && d.pair) ? String(d.pair).toUpperCase().replace(/[^A-Z]/g, '') : 'EURUSD');
         }).catch(function () { load('EURUSD'); });
         return null;
       },
@@ -9342,7 +9388,7 @@
         + '<header class="wdg-head" title="' + (locked ? 'Carte verrouillée' : 'Maintenir pour déplacer') + '">'
         // (poignée ⠿ RETIRÉE 04/08 : l'en-tête entier est la zone de saisie — cf. _wireGrid)
         +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
-        +   (function (c) { return c ? '<span class="wdg-ctx" title="' + esc(c) + '">' + esc(c) + '</span>' : ''; })(_ctxHead(w, it))
+        +   _ctxHtml(w, it)
         // BANDEAU (21/08, demande user) : Réglages · REMPLACER · Fermer. « Remplacer » remonte des
         // réglages vers l'en-tête : changer le widget d'un emplacement est le geste le plus courant
         // de la personnalisation, il ne devait pas coûter deux clics et l'ouverture d'un panneau.
@@ -10699,7 +10745,7 @@ function _spansAffiches(lay) {
       // RENDU CIBLÉ : seul le widget réglé se re-monte, et seul son panneau se re-rend. Avant, un clic
       // sur une pastille reconstruisait tout le desk — les autres graphes scintillaient pour rien et
       // la grille remontait en haut de page.
-      save(); _syncPanel(i); API.refresh(i);
+      save(); _syncPanel(i); API.refresh(i); _majCtx(i);
     },
     // Variante SILENCIEUSE : enregistre la valeur SANS re-rendre. Pour les contrôles internes d'un widget
     // (barre de catégories COT, boutons d'unité DMX…) qui ont déjà mis leur propre affichage à jour :
