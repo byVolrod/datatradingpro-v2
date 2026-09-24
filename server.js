@@ -24,7 +24,7 @@ const _WA = require('./walabels');    // titres, gloses FR et descriptions des c
 const _SEA = require('./seance');     // récap de séance fabriqué par le desk : fenêtres, écarts, familles (pur + testé : scripts/seance-verif.js)
 const _WSEG = require('./wrapseg');   // mise en page du rapport de séance segmenté : rubriques, Macro complétée par notre calendrier (pur + testé)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
-const { fetchCOTData } = require('./scrapers/cot');
+const { fetchCOTData, fetchCOTHistory } = require('./scrapers/cot');
 const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs, outlookDiag, identifiantsPresents } = require('./scrapers/myfxbook');
 const auth = require('./auth');
 const mailer = require('./mailer');   // emails (bienvenue, renouvellement, reset)
@@ -31579,6 +31579,41 @@ app.post('/api/v2/briefing/regen', requireAdmin, async (req, res) => {
   if (Date.now() - _briefingEssai < 2 * 60e3) return res.json(_briefing ? Object.assign({ aujourdhui: true }, _briefing) : { vide: true, raison: 'Une rédaction vient d’être tentée : réessayez dans deux minutes.' });
   const b = await _briefingGenerer();
   res.json(b ? Object.assign({ aujourdhui: true }, b) : { vide: true, raison: _briefingEchec || 'Rédaction impossible pour le moment.' });
+});
+
+/* ══ V3 · VUE PAIRE EN GRILLE : DEUX LECTURES DE DONNÉES (admin + « Aperçu V2 ») ═══════════════════════
+   · /api/v2/cot-historique : position nette hebdomadaire d'une devise sur 1 à 15 ans (CFTC Public
+     Reporting, API officielle et gratuite ; une requête pour les 7 contrats, gardée 12 h).
+   · /api/v2/saisonnalite : clôtures MENSUELLES Yahoo Finance sur 15 ans d'une paire → carte de
+     chaleur mois × années, année type 5/10/15 ans, statistiques du mois (saison.js, calculs purs).
+     Gardée 12 h par paire (une clôture mensuelle ne bouge qu'une fois par mois). */
+const saisonMod = require('./saison');
+const _saisCache = new Map();   // paire → { at, data }
+app.get('/api/v2/cot-historique', requireAdmin, async (req, res) => {
+  if (!_v2Actif()) return res.status(404).end();
+  const ccy = String(req.query.ccy || '').toUpperCase();
+  if (!/^(USD|EUR|GBP|JPY|CHF|CAD|AUD|NZD)$/.test(ccy)) return res.status(400).json({ error: 'devise inconnue' });
+  try {
+    const h = await fetchCOTHistory('noncomm', parseInt(req.query.semaines, 10) || 260);
+    res.json({ ccy, type: 'noncomm', rows: (h && h[ccy]) || [], source: 'CFTC Commitments of Traders (Legacy, non-commerciaux)' });
+  } catch (e) { res.status(503).json({ error: 'CFTC indisponible : ' + String(e.message || e).slice(0, 120) }); }
+});
+app.get('/api/v2/saisonnalite', requireAdmin, async (req, res) => {
+  if (!_v2Actif()) return res.status(404).end();
+  const p = String(req.query.pair || '').toUpperCase().replace(/[^A-Z]/g, '');
+  if (!/^[A-Z]{6}$/.test(p)) return res.status(400).json({ error: 'paire invalide' });
+  const c = _saisCache.get(p);
+  if (c && Date.now() - c.at < 12 * 3600e3) return res.json(c.data);
+  try {
+    const { raw } = await _yfChart(p + '=X', '1mo', '15y');
+    const r = raw && raw.chart && raw.chart.result && raw.chart.result[0];
+    const ts = (r && r.timestamp) || [], closes = (r && r.indicators && r.indicators.quote && r.indicators.quote[0] && r.indicators.quote[0].close) || [];
+    if (ts.length < 13) return res.status(503).json({ error: 'clôtures mensuelles indisponibles' });
+    const data = Object.assign({ pair: p, source: 'Yahoo Finance, clôtures mensuelles', lu: Date.now() }, saisonMod.saisonnalite(ts, closes));
+    _saisCache.set(p, { at: Date.now(), data });
+    if (_saisCache.size > 40) _saisCache.delete(_saisCache.keys().next().value);
+    res.json(data);
+  } catch (e) { res.status(503).json({ error: String(e.message || e).slice(0, 120) }); }
 });
 
 app.get('/api/risk-sentiment', async (req, res) => {

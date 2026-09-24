@@ -153,4 +153,58 @@ async function fetchCOTData(type = 'noncomm') {
   }
 }
 
-module.exports = { fetchCOTData };
+
+/* ═══ HISTORIQUE COT PAR DEVISE (V3, vue paire en grille — 24/09) ════════════════════════════════════
+   Même source officielle et gratuite (CFTC Public Reporting), mêmes colonnes que le dernier rapport,
+   mais sur N semaines : position nette, longs, shorts, par devise, avec l'USD dérivé comme partout
+   ailleurs (agrégat inverse des six autres, date par date). UNE requête pour les 7 contrats, gardée
+   12 h en mémoire (le rapport est hebdomadaire). Semaines plafonnées à 780 (15 ans). */
+const _histo = {};   // "type|semaines" → { ts, data }
+function _histoDepuisLignes(rows, cfg) {
+  const parDate = {};
+  for (const row of rows) {
+    const c = FX_CONTRACTS.find(x => x.code === row.cftc_contract_market_code);
+    if (!c) continue;
+    const date = String(row.report_date_as_yyyy_mm_dd || '').slice(0, 10);
+    if (!date) continue;
+    const l = parseInt(row[cfg.longCol]) || 0, s = parseInt(row[cfg.shortCol]) || 0;
+    (parDate[date] = parDate[date] || {})[c.key] = { long: l, short: s, net: l - s };
+  }
+  const dates = Object.keys(parDate).sort();
+  const out = {};
+  for (const d of dates) {
+    const j = parDate[d];
+    for (const k of Object.keys(j)) (out[k] = out[k] || []).push(Object.assign({ date: d }, j[k]));
+    // USD dérivé : seulement si les SIX autres devises sont publiées ce jour-là (sinon l'agrégat mentirait).
+    const autres = FX_CONTRACTS.map(c => j[c.key]).filter(Boolean);
+    if (autres.length === FX_CONTRACTS.length) {
+      const l = autres.reduce((a, x) => a + x.short, 0), s = autres.reduce((a, x) => a + x.long, 0);
+      (out.USD = out.USD || []).push({ date: d, long: l, short: s, net: l - s });
+    }
+  }
+  return out;
+}
+async function fetchCOTHistory(type = 'noncomm', semaines = 260) {
+  if (!VALID_TYPES.includes(type)) type = 'noncomm';
+  const n = Math.max(8, Math.min(780, parseInt(semaines, 10) || 260));
+  const k = type + '|' + n;
+  if (_histo[k] && Date.now() - _histo[k].ts < 12 * 3600e3) return _histo[k].data;
+  const cfg = TYPE_CONFIG[type];
+  const codes = FX_CONTRACTS.map(c => `'${c.code}'`).join(',');
+  const url = `https://publicreporting.cftc.gov/resource/${cfg.endpoint}.json`
+    + `?$select=cftc_contract_market_code,report_date_as_yyyy_mm_dd,${cfg.longCol},${cfg.shortCol}`
+    + `&$where=cftc_contract_market_code in(${codes})`
+    + `&$order=report_date_as_yyyy_mm_dd DESC&$limit=${n * FX_CONTRACTS.length + 20}`;
+  try {
+    const r = await axios.get(url, { timeout: 25000, headers: { Accept: 'application/json' } });
+    if (!Array.isArray(r.data) || !r.data.length) throw new Error('réponse CFTC vide');
+    const data = _histoDepuisLignes(r.data, cfg);
+    _histo[k] = { ts: Date.now(), data };
+    return data;
+  } catch (e) {
+    if (_histo[k]) return _histo[k].data;   // dernière lecture connue plutôt que rien
+    throw e;
+  }
+}
+
+module.exports = { fetchCOTData, fetchCOTHistory, _histoDepuisLignes };

@@ -32,6 +32,10 @@
     var b = document.createElement('script');
     b.src = '/js/v2/briefing-ui.js?v=' + VER; b.defer = true;
     document.head.appendChild(b);
+    // Vue paire en grille de panneaux (V3) : COT et Saisonnalité complets.
+    var pg = document.createElement('script');
+    pg.src = '/js/v2/paire.js?v=' + VER; pg.defer = true;
+    document.head.appendChild(pg);
   }
 
   function poserInterrupteur() {
