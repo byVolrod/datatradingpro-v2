@@ -319,7 +319,8 @@ console.log('\n── La dernière erreur de chaque fournisseur, sans secret ─
   v('ai.status() expose les erreurs', /erreurs: JSON\.parse\(JSON\.stringify\(_derniereErreur\)\)/.test(AI));
   const SRV2 = lire('server.js'), ADM = lire('public/js/admin.js');
   v('… le moniteur les reçoit', /erreurs: st\.erreurs \|\| \{\},/.test(SRV2));
-  v('… et chaque carte fournisseur affiche la sienne', (ADM.match(/, '(gemini|github|openrouter|cohere|cloudflare|claude)'\)/g) || []).length >= 6 && /Dernière erreur/.test(ADM));
+  // (24/09) la carte Gemini passe un 7e argument (le détail par clé) : il est toléré après l'identifiant.
+  v('… et chaque carte fournisseur affiche la sienne', (ADM.match(/, '(gemini|github|openrouter|cohere|cloudflare|claude)'(?:, \w+)?\)/g) || []).length >= 6 && /Dernière erreur/.test(ADM));
 }
 
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));

@@ -34,12 +34,71 @@ let _geminiCursor = 0;   // round-robin : clé de départ différente à chaque 
 // Cascade de modèles GRATUITS : chaque modèle a un quota gratuit SÉPARÉ → quand l'un renvoie 429
 // (quota épuisé), on bascule sur le suivant ⇒ on cumule plusieurs quotas gratuits.
 // Les '-lite' ont un quota gratuit bien plus élevé. Surchargeable via GEMINI_MODEL.
-const GEMINI_MODELS  = (process.env.GEMINI_MODEL || 'gemini-2.5-flash,gemini-2.0-flash,gemini-2.5-flash-lite,gemini-2.0-flash-lite')
+// 24/09 : la famille 2.0 est retirée du catalogue Google (404 mesurés) → défaut = familles servies, plus
+// les alias « -latest » que Google fait pointer sur le Flash courant. Le catalogue lu au démarrage
+// (_gemDecouvrir, ci-dessous) écarte de toute façon un modèle absent et complète si besoin.
+const GEMINI_MODELS  = (process.env.GEMINI_MODEL || 'gemini-2.5-flash,gemini-2.5-flash-lite,gemini-flash-latest,gemini-flash-lite-latest')
   .split(',').map(s => s.trim()).filter(Boolean);
 // Modèles « légers » : tâches courtes (titres, tags, extractions) routées d'abord sur les -lite
 // (quota RPD ~4× supérieur) → préserve le quota rare de gemini-2.5-flash pour les gros JSON.
 const GEMINI_MODELS_LITE_FIRST = [...GEMINI_MODELS].sort((a, b) => (a.includes('lite') ? 0 : 1) - (b.includes('lite') ? 0 : 1));
 const LITE_MAXTOK = parseInt(process.env.GEMINI_LITE_MAXTOK, 10) || 400;   // ≤400 tokens demandés → cascade lite d'abord
+
+// ── MODÈLES GEMINI RETIRÉS, ÉCARTÉS ET REMPLACÉS AUTOMATIQUEMENT (24/09) ─────────────────────────────
+// INCIDENT (Moniteur IA, 23/09) : « Gemini · Clés 7 (28 gelées) · HTTP 404 modèle introuvable ». Google
+// RETIRE ses modèles : un 404 est une propriété du MODÈLE, pas de la clé. Il était pourtant traité par
+// couple (modèle, clé) : le modèle mort était retenté sur les 7 clés, chaque couple gelé 6 h, et ces
+// couples gonflaient la « pression » qui ralentit ensuite TOUTE l'IA de fond — Gemini semblait éteint.
+// Désormais : 1) un 404 écarte le MODÈLE pour toutes les clés d'un coup ; 2) au démarrage puis toutes les
+// 6 h, on lit le CATALOGUE officiel (ListModels) : un modèle configuré absent est écarté, un modèle revenu
+// réintégré, et s'il reste moins de 2 modèles vivants on complète avec les Flash STABLES réellement servis.
+// Un modèle retiré ne peut plus éteindre Gemini, et aucun nom de modèle n'est plus à tenir à la main.
+const _gemModelDead = new Map();   // modèle → { until, raison }
+const _gemAjoutes = [];            // modèles ajoutés automatiquement depuis le catalogue
+let _gemCatalogue = null;          // { at, n, ajoutes } — dernier catalogue lu
+function _gemModelIsDead(m) { const d = _gemModelDead.get(m); return !!d && d.until > Date.now(); }
+function _gemMarkDead(m, raison, ms) { _gemModelDead.set(m, { until: Date.now() + (ms || 12 * 3600e3), raison: String(raison || '').slice(0, 80) }); }
+function _gemLive(list) { return list.filter(m => !_gemModelIsDead(m)); }
+function _gemRecalcLite() { const s = [...GEMINI_MODELS].sort((a, b) => (a.includes('lite') ? 0 : 1) - (b.includes('lite') ? 0 : 1)); GEMINI_MODELS_LITE_FIRST.length = 0; GEMINI_MODELS_LITE_FIRST.push(...s); }
+// Rang d'un remplaçant : versions numérotées STABLES d'abord (la plus récente en tête), puis les alias
+// « -latest ». Jamais preview / exp / tts / image / audio : on ne met pas un modèle d'essai en production.
+function _gemRangRemplacant(nom) {
+  const m = /^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/.exec(nom);
+  if (m) return 100 + parseFloat(m[1]) * 10 - (m[2] ? 1 : 0);
+  if (/^gemini-flash(-lite)?-latest$/.test(nom)) return 50 - (/lite/.test(nom) ? 1 : 0);
+  return -1;
+}
+// Pure (aucun I/O) → éprouvée au banc sur un vrai catalogue. `dispo` = noms servis avec generateContent.
+function _gemAppliquerCatalogue(dispo) {
+  if (!dispo || !dispo.size) return false;   // catalogue vide = lecture ratée → on ne touche à rien
+  for (const m of GEMINI_MODELS) { if (dispo.has(m)) _gemModelDead.delete(m); else _gemMarkDead(m, 'absent du catalogue Google', 12 * 3600e3); }
+  if (_gemLive(GEMINI_MODELS).length < 2) {
+    const cands = [...dispo].filter(n => _gemRangRemplacant(n) >= 0 && !GEMINI_MODELS.includes(n)).sort((a, b) => _gemRangRemplacant(b) - _gemRangRemplacant(a));
+    for (const n of cands) { if (_gemLive(GEMINI_MODELS).length >= 3) break; GEMINI_MODELS.push(n); _gemAjoutes.push(n); }
+    _gemRecalcLite();
+  }
+  _gemCatalogue = { at: Date.now(), n: dispo.size, ajoutes: [..._gemAjoutes] };
+  return true;
+}
+async function _gemDecouvrir() {
+  if (!GEMINI_KEYS.length) return false;
+  for (let i = 0; i < Math.min(3, GEMINI_KEYS.length); i++) {   // 3 clés au plus : une clé refusée ne doit pas aveugler la lecture
+    const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=' + GEMINI_KEYS[i], { signal: ctrl.signal });
+      if (!r.ok) continue;
+      const j = await r.json();
+      const dispo = new Set((j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => String(m.name || '').replace(/^models\//, '')));
+      if (_gemAppliquerCatalogue(dispo)) {
+        console.log(`[AI] Catalogue Gemini : ${dispo.size} modèles servis · vivants : ${_gemLive(GEMINI_MODELS).join(', ') || 'aucun'}${_gemAjoutes.length ? ' · ajoutés : ' + _gemAjoutes.join(', ') : ''}`);
+        return true;
+      }
+    } catch {} finally { clearTimeout(to); }
+  }
+  return false;
+}
+{ const t1 = setTimeout(() => { _gemDecouvrir().catch(() => {}); }, 5000); if (t1.unref) t1.unref();
+  const t2 = setInterval(() => { _gemDecouvrir().catch(() => {}); }, 6 * 3600e3); if (t2.unref) t2.unref(); }
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
 
@@ -218,8 +277,13 @@ function _noteUsage(provider, model, inTok, outTok) {
   if (_onUsage) { try { _onUsage(provider, model, inTok || 0, outTok || 0); } catch {} }
 }
 
+// Modèles qui refusent `thinkingBudget: 0` (réflexion non désactivable sur certaines générations récentes) :
+// appris au premier 400 qui le dit, puis appelés sans ce réglage — au lieu d'échouer à chaque appel.
+const _gemSansThinking = new Set();
 async function _gemini(model, key, prompt, maxTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+  const _cfg = { maxOutputTokens: maxTokens, temperature: 0.4 };
+  if (!_gemSansThinking.has(model)) _cfg.thinkingConfig = { thinkingBudget: 0 };
   // Timeout 20s : une requête Gemini bloquée ne doit jamais s'empiler / geler la file (anti-OOM/502)
   const _ctrl = new AbortController();
   const _to = setTimeout(() => _ctrl.abort(), 20000);
@@ -234,12 +298,13 @@ async function _gemini(model, key, prompt, maxTokens) {
         contents: [{ parts: [{ text: prompt }] }],
         // thinkingBudget:0 → pas de "réflexion" qui consomme les tokens de sortie
         // temperature 0.4 (alignée sur Claude) → moins de variance, sorties homogènes
-        generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4, thinkingConfig: { thinkingBudget: 0 } },
+        generationConfig: _cfg,
       }),
     });
   } finally { clearTimeout(_to); }
   if (!r.ok) {
     const t = await r.text().catch(() => '');
+    if (r.status === 400 && _cfg.thinkingConfig && /thinking/i.test(t)) { _gemSansThinking.add(model); return _gemini(model, key, prompt, maxTokens); }
     const err = new Error(`Gemini ${model} ${r.status}: ${t.slice(0, 150)}`);
     err.status = r.status;
     // Google renvoie souvent le délai à respecter dans le corps du 429 ("retryDelay": "37s") → on le lit
@@ -366,6 +431,28 @@ function _gemCool(model, idx, status, retryDelayMs, quotaDaily) {
   _gemCooldown.set(k, Date.now() + ms);
 }
 function _gemIsCool(model, idx) { const t = _gemCooldown.get(model + '|' + idx); return !!t && t > Date.now(); }
+/* ── TÉLÉMÉTRIE PAR CLÉ GEMINI (24/09, question user : « toutes les clés Gemini fonctionnent ? ») ──
+   L'agrégat disait « Gemini a répondu N fois » sans dire QUELLE clé porte et laquelle est morte. Compteurs
+   du jour par clé (réussites, 429, autres refus), remis à zéro chaque jour ; le serveur les persiste heure
+   par heure dans les seaux `aitel:*` → la réponse ne dépend plus de la mémoire du conteneur. */
+let _gkDay = '', _gkStats = [];
+function _gkNote(idx, champ, status) {
+  const d = new Date().toISOString().slice(0, 10);
+  if (d !== _gkDay) { _gkDay = d; _gkStats = []; }
+  const s = _gkStats[idx] || (_gkStats[idx] = { ok: 0, e429: 0, fail: 0, lastOk: 0, lastErr: 0, lastStatus: 0 });
+  s[champ]++;
+  if (champ === 'ok') s.lastOk = Date.now(); else { s.lastErr = Date.now(); s.lastStatus = status || 0; }
+}
+// Une clé est « gelée » quand AUCUN modèle vivant n'est utilisable avec elle (et non plus : « un couple gelé »).
+function _gkEtat() {
+  const vivants = _gemLive(GEMINI_MODELS);
+  return GEMINI_KEYS.map((_, i) => {
+    const s = _gkStats[i] || { ok: 0, e429: 0, fail: 0, lastOk: 0, lastErr: 0, lastStatus: 0 };
+    const dispo = vivants.filter(m => !_gemIsCool(m, i) && !_hBroken(m, i)).length;
+    return { n: i + 1, ok: s.ok, e429: s.e429, fail: s.fail, lastOk: s.lastOk || null, lastErr: s.lastErr || null, lastStatus: s.lastStatus || null,
+             modelesDispo: dispo, modelesTotal: vivants.length, gelee: vivants.length > 0 && dispo === 0 };
+  });
+}
 // Suivi quotidien (visibilité "combien d'appels / 429 par jour").
 const _AI_STATS_ZERO = () => ({ gemini: 0, gemini429: 0, github: 0, githubFail: 0, openrouter: 0, openrouterFail: 0, groq: 0, groqFail: 0, cohere: 0, cohereFail: 0, cloudflare: 0, cloudflareFail: 0, xai: 0, xaiFail: 0, claude: 0, claudeFail: 0, fallback: 0 });
 const _AI_TOK_ZERO   = () => ({ geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, openrouterIn: 0, openrouterOut: 0, groqIn: 0, groqOut: 0, cohereIn: 0, cohereOut: 0, cloudflareIn: 0, cloudflareOut: 0, xaiIn: 0, xaiOut: 0, claudeIn: 0, claudeOut: 0 });
@@ -464,7 +551,7 @@ function setQuotaPressure(f) { _quotaPressure = Math.max(0, Math.min(1, Number(f
 function _gemAvailFraction() {
   const n = GEMINI_KEYS.length; if (!n) return 0;
   let live = 0, tot = 0;
-  for (const m of GEMINI_MODELS) for (let i = 0; i < n; i++) { tot++; if (!_gemIsCool(m, i) && !_hBroken(m, i)) live++; }
+  for (const m of _gemLive(GEMINI_MODELS)) for (let i = 0; i < n; i++) { tot++; if (!_gemIsCool(m, i) && !_hBroken(m, i)) live++; }   // modèles RETIRÉS exclus : ils ne sont pas une indisponibilité
   return tot ? live / tot : 0;
 }
 function _healthPressure() {
@@ -473,7 +560,7 @@ function _healthPressure() {
   for (const [, h] of _gemHealth) { if (h.breakerUntil <= Date.now()) { sum += h.ewmaMs; k++; } }
   const lat = k ? Math.max(0, Math.min(1, (sum / k - 1500) / 6500)) : 0;   // 1.5s sain→0 ; 8s→1
   let streaks = 0, tot = 0; const n = GEMINI_KEYS.length;
-  for (const m of GEMINI_MODELS) for (let i = 0; i < n; i++) { tot++; if ((_gem429Streak.get(m + '|' + i) || 0) >= 1) streaks++; }
+  for (const m of _gemLive(GEMINI_MODELS)) for (let i = 0; i < n; i++) { tot++; if ((_gem429Streak.get(m + '|' + i) || 0) >= 1) streaks++; }
   const r429 = tot ? streaks / tot : 0;
   return Math.max(0, Math.min(1, unavail * 0.55 + lat * 0.20 + r429 * 0.25));   // l'indispo domine ; latence & 429 anticipent
 }
@@ -1114,7 +1201,7 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
     let lastErr;
     const n = GEMINI_KEYS.length;
     _geminiCursor = (_geminiCursor + 1) % n;
-    const models = maxTokens <= LITE_MAXTOK ? GEMINI_MODELS_LITE_FIRST : GEMINI_MODELS;
+    const models = _gemLive(maxTokens <= LITE_MAXTOK ? GEMINI_MODELS_LITE_FIRST : GEMINI_MODELS);   // modèles retirés écartés d'emblée
     // Anti-rafale : 1 jeton/appel → lisse le débit ENTRE les appels (la cause des 429). MAIS si AUCUN
     // couple (modèle,clé) n'est utilisable (tout en cooldown/breaker), on NE gate PAS (sinon on attend
     // 6 s pour rien) → failover immédiat vers GitHub/Claude pendant une panne Gemini.
@@ -1126,14 +1213,18 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
       cand.sort((a, b) => _hScore(model, b) - _hScore(model, a));   // meilleure santé d'abord
       for (const idx of cand) {
         const t0 = Date.now();
-        try { const out = await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens); notePlafondOk('gemini', _bud); _hOk(model, idx, Date.now() - t0); _aiStat('gemini'); return out; }
+        try { const out = await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens); notePlafondOk('gemini', _bud); _hOk(model, idx, Date.now() - t0); _aiStat('gemini'); _gkNote(idx, 'ok'); return out; }
         catch (e) {
           lastErr = e; const is429 = e.status === 429;
+          // 404 = le MODÈLE est retiré chez Google, pas la clé : on l'écarte pour TOUTES les clés et on passe
+          // au modèle suivant tout de suite (avant : retenté sur les 7 clés, 7 couples gelés 6 h chacun).
+          if (e.status === 404) { _gemMarkDead(model, 'HTTP 404 (modèle retiré par Google)'); console.warn(`[AI] Gemini ${model} : 404 → modèle écarté pour toutes les clés`); break; }
+          _gkNote(idx, is429 ? 'e429' : 'fail', e.status);
           if (estRefusTaille(e)) notePlafondKo('gemini', _bud);
           _hFail(model, idx, is429);
           _noteErreur('gemini', e);
           if (is429) { _gemCool(model, idx, 429, e.retryDelayMs, e.quotaDaily); _aiStat('gemini429'); }
-          else if (e.status === 404 || e.status === 503 || e.status === 500) _gemCool(model, idx, e.status);
+          else if (e.status === 503 || e.status === 500) _gemCool(model, idx, e.status);
           console.warn(`[AI] Gemini ${model} clé #${idx + 1}/${n} échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suivant`);
         }
       }
@@ -1219,7 +1310,12 @@ function status() {
     tokensToday: _aiTok,                                                    // tokens RÉELS in/out par provider (lus du champ usage)
     backoff: { active: backoffActive(), totalFails: _totalFails },
     erreurs: JSON.parse(JSON.stringify(_derniereErreur)),                   // dernière erreur PAR fournisseur (code, message sans secret, date) — cf. _noteErreur          // panne totale en cours ? (les self-heals s'espacent)
-    geminiCoolingNow: [..._gemCooldown.entries()].filter(([, t]) => t > Date.now()).length,   // couples (modèle,clé) en cooldown 429
+    geminiCoolingNow: [..._gemCooldown.entries()].filter(([k, t]) => t > Date.now() && !_gemModelIsDead(k.split('|')[0])).length,   // couples (modèle vivant, clé) en cooldown
+    geminiKeysDetail: _gkEtat(),                                                                     // par clé : réussites, 429, refus, modèles utilisables
+    geminiKeysFrozen: _gkEtat().filter(k => k.gelee).length,                                         // CLÉS gelées (aucun modèle vivant utilisable), pas des couples
+    geminiModelsLive: _gemLive(GEMINI_MODELS),
+    geminiModelsDead: [..._gemModelDead.entries()].filter(([, d]) => d.until > Date.now()).map(([m, d]) => ({ m, raison: d.raison, until: d.until })),
+    geminiCatalogue: _gemCatalogue,                                                                  // dernier catalogue Google lu (nb de modèles, ajouts automatiques)
     // ── AI Traffic Intelligence ──
     intel: {
       rpmTarget: _GEM_RPM,

@@ -345,7 +345,10 @@ function phaseServiceWorker() {
           if (ongletTaux) await new Promise(r => setTimeout(r, 2200));
           _ent = await page.evaluate(() => [...document.querySelectorAll('.wdg-vuehost .panel-header')].filter(h => h.offsetParent).map(h => {
             const t = h.querySelector('.panel-title'); const hb = h.getBoundingClientRect(); const tb = t ? t.getBoundingClientRect() : null;
-            return { nom: t ? (t.textContent || '').trim().slice(0, 28) : '?', debord: h.scrollHeight - h.clientHeight, haut: tb ? Math.round(tb.top - hb.top) : 0 };
+            const g = h.querySelector(':scope > .panel-header-left'), c = h.querySelector(':scope > .panel-header-controls');
+            const gb = g ? g.getBoundingClientRect() : null, cb = c ? c.getBoundingClientRect() : null;
+            return { nom: t ? (t.textContent || '').trim().slice(0, 28) : '?', debord: h.scrollHeight - h.clientHeight, haut: tb ? Math.round(tb.top - hb.top) : 0,
+                     ecart: (gb && cb) ? Math.round(Math.abs((gb.top + gb.height / 2) - (cb.top + cb.height / 2))) : null };
           }));
       } catch (e) { console.log('  ~ mesure de l\'en-tête Taux impossible : ' + e.message); }
       await page.close();
@@ -381,6 +384,14 @@ function phaseServiceWorker() {
         v('l\'en-tête d\'une vue adoptée garde son titre entier (rien ne déborde par le haut)',
           ongletTaux && (_ent = _ent || []).length > 0 && _ent.every(e => e.debord <= 1 && e.haut >= -1),
           _ent.length ? _ent.map(e => '« ' + e.nom + ' » : ' + e.debord + ' px débordés, titre à ' + e.haut + ' px du haut').join(' · ') : 'onglet Taux introuvable ou sans en-tête : le contrôle ne prouve rien');
+        /* 24/09 (capture user « aligne les boutons, c'est en décalé sur mobile ») : « TAUX DES BANQUES »
+           seul sur sa ligne, ses quatre icônes sur la suivante. La règle de la barre de Mon Desk
+           (`#view-widgets .panel-header-left { flex: 1 1 100% }`) atteignait aussi l'en-tête des
+           vues adoptées. Le contrôle précédent restait vert : rien n'y DÉBORDAIT, c'était seulement
+           sur deux lignes. On mesure donc l'écart vertical entre le titre et ses commandes. */
+        v('l\'en-tête Taux garde son titre et ses commandes sur la même ligne (rien de décalé)',
+          (_ent || []).length > 0 && _ent.every(e => e.ecart !== null && e.ecart <= 4),
+          (_ent || []).map(e => '« ' + e.nom + ' » : ' + e.ecart + ' px entre le milieu du titre et celui des commandes').join(' · '));
       }
       /* ══ LE DOIGT N'EST PAS ENFERMÉ DANS UN WIDGET (02/09, capture user) ═══════════════════════
          « Je ne peux pas descendre plus bas dans le fil d'actualité, ça me bloque. »

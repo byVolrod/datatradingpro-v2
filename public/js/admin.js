@@ -1820,20 +1820,36 @@
       const esc2 = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
       return [['Dernière erreur', `<span title="${esc2(e.msg)}">${esc2(code)} · ${quand}</span>`]];
     };
-    const card = (label, tier, score, rows, chips, cle) => {
+    const card = (label, tier, score, rows, chips, cle, extra) => {
       const col = _hcol(score);
       rows = rows.concat(cle ? errRow(cle) : []);
       return `<div class="aim-prov"><div class="aim-prov-top"><span class="aim-prov-dot" style="background:${col};box-shadow:0 0 5px ${col}66"></span><span class="aim-prov-name">${label} <small>${tier}</small></span><span class="aim-prov-score" style="color:${col}">${score == null ? '-' : score}</span></div>`
         + `<div class="aim-prov-bar"><i style="width:${score == null ? 0 : score}%;background:${col}"></i></div>`
         + rows.map(r => `<div class="aim-kv"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')
         + (chips && chips.length ? `<div class="aim-chips">${chips.join('')}</div>` : '')
+        + (extra || '')
         + `</div>`;
     };
     const chip = (txt, cls) => `<span class="aim-chip${cls ? ' ' + cls : ''}">${txt}</span>`;
+    /* 24/09 : Gemini, clé par clé (question user « toutes les clés fonctionnent ? ») + modèles retirés par
+       Google, écartés et remplacés automatiquement (plus de « 28 gelées » trompeur ni de 404 en boucle). */
+    const escG = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const agoG = ts => { if (!ts) return 'jamais'; const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'à l’instant' : m < 60 ? 'il y a ' + m + ' min' : 'il y a ' + Math.round(m / 60) + ' h'; };
+    const gLive = Array.isArray(g.modelsLive) ? g.modelsLive : [], gDead = Array.isArray(g.modelsDead) ? g.modelsDead : [];
+    const gAjout = (g.catalogue && Array.isArray(g.catalogue.ajoutes)) ? g.catalogue.ajoutes : [];
+    const gKd = Array.isArray(g.keysDetail) ? g.keysDetail : [], gKw = Array.isArray(g.keysWindow) ? g.keysWindow : [];
+    const gKeysHtml = gKd.length ? `<details class="aim-gk" style="margin-top:8px"><summary style="cursor:pointer;color:#c8ccd4;font-size:11px">Détail par clé (${gKd.length})</summary>` + gKd.map(k => {
+      const col = k.gelee ? '#ef4444' : (k.ok > 0 ? '#22c55e' : (k.e429 > 0 ? '#ffb300' : '#6b7280'));
+      const etat = k.gelee ? 'gelée' : (k.ok > 0 ? 'répond' : (k.e429 > 0 ? 'quota atteint' : 'pas encore sollicitée'));
+      const w = gKw[k.n - 1];
+      return `<div class="aim-kv"><span><i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:6px"></i>Clé n°${k.n}</span><b style="color:${col}">${etat} · ${k.ok} ok · ${k.e429}×429${k.fail ? ' · ' + k.fail + ' refus' : ''}</b></div>`
+        + `<div class="aim-kpi-s" style="margin:-4px 0 6px 13px;color:#6b7280">dernier succès ${agoG(k.lastOk)}${k.lastStatus ? ' · dernier refus HTTP ' + escG(k.lastStatus) : ''} · ${k.modelesDispo}/${k.modelesTotal} modèle(s) utilisable(s)${w ? ' · fenêtre : ' + w.ok + ' ok / ' + w.e429 + '×429' : ''}</div>`;
+    }).join('') + '</details>' : '';
     document.getElementById('aim-providers').innerHTML =
       card('Gemini', 'gratuit', h.gemini, [
-        ['Clés', g.keys + ' (' + (g.coolingKeys || 0) + ' gelées)'], ['Appels aujourd’hui', g.callsToday + ''], ['Erreurs 429', g.err429Today + ''], ['RPM effectif', (g.effRpm || 0) + ' / ' + (g.rpmTarget || 0)],
-      ], [chip('repli n°1'), g.coolingKeys ? chip(g.coolingKeys + ' clé(s) en cooldown') : chip('clés OK', 'aim-chip--ok'), g.breakersOpen ? chip(g.breakersOpen + ' breaker ouvert') : ''].filter(Boolean), 'gemini')
+        ['Clés', g.keys + ' (' + (g.coolingKeys || 0) + ' gelée' + ((g.coolingKeys || 0) > 1 ? 's' : '') + ')'], ['Modèles actifs', gLive.length ? escG(gLive.join(', ')) : 'aucun'], ['Appels aujourd’hui', g.callsToday + ''], ['Erreurs 429', g.err429Today + ''], ['RPM effectif', (g.effRpm || 0) + ' / ' + (g.rpmTarget || 0)],
+      ], [chip('fournisseur principal', 'aim-chip--ok'), g.coolingKeys ? chip(g.coolingKeys + ' clé(s) sans modèle utilisable') : chip('clés OK', 'aim-chip--ok'), g.breakersOpen ? chip(g.breakersOpen + ' breaker ouvert') : '',
+          ...gDead.map(d => chip('retiré : ' + escG(d.m) + ' (écarté auto)')), ...gAjout.map(m => chip('ajouté : ' + escG(m), 'aim-chip--ok'))].filter(Boolean), 'gemini', gKeysHtml)
       + card('GitHub Models', 'gratuit', h.github, gh.tokens ? [
         ['Tokens × modèles', gh.tokens + ' × ' + (gh.models || 1)], ['Appels aujourd’hui', gh.callsToday + ''], ['Échecs (jour)', (gh.failToday || 0) + ''],
       ] : [['État', 'non configuré']], gh.tokens ? [gh.coolingKeys ? chip(gh.coolingKeys + ' (modèle,token) gelés') : chip('nominal', 'aim-chip--ok')] : [], 'github')

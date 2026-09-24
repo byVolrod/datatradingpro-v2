@@ -16401,6 +16401,16 @@ body.home-mode .view-panel { visibility: hidden; }
    ne passe pas à la ligne, et la hauteur minimale est exactement l'ancienne hauteur fixe. */
 @media (max-width: 560px) {
   #view-widgets .wdg-vuehost .panel-header { flex-wrap: wrap; row-gap: 4px; padding-top: 6px; padding-bottom: 6px; }
+  /* ── TITRE ET COMMANDES SUR LA MÊME LIGNE (24/09, capture user « aligne les boutons, c'est en
+     décalé sur mobile » : « TAUX DES BANQUES » seul sur sa ligne, les quatre icônes sur la suivante).
+     La barre de Mon Desk (bloc « (2) » plus haut) impose `flex: 1 1 100%` au titre ET aux commandes
+     pour mettre ses onglets et ses deux boutons sur deux rangées ; ses sélecteurs `#view-widgets
+     .panel-header-*` atteignaient AUSSI l'en-tête de chaque vue adoptée. Ici on rend au titre sa
+     largeur naturelle (il se tronque plutôt que de pousser) et on cale les commandes au bout de la
+     même ligne. Le retour à la ligne reste autorisé : si le titre et les icônes ne tiennent pas
+     vraiment ensemble, les commandes repassent dessous au lieu d'être coupées. */
+  #view-widgets .wdg-vuehost .panel-header > .panel-header-left { flex: 0 1 auto; min-width: 0; }
+  #view-widgets .wdg-vuehost .panel-header > .panel-header-controls { flex: 0 0 auto; margin-left: auto; justify-content: flex-end; }
 }
 #view-widgets .wdg-vuehost .panel-header .panel-title { padding-left: 0; margin-left: 0; }
 
@@ -16801,6 +16811,21 @@ body.theme-light .cot-cell--na .cot-badge { background: var(--bg3); color: var(-
   .wdg-cal-bar .wdg-cal-nav { margin-left: auto; gap: 3px; }
   .wdg-cal-bar .wdg-cal-per { min-width: 0; padding: 2px 6px; }
   .wdg-cal-bar .cal-search-wrap { order: 3; flex: 1 1 100%; max-width: none; }
+  /* ── ET MÊME SUR UN PETIT TÉLÉPHONE (24/09, capture user « idem pour ici ») : à 320 px la règle
+     ci-dessus ne suffisait plus — filtres (190 px) + navigation (135 px) dépassaient la ligne et la
+     navigation basculait SEULE dessous, calée à droite : le « décalé » de la capture. Un élément flex
+     passe à la ligne selon sa taille DE BASE, pas selon ce qu'il pourrait céder : on donne donc aux
+     filtres une base nulle (ils prennent ce qui reste à côté de la navigation) et aux pastilles le
+     droit de se resserrer. Les flèches gardent leurs 36 px tactiles. */
+  .wdg-cal-bar .cal-impact-filter { flex: 1 1 0; min-width: 0; }
+  .wdg-cal-bar .cal-imp-btn { flex: 0 1 auto; min-width: 0; white-space: nowrap; }
+}
+@container dtpcal (max-width: 360px) {
+  .wdg-cal-bar { gap: 4px; }
+  .wdg-cal-bar .cal-impact-filter { gap: 2px; }
+  .wdg-cal-bar .cal-imp-btn { padding: 4px 5px; letter-spacing: 0; }
+  .wdg-cal-bar .wdg-cal-nav { gap: 0; }
+  .wdg-cal-bar .wdg-cal-per { padding: 2px 3px; }
 }
 
 /* ── ALERTES : deux types ajoutés à la taxonomie (04/08). « Institutions » quitte la teinte des

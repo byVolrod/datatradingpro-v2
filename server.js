@@ -1359,6 +1359,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260924-mobile-alignement', ts: Date.UTC(2026, 8, 24, 0, 30), title: 'Mon Desk sur téléphone : titres et boutons bien alignés', desc: 'Vous nous avez signalé deux décalages sur téléphone. Dans l’onglet Taux, le titre « Taux des banques » occupait seul sa ligne et ses boutons de réglage tombaient sur la suivante : ils sont maintenant côte à côte, sur une seule ligne. Dans le Calendrier, sur les petits écrans, la navigation de semaine (‹ 21 – 25 sept. ›) partait seule sous les filtres Tous, Élevé, Moyen et Faible : elle reste désormais sur la même ligne qu’eux. Les flèches gardent leur taille, pour rester faciles à toucher du doigt. Rien ne change sur grand écran.' },
+  { id: 'dtpu-20260924-ia-gemini-modeles', ts: Date.UTC(2026, 8, 24, 0, 20), title: 'Analyses IA : le desk suit tout seul les modèles de Google', desc: 'Google a retiré une génération de ses modèles d’IA, celle qu’utilisait encore une partie de nos analyses. Le desk continuait de les appeler et prenait chaque refus pour une panne passagère : il ralentissait alors toutes ses rédactions de fond (traductions, enrichissements, récaps) sans raison. Désormais, le desk consulte régulièrement la liste officielle des modèles disponibles, écarte aussitôt un modèle retiré et le remplace par la version stable la plus récente. Les analyses repartent donc à plein régime, et le prochain retrait se gérera de lui-même, sans attendre une intervention.' },
   { id: 'dtpu-20260923-taux-rba-marche', ts: Date.UTC(2026, 8, 23, 15, 0), title: 'Onglet Taux : la RBA passe au pricing de marché', desc: 'Après la Fed, c’est au tour de la Banque de réserve d’Australie (AUD) d’afficher des probabilités issues du marché réel, et non plus d’une estimation. Le desk lit désormais les contrats à terme de taux de l’ASX (ceux qui alimentent le « RBA Rate Tracker » officiel de la Bourse australienne) et en déduit ce que le marché price pour la prochaine réunion. Pour la décision du 29 septembre, cela donne une hausse à environ 86%, contre 58% dans notre estimation précédente. Les données sont récupérées directement, plusieurs fois par heure ; si elles venaient à manquer, la carte revient proprement à l’estimation maison, sans jamais inventer de chiffre.' },
   { id: 'dtpu-20260923-taux-passerelles', ts: Date.UTC(2026, 8, 23, 13, 30), title: 'Onglet Taux : plusieurs relais pour revenir en temps réel', desc: 'Suite du correctif d’hier sur les probabilités de marché. Nous avons mesuré que le premier relais mis en place ne suffisait pas : notre fournisseur refuse les requêtes venant de notre serveur, et l’unique relais public que nous utilisions était lui aussi bloqué depuis la même adresse. Le desk essaie désormais PLUSIEURS relais publics l’un après l’autre, et retient le premier qui répond avec des données valides : les chances qu’au moins un passe sont bien plus élevées. Chaque réponse reste vérifiée exactement comme l’accès direct, rien n’est inventé si tous échouent, et le panneau de contrôle indique par quel relais chaque banque a été servie.' },
   { id: 'dtpu-20260923-recap-hebdo-a-l-heure', ts: Date.UTC(2026, 8, 23, 12, 30), title: 'Récap Hebdo : prêt le samedi, sans attendre', desc: 'Ces dernières semaines, le Récap Hebdo arrivait parfois plusieurs jours après la fin de la semaine, et la liste des Notes d’analystes restait sans récap en attendant. La cause est corrigée : quand la rédaction du samedi n’aboutit pas du premier coup, le desk la relance désormais tout seul, régulièrement, jusqu’à ce que le récap soit publié, sans attendre qu’un lecteur ouvre l’onglet. Le récap de la semaine du 14 au 18 septembre est en ligne, au nouveau format.' },
@@ -7845,7 +7847,7 @@ let _telPrev = null, _telLiveStatus = null, _telDirty = false;
 const _telDirtyKeys = new Set();   // seaux réellement modifiés depuis le dernier flush (évite de réécrire TOUT le Map en KV)
 const _telBuckets = new Map();                                                   // hourKey → seau (flush périodique vers KV)
 function _telHourKey(t) { return new Date(t || Date.now()).toISOString().slice(0, 13); }   // "2026-06-12T14"
-function _telEmpty(hk) { return { hour: hk, gemini: { calls: 0, e429: 0, tokIn: 0, tokOut: 0 }, groq: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, github: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, openrouter: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, cohere: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, xai: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, claude: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, fallback: 0 }; }
+function _telEmpty(hk) { return { hour: hk, gemini: { calls: 0, e429: 0, tokIn: 0, tokOut: 0 }, groq: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, github: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, openrouter: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, cohere: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, cloudflare: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, xai: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, claude: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, fallback: 0, gemKeys: [] }; }
 function _telBucket(hk) { let b = _telBuckets.get(hk); if (!b) { b = _telEmpty(hk); _telBuckets.set(hk, b); } return b; }
 function _telSample() {
   let st; try { st = ai.status(); } catch { return; }
@@ -7853,11 +7855,12 @@ function _telSample() {
   const u = st.usageToday || {}, tk = st.tokensToday || {};
   const cur = { day: st.today, gemini: u.gemini || 0, gemini429: u.gemini429 || 0, github: u.github || 0, githubFail: u.githubFail || 0,
     openrouter: u.openrouter || 0, openrouterFail: u.openrouterFail || 0,
-    groq: u.groq || 0, groqFail: u.groqFail || 0, cohere: u.cohere || 0, cohereFail: u.cohereFail || 0, xai: u.xai || 0, xaiFail: u.xaiFail || 0,
+    groq: u.groq || 0, groqFail: u.groqFail || 0, cohere: u.cohere || 0, cohereFail: u.cohereFail || 0, cloudflare: u.cloudflare || 0, cloudflareFail: u.cloudflareFail || 0, xai: u.xai || 0, xaiFail: u.xaiFail || 0,
     claude: u.claude || 0, claudeFail: u.claudeFail || 0, fallback: u.fallback || 0,
     gtIn: tk.geminiIn || 0, gtOut: tk.geminiOut || 0, ghIn: tk.githubIn || 0, ghOut: tk.githubOut || 0, orIn: tk.openrouterIn || 0, orOut: tk.openrouterOut || 0,
     grIn: tk.groqIn || 0, grOut: tk.groqOut || 0, coIn: tk.cohereIn || 0, coOut: tk.cohereOut || 0, xaIn: tk.xaiIn || 0, xaOut: tk.xaiOut || 0,
-    clIn: tk.claudeIn || 0, clOut: tk.claudeOut || 0 };
+    clIn: tk.claudeIn || 0, clOut: tk.claudeOut || 0, cfIn: tk.cloudflareIn || 0, cfOut: tk.cloudflareOut || 0,
+    gk: (st.geminiKeysDetail || []).map(k => [k.ok || 0, k.e429 || 0, k.fail || 0]) };   // compteurs du jour PAR CLÉ Gemini
   if (_telPrev) {
     const same = _telPrev.day === cur.day;                                      // jour changé → compteurs IA remis à 0 → cur EST le delta
     const dl = k => same ? Math.max(0, (cur[k] || 0) - (_telPrev[k] || 0)) : (cur[k] || 0);
@@ -7868,9 +7871,20 @@ function _telSample() {
     if (b.groq)   { b.groq.calls   += dl('groq');   b.groq.fail   += dl('groqFail');   b.groq.tokIn   += dl('grIn'); b.groq.tokOut   += dl('grOut'); }
     if (b.cohere) { b.cohere.calls += dl('cohere'); b.cohere.fail += dl('cohereFail'); b.cohere.tokIn += dl('coIn'); b.cohere.tokOut += dl('coOut'); }
     if (b.xai)    { b.xai.calls    += dl('xai');    b.xai.fail    += dl('xaiFail');    b.xai.tokIn    += dl('xaIn'); b.xai.tokOut    += dl('xaOut'); }
+    if (!b.cloudflare) b.cloudflare = { calls: 0, fail: 0, tokIn: 0, tokOut: 0 };   // seau antérieur au 24/09 : on le complète
+    b.cloudflare.calls += dl('cloudflare'); b.cloudflare.fail += dl('cloudflareFail'); b.cloudflare.tokIn += dl('cfIn'); b.cloudflare.tokOut += dl('cfOut');
+    // Par clé Gemini : mêmes deltas que le reste (jour changé → la valeur courante EST le delta).
+    let gkDelta = 0;
+    if (!Array.isArray(b.gemKeys)) b.gemKeys = [];
+    (cur.gk || []).forEach((v, i) => {
+      const p = (same && _telPrev.gk && _telPrev.gk[i]) || [0, 0, 0];
+      const d = v.map((x, j) => same ? Math.max(0, x - (p[j] || 0)) : x);
+      const slot = b.gemKeys[i] || (b.gemKeys[i] = { ok: 0, e429: 0, fail: 0 });
+      slot.ok += d[0]; slot.e429 += d[1]; slot.fail += d[2]; gkDelta += d[0] + d[1] + d[2];
+    });
     b.claude.calls += dl('claude'); b.claude.fail += dl('claudeFail'); b.claude.tokIn += dl('clIn'); b.claude.tokOut += dl('clOut');
     b.fallback += dl('fallback');
-    if (dl('gemini') + dl('groq') + dl('github') + dl('openrouter') + dl('cohere') + dl('xai') + dl('claude') + dl('gemini429') + dl('fallback') > 0) { _telDirty = true; _telDirtyKeys.add(b.hour); }
+    if (dl('gemini') + dl('groq') + dl('github') + dl('openrouter') + dl('cohere') + dl('cloudflare') + dl('xai') + dl('claude') + dl('gemini429') + dl('fallback') + gkDelta > 0) { _telDirty = true; _telDirtyKeys.add(b.hour); }
   }
   _telPrev = cur;
 }
@@ -7980,7 +7994,12 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
     const sum = (p, k) => buckets.reduce((s, b) => s + ((b[p] && b[p][k]) || 0), 0);
     const u = st.usageToday || {}, intel = st.intel || {};
     const providers = {
-      gemini: { keys: st.geminiKeys || 0, coolingKeys: st.geminiCoolingNow || 0, breakersOpen: intel.breakersOpen || 0,
+      // coolingKeys = CLÉS gelées (aucun modèle vivant utilisable), et non plus les couples (modèle, clé) :
+      // « 28 gelées » sur 7 clés faisait tomber le score à 0 (28/7×60 = 240 points retirés) alors que des
+      // clés répondaient. Les couples restent visibles à part (pairsCooling).
+      gemini: { keys: st.geminiKeys || 0, coolingKeys: st.geminiKeysFrozen || 0, pairsCooling: st.geminiCoolingNow || 0, breakersOpen: intel.breakersOpen || 0,
+        keysDetail: st.geminiKeysDetail || [], modelsLive: st.geminiModelsLive || [], modelsDead: st.geminiModelsDead || [], catalogue: st.geminiCatalogue || null,
+        keysWindow: (st.geminiKeysDetail || []).map((_, i) => buckets.reduce((a, b) => { const k = (b.gemKeys || [])[i]; if (k) { a.ok += k.ok || 0; a.e429 += k.e429 || 0; a.fail += k.fail || 0; } return a; }, { ok: 0, e429: 0, fail: 0 })),
         pressure: intel.pressure || 0, effRpm: intel.effRpm || 0, rpmTarget: intel.rpmTarget || 0,
         callsToday: u.gemini || 0, err429Today: u.gemini429 || 0, callsWindow: sum('gemini', 'calls'), err429Window: sum('gemini', 'e429'), tokInWindow: sum('gemini', 'tokIn'), tokOutWindow: sum('gemini', 'tokOut') },
       groq: { keys: (st.groq || {}).keys || 0, models: (st.groq || {}).models || 0, coolingKeys: (st.groq || {}).coolingNow || 0, callsToday: u.groq || 0, failToday: u.groqFail || 0, failWindow: sum('groq', 'fail'), callsWindow: sum('groq', 'calls') },
