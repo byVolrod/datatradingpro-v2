@@ -4233,10 +4233,10 @@ const _RTC_MESURE_AIDE = {
        explicitement son retrait (« enlève et met à jour en temps réel l'onglet taux »), APRÈS avoir
        été prévenu en clair de cette histoire et du risque qu'un retrait rouvre. Il a maintenu sa
        demande : c'est donc son appel, assumé, pas un oubli de vigilance de notre part.
-       ⚠️ CE QUI N'A PAS CHANGÉ POUR AUTANT, ET QUE ÇA VAUT LA PEINE DE SAVOIR : SNB (CHF) et RBNZ
-       (NZD) restent sur l'ESTIMATION maison, pas sur un pricing de marché réel — le fournisseur
-       rateprobability.com réserve ces deux banques à son offre payante (HTTP 401 mesuré le 30/08).
-       Retirer le badge ne change rien à CE FAIT, seulement à sa mention sur la carte. La provenance
+       ⚠️ SNB (CHF) et RBNZ (NZD) : rateprobability.com les réserve à son offre payante (HTTP 401
+       mesuré le 30/08). Depuis le 24/09 elles sont servies en pricing de MARCHÉ par la courbe
+       publique WatchTower (`provider` dans /api/rates) ; l'estimation maison ne reste qu'en dernier
+       repli, quand cette page est périmée ou incohérente avec le taux tenu. La provenance
        reste calculée et servie sans filtre dans /api/rates (`_origineTaux`, champs `source`/`panne`/
        `srcAt`) pour quiconque irait la lire côté API ou dans les rapports rédigés (Hebdo, Point
        Marché, Radar de Biais — ceux-là citent toujours « estimation DTP » en toutes lettres, ce

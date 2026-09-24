@@ -269,7 +269,7 @@ v('le jeton Pro (RATEPROB_TOKEN, .env du VPS uniquement) part sous les deux form
   /RP_HEADERS\['Authorization'\] = 'Bearer ' \+ process\.env\.RATEPROB_TOKEN/.test(SRV)
   && /RP_HEADERS\['X-API-Key'\] = process\.env\.RATEPROB_TOKEN/.test(SRV));
 v('/api/rates dit la santé PAR banque : `panne` côté estimation, `srcAt` côté marché',
-  /panne: _rpPanne\[slug\] \|\| 'jamais reçu',/.test(SRV) && /srcAt: _rpBankAt\[b\.code\] \|\| _rpCache\.at \|\| null,/.test(SRV));
+  /panne: _rpPanne\[slug\] \|\| 'jamais reçu',/.test(SRV) && /let _rpAt = _rpBankAt\[b\.code\] \|\| _rpCache\.at \|\| 0;/.test(SRV) && /srcAt: _rpAt \|\| null,/.test(SRV));   // par banque ; WatchTower (24/09) y pose sa propre date
 /* ⚠️ LE BADGE QUI AFFICHAIT `panne`/`srcAt` AU SURVOL A DISPARU AVEC LUI LE 17/09 (retrait demandé
    par l'utilisateur, cf. le pavé « LE BADGE DE TÊTE… » plus haut dans ce fichier). Les DEUX champs
    restent servis par /api/rates (contrôle ci-dessus) : seule leur AFFICHAGE sur la carte a disparu,
@@ -791,11 +791,11 @@ v('… et la persistance loggue désormais son échec au lieu de le taire',
   const src2 = (iDebut2 >= 0) ? SRV.slice(iDebut2, iFin2) : null;
   v('`_tauxEtat` est extractible de server.js', !!src2);
   if (src2) {
-    const PARAMS = ['_rpCache', '_rpPanne', '_rpAlerteEnvoyee', '_RP_SEUIL_ALERTE_MS', '_aiRatesBiasAt', '_AIBIAS_SEUIL_ALERTE_MS', '_rpRelais', '_fcEtat', '_rbaWatch', '_sovCurve', '_snbWatch', '_ecbWatch'];   // 24/09 : + la lecture BNS (futures SARON Eurex)
+    const PARAMS = ['_rpCache', '_rpPanne', '_rpAlerteEnvoyee', '_RP_SEUIL_ALERTE_MS', '_aiRatesBiasAt', '_AIBIAS_SEUIL_ALERTE_MS', '_rpRelais', '_fcEtat', '_rbaWatch', '_sovCurve', '_snbWatch', '_ecbWatch', '_wtCache'];   // 24/09 : + la lecture BNS (futures SARON Eurex), + la courbe WatchTower
     const _fcStub = () => ({ pose: false, capJour: 40, jour: '', n: 0, okAt: null, errAt: null, err: '' });   // 23/09 : la télémétrie Firecrawl (dernier recours ASX) figure aussi dans _tauxEtat
     const monterEtat = (rpCache, rpPanne, alerteEnvoyee, biaisAt) => new Function(
       ...PARAMS, src2 + '\nreturn _tauxEtat;'
-    )(rpCache, rpPanne, alerteEnvoyee, 20 * 60 * 1000, biaisAt || 0, 9 * 86400000, {}, _fcStub, null, {}, null, null);
+    )(rpCache, rpPanne, alerteEnvoyee, 20 * 60 * 1000, biaisAt || 0, 9 * 86400000, {}, _fcStub, null, {}, null, null, { at: 0, banks: {} });
 
     const frais = monterEtat({ at: Date.now() - 2 * 60 * 1000, banks: { fed: 1, ecb: 1 } }, {}, false)();
     v('cache frais : `perime` est faux', frais.perime === false, JSON.stringify(frais));
@@ -826,7 +826,7 @@ v('… et la persistance loggue désormais son échec au lieu de le taire',
       'la ligne a changé de forme : ce témoin ne prouve plus rien');
     if (mut2 !== src2) {
       const figeMut = new Function(...PARAMS,
-        mut2 + '\nreturn _tauxEtat;')({ at: Date.now() - 5 * 3600e3, banks: {} }, {}, false, 20 * 60 * 1000, 0, 9 * 86400000, {}, _fcStub, null, {})();
+        mut2 + '\nreturn _tauxEtat;')({ at: Date.now() - 5 * 3600e3, banks: {} }, {}, false, 20 * 60 * 1000, 0, 9 * 86400000, {}, _fcStub, null, {}, null, null, { at: 0, banks: {} })();
       v('(témoin) sans la comparaison, un cache vieux de 5 h se dirait faussement frais',
         figeMut.perime === false, JSON.stringify(figeMut));
     }
@@ -837,7 +837,7 @@ v('… et la persistance loggue désormais son échec au lieu de le taire',
       'la ligne a changé de forme : ce témoin ne prouve plus rien');
     if (mut3 !== src2) {
       const biaisMut = new Function(...PARAMS,
-        mut3 + '\nreturn _tauxEtat;')({ at: Date.now(), banks: {} }, {}, false, 20 * 60 * 1000, Date.now() - 14 * 86400000, 9 * 86400000, {}, _fcStub, null, {})();
+        mut3 + '\nreturn _tauxEtat;')({ at: Date.now(), banks: {} }, {}, false, 20 * 60 * 1000, Date.now() - 14 * 86400000, 9 * 86400000, {}, _fcStub, null, {}, null, null, { at: 0, banks: {} })();
       v('(témoin) sans la comparaison, un biais figé depuis 14 j se dirait faussement frais',
         biaisMut.biaisPerime === false, JSON.stringify(biaisMut));
     }

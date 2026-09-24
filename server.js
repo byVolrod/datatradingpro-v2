@@ -1362,6 +1362,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260924-taux-bns-rbnz-courbe', ts: Date.UTC(2026, 8, 24, 10, 10), title: 'Onglet Taux : la BNS et la RBNZ ont leur courbe de marché complète', desc: 'Les cartes du franc suisse et du dollar néo-zélandais affichent désormais, comme les autres banques centrales, la probabilité de hausse, de maintien ou de baisse pour chacune des prochaines réunions, et plus seulement pour la suivante. Ces chiffres viennent d’une courbe publique construite sur les contrats à terme cotés (SARON pour la BNS, bons bancaires à 90 jours pour la RBNZ). Relevé du jour : la RBNZ est pricée à 100% pour une hausse le 28 octobre. Le desk vérifie avant chaque affichage que le taux directeur de la source est bien celui en vigueur et qu’aucune réunion n’a eu lieu depuis ; sinon, il garde sa lecture précédente.' },
   { id: 'dtpu-20260924-taux-directeurs-corriges', ts: Date.UTC(2026, 8, 24, 9, 15), title: 'Onglet Taux : les taux de la Fed et de la BoJ corrigés', desc: 'Vous nous avez signalé des taux faux dans l’onglet Taux, et vous aviez raison : la hausse de la Fed du 16 septembre (fourchette désormais à 3,75–4,00%) et celle de la Banque du Japon du 18 septembre (1,25%) n’avaient pas été prises en compte. Le jour même de ces décisions, notre calendrier contenait, à côté du vrai chiffre, une seconde ligne portant une valeur erronée ; face à deux chiffres, le desk préférait ne rien écrire, et gardait l’ancien taux. Il retient désormais la valeur plausible et le bon intitulé. Surtout, le desk lit de nouveau chaque jour les probabilités de rateprobability.com pour la Fed, la BCE, la BoE, la BoJ, la BoC et la RBA, et recale ses taux sur cette source dès qu’elle se met à jour.' },
   { id: 'dtpu-20260924-navigation-fluide', ts: Date.UTC(2026, 8, 24, 8, 40), title: 'Navigation : les onglets s’ouvrent sans attendre', desc: 'Vous nous avez demandé une navigation plus agréable et plus fluide. En mesurant, nous avons constaté que revenir sur un onglet déjà vu était immédiat, mais que la première ouverture du Calendrier, des Taux, du Radar de Biais, de la Semaine à venir et des Banques attendait à chaque fois le serveur, avec un écran de chargement. Désormais, pendant que vous lisez le fil d’actualité, le desk prépare discrètement ces onglets, un par un, et les tient prêts : ils s’ouvrent aussitôt. Survoler un onglet suffit aussi à le préparer avant même le clic. Le graphique de l’onglet Banques garde ses bougies quelques minutes au lieu de les recharger à chaque ouverture, et la Semaine à venir ne se redessine plus quand rien n’a changé. Sur une connexion en mode économie de données, cette préparation ne se fait pas.' },
   { id: 'dtpu-20260924-taux-bce-eurex', ts: Date.UTC(2026, 8, 24, 8, 20), title: 'Onglet Taux : la BCE lue sur les contrats Eurex calés sur ses réunions', desc: 'Les probabilités de la BCE ne se mettaient plus à jour depuis le 9 septembre : notre fournisseur ne répond plus à notre serveur. Le desk lit désormais directement Eurex, qui cote des contrats à terme sur le taux €STR dont chaque période commence exactement à l’entrée en vigueur d’une décision de la BCE et s’arrête à la suivante. Comparer la période en cours à celle qui suit la prochaine réunion donne la variation attendue par le marché, sans aucune hypothèse ajoutée : au 23 septembre, environ 59% de chances de hausse le 29 octobre. Si la lecture ne tombe pas juste, par exemple si notre taux de référence n’est pas à jour, rien n’est publié et la carte garde l’estimation du desk.' },
@@ -5221,7 +5222,7 @@ function _aiChatPrompt(q, newsCtx) {
   let ratesLine = '';
   try {
     const parts = CB.map(b => {
-      const rp = _rpCache && _rpCache.banks && _rpCache.banks[b.code];
+      const rp = (_rpCache && _rpCache.banks && _rpCache.banks[b.code]) || _wtPour(b.code);
       if (rp && rp.meetings && rp.meetings[0]) { const m = rp.meetings[0]; return `${b.bank} ${rp.rate}% (next ${m.date}: ${m.baseCase} ${Math.max(m.hold, m.hike, m.cut)}%)`; }
       const st = _ratesState && _ratesState.banks && _ratesState.banks[b.code];
       return st ? `${b.bank} ${st.rate}%` : null;
@@ -16535,7 +16536,7 @@ async function _relatedStoriesFor(evTitle, evTs, ccy) {
 }
 // Anticipations de taux du marché pour la devise (depuis rateprobability, cache _rpCache) → contexte « ANTICIPATIONS DE TAUX ».
 function _evaPricingCtx(ccy) {
-  const b = (_rpCache && _rpCache.banks) ? _rpCache.banks[ccy] : null;
+  const b = ((_rpCache && _rpCache.banks) ? _rpCache.banks[ccy] : null) || _wtPour(ccy);
   if (!b || !Array.isArray(b.meetings) || !b.meetings.length) return '';
   return b.meetings.slice(0, 6).map(m => {
     const p = Math.max(m.hold || 0, m.hike || 0, m.cut || 0);
@@ -17439,10 +17440,11 @@ function _sbBlend(specs, stanceFallback, thr) {
 function _sbScenarioFor(code) {
   try {
     const rp = (_rpCache && _rpCache.banks) ? _rpCache.banks[code] : null;
-    if (!rp || !rp.scenario) return null;
+    const wt = () => { const w = _wtPour(code); return w ? w.scenario : null; };   // BNS/RBNZ : courbe WatchTower (24/09)
+    if (!rp || !rp.scenario) return wt();
     // Même règle de fraîcheur que _buildRatesPayload : la valeur marché vaut 12 h (résilience si l'API tombe).
     const age = Date.now() - (((_rpCache.bankAt || {})[code]) || _rpCache.at || 0);
-    return age < 12 * 3600 * 1000 ? rp.scenario : null;
+    return age < 12 * 3600 * 1000 ? rp.scenario : wt();
   } catch { return null; }
 }
 // HYSTÉRÉSIS (11/08) : un seuil sec faisait osciller la stance sur un point de probabilité. Mesuré sur
@@ -21409,9 +21411,112 @@ auth.aiCacheGet('rates:sov:NZD').then(v => { if (v && v.at) _sovCurve.NZD = v; }
 setTimeout(() => { _computeSnbWatch().catch(() => {}); _computeNzdCourbe().catch(() => {}); _computeEcbWatch().catch(() => {}); }, 17000);
 setInterval(() => { _computeSnbWatch().catch(() => {}); _computeNzdCourbe().catch(() => {}); _computeEcbWatch().catch(() => {}); }, 8 * 3600e3);   // 8 h (24/09) : règlements et B2 quotidiens, crédits Firecrawl ménagés
 
+/* ══ BNS ET RBNZ : LA COURBE DE MARCHÉ RÉUNION PAR RÉUNION, PAGE PUBLIQUE WATCHTOWER (24/09) ══════
+   Demande user : « la BNS et la RBNZ sont réservées à l'offre payante de rateprobability → utilise
+   Trading Economics ou un autre site ». Relevé le même jour sur les sites qu'il avait partagés :
+     · Trading Economics : taux et consensus d'analystes, AUCUNE probabilité de marché ;
+     · centralbank.watch : BNS seulement pour la réunion du jour, RBNZ retenue (« -- % », contrôle
+       qualité de leur côté) ;
+     · watchtowerterminal.com/central-bank-rate-probability : page PUBLIQUE, sans compte, qui publie
+       pour 7 banques (BCE, BoE, BoJ, BNS, RBA, BoC, RBNZ) le TAUX IMPLICITE après chaque réunion,
+       tiré des futures cotés (SARON pour la BNS, bons bancaires 90 j ASX pour la RBNZ, ajustés de
+       l'écart de crédit). C'est la seule qui donne la courbe complète des deux banques manquantes.
+   On en tire les probabilités comme rateprobability : Δ d'une réunion = taux implicite après elle
+   − taux implicite après la précédente (le taux directeur pour la première), rapporté au pas de
+   25 pb. Mesuré le 24/09 contre le « priced for it » de la page : BoE 64 % (page 64,7 %), BNS 72 %
+   de maintien (73,8 %), RBNZ 100 % de hausse (100 %).
+   Gardes : taux directeur de la page = taux tenu par le desk (sinon une décision est passée
+   depuis) ; aucune réunion de la banque entre la date de la page et maintenant ; page de moins de
+   4 jours. Une seule lecture de page pour les sept banques, toutes les 12 h : direct d'abord,
+   Firecrawl (1 crédit) en dernier recours. Utilisée pour la BNS et la RBNZ, et en secours pour les
+   cinq autres quand l'instantané rateprobability n'est plus utilisable. */
+const WT_URL = 'https://watchtowerterminal.com/central-bank-rate-probability/';
+const _WT_NOMS = { EUR: 'European Central Bank', GBP: 'Bank of England', JPY: 'Bank of Japan', CHF: 'Swiss National Bank',
+  AUD: 'Reserve Bank of Australia', CAD: 'Bank of Canada', NZD: 'Reserve Bank of New Zealand' };
+const _WT_MOIS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+let _wtCache = { at: 0, banks: {} };
+function _wtDate(j, mois, a) {
+  const m = _WT_MOIS[String(mois).slice(0, 3).toLowerCase()];
+  return m == null ? null : Date.UTC(+a, m, +j);
+}
+function _wtParse(txt) {
+  // HTML ou markdown → même texte à cellules (« | »), puis une section par banque : « <nom> Exchange-traded
+  // futures… As of <date> », jusqu'à la légende du tableau. Le résumé et le tableau des instruments, plus bas,
+  // portent aussi les noms mais jamais suivis de « As of » : ils ne sont pas pris.
+  const t = _txtCellules(txt).replace(/[*#]/g, ' ').replace(/\s+/g, ' ');
+  const out = {};
+  for (const [code, nom] of Object.entries(_WT_NOMS)) {
+    const m = new RegExp(nom + ' Exchange-traded futures[^|]{0,60}?As of (\\d{1,2}) ([A-Za-z]{3,9})\\.? (\\d{4})', 'i').exec(t);
+    if (!m) continue;
+    const asOf = _wtDate(m[1], m[2], m[3]);
+    const fin = t.indexOf('Implied rate is where', m.index);
+    const seg = t.slice(m.index, fin > m.index ? fin : m.index + 5000);
+    const pr = seg.match(/Policy rate\s*(-?\d+(?:\.\d+)?)\s*%/i);
+    const rows = [], rx = /(\d{1,2}) ([A-Za-z]{3,9})\.? (\d{4}) \| (-?\d+(?:\.\d+)?)% \|/g;
+    let r;
+    while ((r = rx.exec(seg))) {
+      const date = _wtDate(r[1], r[2], r[3]), impl = +r[4];
+      if (date != null && isFinite(impl)) rows.push({ date: new Date(date).toISOString().slice(0, 10), impl });
+    }
+    if (asOf == null || !pr || rows.length < 2) continue;
+    const policy = +pr[1];
+    if (rows.some(x => Math.abs(x.impl - policy) > 3)) continue;   // valeur aberrante → toute la banque est écartée
+    out[code] = { asOf, policy, rows };
+  }
+  return out;
+}
+function _wtCarte(code, now, tenu) {
+  const w = _wtCache && _wtCache.banks && _wtCache.banks[code];
+  if (!w || !Array.isArray(w.rows) || !w.rows.length) return null;
+  if (now - w.asOf > 5 * 86400e3) return null;                                    // page de plus de 4 jours pleins
+  if (isFinite(tenu) && Math.abs(w.policy - tenu) > 0.005) return null;           // une décision a changé le taux depuis
+  const reunionDepuis = (CB_MEETINGS[code] || []).some(d => { const t = Date.parse(d + 'T00:00:00Z'); return t <= now && w.asOf < t + 86400e3; });
+  if (reunionDepuis) return null;
+  const step = 0.25;
+  let prev = w.policy;
+  const meetings = [];
+  for (const x of w.rows) {
+    const d = x.impl - prev; prev = x.impl;
+    const t = Date.parse(x.date + 'T00:00:00Z');
+    if (t < now - 20 * 3600e3) continue;
+    const p = Math.max(0, Math.min(100, +(Math.abs(d) / step * 100).toFixed(2)));
+    const hike = d > 0.0005 ? p : 0, cut = d < -0.0005 ? p : 0, hold = +(100 - hike - cut).toFixed(2);
+    meetings.push({ date: x.date, days: Math.max(0, Math.round((t - now) / 86400e3)), hold, hike, cut,
+      impliedBps: +(d * 100).toFixed(1), baseCase: hike >= 50 ? 'HIKE' : (cut >= 50 ? 'CUT' : 'HOLD'), impliedRate: +x.impl.toFixed(3) });
+    if (meetings.length >= 10) break;
+  }
+  if (!meetings.length) return null;
+  const m0 = meetings[0];
+  return { code, rate: w.policy, band: null, next: m0.date, nextDays: m0.days, move: _rpDirMove(meetings, w.policy),
+    prob: Math.max(m0.hold, m0.hike, m0.cut), expBps: m0.impliedBps, scenario: { hold: m0.hold, hike: m0.hike, cut: m0.cut },
+    meetings, source: 'market', provider: 'WatchTower' };
+}
+// Courbe WatchTower d'une banque, contrôlée contre le taux tenu par le desk (chat IA, analyses d'événements, Radar de Biais).
+function _wtPour(code) {
+  const st = _ratesState && _ratesState.banks && _ratesState.banks[code];
+  return _wtCarte(code, Date.now(), st ? +st.rate : NaN);
+}
+async function _refreshWatchtower(force) {
+  if (!force && _wtCache.at && Date.now() - _wtCache.at < RP_FC_MS) return _wtCache;
+  try {
+    const pg = await _pageMarche(WT_URL, t => Object.keys(_wtParse(t)).length >= 2);
+    if (!pg) { _wtCache.err = 'page illisible (direct et Firecrawl)'; _wtCache.errAt = Date.now(); return null; }
+    const banks = _wtParse(pg.txt);
+    if (!banks.CHF && !banks.NZD) { _wtCache.err = 'BNS et RBNZ absentes de la page'; _wtCache.errAt = Date.now(); return null; }
+    _wtCache = { at: Date.now(), via: pg.via, banks };
+    auth.aiCacheSet('rates:watchtower', _wtCache).catch(() => {});
+    console.log('[Taux] WatchTower lu (' + pg.via + ') : ' + Object.keys(banks).join(', '));
+    return _wtCache;
+  } catch (e) { console.error('[WatchTower]', e && e.message); return null; }
+}
+auth.aiCacheGet('rates:watchtower').then(v => { if (v && v.at && v.banks && v.at > (_wtCache.at || 0)) _wtCache = v; }).catch(() => {});
+// Une lecture toutes les 12 h au plus (l'âge est celui du cache persistant : un redémarrage ne relit pas).
+setTimeout(() => { _refreshWatchtower(false).catch(() => {}); }, 23000);
+setInterval(() => { _refreshWatchtower(false).catch(() => {}); }, 3600e3);
+
 // ─── SOURCE RÉELLE : rateprobability.com — probabilités implicites de MARCHÉ par banque centrale ───
 // API JSON publique par banque (taux implicites OIS/futures, par réunion). Fed/BCE/BoE/BoJ/BoC/RBA = gratuits ;
-// SNB (CHF) & RBNZ (NZD) = "Pro" → repli automatique sur le modèle maison. Données mises en cache (mémoire +
+// SNB (CHF) & RBNZ (NZD) = "Pro" → courbe publique WatchTower (24/09, cf. _wtCarte), repli maison en dernier. Données mises en cache (mémoire +
 // Supabase durable) et rafraîchies EN TÂCHE DE FOND (jamais à l'ouverture client) — anti-OOM : timeout + cap taille.
 // Accesseur de taux tolérant : les clés varient d'une banque à l'autre → on tente plusieurs noms,
 // sinon premier champ numérique « *rate*/*target* » trouvé. Si l'API renvoie un paywall (pas de
@@ -21744,6 +21849,7 @@ function _tauxEtat() {
     rbaWatch: _rbaWatch ? { at: _rbaWatch.at, hike: _rbaWatch.hike, impliedRate: _rbaWatch.impliedRate, meth: _rbaWatch.meth } : null,   // pricing marché RBA (futures ASX)
     snbWatch: _snbWatch ? { at: _snbWatch.at, meeting: _snbWatch.meeting, hike: _snbWatch.hike, cut: _snbWatch.cut, impliedRate: _snbWatch.impliedRate, meth: _snbWatch.meth, via: _snbWatch.via } : null,   // BNS : futures SARON Eurex
     ecbWatch: _ecbWatch ? { at: _ecbWatch.at, meeting: _ecbWatch.meeting, hike: _ecbWatch.hike, cut: _ecbWatch.cut, impliedRate: _ecbWatch.impliedRate, meth: _ecbWatch.meth, via: _ecbWatch.via } : null,   // BCE : futures €STR datés Eurex
+    watchtower: { at: _wtCache.at || null, via: _wtCache.via || null, banques: Object.keys(_wtCache.banks || {}), err: _wtCache.err || null, errAt: _wtCache.errAt || null },   // BNS/RBNZ : courbe publique WatchTower
     nzdCourbe: _sovCurve.NZD ? { at: _sovCurve.NZD.at, bias: _sovCurve.NZD.bias, conv: _sovCurve.NZD.conv, src: _sovCurve.NZD.src, via: _sovCurve.NZD.via } : null,   // RBNZ : bons bancaires B2
     sov: Object.fromEntries(Object.entries(_sovCurve).map(([c, s]) => [c, { spread: s.spread, bias: s.bias, at: s.at }])),   // lecture de courbe souveraine par banque (marché, temps réel)
     // Biais IA (poids monétaire du Radar de Biais + résolution CB non ancrée) : visibilité SÉPARÉE,
@@ -21951,8 +22057,15 @@ function _buildRatesPayload() {
   // si l'API tombe), banque par banque → une banque momentanément en échec n'entraîne pas les autres.
   const _rpBanks = _rpCache.banks || {}, _rpBankAt = _rpCache.bankAt || {};
   const banks = CB.map(b => {
-    const _rpAt = _rpBankAt[b.code] || _rpCache.at || 0;
-    const rp = _rpInstantaneUtilisable(b.code, _rpBanks[b.code], _rpAt, now);
+    let _rpAt = _rpBankAt[b.code] || _rpCache.at || 0;
+    let rp = _rpInstantaneUtilisable(b.code, _rpBanks[b.code], _rpAt, now);
+    let _fournisseur = 'rateprobability.com';
+    // BNS / RBNZ (payantes chez rateprobability), et secours des autres : courbe publique WatchTower (24/09).
+    if (!rp) {
+      const _stT = _ratesState && _ratesState.banks && _ratesState.banks[b.code];
+      const wt = _wtCarte(b.code, now, _stT ? +_stT.rate : NaN);
+      if (wt) { rp = wt; _rpAt = _wtCache.at; _fournisseur = 'watchtowerterminal.com'; }
+    }
     const _rpAge = now - _rpAt;
     // `move` = TENDANCE cumulée ~6,5 mois (rateprobability) — conservée telle quelle (alimente GEW, bias5, chat).
     // `stance` = PROCHAIN MOUVEMENT (FedWatch/biais maison curé) = MÊME source que le Radar de Biais → header TAUX cohérent.
@@ -21961,9 +22074,9 @@ function _buildRatesPayload() {
     if (rp) return { code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: rp.rate,
       band: rp.band || (b.code === 'USD' ? _bandeFedDepuisMilieu(rp.rate) : null), stale: _rpAge >= 12 * 3600 * 1000,
       next: rp.next, nextDays: rp.nextDays, last: _der.date, lastDays: _der.jours, move: _rpDirMove(rp.meetings, rp.rate), stance, prob: rp.prob, expBps: rp.expBps,
-      scenario: rp.scenario, meetings: rp.meetings, source: 'market',
-      srcAt: _rpBankAt[b.code] || _rpCache.at || null,   // fraîcheur PAR banque → le badge de la carte peut dire « actualisé à HH:MM »
-      rateSrc: _origineTaux(b.code, rp.rate, true, _rpBankAt[b.code] || _rpCache.at || null),   // provenance du TAUX, distincte de celle du pricing
+      scenario: rp.scenario, meetings: rp.meetings, source: 'market', provider: _fournisseur,
+      srcAt: _rpAt || null,   // fraîcheur PAR banque → le badge de la carte peut dire « actualisé à HH:MM »
+      rateSrc: _origineTaux(b.code, rp.rate, true, _rpAt || null),   // provenance du TAUX, distincte de celle du pricing
       marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null };
     // Repli maison : visible dans le journal (une fois par heure par banque), avec la raison côté
     // fournisseur — un client a découvert AVANT NOUS que deux banques n'étaient pas du marché.
