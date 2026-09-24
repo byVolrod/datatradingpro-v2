@@ -45,6 +45,10 @@
     var pg = document.createElement('script');
     pg.src = '/js/v2/paire.js?v=' + VER; pg.defer = true;
     document.head.appendChild(pg);
+    // Carte du monde (V3) : widget du catalogue Mon Desk, fond de carte déjà chargé par index.html.
+    var ca = document.createElement('script');
+    ca.src = '/js/v2/carte.js?v=' + VER; ca.defer = true;
+    document.head.appendChild(ca);
   }
 
   function poserInterrupteur() {

@@ -10649,6 +10649,14 @@ function _spansAffiches(lay) {
     // Liste des widgets montables (id + nom + famille) — pour qu'un autre écran propose un choix
     // sans dupliquer le catalogue.
     catalogue: function () { return CATALOG.map(function (w) { return { id: w.id, nom: w.name, tag: w.tag || '', cat: w.cat }; }); },
+    /* V3 (24/09) : un script de l'aperçu V3 déclare ses widgets ici (la Carte du monde). Ces scripts
+       ne sont servis qu'aux admins (garde /js/v2) : le catalogue des clients ne change pas. Un id
+       déjà pris est refusé, jamais écrasé. */
+    enregistrer: function (w) {
+      if (!w || !w.id || typeof w.mount !== 'function' || byId(w.id)) return false;
+      CATALOG.push(w);
+      return true;
+    },
     // MONTER UN VRAI WIDGET DU DESK dans n'importe quel conteneur (l'espace d'accueil s'en sert).
     // C'est EXACTEMENT le widget du desk — même code, mêmes données, mêmes états de chargement et
     // d'erreur : aucune ré-implémentation à maintenir en parallèle. Renvoie la fonction de nettoyage
