@@ -129,13 +129,33 @@ function _gemmaRang(nom) {
   return parseFloat(m[1]) * 1000 + parseFloat(m[2]);
 }
 // Pure (aucun I/O) → éprouvée au banc. Nom forcé : écarté s'il n'est pas servi, jamais remplacé.
+/* ⚠️ LE PLUS RÉCENT N'EST PAS FORCÉMENT CELUI QUI RÉPOND (24/09, mesuré en production 3 h après la mise
+   en service) : le catalogue a désigné `gemma-4-31b-it`, qui a renvoyé 177 « 500 INTERNAL » et 214
+   délais dépassés pour UNE réponse par heure. Le fil est retombé sur Flash, épuisé. On garde donc la
+   LISTE des candidats servis, et un modèle qui échoue en série (5xx ou délai, sans une réussite)
+   est écarté 6 h : on BASCULE sur le suivant, sans intervention. */
+let _gemmaCands = GEMMA_MODEL ? [GEMMA_MODEL] : [];
 function _gemmaChoisir(dispo) {
   if (!GEMMA_ON || !dispo || !dispo.size) return GEMMA_MODEL;
   if (GEMMA_FORCE) { if (!dispo.has(GEMMA_FORCE)) _gemMarkDead(GEMMA_FORCE, 'absent du catalogue Google'); return GEMMA_MODEL; }
   const cands = [...dispo].filter(n => _gemmaRang(n) >= 0).sort((a, b) => _gemmaRang(b) - _gemmaRang(a));
-  if (cands.length) { GEMMA_MODEL = cands[0]; _gemModelDead.delete(GEMMA_MODEL); }
+  if (cands.length) { _gemmaCands = cands; GEMMA_MODEL = cands.find(m => !_gemModelIsDead(m)) || cands[0]; }
   else if (GEMMA_MODEL) _gemMarkDead(GEMMA_MODEL, 'aucun Gemma servi par le catalogue');
   return GEMMA_MODEL;
+}
+function _gemmaBasculer() {
+  if (GEMMA_FORCE || !_gemModelIsDead(GEMMA_MODEL)) return GEMMA_MODEL;
+  const suivant = _gemmaCands.find(m => !_gemModelIsDead(m));
+  if (suivant && suivant !== GEMMA_MODEL) { console.warn('[AI] Gemma : ' + GEMMA_MODEL + ' écarté → bascule sur ' + suivant); GEMMA_MODEL = suivant; }
+  return GEMMA_MODEL;
+}
+const _gemmaSerie = new Map();   // modèle → échecs consécutifs (5xx / délai), remis à 0 à la réussite
+function _gemmaIssue(model, reussi) {
+  if (reussi) { _gemmaSerie.set(model, 0); return; }
+  const n = (_gemmaSerie.get(model) || 0) + 1;
+  _gemmaSerie.set(model, n);
+  // Seuil : un échec par clé (6 au plus). Toutes les clés en erreur serveur d'affilée, ce n'est plus un hoquet.
+  if (n >= Math.min(6, Math.max(2, GEMINI_KEYS.length))) { _gemMarkDead(model, n + ' échecs de suite (erreur serveur ou délai) : bascule', 6 * 3600e3); _gemmaSerie.set(model, 0); _gemmaBasculer(); }
 }
 const _gemmaFen = new Map();   // idx → [[t, jetons], …] sur la dernière minute
 /* RÉSERVE POUR LE FIL : les tâches de fond qui retombent sur Gemma (Flash épuisé) ne prennent que 60% du
@@ -159,6 +179,7 @@ function flashDispo() {
 }
 // Utilisable pour CETTE requête ? (lecture pure : sert au routage ET au panneau)
 function gemmaDispo(prompt, maxTokens) {
+  _gemmaBasculer();
   if (!GEMMA_MODEL || !GEMINI_KEYS.length || _gemModelIsDead(GEMMA_MODEL)) return false;
   return prompt == null || _gemmaJetons(prompt, maxTokens) <= GEMMA_TPM * 0.8;
 }
@@ -236,11 +257,13 @@ async function _gemmaEssai(prompt, maxTokens, masse) {
     const t0 = Date.now();
     try {
       const out = await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens);
-      _hOk(model, idx, Date.now() - t0); _gemOkAt.set(model, Date.now()); _aiStat('gemma'); return out;
+      _hOk(model, idx, Date.now() - t0); _gemOkAt.set(model, Date.now()); _gemmaIssue(model, true); _aiStat('gemma'); return out;
     } catch (e) {
       lastErr = e;
       const c = _gemEchec(model, idx, e, prompt);
-      if (c === 'modele' || c === 'requete') break;
+      if (c === '5xx' || c === 'reseau') _gemmaIssue(model, false);
+      if (c === 'modele') _gemmaBasculer();
+      if (c === 'modele' || c === 'requete' || _gemModelIsDead(model)) break;
     }
   }
   if (!tente) throw _errSaut('Gemma : toutes les clés en attente ou au débit maximal');
@@ -291,6 +314,22 @@ let _ghCursor = 0;
 // requêtes qui échouent AU RÉSEAU (pas de réponse HTTP), d'où « échec sans code » dans le Moniteur IA. Le
 // nouvel endpoint est models.github.ai/inference (jeton fin « Models: read »). Surchargeable par GITHUB_MODELS_URL.
 const GITHUB_BASE  = process.env.GITHUB_MODELS_URL || 'https://models.github.ai/inference';
+/* ⚠️ « OK » AU LIEU D'UNE RÉPONSE (24/09, journal d'erreurs lu en production) : GitHub Models renvoyait
+   `Unexpected token 'O', "OK" is not valid JSON` — l'adresse appelée répond, mais ce n'est pas l'API
+   de complétion (adresse surchargée par GITHUB_MODELS_URL, ou chemin périmé). Zéro réussite depuis des
+   jours sous un « sans code ». La réponse est désormais lue en texte : si ce n'est pas du JSON, l'erreur
+   le DIT (avec l'adresse) et, si l'adresse venait d'une surcharge, on rebascule sur l'adresse officielle. */
+const GITHUB_BASE_DEFAUT = 'https://models.github.ai/inference';
+let _ghBaseEff = GITHUB_BASE;
+async function _ghJson(r) {
+  const t = await r.text();
+  try { return JSON.parse(t); } catch (e) {
+    const err = new Error('GitHub Models : réponse non JSON de ' + _ghBaseEff + ' (« ' + t.replace(/\s+/g, ' ').slice(0, 40) + ' ») : adresse d’API incorrecte ?');
+    err.status = 502;
+    if (_ghBaseEff !== GITHUB_BASE_DEFAUT) { _ghBaseEff = GITHUB_BASE_DEFAUT; err.message += ' → bascule sur ' + GITHUB_BASE_DEFAUT; }
+    throw err;
+  }
+}
 // Cascade de modèles GitHub : le plafond GRATUIT est PAR MODÈLE *et* PAR TOKEN (≈50/j « high » type
 // gpt-4o, ≈150/j « low » type gpt-4o-mini) → tourner sur PLUSIEURS modèles MULTIPLIE la capacité
 // gratuite/jour. Tâches courtes (≤LITE_MAXTOK) : mini d'abord (quota + élevé) ; tâches longues :
@@ -436,7 +475,7 @@ async function _gemini(model, key, prompt, maxTokens) {
   if (!_gm && !_gemSansThinking.has(model)) _cfg.thinkingConfig = { thinkingBudget: 0 };
   // Timeout 20s : une requête Gemini bloquée ne doit jamais s'empiler / geler la file (anti-OOM/502)
   const _ctrl = new AbortController();
-  const _to = setTimeout(() => _ctrl.abort(), 20000);
+  const _to = setTimeout(() => _ctrl.abort(), _gm ? 45000 : 20000);   // Gemma répond plus lentement : 20 s l'interrompaient en route
   let r;
   try {
     r = await fetch(url, {
@@ -926,7 +965,7 @@ async function _githubModels(prompt, maxTokens) {
       _ghBudgetNote(model, idx);   // on compte la requête AVANT de l'envoyer (GitHub facture la requête, pas le succès)
       const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), _tmo);
       try {
-        const r = await fetch(GITHUB_BASE + '/chat/completions', {
+        const r = await fetch(_ghBaseEff + '/chat/completions', {
           method: 'POST',
           headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
           // temperature 0.4 : ALIGNÉE sur Gemini/Claude → sorties homogènes quel que soit le provider
@@ -939,7 +978,7 @@ async function _githubModels(prompt, maxTokens) {
           if (r.status === 429) { const m = body.match(/wait\s+(\d+)\s*seconds/i); if (m) e.retryMs = parseInt(m[1], 10) * 1000; }   // « Please wait N seconds » → cooldown précis
           throw e;
         }
-        const j = await r.json();
+        const j = await _ghJson(r);
         const out = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
         if (!out || !String(out).trim()) throw new Error('réponse vide');
         const u = j.usage; if (u) _noteUsage('github', model, u.prompt_tokens, u.completion_tokens);
@@ -966,14 +1005,14 @@ async function _githubModels(prompt, maxTokens) {
         _ghBudgetNote(model, idx);
         const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), _tmo);
         try {
-          const r = await fetch(GITHUB_BASE + '/chat/completions', {
+          const r = await fetch(_ghBaseEff + '/chat/completions', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
             body: JSON.stringify({ model, messages: [{ role: 'system', content: _buildSystem() }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.4 }),
             signal: ctrl.signal,
           });
           if (!r.ok) { const body = (await r.text().catch(() => '')).slice(0, 200); const e = new Error('GitHub Models ' + model + ' ' + r.status); e.status = r.status; if (r.status === 429) { const m = body.match(/wait\s+(\d+)\s*seconds/i); if (m) e.retryMs = parseInt(m[1], 10) * 1000; } if (e.status) _ghCool(model, idx, e.status, e.retryMs); lastErr = e; continue; }
-          const j = await r.json();
+          const j = await _ghJson(r);
           const out = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
           if (out && String(out).trim()) { const u = j.usage; if (u) _noteUsage('github', model, u.prompt_tokens, u.completion_tokens); return String(out).trim(); }
         } catch (e) { lastErr = e; }   // 2e timeout → on abandonne GitHub, la chaine passe a OpenRouter
@@ -1148,6 +1187,7 @@ async function _cohere(prompt, maxTokens) {
       } catch (e) {
         lastErr = e;
         if (e.status === 401 || e.status === 403 || e.status === 402) { _cohereCool.cool(idx, e.status); break; }
+        else if (e.status === 429 && /trial key|limited to \d+ api calls/i.test(String(e.message))) _cohereCool.map.set(idx, Date.now() + 24 * 3600e3);   // essai MENSUEL épuisé : inutile de réessayer chaque minute
         else if (e.status === 429) _cohereCool.cool(idx, 429);
       } finally { clearTimeout(t); }
     }

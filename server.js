@@ -21173,7 +21173,7 @@ async function _asxIbItems() {
     } catch {} finally { clearTimeout(t2); }
   }
   // Dernier recours : Firecrawl (clé dans le .env du VPS), budgété — source ASX publique et légitime.
-  const fc = await _firecrawlFetch(ASX_IB_URL);
+  const fc = await _firecrawlFetch(ASX_IB_URL, null, { prio: 'essentiel', ttl: 8 * 3600e3 });   // pricing RBA : essentiel, une lecture par 8 h
   if (fc) { const items = _asxIbParse(fc); if (items) return items; }
   return null;
 }
@@ -21246,25 +21246,114 @@ setInterval(_computeRbaWatch, 10 * 60 * 1000);   // ~10 min (règlement ASX quot
 // (la source ne recalcule qu'une fois par jour) : ~12 lectures/jour au total. Budget PROACTIF pour ne pas cramer le quota
 // gratuit (même idiome que le budget GitHub Models) : plafond/jour + espacement, surchargeables par .env.
 const FC_KEY = process.env.FIRECRAWL_API_KEY || process.env.FIRECRAWL_KEY || '';
-const FC_CAP_JOUR = parseInt(process.env.FIRECRAWL_DAILY, 10) || 40;      // plafond d'appels/jour (préserve le quota)
+/* ══ BUDGET FIRECRAWL PAR CYCLE, DURABLE ET CALÉ SUR LE VRAI SOLDE (24/09) ══════════════════════════════
+   Courriel Firecrawl reçu par le user : « vous avez utilisé 50% des 1 000 crédits de votre forfait gratuit
+   pour ce cycle » — le cycle venait de commencer (renouvellement le 23 du mois). L'ancien garde-fou était
+   un plafond de 40 appels PAR JOUR, compté EN MÉMOIRE : chaque redéploiement le remettait à zéro, et un
+   redémarrage relance justement toutes les lectures de taux (WatchTower, rateprobability, ASX…) — dix
+   déploiements dans la journée, dix réserves pleines. Le plafond était juste, son compteur ne l'était pas.
+   Règles Firecrawl appliquées (offre gratuite) : 1 crédit par page lue (formats markdown / rawHtml, proxy
+   de base — le JSON ou le proxy « stealth » coûtent plus cher et ne sont jamais demandés ici), un nombre
+   FIXE de crédits par CYCLE mensuel, une limite de débit par minute.
+   Le budget est donc désormais :
+     · PAR CYCLE (FIRECRAWL_CREDITS_CYCLE, 1 000 par défaut ; renouvellement le FIRECRAWL_CYCLE_DAY, 23) ;
+     · LISSÉ : chaque jour a droit à (crédits restants − réserve) ÷ jours restants — un jour gourmand ne
+       prive pas la fin du cycle, et un reliquat profite aux jours suivants ;
+     · CALÉ sur le VRAI solde, lu toutes les 6 h sur l'API Firecrawl (/team/credit-usage, sans coût) ;
+     · DURABLE : compteurs et solde dans ai_cache (`fc:budget`), relus au démarrage ;
+     · ÉCONOME : une même adresse n'est pas relue avant son délai (6 h par défaut, `opts.ttl`), et la page
+       est gardée (si elle est petite) : après un redémarrage, on la resert sans dépenser de crédit ;
+     · avec une RÉSERVE de 10% que seuls les appels « essentiels » (taux directeurs) peuvent entamer. */
+const FC_CREDITS_CYCLE = parseInt(process.env.FIRECRAWL_CREDITS_CYCLE, 10) || 1000;
+const FC_CYCLE_JOUR = Math.min(28, Math.max(1, parseInt(process.env.FIRECRAWL_CYCLE_DAY, 10) || 23));
+const FC_CAP_JOUR = parseInt(process.env.FIRECRAWL_DAILY, 10) || 40;      // plafond DUR par jour, en plus du lissage
 const FC_MIN_GAP = parseInt(process.env.FIRECRAWL_MIN_GAP_MS, 10) || 4000; // espacement minimal entre deux appels
-const _fcTel = { jour: '', n: 0, last: 0, okAt: 0, errAt: 0, err: '' };
-function _fcJour() { return new Date().toISOString().slice(0, 10); }
-function _fcBudgetOk() {
-  if (!FC_KEY) return false;                                  // pas de clé → fonction éteinte (jamais d'appel à vide)
-  const j = _fcJour();
-  if (_fcTel.jour !== j) { _fcTel.jour = j; _fcTel.n = 0; }   // nouveau jour → réserve pleine
-  if (_fcTel.n >= FC_CAP_JOUR) return false;                  // plafond quotidien atteint
-  if (Date.now() - _fcTel.last < FC_MIN_GAP) return false;    // trop rapproché
-  return true;
+const FC_RESERVE = Math.round(FC_CREDITS_CYCLE * 0.10);
+const FC_TTL_DEFAUT = 6 * 3600e3;
+const _fcTel = { jour: '', n: 0, last: 0, okAt: 0, errAt: 0, err: '', cycle: '', util: 0, soldeApi: null, soldeAt: 0, utilAuSolde: 0, charge: false, pages: {} };
+function _fcJour(t) { return new Date(t || Date.now()).toISOString().slice(0, 10); }
+// Début du cycle en cours (le FC_CYCLE_JOUR le plus récent ≤ aujourd'hui) et jours restants avant le suivant.
+function _fcCycle(t) {
+  const d = new Date(t || Date.now());
+  let deb = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), FC_CYCLE_JOUR));
+  if (deb > d) deb = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, FC_CYCLE_JOUR));
+  const fin = new Date(Date.UTC(deb.getUTCFullYear(), deb.getUTCMonth() + 1, FC_CYCLE_JOUR));
+  return { cle: deb.toISOString().slice(0, 10), joursRestants: Math.max(1, Math.ceil((fin - d) / 864e5)) };
 }
-function _fcNote() { const j = _fcJour(); if (_fcTel.jour !== j) { _fcTel.jour = j; _fcTel.n = 0; } _fcTel.n++; _fcTel.last = Date.now(); }
+function _fcRoule(t) {
+  const j = _fcJour(t), c = _fcCycle(t);
+  if (_fcTel.jour !== j) { _fcTel.jour = j; _fcTel.n = 0; }
+  if (_fcTel.cycle !== c.cle) { _fcTel.cycle = c.cle; _fcTel.util = 0; _fcTel.soldeApi = null; _fcTel.utilAuSolde = 0; }
+  return c;
+}
+// Crédits restants : le solde réel lu chez Firecrawl (moins ce qu'on a dépensé depuis), sinon notre compte.
+function _fcRestant() {
+  if (_fcTel.soldeApi != null) return Math.max(0, _fcTel.soldeApi - (_fcTel.util - _fcTel.utilAuSolde));
+  return Math.max(0, FC_CREDITS_CYCLE - _fcTel.util);
+}
+function _fcAllocationJour(t) {
+  const c = _fcRoule(t);
+  // Part calculée sur le solde du DÉBUT de journée (restant + dépensé aujourd'hui) : recalculée après
+  // chaque appel sur le solde courant, elle se regonflerait d'autant qu'on dépense (mesuré au banc).
+  const lisse = Math.floor(Math.max(0, _fcRestant() + _fcTel.n - FC_RESERVE) / c.joursRestants);
+  return Math.min(FC_CAP_JOUR, lisse);
+}
+function _fcBudgetOk(prio, t) {
+  if (!FC_KEY || !_fcTel.charge) return false;              // pas de clé, ou compteurs pas encore relus → aucun appel
+  const now = t || Date.now();
+  _fcRoule(now);
+  if (now - _fcTel.last < FC_MIN_GAP) return false;         // trop rapproché (limite par minute de Firecrawl)
+  if (_fcRestant() <= 0) return false;                       // cycle épuisé
+  if (_fcTel.n < _fcAllocationJour(now)) return true;       // dans la part du jour
+  // Hors part du jour : seuls les appels ESSENTIELS peuvent entamer la réserve, jusqu'à 2% du cycle.
+  return prio === 'essentiel' && _fcRestant() > Math.round(FC_CREDITS_CYCLE * 0.02) && _fcTel.n < FC_CAP_JOUR;
+}
+let _fcSaveT = null;
+function _fcSauver() {
+  if (_fcSaveT) return;
+  _fcSaveT = setTimeout(() => { _fcSaveT = null; try { auth.aiCacheSet('fc:budget', _fcTel).catch(() => {}); } catch (e) {} }, 3000);
+}
+function _fcNote(t) { _fcRoule(t); _fcTel.n++; _fcTel.util++; _fcTel.last = t || Date.now(); _fcSauver(); }
 function _fcEtat() {
-  return { pose: !!FC_KEY, capJour: FC_CAP_JOUR, jour: _fcTel.jour || _fcJour(), n: _fcTel.n,
+  const c = _fcCycle();
+  return { pose: !!FC_KEY, capJour: _fcAllocationJour(), capDur: FC_CAP_JOUR, jour: _fcTel.jour || _fcJour(), n: _fcTel.n,
+           cycle: c.cle, joursRestants: c.joursRestants, creditsCycle: FC_CREDITS_CYCLE, utilCycle: _fcTel.util, restant: _fcRestant(),
+           soldeReel: _fcTel.soldeApi, soldeAt: _fcTel.soldeAt || null, reserve: FC_RESERVE,
            okAt: _fcTel.okAt || null, errAt: _fcTel.errAt || null, err: _fcTel.err || '' };
 }
+// Relecture au démarrage : un redéploiement ne rend plus la réserve pleine.
+try {
+  auth.aiCacheGet('fc:budget').then(v => {
+    if (v && typeof v === 'object') for (const k of ['jour', 'n', 'last', 'okAt', 'errAt', 'err', 'cycle', 'util', 'soldeApi', 'soldeAt', 'utilAuSolde', 'pages']) if (v[k] != null) _fcTel[k] = v[k];
+    _fcTel.charge = true;
+  }).catch(() => { _fcTel.charge = true; });
+} catch (e) { _fcTel.charge = true; }
+// Solde RÉEL chez Firecrawl (lecture gratuite), toutes les 6 h : v2 puis v1, formes tolérées.
+async function _fcLireSolde() {
+  if (!FC_KEY) return null;
+  for (const u of ['https://api.firecrawl.dev/v2/team/credit-usage', 'https://api.firecrawl.dev/v1/team/credit-usage']) {
+    const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const r = await fetch(u, { headers: { 'Authorization': 'Bearer ' + FC_KEY }, signal: ctrl.signal });
+      if (!r.ok) continue;
+      const j = await r.json(); const d = (j && j.data) || j || {};
+      const rest = Number(d.remainingCredits != null ? d.remainingCredits : d.remaining_credits);
+      if (!isFinite(rest)) continue;
+      _fcRoule(); _fcTel.soldeApi = rest; _fcTel.soldeAt = Date.now(); _fcTel.utilAuSolde = _fcTel.util; _fcSauver();
+      return rest;
+    } catch (e) {} finally { clearTimeout(to); }
+  }
+  return null;
+}
+{ const t1 = setTimeout(() => { _fcLireSolde().catch(() => {}); }, 15000); if (t1.unref) t1.unref();
+  const t2 = setInterval(() => { _fcLireSolde().catch(() => {}); }, 6 * 3600e3); if (t2.unref) t2.unref(); }
+function _fcCle(url, formats) { return String(url) + '|' + (formats || ['rawHtml']).join(','); }
 async function _firecrawlFetch(url, formats, opts) {
-  if (!_fcBudgetOk()) return null;
+  opts = opts || {};
+  const cle = _fcCle(url, formats), ttl = opts.ttl || FC_TTL_DEFAUT, page = _fcTel.pages && _fcTel.pages[cle];
+  // Même adresse relue trop tôt : on resert la page gardée (0 crédit), ou on s'abstient.
+  if (page && Date.now() - page.at < ttl) return page.c || null;
+  if (!_fcBudgetOk(opts.prio)) return null;
   _fcNote();
   const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 25000);
   try {
@@ -21272,15 +21361,23 @@ async function _firecrawlFetch(url, formats, opts) {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + FC_KEY, 'Content-Type': 'application/json' },
       // (24/09) `opts.principal` : page de bourse ou de banque centrale, très lourde en HTML → on ne demande que le contenu principal
-      body: JSON.stringify({ url, formats: formats || ['rawHtml'], onlyMainContent: !!(opts && opts.principal), timeout: 20000 }),
+      // proxy « basic » explicite : le proxy « stealth » coûte 5 crédits par page.
+      body: JSON.stringify({ url, formats: formats || ['rawHtml'], onlyMainContent: !!opts.principal, timeout: 20000, proxy: 'basic' }),
       signal: ctrl.signal,
     });
-    if (!r.ok) { _fcTel.errAt = Date.now(); _fcTel.err = 'HTTP ' + r.status; return null; }
+    if (r.status === 402) { _fcTel.soldeApi = 0; _fcTel.soldeAt = Date.now(); _fcTel.utilAuSolde = _fcTel.util; }   // crédits épuisés chez Firecrawl
+    if (!r.ok) { _fcTel.errAt = Date.now(); _fcTel.err = 'HTTP ' + r.status; _fcSauver(); return null; }
     const j = await r.json();
     const data = j && j.data;
     const contenu = data && (data.rawHtml || data.html || data.markdown);
     if (!contenu || String(contenu).length > 400000) { _fcTel.errAt = Date.now(); _fcTel.err = contenu ? 'réponse trop grosse' : 'réponse sans contenu'; return null; }
     _fcTel.okAt = Date.now(); _fcTel.err = '';
+    // On garde la date de lecture de chaque adresse (16 au plus), et la page si elle est petite (≤ 25 Ko) : resservie sans crédit.
+    if (!_fcTel.pages) _fcTel.pages = {};
+    _fcTel.pages[cle] = { at: Date.now(), c: String(contenu).length <= 25000 ? String(contenu) : null };
+    const cles = Object.keys(_fcTel.pages);
+    if (cles.length > 16) cles.sort((x, y) => _fcTel.pages[x].at - _fcTel.pages[y].at).slice(0, cles.length - 16).forEach(k => delete _fcTel.pages[k]);
+    _fcSauver();
     return String(contenu);
   } catch (e) { _fcTel.errAt = Date.now(); _fcTel.err = (e && e.message ? e.message : 'réseau').slice(0, 80); return null; }
   finally { clearTimeout(to); }
@@ -21818,7 +21915,7 @@ async function _rpViaRelais(slug) {
   // banque. La réponse est validée exactement comme l'accès direct (`today.rows`).
   if (typeof FC_KEY !== 'undefined' && FC_KEY && !(_rpFcAt[slug] && Date.now() - _rpFcAt[slug] < RP_FC_MS)) {
     _rpFcAt[slug] = Date.now();
-    const txt = await _firecrawlFetch('https://rateprobability.com/api/' + slug + '/latest', ['rawHtml']);
+    const txt = await _firecrawlFetch('https://rateprobability.com/api/' + slug + '/latest', ['rawHtml'], { prio: 'essentiel', ttl: RP_FC_MS });   // taux directeurs : peut entamer la réserve
     const j = _rpJsonDansTexte(txt);
     if (j && !j.error && j.today && Array.isArray(j.today.rows)) { delete _rpPanne[slug]; return { j, via: 'firecrawl' }; }
     derniere = 'firecrawl ' + (txt ? 'format inattendu' : 'refusé ou budget épuisé');

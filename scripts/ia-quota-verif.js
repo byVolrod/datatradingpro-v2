@@ -35,10 +35,15 @@ process.env.GEMINI_RPM = '100000';   // le lissage anti-rafale n'est pas l'objet
 process.env.GEMINI_MODEL = 'gemini-2.5-flash,gemini-2.5-flash-lite';
 
 let journal = [];     // appels réseau reçus : { model, key, body }
+let CATALOGUE = null; // catalogue Google simulé (null = lecture ratée)
 let repondre = () => ({ status: 200, texte: 'ok' });
 global.fetch = async (url, init) => {
   const u = String(url);
   const m = /models\/([^:]+):generateContent\?key=([^&]+)/.exec(u);
+  if (!m && /\/v1beta\/models\?/.test(u) && CATALOGUE) {   // lecture du catalogue Google (_gemDecouvrir)
+    const c = JSON.stringify({ models: CATALOGUE.map(n => ({ name: 'models/' + n, supportedGenerationMethods: ['generateContent'] })) });
+    return { ok: true, status: 200, text: async () => c, json: async () => JSON.parse(c), headers: { get: () => null } };
+  }
   if (!m) return { ok: false, status: 404, text: async () => '', json: async () => ({}), headers: { get: () => null } };
   const appel = { model: m[1], key: m[2], body: JSON.parse((init && init.body) || '{}') };
   journal.push(appel);
@@ -189,13 +194,31 @@ const TITRES = 'Translate each numbered line into natural, professional FRENCH f
     v('… et un titre du fil passe ENCORE sur Gemma juste après', /ok gemma/.test(String(out)) && journal.some(a => /gemma/.test(a.model)), String(out && out.message || out));
   }
 
+  console.log('\n── 6 ter. Le Gemma le plus récent échoue en série → bascule sur le suivant (mesuré en production) ──');
+  {
+    CATALOGUE = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemma-4-31b-it', 'gemma-3-27b-it', 'gemma-3-4b-it'];
+    const ai = charger();
+    await new Promise(z => setTimeout(z, 5600));   // le catalogue est lu 5 s après le chargement
+    v('le catalogue désigne d\'abord le plus récent (gemma-4-31b-it)', ai.status().gemma.model === 'gemma-4-31b-it', ai.status().gemma.model);
+    repondre = a => a.model === 'gemma-4-31b-it' ? { status: 500, gStatus: 'INTERNAL', message: 'Internal error encountered.' }
+      : /gemma/.test(a.model) ? { status: 200, texte: '[[1]] La Fed maintient ses taux' } : { status: 429, message: 'quota "quotaId": "PerDay"' };
+    let out = '';
+    for (let i = 0; i < 4; i++) out = await muet(() => ai.generateText(TITRES + ' ' + i, 300, { masse: true, meta: {} }));
+    const st = ai.status().gemma;
+    v('après 6 erreurs serveur de suite, gemma-4-31b-it est écarté et gemma-3-27b-it prend le relais', st.model === 'gemma-3-27b-it' && /La Fed maintient/.test(String(out)), JSON.stringify(st) + ' · ' + String(out && out.message || out));
+    journal = [];
+    await muet(() => ai.generateText(TITRES + ' suite', 300, { masse: true, meta: {} }));
+    v('… et le modèle écarté n\'est plus appelé', journal.length >= 1 && journal.every(a => a.model !== 'gemma-4-31b-it'), JSON.stringify(journal.map(a => a.model)));
+    CATALOGUE = null;
+  }
+
   console.log('\n── 7. Le Gemma servi est choisi dans le catalogue ──');
   {
     const a = AI_SRC.indexOf('function _gemmaRang('), b = AI_SRC.indexOf('const _gemmaFen = new Map();');
     v('_gemmaRang / _gemmaChoisir sont extractibles', a > 0 && b > a);
     if (a > 0 && b > a) {
-      const mk = force => new Function('GEMMA_ON', 'GEMMA_FORCE', '_gemMarkDead', '_gemModelDead',
-        'let GEMMA_MODEL = GEMMA_FORCE || "gemma-3-27b-it";\n' + AI_SRC.slice(a, b) + '\nreturn { choisir: d => _gemmaChoisir(d) };')(true, force || '', () => {}, new Map());
+      const mk = force => new Function('GEMMA_ON', 'GEMMA_FORCE', '_gemMarkDead', '_gemModelDead', '_gemModelIsDead', 'GEMINI_KEYS',
+        'let GEMMA_MODEL = GEMMA_FORCE || "gemma-3-27b-it";\n' + AI_SRC.slice(a, b) + '\nreturn { choisir: d => _gemmaChoisir(d) };')(true, force || '', () => {}, new Map(), () => false, ['k']);
       v('le plus récent puis le plus grand (jamais un modèle < 12b)', mk().choisir(new Set(['gemma-3-4b-it', 'gemma-3-12b-it', 'gemma-3-27b-it', 'gemma-4-9b-it', 'gemini-2.5-flash'])) === 'gemma-3-27b-it');
       v('une génération plus récente et assez grande est préférée', mk().choisir(new Set(['gemma-3-27b-it', 'gemma-4-31b-it'])) === 'gemma-4-31b-it');
       v('un nom forcé (GEMMA_MODEL) n\'est jamais remplacé', mk('gemma-3-12b-it').choisir(new Set(['gemma-3-27b-it', 'gemma-3-12b-it'])) === 'gemma-3-12b-it');

@@ -22,88 +22,96 @@ const v = (n, c, d) => { if (c) { ok++; console.log('  ✓ ' + n); } else { ko++
 
 const bloc = (() => {
   const d = SRV.indexOf('const FC_KEY =');
-  const f = SRV.indexOf('async function _firecrawlFetch');
+  const f = SRV.indexOf('function _fcCle(');
   return (d >= 0 && f > d) ? SRV.slice(d, f) : null;
 })();
 
-const monter = (code, key) => {
-  let now = Date.UTC(2026, 8, 23, 10, 0, 0);
+/* 24/09 : le budget est désormais PAR CYCLE (crédits mensuels de Firecrawl), lissé sur les jours
+   restants, DURABLE (relu au démarrage depuis ai_cache) et calé sur le vrai solde. `auth` est une
+   doublure en mémoire : elle joue le rôle d'ai_cache, ce qui permet de simuler un redéploiement. */
+const monter = (code, key, stock, t0, env2) => {
+  let now = t0 || Date.UTC(2026, 8, 24, 10, 0, 0);
   class D extends Date { constructor(...a) { super(...(a.length ? a : [now])); } static now() { return now; } }
-  const api = new Function('process', 'Date',
-    code + '\nreturn { _fcBudgetOk, _fcNote, _fcEtat, FC_CAP_JOUR, FC_MIN_GAP, FC_KEY };')(
-    { env: key ? { FIRECRAWL_API_KEY: key } : {} }, D);
-  return { api, avancer: ms => { now += ms; } };
+  const kv = stock || {};
+  const auth = { aiCacheGet: async k => kv[k] ? JSON.parse(JSON.stringify(kv[k])) : null, aiCacheSet: async (k, v) => { kv[k] = JSON.parse(JSON.stringify(v)); } };
+  const tm = { setTimeout: (f) => { Promise.resolve().then(f); return { unref() {} }; }, setInterval: () => ({ unref() {} }) };   // différé : comme un vrai minuteur
+  const api = new Function('process', 'Date', 'auth', 'setTimeout', 'setInterval', 'fetch',
+    code + '\nreturn { _fcBudgetOk, _fcNote, _fcEtat, _fcAllocationJour, _fcTel, FC_CAP_JOUR, FC_MIN_GAP, FC_KEY, FC_RESERVE };')(
+    { env: Object.assign(key ? { FIRECRAWL_API_KEY: key } : {}, env2 || {}) }, D, auth, tm.setTimeout, tm.setInterval, async () => ({ ok: false }));
+  return { api, kv, avancer: ms => { now += ms; }, now: () => now };
 };
+const tick = () => new Promise(z => setImmediate(z));
 
 console.log('\n── 1. Le budget est extractible, et branché ──');
-v('le bloc FC_KEY…_fcEtat est extractible de server.js', !!bloc);
-v('_firecrawlFetch passe par le budget (garde + note)',
-  /if \(!_fcBudgetOk\(\)\) return null;\s*\n\s*_fcNote\(\);/.test(SRV));
-v('Firecrawl est le DERNIER recours de l\'ASX (pas un chemin primaire)',
-  /const fc = await _firecrawlFetch\(ASX_IB_URL\);/.test(SRV));
+v('le bloc du budget Firecrawl est extractible de server.js', !!bloc);
+v('_firecrawlFetch passe par le budget (garde + note), APRÈS la page gardée',
+  /if \(page && Date\.now\(\) - page\.at < ttl\) return page\.c \|\| null;\s*\n\s*if \(!_fcBudgetOk\(opts\.prio\)\) return null;\s*\n\s*_fcNote\(\);/.test(SRV));
+v('Firecrawl est le DERNIER recours de l\'ASX (pas un chemin primaire)', /const fc = await _firecrawlFetch\(ASX_IB_URL, null, \{ prio: 'essentiel'/.test(SRV));
 v('la clé ne vit QUE dans le .env (jamais en dur)',
   /process\.env\.FIRECRAWL_API_KEY \|\| process\.env\.FIRECRAWL_KEY/.test(SRV) && !/fc-[0-9a-f]{20}/.test(SRV));
-// 24/09 : la ligne rouge porte sur les DÉFIS anti-robot (CAPTCHA) ; rateprobability, API publique sans défi, est
-// lue via Firecrawl sur décision explicite de l'utilisateur — très légèrement, et le banc le vérifie.
 v('la ligne rouge est écrite : jamais pour résoudre un défi anti-robot',
   /JAMAIS pour résoudre un défi anti-robot/.test(SRV) && /DÉCISION USER DU 24\/09/.test(SRV));
 v('rateprobability via Firecrawl : au plus une lecture toutes les 12 h par banque',
   /const RP_FC_MS = 12 \* 3600e3;/.test(SRV) && /!\(_rpFcAt\[slug\] && Date\.now\(\) - _rpFcAt\[slug\] < RP_FC_MS\)/.test(SRV));
 v('… et une banque lue il y a moins de 12 h n\'est pas réinterrogée (sauf réunion depuis)',
   /if \(!force && at0 && now - at0 < RP_FC_MS && !reunionDepuis\)/.test(SRV));
+v('proxy de base explicite (le proxy « stealth » coûte 5 crédits)', /proxy: 'basic'/.test(SRV));
 v('la télémétrie est exposée à l\'admin (Pipeline taux)', /firecrawl: _fcEtat\(\),/.test(SRV));
 
+(async () => {
 if (bloc) {
-  console.log('\n── 2. Sans clé, la passerelle est ÉTEINTE ──');
+  console.log('\n── 2. Sans clé, ou avant la relecture des compteurs : ÉTEINT ──');
   const sansCle = monter(bloc, '');
+  await tick();
   v('pas de clé → budget refusé (jamais d\'appel à vide)', sansCle.api._fcBudgetOk() === false && sansCle.api.FC_KEY === '');
 
-  console.log('\n── 3. Avec clé : le plafond quotidien arrête avant d\'épuiser le quota ──');
+  console.log('\n── 3. Le cas du courriel : 500 crédits sur 1 000 déjà partis, 29 jours à tenir ──');
   const g = monter(bloc, 'fc-test');
-  const CAP = g.api.FC_CAP_JOUR;
-  v('cap par défaut = 40 appels/jour', CAP === 40);
-  v('espacement par défaut ≥ 4 s', g.api.FC_MIN_GAP >= 4000);
-  let refus = 0;
-  for (let i = 0; i < CAP + 10; i++) {
-    if (g.api._fcBudgetOk()) g.api._fcNote(); else refus++;
-    g.avancer(g.api.FC_MIN_GAP);            // on espace assez pour que SEUL le plafond bloque
-  }
-  v('sur cap+10 tentatives, exactement 10 sont refusées (le plafond a tenu)', refus === 10, refus + ' refus');
-  v('… et une fois le plafond atteint, budget refusé', g.api._fcBudgetOk() === false);
+  await tick();
+  g.api._fcEtat();   // ouvre le cycle courant avant d'y poser l'état simulé
+  g.api._fcTel.util = 500;            // état réel du 24/09 (courriel Firecrawl)
+  const alloc = g.api._fcAllocationJour();
+  v('part du jour lissée : (500 − réserve 100) ÷ 29 j ≈ 13 appels', alloc === Math.floor((500 - 100) / 29), alloc + ' appels');
+  let passe = 0;
+  for (let i = 0; i < 60; i++) { if (g.api._fcBudgetOk()) { passe++; g.api._fcNote(); } g.avancer(g.api.FC_MIN_GAP); }
+  v('sur 60 tentatives dans la journée, seule la part du jour passe', passe === alloc, passe + ' passés');
+  v('… un appel ESSENTIEL (taux directeurs) peut entamer la réserve', g.api._fcBudgetOk('essentiel') === true);
 
-  console.log('\n── 4. L\'espacement bloque deux appels trop rapprochés ──');
-  const s = monter(bloc, 'fc-test');
-  v('premier appel autorisé', s.api._fcBudgetOk() === true);
-  s.api._fcNote();
-  v('immédiatement après : refusé (trop rapproché)', s.api._fcBudgetOk() === false);
-  s.avancer(s.api.FC_MIN_GAP + 50);
-  v('… autorisé une fois l\'espacement écoulé', s.api._fcBudgetOk() === true);
+  console.log('\n── 4. Un REDÉPLOIEMENT ne rend plus la réserve pleine (le défaut du 24/09) ──');
+  await tick(); await new Promise(z => setTimeout(z, 10));
+  const apres = monter(bloc, 'fc-test', g.kv, g.now());
+  await tick();
+  v('les compteurs sont relus : le jour reste consommé', apres.api._fcTel.n === passe && apres.api._fcTel.util === 500 + passe, JSON.stringify({ n: apres.api._fcTel.n, util: apres.api._fcTel.util }));
+  v('… donc aucun appel ordinaire de plus aujourd\'hui', apres.api._fcBudgetOk() === false);
 
-  console.log('\n── 5. Le compteur se remet à zéro au changement de jour ──');
-  const d2 = monter(bloc, 'fc-test');
-  for (let i = 0; i < d2.api.FC_CAP_JOUR; i++) { if (d2.api._fcBudgetOk()) d2.api._fcNote(); d2.avancer(d2.api.FC_MIN_GAP); }
-  v('plafond atteint aujourd\'hui', d2.api._fcBudgetOk() === false);
-  d2.avancer(24 * 3600 * 1000);
-  v('lendemain → réserve de nouveau pleine', d2.api._fcBudgetOk() === true);
+  console.log('\n── 5. Le lendemain, la part est recalculée sur ce qui reste ──');
+  apres.avancer(24 * 3600e3);
+  v('nouveau jour → appels de nouveau possibles', apres.api._fcBudgetOk() === true);
+  v('… et la part suit le solde restant, pas un forfait fixe', apres.api._fcAllocationJour() === Math.min(40, Math.floor((1000 - 500 - passe - 100) / 28)), String(apres.api._fcAllocationJour()));
 
-  console.log('\n── 6. _fcEtat rend l\'état pour l\'admin ──');
-  const e = monter(bloc, 'fc-test');
-  e.api._fcNote(); e.api._fcNote();
-  const etat = e.api._fcEtat();
-  v('_fcEtat : clé posée, appels du jour, plafond', etat.pose === true && etat.n === 2 && etat.capJour === 40, JSON.stringify(etat));
-  const etatSans = monter(bloc, '').api._fcEtat();
-  v('… et sans clé, pose = false', etatSans.pose === false);
+  console.log('\n── 6. Cycle épuisé → plus rien, sauf l\'essentiel jusqu\'à 2% ──');
+  const x = monter(bloc, 'fc-test'); await tick();
+  x.api._fcEtat();   // ouvre le cycle courant avant d'y poser l'état simulé
+  x.api._fcTel.util = 975;
+  v('restant 25 (< réserve) : aucun appel ordinaire', x.api._fcBudgetOk() === false);
+  v('… l\'essentiel passe encore (restant > 2% du cycle)', x.api._fcBudgetOk('essentiel') === true);
+  x.api._fcTel.util = 985;
+  v('… mais plus sous 2%', x.api._fcBudgetOk('essentiel') === false);
 
-  console.log('\n── 7. Témoin : sans le plafond, rien ne préserve le quota ──');
-  const mut = bloc.replace('if (_fcTel.n >= FC_CAP_JOUR) return false;', 'if (false) return false;');
-  v('(témoin) la mutation retire bien le plafond', mut !== bloc);
+  console.log('\n── 7. Le vrai solde Firecrawl prime sur notre compte ──');
+  const y = monter(bloc, 'fc-test'); await tick();
+  y.api._fcEtat();   // ouvre le cycle courant avant d'y poser l'état simulé
+  y.api._fcTel.soldeApi = 120; y.api._fcTel.utilAuSolde = y.api._fcTel.util;
+  v('solde réel 120 → part du jour ≈ (120 − 100) ÷ 29', y.api._fcAllocationJour() === 0, String(y.api._fcAllocationJour()));
+
+  console.log('\n── 8. Témoin : sans la relecture au démarrage, le défaut revient ──');
+  const mut = bloc.replace("if (v && typeof v === 'object') for (const k of", "if (false) for (const k of");
+  v('(témoin) la mutation retire bien la relecture', mut !== bloc);
   if (mut !== bloc) {
-    const t = monter(mut, 'fc-test');
-    let passe = 0;
-    for (let i = 0; i < 60; i++) { if (t.api._fcBudgetOk()) { passe++; t.api._fcNote(); } t.avancer(t.api.FC_MIN_GAP); }
-    v('(témoin) sans plafond, les 60 passent (le quota se cramerait)', passe === 60, passe + ' passés');
+    const t = monter(mut, 'fc-test', g.kv, g.now()); await tick();
+    v('(témoin) sans elle, un redéploiement rouvre la journée entière', t.api._fcBudgetOk() === true && t.api._fcTel.n === 0);
   }
 }
-
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);
+})();
