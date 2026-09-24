@@ -65,7 +65,7 @@ function extraire(nom) {
   throw new Error('déclaration non terminée : ' + nom);
 }
 
-const NOMS = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_calPeriode', '_calPeriodeConflit', '_FF_EURO_CTRY_ADJ',
+const NOMS = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_calPeriode', '_calPeriodeConflit', '_CAL_CORE_RX', '_calCoreConflit', '_FF_EURO_CTRY_ADJ',
   '_CAL_VITAL_RX', '_calVitalLift', '_calKey', '_calKeyDated', '_calActualsMap', '_overlayActuals',
   '_calSansResultatFutur', '_CAL_SANS_CHIFFRE_RX', '_CAL_DECISION_TAUX_RX', '_calUniteFamille', '_calActualCoherent', '_calResultatsCoherents',
   '_FF_JOUR_MIN', '_FF_APPARIEMENT_MIN', '_FF_FENETRE_MS', '_calJourUTC', '_FF_ADJ_CTRY', '_ffCtry',
@@ -442,7 +442,7 @@ console.log('\n── 12. Garde périodicité : un m/m ne récupère jamais les 
 (async () => {
   let blocR;
   try {
-    blocR = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_calPeriode', '_calPeriodeConflit', '_calKey', '_calKeyDated', '_calActualsMap',
+    blocR = ['_CAL_STOP', '_CAL_CTRY', '_calTitleTokens', '_calOverlap', '_calPeriode', '_calPeriodeConflit', '_CAL_CORE_RX', '_calCoreConflit', '_calKey', '_calKeyDated', '_calActualsMap',
       '_CAL_SANS_CHIFFRE_RX', '_CAL_DECISION_TAUX_RX', '_calUniteFamille', '_calActualCoherent', '_refreshTVActualsInner'].map(extraire).join('\n');
   } catch (e) { verif('le code du rattrapage TradingView est extractible de server.js', false, e.message); blocR = null; }
   if (blocR) {

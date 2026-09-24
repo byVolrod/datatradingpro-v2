@@ -1377,6 +1377,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260924-calendrier-ventes-detail-cad', ts: Date.UTC(2026, 8, 24, 17, 50), title: 'Calendrier : les deux ventes au détail canadiennes sont bien là', desc: 'Vous nous avez signalé qu’à 14 h 30, notre calendrier ne montrait qu’une seule annonce canadienne quand ForexFactory en affichait deux : « Core Retail Sales m/m » et « Retail Sales m/m ». Les deux portaient le même nom chez nous et l’une effaçait l’autre. Un chiffre hors automobiles et le chiffre global sont désormais toujours distingués, avec chacun ses propres valeurs, pour toutes les devises.' },
+  { id: 'dtpu-20260924-rapports-version-complete', ts: Date.UTC(2026, 8, 24, 17, 55), title: 'Onglet Analystes : la version complète, à chaque fois', desc: 'Quand notre rédaction complète n’avait pas pu aboutir, le Récap Quotidien ou le Point Marché pouvaient rester en « version courte ». Désormais, une version courte est automatiquement remplacée par la version complète dès que la rédaction repart, y compris pour les jours précédents, et une version courte ne peut plus jamais prendre la place d’une version complète.' },
   { id: 'dtpu-20260924-fil-francais-heures-pointe', ts: Date.UTC(2026, 8, 24, 15, 40), title: 'Fil d’actualité : il reste en français aux heures de pointe', desc: 'Aux heures les plus chargées, une partie des titres du fil repassait en anglais : notre traducteur principal atteignait sa limite de la journée vers midi. Les titres passent désormais par une voie de traduction dédiée, bien plus large, et un traducteur de secours prend le relais si elle venait à saturer. Le Récap Hebdo, lui, attend le moment où l’IA dispose de toute sa capacité, au lieu de sortir dans une version incomplète.' },
   { id: 'dtpu-20260924-taux-bns-rbnz-courbe', ts: Date.UTC(2026, 8, 24, 10, 10), title: 'Onglet Taux : la BNS et la RBNZ ont leur courbe de marché complète', desc: 'Les cartes du franc suisse et du dollar néo-zélandais affichent désormais, comme les autres banques centrales, la probabilité de hausse, de maintien ou de baisse pour chacune des prochaines réunions, et plus seulement pour la suivante. Ces chiffres viennent d’une courbe publique construite sur les contrats à terme cotés (SARON pour la BNS, bons bancaires à 90 jours pour la RBNZ). Relevé du jour : la RBNZ est pricée à 100% pour une hausse le 28 octobre. Le desk vérifie avant chaque affichage que le taux directeur de la source est bien celui en vigueur et qu’aucune réunion n’a eu lieu depuis ; sinon, il garde sa lecture précédente.' },
   { id: 'dtpu-20260924-taux-directeurs-corriges', ts: Date.UTC(2026, 8, 24, 9, 15), title: 'Onglet Taux : les taux de la Fed et de la BoJ corrigés', desc: 'Vous nous avez signalé des taux faux dans l’onglet Taux, et vous aviez raison : la hausse de la Fed du 16 septembre (fourchette désormais à 3,75–4,00%) et celle de la Banque du Japon du 18 septembre (1,25%) n’avaient pas été prises en compte. Le jour même de ces décisions, notre calendrier contenait, à côté du vrai chiffre, une seconde ligne portant une valeur erronée ; face à deux chiffres, le desk préférait ne rien écrire, et gardait l’ancien taux. Il retient désormais la valeur plausible et le bon intitulé. Surtout, le desk lit de nouveau chaque jour les probabilités de rateprobability.com pour la Fed, la BCE, la BoE, la BoJ, la BoC et la RBA, et recale ses taux sur cette source dès qu’elle se met à jour.' },
@@ -5600,6 +5602,16 @@ function _calPeriode(tok) {
   return null;
 }
 function _calPeriodeConflit(a, b) { const pa = _calPeriode(a), pb = _calPeriode(b); return !!(pa && pb && pa !== pb); }
+/* GARDE « CORE » (24/09, capture user : « pourquoi t'as mis qu'une annonce CAD alors qu'on en a 2 »,
+   ForexFactory à côté : « Core Retail Sales m/m » ET « Retail Sales m/m » à 14 h 30). « core » est un
+   mot vide de _CAL_STOP (pour que « Core CPI » puisse rejoindre son relevé TradingView), donc « Core
+   Retail Sales m/m » et « Retail Sales m/m » ont EXACTEMENT les mêmes mots-clés. Au nommage, le premier
+   candidat FF gagnait l'égalité : « Retail Sales MoM » ET « Retail Sales ex Autos MoM » prenaient tous
+   deux le nom « Core Retail Sales m/m », et le garde-fou des homonymes supprimait l'un des deux. Même
+   principe que la garde périodicité : un chiffre « hors éléments » (core, ex autos, excluding…) et le
+   chiffre global ne sont JAMAIS la même publication. Lu sur les titres BRUTS, pas sur les mots-clés. */
+const _CAL_CORE_RX = /\bcore\b|\bex[- ](?:autos?|food|energy|fuel|tobacco|gas)|\bexcluding\b|\bless\s+(?:food|energy)|\btrimmed\b|\bmedian\b|\bunderlying\b/i;
+function _calCoreConflit(ta, tb) { return _CAL_CORE_RX.test(String(ta || '')) !== _CAL_CORE_RX.test(String(tb || '')); }
 
 /* ══ UN RÉSULTAT DOIT AVOIR LA FORME DE SA LIGNE (23/09, capture user : « l'onglet taux n'est pas à
    jour », Fed affichée à 3,75 % une semaine après la hausse du 16/09 à 3,75-4,00 %) ════════════════
@@ -5766,6 +5778,7 @@ function _ffDisplayTitle(ev) {
       let best = null, bestOv = 0;
       for (const c of cands) {
         if (Math.abs(c.ts - ev.timestamp) > 90 * 60000) continue;   // même publication, tolérance de fuseau/arrondi
+        if (_calPeriodeConflit(tok, c.tok) || _calCoreConflit(ev.title, c.title)) continue;   // jamais un m/m pour un y/y, ni un « core » pour le global
         const ov = _calOverlap(tok, c.tok);
         if (ov > bestOv) { bestOv = ov; best = c; }
       }
@@ -5930,6 +5943,7 @@ async function _refreshTVActualsInner(force) {
       const ov = _calOverlap(et, x.tok);
       if (ov < 1) continue;
       if (_calPeriodeConflit(et, x.tok)) continue;   // ← même garde qu'en fusion FF : jamais un m/m avec un y/y (cf. commentaire à _calOverlap)
+      if (_calCoreConflit(ev.title, x.t.title)) continue;   // ← ni un « core » avec le chiffre global (cf. _calCoreConflit)
       if (ov > bs || (ov === bs && diff < bd)) { bs = ov; bd = diff; best = x.t; }
     }
     /* DÉCISION DE TAUX SANS MOT COMMUN (23/09). ForexFactory écrit « Federal Funds Rate » / « Official
@@ -6208,6 +6222,7 @@ function _calFusionFF(tvItems) {
       const ov = _calOverlap(tok, c.tok);
       if (ov < 2) continue;
       if (_calPeriodeConflit(tok, c.tok)) continue;   // ← garde périodicité (cf. commentaire à _calOverlap) : jamais un m/m avec un y/y
+      if (_calCoreConflit(f.title, c.e.title)) continue;   // ← garde « core » (cf. _calCoreConflit) : jamais Core Retail Sales avec Retail Sales
       if (ov > bestOv || (ov === bestOv && d < bestD)) { bestOv = ov; bestD = d; best = c; }
     }
     if (!best) { sortie.push(f); continue; }               // ligne FF que TradingView n'a pas → elle entre
@@ -7379,8 +7394,12 @@ app.get('/api/weekly-reports', async (_req, res) => {
   // Un repli déterministe (_ai:false) recycle les news brutes ANGLAISES → il ne doit PAS bloquer la vraie
   // génération IA en français : tant que le recap courant est un repli, on continue de tenter la régén IA
   // (verrou 15 min) jusqu'à obtenir la version française. Dès que l'IA réussit (_ai:true), la condition s'éteint.
-  const _fxrIsFallback = fxrCurrent && fxrCurrent._fxr && fxrCurrent._fxr._ai === false;
-  if (!fxrCurrent || _fxrIsFallback) {
+  /* 24/09 : une version COURTE est traitée comme un repli — elle doit devenir complète. La passe complète
+     (~19 000 jetons) ne tient que sur Gemini Flash : tant que Flash est à sec, retenter ne ferait que
+     brûler les autres fournisseurs pour rien, on attend son retour (ai.flashDispo). */
+  const _flashPret = () => !(ai.flashDispo && !ai.flashDispo());
+  const _fxrIsFallback = fxrCurrent && fxrCurrent._fxr && (fxrCurrent._fxr._ai === false || fxrCurrent._fxr._court);
+  if (!fxrCurrent || (_fxrIsFallback && _flashPret())) {
     generating = true;
     if (Date.now() - _fxrGenLock > 15 * 60 * 1000) {
       _fxrGenLock = Date.now();
@@ -7407,10 +7426,10 @@ app.get('/api/weekly-reports', async (_req, res) => {
       } catch { return false; }
     };
     const _fxrPastFb = items.find(i => i._reportType === 'FX Daily Recap' && i._fxr
-      && (i._fxr._ai === false || (i._fxr.v || 0) < FXR_VER)
+      && (i._fxr._ai === false || i._fxr._court || (i._fxr.v || 0) < FXR_VER)
       && i._fxr.day !== _fxrDay && (Date.now() - ((_parisDayRange(i._fxr.day) || [0])[0] || 0)) < 7.5 * 86400000
       && _fxrDayCorpusOk(i._fxr.day));
-    if (_fxrPastFb && Date.now() - _fxrPastGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {
+    if (_fxrPastFb && _flashPret() && Date.now() - _fxrPastGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {
       _fxrPastGenLock = Date.now();
       generating = true;
       console.log('[FX Recap] guérison jour passé : régén FR de ' + _fxrPastFb._fxr.day);
@@ -7423,8 +7442,8 @@ app.get('/api/weekly-reports', async (_req, res) => {
   if (_dtpdDow !== 0 && _dtpdDow !== 6 && _dtpdH >= 12) {
     const _dtpdDay = _dtpdTodayKey();
     const dtpdCurrent = items.find(i => i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === _dtpdDay);
-    const _dtpdIsFallback = dtpdCurrent && dtpdCurrent._dtpd && dtpdCurrent._dtpd._ai === false;   // repli anglais → continuer à tenter l'IA française (même logique que le FX Recap)
-    if (!dtpdCurrent || _dtpdIsFallback) {
+    const _dtpdIsFallback = dtpdCurrent && dtpdCurrent._dtpd && (dtpdCurrent._dtpd._ai === false || dtpdCurrent._dtpd._court);   // repli anglais OU version courte → continuer à viser la version complète (même logique que le FX Recap)
+    if (!dtpdCurrent || (_dtpdIsFallback && _flashPret())) {
       generating = true;
       if (Date.now() - _dtpdGenLock > 15 * 60 * 1000) { _dtpdGenLock = Date.now(); generateDTPDaily(true).catch(e => console.error('[DTP Daily] auto-gen échec:', e.message)); }
     }
@@ -15909,7 +15928,14 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
 
          Ce qui ne se perd PAS : « À surveiller », les chiffres par pays et par séance sont
          déterministes, calculés depuis le calendrier après coup, identiques dans les deux cas. */
-      if (!fxr) {
+      /* ⚠️ PLUS DE VERSION COURTE QUAND UNE VERSION RÉDIGÉE EXISTE DÉJÀ (24/09, demande user : « pour
+         tous les rapports de l'onglet Analystes je veux pas de versions courtes, la version complète à
+         chaque fois »). La passe courte ne sert plus qu'à ne pas laisser un jour VIDE ; dès qu'une
+         version rédigée du jour existe (courte ou complète), une nouvelle tentative ne vise QUE la
+         complète, et un échec garde l'existant. La version courte est remplacée par la complète dès que
+         le quota de rédaction revient (voir la guérison dans /api/briefings). */
+      const _fxrDejaRedige = allNews.some(i => i && i._reportType === 'FX Daily Recap' && i._fxr && i._fxr.day === dayKey && i._fxr._ai !== false);
+      if (!fxr && !_fxrDejaRedige) {
         const _court = `Tu es le stratège FX & macro senior de DataTradingPro. Rédige le « FX Daily Recap » du ${dateLabel} : une note de desk COURTE, en français, à partir des SEULES données ci-dessous.
 RÈGLES : chaque puce donne sa CAUSE chiffrée reliée à son effet par la flèche « → » ; n'invente AUCUN chiffre ; une seule institution par puce ; jamais de tiret long (deux-points quand une idée en explique une autre, virgule pour une incise) ; une rubrique sans matière est OMISE plutôt que remplie.
 Réponds UNIQUEMENT en JSON valide (aucun préambule, aucun markdown). Clés en anglais, valeurs en français :
@@ -15996,6 +16022,11 @@ ${csLine || '(n/d)'}`;
        ⚠️ ET LA COMPARAISON PORTE SUR LA VERSION, pas sur la date : sans elle, deux replis de même
        version se remplaceraient l'un l'autre à chaque passage de guérison, pour un contenu
        identique, et la boucle tournerait indéfiniment sur les mêmes jours. */
+    // Une version COURTE ne remplace jamais une version COMPLÈTE du même jour.
+    if (fxr._ai && fxr._court) {
+      const _complet = allNews.find(i => i._reportType === 'FX Daily Recap' && i._fxr && i._fxr.day === dayKey && i._fxr._ai !== false && !i._fxr._court);
+      if (_complet) { console.log(`[FX Recap] version courte ignorée pour ${dayKey} : la version complète est en place`); return _complet; }
+    }
     if (!fxr._ai) {
       const _existing = allNews.find(i => i._reportType === 'FX Daily Recap' && i._fxr && i._fxr.day === dayKey);
       const _progres = !!(_existing && !_existing._fxr._ai && (_existing._fxr.v || 0) < FXR_VER);
@@ -16283,7 +16314,9 @@ ${ratesLines || '(n/d)'}`;
          desk et déjà au-dessus du plafond par minute de la chaîne gratuite principale. La passe
          courte tombe à environ 4 500. Corriger le jumeau signalé seul aurait décalé le prochain
          signalement d'une semaine, comme d'habitude ici. */
-      if (!dtpd || !dtpd.sections || !dtpd.sections.length) {
+      // Même règle que le Récap Quotidien (24/09) : une version rédigée existe → on ne vise que la complète.
+      const _dtpdDejaRedige = allNews.some(i => i && i._reportType === 'DTP Daily' && i._dtpd && i._dtpd.day === dayKey && i._dtpd._ai !== false);
+      if ((!dtpd || !dtpd.sections || !dtpd.sections.length) && !_dtpdDejaRedige) {
         const _court = `Tu es le stratège macro & FX senior de DataTradingPro. Rédige le « Point Marché : Ouverture US » du ${dateLabel} : une note COURTE, en français, sur la nuit asiatique et la matinée européenne, à partir des SEULES données ci-dessous.
 RÈGLES : chaque puce donne sa CAUSE chiffrée puis son effet ; n'invente AUCUN chiffre ; une seule banque centrale par puce ; jamais de tiret long ; une section sans matière est OMISE.
 Réponds UNIQUEMENT en JSON valide (aucun préambule, aucun markdown), valeurs en français :
@@ -16330,6 +16363,10 @@ ${csLine || '(n/d)'}`;
 
     // ANTI-RÉTROGRADATION (même règle que le FX Recap, bug « pourquoi c'est en anglais » 15/07) : un repli
     // déterministe (_ai:false, titres bruts anglais) ne remplace jamais une version IA française du même jour.
+    if (dtpd._ai !== false && dtpd._court) {
+      const _complet = allNews.find(i => i._reportType === 'DTP Daily' && i._dtpd && i._dtpd.day === dayKey && i._dtpd._ai !== false && !i._dtpd._court);
+      if (_complet) { console.log(`[DTP Daily] version courte ignorée pour ${dayKey} : la version complète est en place`); return _complet; }
+    }
     if (dtpd._ai === false) {
       const _existing = allNews.find(i => i._reportType === 'DTP Daily' && i._dtpd && i._dtpd.day === dayKey && i._dtpd._ai !== false);
       if (_existing) { console.log(`[DTP Daily] repli ignoré pour ${dayKey} : version IA française déjà en place`); return _existing; }
