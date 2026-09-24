@@ -38,7 +38,7 @@ const F = monter(SRC);
 v('la BNS et la BCE en repli prennent la prochaine réunion des contrats Eurex (même garde que la RBA)',
   /const _futW = b\.code === 'CHF' \? _snbWatch : \(b\.code === 'EUR' \? _ecbWatch : null\);/.test(SRV) && /if \(_futW && meetings\[0\] && _futW\.meeting === meetings\[0\]\.date/.test(SRV));
 v('la NZD alimente la lecture de marché déjà appliquée au repli (_sovCurve)', /_sovCurve\.NZD = out;/.test(SRV));
-v('les trois lectures sont rafraîchies en tâche de fond, sans attendre un client', /setInterval\(\(\) => \{ _computeSnbWatch\(\)\.catch\(\(\) => \{\}\); _computeNzdCourbe\(\)\.catch\(\(\) => \{\}\); _computeEcbWatch\(\)\.catch\(\(\) => \{\}\); \}, 4 \* 3600e3\)/.test(SRV));
+v('les trois lectures sont rafraîchies en tâche de fond, sans attendre un client', /setInterval\(\(\) => \{ _computeSnbWatch\(\)\.catch\(\(\) => \{\}\); _computeNzdCourbe\(\)\.catch\(\(\) => \{\}\); _computeEcbWatch\(\)\.catch\(\(\) => \{\}\); \}, 8 \* 3600e3\)/.test(SRV));
 v('le panneau admin montre les deux sources', /snbWatch: _snbWatch \?/.test(SRV) && /nzdCourbe: _sovCurve\.NZD \?/.test(SRV));
 
 // Extrait RÉEL du tableau des règlements Eurex (markdown Firecrawl, 24/09), tel quel.

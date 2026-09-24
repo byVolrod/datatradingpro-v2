@@ -43,8 +43,14 @@ v('Firecrawl est le DERNIER recours de l\'ASX (pas un chemin primaire)',
   /const fc = await _firecrawlFetch\(ASX_IB_URL\);/.test(SRV));
 v('la clé ne vit QUE dans le .env (jamais en dur)',
   /process\.env\.FIRECRAWL_API_KEY \|\| process\.env\.FIRECRAWL_KEY/.test(SRV) && !/fc-[0-9a-f]{20}/.test(SRV));
-v('la ligne rouge est écrite : jamais pour forcer une protection anti-robot',
-  /JAMAIS pour forcer une protection anti-robot/.test(SRV) && /rateprobability et son défi Cloudflare restent hors de/.test(SRV));
+// 24/09 : la ligne rouge porte sur les DÉFIS anti-robot (CAPTCHA) ; rateprobability, API publique sans défi, est
+// lue via Firecrawl sur décision explicite de l'utilisateur — très légèrement, et le banc le vérifie.
+v('la ligne rouge est écrite : jamais pour résoudre un défi anti-robot',
+  /JAMAIS pour résoudre un défi anti-robot/.test(SRV) && /DÉCISION USER DU 24\/09/.test(SRV));
+v('rateprobability via Firecrawl : au plus une lecture toutes les 12 h par banque',
+  /const RP_FC_MS = 12 \* 3600e3;/.test(SRV) && /!\(_rpFcAt\[slug\] && Date\.now\(\) - _rpFcAt\[slug\] < RP_FC_MS\)/.test(SRV));
+v('… et une banque lue il y a moins de 12 h n\'est pas réinterrogée (sauf réunion depuis)',
+  /if \(!force && at0 && now - at0 < RP_FC_MS && !reunionDepuis\)/.test(SRV));
 v('la télémétrie est exposée à l\'admin (Pipeline taux)', /firecrawl: _fcEtat\(\),/.test(SRV));
 
 if (bloc) {

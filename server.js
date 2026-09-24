@@ -1362,6 +1362,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260924-taux-directeurs-corriges', ts: Date.UTC(2026, 8, 24, 9, 15), title: 'Onglet Taux : les taux de la Fed et de la BoJ corrigés', desc: 'Vous nous avez signalé des taux faux dans l’onglet Taux, et vous aviez raison : la hausse de la Fed du 16 septembre (fourchette désormais à 3,75–4,00%) et celle de la Banque du Japon du 18 septembre (1,25%) n’avaient pas été prises en compte. Le jour même de ces décisions, notre calendrier contenait, à côté du vrai chiffre, une seconde ligne portant une valeur erronée ; face à deux chiffres, le desk préférait ne rien écrire, et gardait l’ancien taux. Il retient désormais la valeur plausible et le bon intitulé. Surtout, le desk lit de nouveau chaque jour les probabilités de rateprobability.com pour la Fed, la BCE, la BoE, la BoJ, la BoC et la RBA, et recale ses taux sur cette source dès qu’elle se met à jour.' },
   { id: 'dtpu-20260924-navigation-fluide', ts: Date.UTC(2026, 8, 24, 8, 40), title: 'Navigation : les onglets s’ouvrent sans attendre', desc: 'Vous nous avez demandé une navigation plus agréable et plus fluide. En mesurant, nous avons constaté que revenir sur un onglet déjà vu était immédiat, mais que la première ouverture du Calendrier, des Taux, du Radar de Biais, de la Semaine à venir et des Banques attendait à chaque fois le serveur, avec un écran de chargement. Désormais, pendant que vous lisez le fil d’actualité, le desk prépare discrètement ces onglets, un par un, et les tient prêts : ils s’ouvrent aussitôt. Survoler un onglet suffit aussi à le préparer avant même le clic. Le graphique de l’onglet Banques garde ses bougies quelques minutes au lieu de les recharger à chaque ouverture, et la Semaine à venir ne se redessine plus quand rien n’a changé. Sur une connexion en mode économie de données, cette préparation ne se fait pas.' },
   { id: 'dtpu-20260924-taux-bce-eurex', ts: Date.UTC(2026, 8, 24, 8, 20), title: 'Onglet Taux : la BCE lue sur les contrats Eurex calés sur ses réunions', desc: 'Les probabilités de la BCE ne se mettaient plus à jour depuis le 9 septembre : notre fournisseur ne répond plus à notre serveur. Le desk lit désormais directement Eurex, qui cote des contrats à terme sur le taux €STR dont chaque période commence exactement à l’entrée en vigueur d’une décision de la BCE et s’arrête à la suivante. Comparer la période en cours à celle qui suit la prochaine réunion donne la variation attendue par le marché, sans aucune hypothèse ajoutée : au 23 septembre, environ 59% de chances de hausse le 29 octobre. Si la lecture ne tombe pas juste, par exemple si notre taux de référence n’est pas à jour, rien n’est publié et la carte garde l’estimation du desk.' },
   { id: 'dtpu-20260924-taux-bns-rbnz-marche', ts: Date.UTC(2026, 8, 24, 8, 15), title: 'Onglet Taux : la BNS et la RBNZ passent aux données de marché', desc: 'Jusqu’ici, le franc suisse et le dollar néo-zélandais étaient les deux seules devises de l’onglet Taux sans aucune donnée de marché : notre fournisseur habituel réserve ces deux banques centrales à une offre payante. Le desk lit désormais directement les sources officielles. Pour la BNS, les prix de règlement quotidiens des contrats à terme SARON 3 mois d’Eurex, la bourse où ils se négocient : ils donnent la probabilité de hausse, de maintien ou de baisse à la prochaine réunion, calculée comme le fait la Fed, sans aucune hypothèse ajoutée. Pour la RBNZ, la courbe officielle des bons bancaires à 30, 60 et 90 jours publiée chaque jour par la banque centrale : elle donne la direction que le marché anticipe et sa conviction. Une lecture incohérente, par exemple un prix arrêté avant une décision, n’est jamais publiée : la carte garde alors l’estimation du desk.' },
@@ -5625,7 +5626,8 @@ function _calActualCoherent(ev, actual) {
   const fa = _calUniteFamille(a);
   if (ref && ref !== 'autre' && fa !== 'autre' && fa !== ref) return false;       // règle 2
   if (ref === '%' && fa === '%' && _CAL_DECISION_TAUX_RX.test(ev.title || '') && !/projection/i.test(ev.title || '')) {   // règle 3
-    const p = parseFloat((pv || fc).replace(',', '.')), v = parseFloat(a.replace(',', '.'));
+    const num = x => parseFloat(String(x).replace(',', '.').replace(/^[^\d.-]+/, ''));   // « <1.00% » → 1 (le préfixe rendait NaN : la règle ne jugeait jamais ces lignes)
+    const p = num(pv || fc), v = num(a);
     if (isFinite(p) && isFinite(v) && Math.abs(v - p) > 1.5) return false;
   }
   return true;
@@ -21065,8 +21067,12 @@ setInterval(_computeRbaWatch, 10 * 60 * 1000);   // ~10 min (règlement ASX quot
 // une page/endpoint depuis SON infrastructure : utile quand l'adresse du VPS est refusée par une source
 // PUBLIQUE (ex. l'API ASX) et que les passerelles publiques ne passent pas non plus. On l'emploie
 // UNIQUEMENT pour des sources dont l'accès programmatique est légitime (ASX, API publiques de marché) —
-// JAMAIS pour forcer une protection anti-robot : rateprobability et son défi Cloudflare restent hors de
-// portée, contourner leur sécurité n'est pas une option. Budget PROACTIF pour ne pas cramer le quota
+// JAMAIS pour résoudre un défi anti-robot (CAPTCHA, page « Just a moment ») : ICE et son reCAPTCHA,
+// par exemple, restent hors de portée. ⚠️ RATEPROBABILITY : DÉCISION USER DU 24/09 (« plug rateproba de
+// manière très light pour obtenir les taux ») — son API JSON publique répond normalement (HTTP 200,
+// aucun défi) ; c'est l'adresse du VPS qu'il refuse depuis qu'on l'avait sollicité jusqu'à 7 700 fois par
+// jour. On la lit donc via Firecrawl, en dernier relais, AU PLUS une fois toutes les 12 h par banque
+// (la source ne recalcule qu'une fois par jour) : ~12 lectures/jour au total. Budget PROACTIF pour ne pas cramer le quota
 // gratuit (même idiome que le budget GitHub Models) : plafond/jour + espacement, surchargeables par .env.
 const FC_KEY = process.env.FIRECRAWL_API_KEY || process.env.FIRECRAWL_KEY || '';
 const FC_CAP_JOUR = parseInt(process.env.FIRECRAWL_DAILY, 10) || 40;      // plafond d'appels/jour (préserve le quota)
@@ -21276,12 +21282,15 @@ function _saronProchaine(contrats, cur, reunions, now) {
   }
   return null;
 }
-async function _pageMarche(url) {
+async function _pageMarche(url, valide) {
   // Direct d'abord ; Firecrawl (contenu principal, markdown) en dernier recours.
+  /* ⚠️ `valide` (24/09, mesuré en base : la lecture BCE n'avait RIEN enregistré après déploiement) : la page
+     Eurex répond en direct, mais son tableau de prix n'est pas dans le HTML servi. Une réponse « 200 » sans
+     les données était acceptée, et Firecrawl — qui, lui, les rend — n'était jamais tenté. */
   const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 12000);
   try {
     const r = await fetch(url, { headers: { 'User-Agent': ASX_UA, 'Accept': 'text/html,application/xhtml+xml' }, signal: ctrl.signal });
-    if (r.ok) { const t = await r.text(); if (t && t.length < 3e6) return { txt: t, via: 'direct' }; }
+    if (r.ok) { const t = await r.text(); if (t && t.length < 3e6 && (!valide || valide(t))) return { txt: t, via: 'direct' }; }
   } catch {} finally { clearTimeout(to); }
   const fc = await _firecrawlFetch(url, ['markdown'], { principal: true });
   return fc ? { txt: fc, via: 'firecrawl' } : null;
@@ -21291,7 +21300,7 @@ async function _computeSnbWatch() {
     const cur = (_ratesState && _ratesState.banks && _ratesState.banks.CHF && +_ratesState.banks.CHF.rate);
     const taux = isFinite(cur) ? cur : ((CB.find(x => x.code === 'CHF') || {}).rate);
     if (!isFinite(+taux)) return null;
-    const pg = await _pageMarche(EUREX_SARON_URL);
+    const pg = await _pageMarche(EUREX_SARON_URL, t => _eurexSaronParse(t).length >= 2);
     if (!pg) return null;
     const cs = _eurexSaronParse(pg.txt);
     const out = _saronProchaine(cs, +taux, CB_MEETINGS.CHF, Date.now());
@@ -21329,7 +21338,7 @@ function _nzdCourbe(b2) {
 }
 async function _computeNzdCourbe() {
   try {
-    const pg = await _pageMarche(RBNZ_B2_URL);
+    const pg = await _pageMarche(RBNZ_B2_URL, t => !!_rbnzB2Parse(t));
     if (!pg) return null;
     const out = _nzdCourbe(_rbnzB2Parse(pg.txt));
     if (!out) return null;
@@ -21378,7 +21387,10 @@ async function _computeEcbWatch() {
     const cur = (_ratesState && _ratesState.banks && _ratesState.banks.EUR && +_ratesState.banks.EUR.rate);
     const dfr = isFinite(cur) ? cur : ((CB.find(x => x.code === 'EUR') || {}).rate);
     if (!isFinite(+dfr)) return null;
-    const pg = await _pageMarche(EUREX_ECB_URL);
+    // Secours seulement (24/09) : rateprobability est la référence BCE ; lue il y a moins de 30 h, on ne dépense pas de crédit ici.
+    const rpAt = (_rpCache && _rpCache.bankAt && _rpCache.bankAt.EUR) || 0;
+    if (_rpCache && _rpCache.banks && _rpCache.banks.EUR && Date.now() - rpAt < 30 * 3600e3) return _ecbWatch;
+    const pg = await _pageMarche(EUREX_ECB_URL, t => _eurexSaronParse(t).length >= 2);
     if (!pg) return null;
     const cs = _eurexSaronParse(pg.txt);                      // même tableau de règlements que le SARON
     const out = _ecbDatedProchaine(cs, +dfr, CB_MEETINGS.EUR, Date.now());
@@ -21392,10 +21404,10 @@ async function _computeEcbWatch() {
 auth.aiCacheGet('rates:ecbwatch').then(v => { if (v && v.at) _ecbWatch = v; }).catch(() => {});
 auth.aiCacheGet('rates:snbwatch').then(v => { if (v && v.at) _snbWatch = v; }).catch(() => {});
 auth.aiCacheGet('rates:sov:NZD').then(v => { if (v && v.at) _sovCurve.NZD = v; }).catch(() => {});
-// Règlements Eurex une fois par jour (~17:30 CET), B2 une fois par jour (~15:00 NZT) : 4 h suffisent,
-// et bornent Firecrawl à 6 lectures par jour pour les deux au pire.
+// Règlements Eurex une fois par jour (~17:30 CET), B2 une fois par jour (~15:00 NZT) : 8 h suffisent,
+// et bornent Firecrawl à 3 lectures par jour et par source au pire.
 setTimeout(() => { _computeSnbWatch().catch(() => {}); _computeNzdCourbe().catch(() => {}); _computeEcbWatch().catch(() => {}); }, 17000);
-setInterval(() => { _computeSnbWatch().catch(() => {}); _computeNzdCourbe().catch(() => {}); _computeEcbWatch().catch(() => {}); }, 4 * 3600e3);
+setInterval(() => { _computeSnbWatch().catch(() => {}); _computeNzdCourbe().catch(() => {}); _computeEcbWatch().catch(() => {}); }, 8 * 3600e3);   // 8 h (24/09) : règlements et B2 quotidiens, crédits Firecrawl ménagés
 
 // ─── SOURCE RÉELLE : rateprobability.com — probabilités implicites de MARCHÉ par banque centrale ───
 // API JSON publique par banque (taux implicites OIS/futures, par réunion). Fed/BCE/BoE/BoJ/BoC/RBA = gratuits ;
@@ -21528,9 +21540,20 @@ async function _rpViaRelais(slug) {
       return { j, via: relai.nom };
     } catch (e) { derniere = relai.nom + ' injoignable'; } finally { clearTimeout(to); }
   }
+  // DERNIER RELAIS : Firecrawl (décision user 24/09, cf. bloc Firecrawl) — au plus une fois toutes les 12 h par
+  // banque. La réponse est validée exactement comme l'accès direct (`today.rows`).
+  if (typeof FC_KEY !== 'undefined' && FC_KEY && !(_rpFcAt[slug] && Date.now() - _rpFcAt[slug] < RP_FC_MS)) {
+    _rpFcAt[slug] = Date.now();
+    const txt = await _firecrawlFetch('https://rateprobability.com/api/' + slug + '/latest', ['rawHtml']);
+    const j = _rpJsonDansTexte(txt);
+    if (j && !j.error && j.today && Array.isArray(j.today.rows)) { delete _rpPanne[slug]; return { j, via: 'firecrawl' }; }
+    derniere = 'firecrawl ' + (txt ? 'format inattendu' : 'refusé ou budget épuisé');
+  }
   _rpPanne[slug] = (_rpPanne[slug] || 'direct KO') + ' ; relais : ' + (derniere || 'aucune passerelle');
   return null;
 }
+const RP_FC_MS = 12 * 3600e3;   // Firecrawl : une lecture par banque toutes les 12 h au plus
+const _rpFcAt = {};             // slug → dernière tentative Firecrawl
 // Le lecteur rend le JSON enveloppé (« Title: … Markdown Content: {…} ») : on prend le bloc entre la
 // première accolade et la dernière, et on ne garde que ce qui se relit comme du JSON.
 function _rpJsonDansTexte(txt) {
@@ -21615,6 +21638,18 @@ function _rpEffectiveTTL() {
   }
   return RP_TTL;
 }
+/* Recale le taux de l'état du desk sur le taux publié par la source de marché. Fed : l'état porte la
+   BORNE HAUTE (convention de CB[] et du calendrier), la source donne le MILIEU → +0,125. Garde
+   anti-aberration : un écart de plus de 1,5 pt n'est pas une décision, c'est une donnée cassée. */
+function _rpSyncEtat(code, rp) {
+  const st = _ratesState && _ratesState.banks && _ratesState.banks[code];
+  if (!st || !rp || !isFinite(+rp.rate)) return false;
+  const cible = +(code === 'USD' ? +rp.rate + 0.125 : +rp.rate).toFixed(2);
+  if (Math.abs(cible - st.rate) < 0.005 || Math.abs(cible - st.rate) > 1.5) return false;
+  console.log('[Taux] ' + code + ' recalé sur la source de marché : ' + st.rate + ' → ' + cible);
+  st.rate = cible;
+  return true;
+}
 async function _refreshRateProb(force = false) {
   if (_rpRefreshing) return;
   if (!force && Date.now() - _rpCache.at < _rpEffectiveTTL() && Object.keys(_rpCache.banks).length) return;
@@ -21624,6 +21659,11 @@ async function _refreshRateProb(force = false) {
     // ÉCHELONNÉ (1,5 s entre deux banques) plutôt qu'une rafale de 8 requêtes simultanées.
     const results = [];
     for (let i = 0; i < codes.length; i++) {
+      /* TRÈS LÉGER (24/09, demande user) : la source ne recalcule qu'une fois par jour. Une banque lue il y
+         a moins de 12 h n'est PAS réinterrogée, sauf si une de ses réunions s'est tenue depuis. */
+      const at0 = (_rpCache.bankAt || {})[codes[i]] || 0;
+      const reunionDepuis = (CB_MEETINGS[codes[i]] || []).some(d => { const t = Date.parse(d + 'T12:00:00Z'); return t > at0 && t <= now; });
+      if (!force && at0 && now - at0 < RP_FC_MS && !reunionDepuis) { results.push({ status: 'fulfilled', value: null }); continue; }
       if (i) await new Promise(r => setTimeout(r, 1500));
       try { const j = await _rpFetchBank(RP_MAP[codes[i]].slug); results.push({ status: 'fulfilled', value: j && _rpTransform(codes[i], j, now) }); }
       catch (e) { results.push({ status: 'rejected', reason: e }); }
@@ -21635,6 +21675,12 @@ async function _refreshRateProb(force = false) {
     const bankAt = { ...(_rpCache.bankAt || {}) };
     let okCount = 0;
     results.forEach((res, i) => { if (res.status === 'fulfilled' && res.value) { banks[codes[i]] = res.value; bankAt[codes[i]] = now; okCount++; } });
+    // L'ÉTAT DU DESK SE RECALE SUR LA SOURCE DE MARCHÉ (24/09, « on n'a pas les bons taux ») : sans ça,
+    // la projection maison avait fait passer le 16/09 (Fed) et le 18/09 (BoJ) en « maintien » simulé,
+    // et le Radar de Biais, les rapports et le repli continuaient d'afficher l'ancien taux.
+    let etatChange = false;
+    results.forEach((res, i) => { if (res.status === 'fulfilled' && res.value && _rpSyncEtat(codes[i], res.value)) etatChange = true; });
+    if (etatChange) { _ratesState.updatedAt = now; try { _saveRatesState(); } catch {} }
     // ⚠️ CETTE PERSISTANCE POUVAIT ÉCHOUER EN SILENCE JUSQU'AU 17/09 (`.catch(() => {})`). Mesuré :
     // la ligne `rates:rateprob` de la base primaire était figée au 9 septembre, huit jours de retard,
     // sans qu'aucun signal ne le dise — la même maladie déjà payée deux fois cette nuit ailleurs
@@ -21795,11 +21841,25 @@ function _calendrierEcritTaux(force = false) {
     let n;
     if (vals.size === 1) n = [...vals][0];
     else {
-      const dep = mine.filter(e => new Date(e.timestamp).toISOString().slice(0, 10) === jour && /deposit/i.test(e.title || ''))
-        .map(e => parseFloat(String(e.actual).replace(',', '.')))
-        .filter(x => isFinite(x) && Math.abs(x - b.rate) <= 3).map(x => +x.toFixed(2));
-      if (new Set(dep).size !== 1) return;
-      n = dep[0];
+      const duJour = mine.filter(e => new Date(e.timestamp).toISOString().slice(0, 10) === jour);
+      const val = e => +parseFloat(String(e.actual).replace(',', '.')).toFixed(2);
+      const dep = duJour.filter(e => /deposit/i.test(e.title || '')).map(val).filter(x => isFinite(x) && Math.abs(x - b.rate) <= 3);
+      /* ⚠️ S'ABSTENIR FIGEAIT LE TAUX (24/09, mesuré en base) : le 18/09, « BOJ Policy Rate » portait un
+         réel de « 2% » (prévision « <1.25% ») à côté de la vraie décision « BoJ Interest Rate Decision »
+         à 1,25 % ; le 16/09, la Fed avait de même deux valeurs. Deux valeurs → abstention → la BoJ restait
+         à 1,00 % et la Fed à 3,50–3,75 %, pendant des jours. On ARBITRE donc, dans l'ordre :
+           1. la facilité de dépôt (BCE : la mesure que suit la carte) ;
+           2. la seule valeur PLAUSIBLE, à 75 pb au plus du taux courant (une décision bouge de 25 à 75 pb) ;
+           3. la valeur de l'intitulé canonique « Interest Rate Decision » (celui de TradingView).
+         Toujours ambigu → abstention, comme avant (jamais de pari). */
+      // ⚠️ LA BCE NE SE TRANCHE QUE PAR LE DÉPÔT : chez elle, « Interest Rate Decision » est le REFI, et une
+      // valeur « plausible » seule peut être le refi ou le prêt marginal — la carte suit le dépôt.
+      const plausibles = b.code === 'EUR' ? [] : [...vals].filter(x => Math.abs(x - st.rate) <= 0.76);
+      const canon = b.code === 'EUR' ? [] : [...new Set(duJour.filter(e => /interest rate decision/i.test(e.title || '')).map(val).filter(isFinite))];
+      if (new Set(dep).size === 1) n = dep[0];
+      else if (plausibles.length === 1) n = plausibles[0];
+      else if (canon.length === 1 && plausibles.includes(canon[0])) n = canon[0];
+      else return;
     }
     if (Math.abs(st.rate - n) < 0.005) return;   // déjà à jour
     console.log(`[Taux calendrier] ${b.code} : ${st.rate} → ${n} (actual du ${jour}, « ${(mine[0].title || '').slice(0, 60)} »)`);

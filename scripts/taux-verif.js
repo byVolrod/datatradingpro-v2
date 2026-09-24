@@ -403,12 +403,51 @@ if (SRC_CAL && SRC_APPLY) {
       [], SBC, [{ code: 'USD', rate: 3.75 }], etat1, () => {}, { USD: ['2026-09-16'] }, MUET, new Map(), { ts: Date.now(), items: CAL_FOMC() }, x => x, () => [], COH)(true);
     v('Fed 16/09 : la hausse à 4 % s\'écrit malgré le « 2.425 » d\'une dépêche sur « Federal Funds Rate »',
       etat1.banks.USD.rate === 4, 'obtenu : ' + etat1.banks.USD.rate);
-    const etat2 = { banks: { USD: { rate: 3.75, lastMeeting: '2026-09-16' } } };
+    /* 24/09 : l'ARBITRAGE (valeur plausible, intitulé canonique) est une seconde garde, indépendante du
+       filtre de cohérence. Le témoin coupe donc LES DEUX pour rejouer l'incident — et un contrôle vérifie
+       que l'arbitrage, seul, suffit déjà. */
+    const SANS_ARB = SRC_CAL.replace("else if (plausibles.length === 1) n = plausibles[0];", '').replace("else if (canon.length === 1 && plausibles.includes(canon[0])) n = canon[0];", '');
+    v('(témoin) la mutation retire bien l\'arbitrage', SANS_ARB !== SRC_CAL);
+    const etat3 = { banks: { USD: { rate: 3.75, lastMeeting: '2026-09-16' } } };
     new Function('allCalendar', 'SB_CURRENCIES', 'CB', '_ratesState', '_saveRatesState', 'CB_MEETINGS', 'console',
       '_calHist', '_tvCalCache', '_overlayActuals', 'getCalendarRaw', '_calActualCoherent', SRC_CAL + '\nreturn _calendrierEcritTaux;')(
+      [], SBC, [{ code: 'USD', rate: 3.75 }], etat3, () => {}, { USD: ['2026-09-16'] }, MUET, new Map(), { ts: Date.now(), items: CAL_FOMC() }, x => x, () => [], () => true)(true);
+    v('sans le filtre de cohérence, l\'arbitrage seul écrit déjà la hausse (4 %)', etat3.banks.USD.rate === 4, 'obtenu : ' + etat3.banks.USD.rate);
+    const etat2 = { banks: { USD: { rate: 3.75, lastMeeting: '2026-09-16' } } };
+    new Function('allCalendar', 'SB_CURRENCIES', 'CB', '_ratesState', '_saveRatesState', 'CB_MEETINGS', 'console',
+      '_calHist', '_tvCalCache', '_overlayActuals', 'getCalendarRaw', '_calActualCoherent', SANS_ARB + '\nreturn _calendrierEcritTaux;')(
       [], SBC, [{ code: 'USD', rate: 3.75 }], etat2, () => {}, { USD: ['2026-09-16'] }, MUET, new Map(), { ts: Date.now(), items: CAL_FOMC() }, x => x, () => [], () => true)(true);
-    v('(témoin) sans le filtre de cohérence, la carte reste figée à 3,75 — l\'incident exact',
+    v('(témoin) sans le filtre de cohérence NI l\'arbitrage, la carte reste figée à 3,75 — l\'incident exact',
       etat2.banks.USD.rate === 3.75, 'obtenu : ' + etat2.banks.USD.rate + ' — si 4, le témoin ne mord plus');
+    /* 24/09, l'incident BoJ tel que mesuré en base : « BoJ Interest Rate Decision » 1,25 % et, le même
+       jour, « BOJ Policy Rate » à « 2% » (prévision « <1.25% »). Avant : abstention → 1,00 % figé. */
+    const T_BOJ = Date.UTC(2026, 8, 18, 3, 0);
+    const CAL_BOJ = () => ([
+      { currency: 'JPY', title: 'BoJ Interest Rate Decision', actual: '1.25%', forecast: '1.25%', previous: '1%', timestamp: T_BOJ },
+      { currency: 'JPY', title: 'BOJ Policy Rate', actual: '2%', forecast: '<1.25%', previous: '<1.00%', timestamp: T_BOJ },
+    ]);
+    const etatJ = { banks: { JPY: { rate: 1, lastMeeting: '2026-09-18' } } };
+    new Function('allCalendar', 'SB_CURRENCIES', 'CB', '_ratesState', '_saveRatesState', 'CB_MEETINGS', 'console',
+      '_calHist', '_tvCalCache', '_overlayActuals', 'getCalendarRaw', '_calActualCoherent', SRC_CAL + '\nreturn _calendrierEcritTaux;')(
+      [], SBC, [{ code: 'JPY', rate: 1 }], etatJ, () => {}, { JPY: ['2026-09-18'] }, MUET, new Map(), { ts: Date.now(), items: CAL_BOJ() }, x => x, () => [], COH)(true);
+    v('BoJ 18/09 : la hausse à 1,25 % s\'écrit malgré la ligne parasite à « 2% »', etatJ.banks.JPY.rate === 1.25, 'obtenu : ' + etatJ.banks.JPY.rate);
+    const etatJ2 = { banks: { JPY: { rate: 1, lastMeeting: '2026-09-18' } } };
+    new Function('allCalendar', 'SB_CURRENCIES', 'CB', '_ratesState', '_saveRatesState', 'CB_MEETINGS', 'console',
+      '_calHist', '_tvCalCache', '_overlayActuals', 'getCalendarRaw', '_calActualCoherent', SANS_ARB + '\nreturn _calendrierEcritTaux;')(
+      [], SBC, [{ code: 'JPY', rate: 1 }], etatJ2, () => {}, { JPY: ['2026-09-18'] }, MUET, new Map(), { ts: Date.now(), items: CAL_BOJ() }, x => x, () => [], COH)(true);
+    v('(témoin) sans l\'arbitrage, la BoJ reste figée à 1,00 % — l\'incident du 18/09', etatJ2.banks.JPY.rate === 1, 'obtenu : ' + etatJ2.banks.JPY.rate);
+    /* La source de marché recale l'état : Fed au MILIEU 3,875 → borne haute 4,00 ; une donnée aberrante ne passe pas. */
+    {
+      const dS = SRV.indexOf('function _rpSyncEtat('), fS = SRV.indexOf('\n}\n', dS) + 3;
+      const SYNC = dS >= 0 ? SRV.slice(dS, fS) : '';
+      v('_rpSyncEtat est extractible', !!SYNC);
+      const etatS = { banks: { USD: { rate: 3.75 }, JPY: { rate: 1 }, GBP: { rate: 3.75 } } };
+      const sync = new Function('_ratesState', 'console', SYNC + '\nreturn _rpSyncEtat;')(etatS, MUET);
+      sync('USD', { rate: 3.875 }); sync('JPY', { rate: 1.25 }); sync('GBP', { rate: 9.9 });
+      v('Fed : milieu 3,875 → borne haute 4,00 dans l\'état du desk', etatS.banks.USD.rate === 4, 'obtenu : ' + etatS.banks.USD.rate);
+      v('BoJ : 1,25 recopié', etatS.banks.JPY.rate === 1.25);
+      v('une valeur aberrante (écart > 1,5 pt) ne touche pas l\'état', etatS.banks.GBP.rate === 3.75);
+    }
   }
   /* b. L'incident, rejoué : l'état persisté porte le 2,25 empoisonné → le calendrier le répare. */
   {
