@@ -12,6 +12,8 @@
  *   · connexion en mode économie (préchargement coupé) → la même ouverture ATTEND le réseau ;
  *   · même mode, mais survol de l'onglet avant le clic → l'ouverture redevient immédiate.
  * Et le graphique de l'onglet Banques ne re-télécharge plus ses bougies à chaque ouverture.
+ * Onglets couverts : Calendrier, Taux, Banques, Radar de Biais, Semaine à venir (les deux derniers
+ * ajoutés le 24/09 : leur préchargement existait, aucun banc ne le prouvait).
  * Sans Chromium, le banc s'abstient (code 0).
  *
  *   node scripts/navigation-verif.js
@@ -33,6 +35,13 @@ const RATES = { asOf: Date.now(), banks: [
     move: 'HIKE', stance: 'HIKE', prob: 59, expBps: 14.7, scenario: { hold: 41, hike: 59, cut: 0 }, source: 'maison',
     meetings: [{ date: '2026-10-29', days: 35, hold: 41, hike: 59, cut: 0, impliedBps: 14.7, baseCase: 'HIKE' }] },
 ] };
+// Radar de Biais et Semaine à venir (24/09, couverture ajoutée) : jeux minimaux, de la forme que servent les routes.
+const BIAS = { currencies: ['USD', 'EUR'], generatedAt: 1790000000000, dataAt: 1790000000000,
+  rows: [{ key: 'fundamental', values: { USD: 'Bullish', EUR: 'Neutral' }, subs: [] }, { key: 'monetary', values: { USD: 'Hawkish', EUR: 'Neutral' } }],
+  conclusion: { USD: 'Bullish', EUR: 'Neutral' } };
+const WA = { week: '28 sept – 4 oct 2026', generatedAt: 1790000000000,
+  days: [{ dow: 'Monday', date: '28', month: 'SEP', headline: 'Discours de la présidente de la BCE', impact: 'High', summary: 'Premier rendez-vous de la semaine.' },
+         { dow: 'Friday', date: '2', month: 'OCT', headline: 'Emploi américain (NFP)', impact: 'High', summary: 'Le chiffre de la semaine.' }] };
 
 (async () => {
   const exe = trouverNavigateur();
@@ -42,7 +51,8 @@ const RATES = { asOf: Date.now(), banks: [
   const srv = http.createServer((rq, rs) => {
     const u = rq.url.split('?')[0];
     const go = () => {
-      if (u === '/api/rates') { rs.writeHead(200, { 'Content-Type': 'application/json' }); return rs.end(JSON.stringify(RATES)); }
+      const J = { '/api/rates': RATES, '/api/smart-bias': BIAS, '/api/week-ahead': WA }[u];
+      if (J) { rs.writeHead(200, { 'Content-Type': 'application/json' }); return rs.end(JSON.stringify(J)); }
       base.emit('request', rq, rs);
     };
     if (u.startsWith('/api/')) setTimeout(go, LAT); else go();
@@ -50,8 +60,13 @@ const RATES = { asOf: Date.now(), banks: [
   await new Promise(r => srv.listen(PORT, r));
   const nav = await pp.launch({ executablePath: exe, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 
+  /* ⚠️ CONTEXTE VIERGE POUR CHAQUE SCÉNARIO (24/09) : deux pages du même navigateur partagent le stockage
+     local et le cache. En ajoutant Biais et Semaine à venir, la première page a vécu plus longtemps et le
+     témoin « mode économie » s'est ouvert en 10 ms, nourri par ce qu'elle avait laissé : il ne prouvait
+     plus rien. Chaque scénario part donc d'un navigateur neuf, comme un vrai premier visiteur. */
   const ouvrir = async (saveData) => {
-    const page = await nav.newPage();
+    const ctx = await nav.createBrowserContext();
+    const page = await ctx.newPage();
     await page.setViewport({ width: 1440, height: 900 });
     if (saveData) await page.evaluateOnNewDocument(() => { try { Object.defineProperty(navigator, 'connection', { value: { saveData: true, effectiveType: '4g' } }); } catch (e) {} });
     await page.goto('http://localhost:' + PORT + '/index.html', { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -73,7 +88,8 @@ const RATES = { asOf: Date.now(), banks: [
     }
     return 9999;
   };
-  const CAS = [['calendar', '#cal-table-wrap tr[data-id], #cal-table-wrap .cal-row'], ['taux', '#taux-grid .rtc:not(.rtc-skel)'], ['bank', ['#bank-tbody .bank-row:not(.bank-skel-row)', '#bank-chart canvas']]];   // la vue n'est prête qu'avec son graphique dessiné
+  const CAS = [['calendar', '#cal-table-wrap tr[data-id], #cal-table-wrap .cal-row'], ['taux', '#taux-grid .rtc:not(.rtc-skel)'], ['bank', ['#bank-tbody .bank-row:not(.bank-skel-row)', '#bank-chart canvas']],
+    ['bias', '#sbm-matrix-zone'], ['weekahead', '#wa-content .wa-day:not(.wa-skel-day)']];   // la vue n'est prête qu'avec son graphique dessiné
   try {
     console.log('\n── 1. Après les temps morts, les onglets s\'ouvrent sans attendre le réseau ──');
     const page = await ouvrir(false);
