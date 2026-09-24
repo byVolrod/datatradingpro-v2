@@ -24,6 +24,10 @@
     var s = document.createElement('script');
     s.src = '/js/v2/app-mobile.js?v=' + VER; s.defer = true;
     document.head.appendChild(s);
+    // Traçabilité en direct (V3) : état de chaque source dans l'aide des widgets et les grandes vues.
+    var t = document.createElement('script');
+    t.src = '/js/v2/tracabilite.js?v=' + VER; t.defer = true;
+    document.head.appendChild(t);
   }
 
   function poserInterrupteur() {

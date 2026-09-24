@@ -11722,6 +11722,10 @@ function _spansAffiches(lay) {
                     : '<section><h4>Réglages disponibles</h4><p class="wdg-aide-vide">Ce widget n\'a aucun réglage : il affiche la même chose pour tout le monde.</p></section>')
       + '</div>';
     var x = d.querySelector('.wdg-aide-x'); if (x) x.onclick = _aideFermer;
+    /* Signal « aide ouverte » (24/09) : sans effet pour les clients, personne ne l'écoute. L'Aperçu V2
+       des admins s'y branche pour ajouter l'état EN DIRECT de la source (public/js/v2/tracabilite.js),
+       sans que ce fichier ait à connaître la V2. */
+    try { document.dispatchEvent(new CustomEvent('dtp:aide', { detail: { id: w.id } })); } catch (e) {}
 
     requestAnimationFrame(function () { ov.classList.add('open'); d.classList.add('open'); });
   }

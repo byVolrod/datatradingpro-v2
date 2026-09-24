@@ -58,6 +58,15 @@ v('index.html ne charge le chargeur V2 que si admin ET annoncé par le serveur',
 // Jeux d'essai de l'écran Marchés : 3 actifs dans le sens du risque, 1 contre (variation × sens).
 const RISQUE = { label: 'WEAK RISK-ON', pct: 12.4, description: 'Léger regain d\'appétit pour le risque.', updatedAt: new Date().toISOString(),
   assets: [{ label: 'S&P', chg: 0.8, dir: 1 }, { label: 'AUDJPY', chg: 0.3, dir: 1 }, { label: 'Or', chg: -0.4, dir: -1 }, { label: 'VIX', chg: 2.1, dir: -1 }] };
+// Santé des données simulée : une source EN RETARD (rateprobability) et une INDISPONIBLE (COT).
+const SANTE = { at: Date.now(), weekend: false, compte: { ok: 5, degrade: 1, panne: 1 }, sources: [
+  { groupe: 'Flux', nom: 'Fil d’actualité', age: 120000, etat: 'ok', detail: '812 dépêches en mémoire' },
+  { groupe: 'Flux', nom: 'Calendrier économique', age: 3600000, etat: 'ok', detail: '142 événements' },
+  { groupe: 'Taux', nom: 'rateprobability (Fed, BCE, BoE, BoJ, BoC, RBA)', age: 40 * 3600000, etat: 'degrade', detail: 'à relire : JPY' },
+  { groupe: 'Taux', nom: 'WatchTower (BNS, RBNZ, secours)', age: 7200000, etat: 'ok', detail: '7 banques lues' },
+  { groupe: 'Taux', nom: 'CME FedWatch (Fed)', age: 3600000, etat: 'ok', detail: 'réunion 2026-10-28' },
+  { groupe: 'Positionnement', nom: 'COT (CFTC, hebdomadaire)', age: null, etat: 'panne', detail: 'aucun rapport lu' },
+  { groupe: 'Calculs', nom: 'Force des devises', age: 60000, etat: 'ok', detail: '' } ] };
 const CCY = ['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CHF', 'CAD', 'NZD'];
 const FINS = { USD: 0.12, EUR: -0.05, JPY: -0.21, GBP: 0.3, AUD: 0.02, CHF: -0.09, CAD: 0.07, NZD: -0.11 };
 const FORCE = { currencies: CCY, updatedAt: new Date().toISOString(), series: Object.fromEntries(CCY.map(c => [c, Array.from({ length: 30 }, (_, i) => ({ t: 1790000000000 + i * 6e5, v: +(FINS[c] * (i + 1) / 30).toFixed(5) }))])) };
@@ -92,6 +101,7 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
     if (u === '/api/ui-prefs') return j(SC.v2 ? { src: 'kv', prefs: { v2: SC.v2 } } : { src: 'defaut', prefs: {} });
     if (u === '/api/risk-sentiment') return j(RISQUE);
     if (u === '/api/currency-strength') return j(FORCE);
+    if (u === '/api/admin/data-health') return SC.role === 'admin' ? j(SANTE) : (rs.writeHead(403), rs.end());
     base.emit('request', rq, rs);
   });
   await new Promise(r => srv.listen(4873, r));
@@ -114,6 +124,9 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
       const r = await page.evaluate(() => ({ app: document.documentElement.classList.contains('dtp-app'), barre: !!document.querySelector('.v2a-barre'), inter: !!document.getElementById('v2-interrupteur'), topbar: getComputedStyle(document.querySelector('.topbar')).display }));
       v('aucun fichier V2 demandé (même avec une préférence « on » héritée)', vus.length === 0, vus.join(', '));
       v('ni barre d\'onglets, ni interrupteur, barre du haut du desk intacte', !r.app && !r.barre && !r.inter && r.topbar !== 'none', JSON.stringify(r));
+      await page.evaluate(() => { try { DTPWidgets.aideDe('force-devises'); } catch (e) {} });
+      await new Promise(z => setTimeout(z, 500));
+      v('l\'aide d\'un widget reste celle des clients (aucune section V3, aucune pastille Sources)', await page.evaluate(() => !!document.getElementById('wdg-aide') && !document.querySelector('.v2a-src') && !document.querySelector('.v2a-src-pill')));
       await ctx.close();
     }
     console.log('\n── 3. Admin, « Aperçu V2 » désactivé : le desk des clients + l\'interrupteur ──');
@@ -121,7 +134,7 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
       const { page, ctx } = await ouvrir({ role: 'admin', v2: '' }, 390, 844);
       const r = await page.evaluate(() => ({ app: document.documentElement.classList.contains('dtp-app'), inter: !!document.getElementById('v2-interrupteur') }));
       v('l\'interrupteur est dans le volet Profil', r.inter);
-      v('l\'interface V2 n\'est pas chargée', !r.app && !vus.some(u => /app\.css|app-mobile/.test(u)), vus.join(', '));
+      v('l\'interface V2 n\'est pas chargée', !r.app && !vus.some(u => /app\.css|app-mobile|tracabilite/.test(u)), vus.join(', '));
       await ctx.close();
     }
     console.log('\n── 4. Admin, « Aperçu V2 » activé, téléphone : l\'app ──');
@@ -181,6 +194,24 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
       const { page, ctx } = await ouvrir({ role: 'admin', v2: 'on' }, 1400, 900);
       const r = await page.evaluate(() => ({ app: document.documentElement.classList.contains('dtp-app'), topbar: getComputedStyle(document.querySelector('.topbar')).display }));
       v('au-delà d\'un téléphone : desk normal', !r.app && r.topbar !== 'none', JSON.stringify(r));
+
+      console.log('\n── 6. V3 · traçabilité en direct (admin, V2 activée) ──');
+      const p = await page.evaluate(() => [...document.querySelectorAll('.v2a-src-pill')].map(b => ({ v: b.dataset.vue, c: getComputedStyle(b.querySelector('i')).backgroundColor })));
+      v('une pastille « Sources » sur les 4 grandes vues (Fil, Taux, Biais, Semaine)', p.length === 4 && ['view-news', 'view-taux', 'view-bias', 'view-weekahead'].every(x => p.some(y => y.v === x)), JSON.stringify(p));
+      const coul = x => (p.find(y => y.v === x) || {}).c;
+      v('… couleur de la source la PLUS en retard : Fil vert, Taux orange (rateprobability en retard), Biais rouge (COT indisponible)',
+        coul('view-news') === 'rgb(34, 197, 94)' && coul('view-taux') === 'rgb(255, 179, 0)' && coul('view-bias') === 'rgb(239, 68, 68)', JSON.stringify(p));
+      await page.evaluate(() => { document.querySelector('#view-taux .v2a-src-pill').click(); });
+      await new Promise(z => setTimeout(z, 400));
+      const pop = await page.evaluate(() => { const x = document.getElementById('v2a-src-pop'); return x ? x.innerText : ''; });
+      v('… un clic ouvre le détail : les sources RÉELLES de la vue, leur état et leur âge', /rateprobability/.test(pop) && /En retard · il y a 40 h/.test(pop) && /WatchTower/.test(pop) && !/COT/.test(pop), pop.replace(/\n/g, ' | '));
+      await page.evaluate(() => { try { DTPWidgets.aideDe('force-devises'); } catch (e) {} });
+      await new Promise(z => setTimeout(z, 600));
+      const aide = await page.evaluate(() => { const x = document.querySelector('#wdg-aide .v2a-src'); return x ? x.innerText : ''; });
+      v('l\'aide d\'un widget gagne « État de la source, en direct » (Force des devises : à jour)', /État de la source, en direct/i.test(aide) && /Force des devises/.test(aide) && /À jour · il y a 1 min/.test(aide), aide.replace(/\n/g, ' | '));
+      await page.evaluate(() => { try { DTPWidgets.aideDe('horloge'); } catch (e) {} });
+      await new Promise(z => setTimeout(z, 600));
+      v('… et RIEN pour un widget dont la source n\'est pas suivie (jamais un vert de complaisance)', await page.evaluate(() => !document.querySelector('#wdg-aide .v2a-src')));
       await ctx.close();
     }
   } catch (e) { v('le banc se termine', false, e.message); }
