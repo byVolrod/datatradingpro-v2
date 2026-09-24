@@ -27,18 +27,18 @@ const fn = (nom) => {
   }
   return null;
 };
-const NOMS = ['_txtCellules', '_eurexSaronParse', '_saronProchaine', '_rbnzB2Parse', '_nzdCourbe'];
+const NOMS = ['_txtCellules', '_eurexSaronParse', '_saronProchaine', '_rbnzB2Parse', '_nzdCourbe', '_ecbDatedProchaine'];
 const monter = (src) => new Function(src + '\nreturn {' + NOMS.join(',') + '};')();
 const SRCS = NOMS.map(fn);
 console.log('\n── 1. Le code est extractible et branché ──');
-v('les cinq fonctions sont extractibles de server.js', SRCS.every(Boolean), NOMS.filter((n, i) => !SRCS[i]).join(', '));
+v('les six fonctions sont extractibles de server.js', SRCS.every(Boolean), NOMS.filter((n, i) => !SRCS[i]).join(', '));
 if (!SRCS.every(Boolean)) { console.log('\n✗ banc interrompu\n'); process.exit(1); }
 const SRC = SRCS.join('\n');
 const F = monter(SRC);
-v('la BNS en repli prend la prochaine réunion des contrats SARON (même garde que la RBA)',
-  /b\.code === 'CHF' && meetings\[0\] && _snbWatch && _snbWatch\.meeting === meetings\[0\]\.date/.test(SRV));
+v('la BNS et la BCE en repli prennent la prochaine réunion des contrats Eurex (même garde que la RBA)',
+  /const _futW = b\.code === 'CHF' \? _snbWatch : \(b\.code === 'EUR' \? _ecbWatch : null\);/.test(SRV) && /if \(_futW && meetings\[0\] && _futW\.meeting === meetings\[0\]\.date/.test(SRV));
 v('la NZD alimente la lecture de marché déjà appliquée au repli (_sovCurve)', /_sovCurve\.NZD = out;/.test(SRV));
-v('les deux lectures sont rafraîchies en tâche de fond, sans attendre un client', /setInterval\(\(\) => \{ _computeSnbWatch\(\)\.catch\(\(\) => \{\}\); _computeNzdCourbe\(\)\.catch\(\(\) => \{\}\); \}, 4 \* 3600e3\)/.test(SRV));
+v('les trois lectures sont rafraîchies en tâche de fond, sans attendre un client', /setInterval\(\(\) => \{ _computeSnbWatch\(\)\.catch\(\(\) => \{\}\); _computeNzdCourbe\(\)\.catch\(\(\) => \{\}\); _computeEcbWatch\(\)\.catch\(\(\) => \{\}\); \}, 4 \* 3600e3\)/.test(SRV));
 v('le panneau admin montre les deux sources', /snbWatch: _snbWatch \?/.test(SRV) && /nzdCourbe: _sovCurve\.NZD \?/.test(SRV));
 
 // Extrait RÉEL du tableau des règlements Eurex (markdown Firecrawl, 24/09), tel quel.
@@ -99,6 +99,28 @@ console.log('\n── 4. NZD : la courbe officielle des bons bancaires ──');
   const plat = F._nzdCourbe({ date: 'x', ocr: 2.75, b30: 2.98, b60: 2.99, b90: 3.00 });
   v('courbe plate → maintien', plat && plat.bias === 'hold', JSON.stringify(plat));
   v('donnée aberrante → rien (jamais inventé)', F._nzdCourbe({ date: 'x', ocr: 2.75, b30: 9, b60: 9, b90: 9 }) === null);
+}
+
+// Extrait RÉEL du tableau Eurex des contrats €STR datés BCE (24/09) : chaque date = entrée en vigueur d'une décision.
+const ECB = `| _M_ | _16/09/2026_ | _0.00_ | _0.00_ | _0.00_ | _0.00_ | _97.5575_ | _0_ | _50_ |
+| _M_ | _04/11/2026_ | _0.00_ | _0.00_ | _0.00_ | _0.00_ | _97.41_ | _0_ | _0_ |
+| _M_ | _23/12/2026_ | _0.00_ | _0.00_ | _0.00_ | _0.00_ | _97.185_ | _0_ | _0_ |
+| _M_ | _10/02/2027_ | _0.00_ | _0.00_ | _0.00_ | _0.00_ | _97.03_ | _0_ | _0_ |`;
+const REU_EUR = ['2026-09-10', '2026-10-29', '2026-12-17', '2027-02-04'];
+console.log('\n── 5. EUR : contrats €STR datés BCE — la différence de deux périodes, rien d\'autre ──');
+{
+  const cs = F._eurexSaronParse(ECB);
+  v('quatre périodes lues', cs.length === 4 && Math.abs(cs[1].r - 2.59) < 1e-9, JSON.stringify(cs));
+  const o = F._ecbDatedProchaine(cs, 2.50, REU_EUR, J(2026, 9, 24));
+  v('prochaine réunion = 29 octobre, lue sur la période qui démarre le 4 novembre', o && o.meeting === '2026-10-29' && /2026-09-16 \/ 2026-11-04/.test(o.meth), JSON.stringify(o));
+  v('… +14,75 pb attendus → 59 % de hausse, 41 % de maintien', o && o.hike === 59 && o.hold === 41 && Math.abs(o.changeBps - 14.75) < 0.1, JSON.stringify(o));
+  v('… écart €STR/dépôt mesuré à −5,75 pb', o && Math.abs(o.spreadBps + 5.75) < 0.05, o && String(o.spreadBps));
+  v('taux de dépôt périmé (2,25 % au lieu de 2,50 %) → écart incohérent, RIEN n\'est publié', F._ecbDatedProchaine(cs, 2.25, REU_EUR, J(2026, 9, 24)) === null);
+  // 30/10 : hausse DÉCIDÉE la veille (dépôt 2,75 % au desk) mais pas encore en vigueur (4/11) : la période de référence n'a pas commencé
+  v('entre la décision et son entrée en vigueur (période de référence pas encore commencée) → rien', F._ecbDatedProchaine(cs.slice(1), 2.75, REU_EUR, J(2026, 10, 30)) === null);
+  const mut = SRC.replace('if (!(C.date <= now)) return null;', '');
+  v('(témoin) la mutation retire la garde de période', mut !== SRC);
+  v('(témoin) sans elle, une période future servirait de référence', monter(mut)._ecbDatedProchaine(cs.slice(1), 2.75, REU_EUR, J(2026, 10, 30)) !== null);
 }
 
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));

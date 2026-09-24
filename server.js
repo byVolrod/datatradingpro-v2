@@ -316,7 +316,7 @@ function _wsUserIdFromReq(req) {
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
-const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/robots.txt', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/sw.js', '/offline.html', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
+const _PUBLIC_PATHS    = new Set(['/api/lp-cta', '/login', '/login.html', '/robots.txt', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/sw.js', '/offline.html', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
   '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/api/hero-ticker', '/api/geo', '/actualites', '/sitemap-actualites.xml', '/api/updates-public']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/assets/images/', '/.well-known/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-campaign', '/api/unsubscribe', '/api/track/', '/api/v1/'];   // /api/v1/ = API programmatique : le gate SESSION est bypassé mais CHAQUE route v1 exige une CLÉ API (requireApiKey)   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ = images PNG pour les clients mail (elles doivent s afficher sans session). Les PAGES de rendu /internal/email-widget/ ont ete RETIREES du public le 21/08 : elles servaient en clair des widgets vendus par abonnement ; Puppeteer y accede desormais par jeton interne depuis la boucle locale ; /api/unsubscribe = lien de desinscription dans les mails de campagne (doit marcher sans login)
@@ -1362,7 +1362,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
-  { id: 'dtpu-20260924-taux-bns-rbnz-marche', ts: Date.UTC(2026, 8, 24, 9, 0), title: 'Onglet Taux : la BNS et la RBNZ passent aux données de marché', desc: 'Jusqu’ici, le franc suisse et le dollar néo-zélandais étaient les deux seules devises de l’onglet Taux sans aucune donnée de marché : notre fournisseur habituel réserve ces deux banques centrales à une offre payante. Le desk lit désormais directement les sources officielles. Pour la BNS, les prix de règlement quotidiens des contrats à terme SARON 3 mois d’Eurex, la bourse où ils se négocient : ils donnent la probabilité de hausse, de maintien ou de baisse à la prochaine réunion, calculée comme le fait la Fed, sans aucune hypothèse ajoutée. Pour la RBNZ, la courbe officielle des bons bancaires à 30, 60 et 90 jours publiée chaque jour par la banque centrale : elle donne la direction que le marché anticipe et sa conviction. Une lecture incohérente, par exemple un prix arrêté avant une décision, n’est jamais publiée : la carte garde alors l’estimation du desk.' },
+  { id: 'dtpu-20260924-taux-bce-eurex', ts: Date.UTC(2026, 8, 24, 8, 20), title: 'Onglet Taux : la BCE lue sur les contrats Eurex calés sur ses réunions', desc: 'Les probabilités de la BCE ne se mettaient plus à jour depuis le 9 septembre : notre fournisseur ne répond plus à notre serveur. Le desk lit désormais directement Eurex, qui cote des contrats à terme sur le taux €STR dont chaque période commence exactement à l’entrée en vigueur d’une décision de la BCE et s’arrête à la suivante. Comparer la période en cours à celle qui suit la prochaine réunion donne la variation attendue par le marché, sans aucune hypothèse ajoutée : au 23 septembre, environ 59% de chances de hausse le 29 octobre. Si la lecture ne tombe pas juste, par exemple si notre taux de référence n’est pas à jour, rien n’est publié et la carte garde l’estimation du desk.' },
+  { id: 'dtpu-20260924-taux-bns-rbnz-marche', ts: Date.UTC(2026, 8, 24, 8, 15), title: 'Onglet Taux : la BNS et la RBNZ passent aux données de marché', desc: 'Jusqu’ici, le franc suisse et le dollar néo-zélandais étaient les deux seules devises de l’onglet Taux sans aucune donnée de marché : notre fournisseur habituel réserve ces deux banques centrales à une offre payante. Le desk lit désormais directement les sources officielles. Pour la BNS, les prix de règlement quotidiens des contrats à terme SARON 3 mois d’Eurex, la bourse où ils se négocient : ils donnent la probabilité de hausse, de maintien ou de baisse à la prochaine réunion, calculée comme le fait la Fed, sans aucune hypothèse ajoutée. Pour la RBNZ, la courbe officielle des bons bancaires à 30, 60 et 90 jours publiée chaque jour par la banque centrale : elle donne la direction que le marché anticipe et sa conviction. Une lecture incohérente, par exemple un prix arrêté avant une décision, n’est jamais publiée : la carte garde alors l’estimation du desk.' },
   { id: 'dtpu-20260924-graphique-bougie-annonce', ts: Date.UTC(2026, 8, 24, 8, 10), title: 'Graphique de réaction : le repère tombe sur la bougie de l’annonce', desc: 'Vous nous avez signalé que le cercle rouge du graphique de réaction était souvent décalé par rapport à la grande bougie de l’annonce. Sur l’analyse de la BNS, il se posait à 09:36 alors que la décision, et la grande bougie verte, dataient de 09:30. La raison : le repère suivait l’heure de la dépêche, qui sort toujours quelques minutes après le chiffre, et même une dizaine pour une analyse. Désormais, une analyse s’ancre sur l’heure réelle de l’annonce, et pour toute autre dépêche, le repère se pose sur la bougie d’impulsion des quinze minutes précédentes, quand elle se détache nettement. La mesure de la réaction du marché part elle aussi de l’annonce, ce qui évite les « 0 point » quand les cotations suivantes n’étaient pas encore arrivées.' },
   { id: 'dtpu-20260924-calendrier-fiche-instantanee', ts: Date.UTC(2026, 8, 24, 8, 0), title: 'Calendrier : la fiche de chaque indicateur s’ouvre instantanément', desc: 'Vous nous avez montré la fiche de « SNB Monetary Policy Assessment » bloquée sur « la source est lente, on insiste… ». La fiche d’un indicateur (description, effet habituel, fréquence, historique) n’était récupérée qu’au moment où vous cliquiez, et un indicateur rare, comme la BNS qui ne se réunit que quatre fois par an, tombait à chaque fois sur ce premier clic, le plus lent. Le desk prépare désormais d’avance, en tâche de fond, la fiche de chaque événement de la semaine, en commençant par les annonces à venir les plus importantes, et la remet à jour une fois le chiffre publié. Quand vous cliquez, la fiche est déjà là.' },
   { id: 'dtpu-20260924-ia-usage-reel', ts: Date.UTC(2026, 8, 24, 1, 0), title: 'Analyses IA : le quota suit ce que vous lisez, le fil d’actualité en tête', desc: 'Le desk dispose chaque jour d’un volume d’analyses IA gratuit et limité. Il le répartissait jusqu’ici selon des parts fixes, identiques pour toutes les fonctions. Désormais, il observe ce que vous ouvrez réellement (fil d’actualité, notes d’analystes, institutions, biais, taux, semaine à venir, copilote), heure par heure, et donne davantage aux fonctions les plus consultées à ce moment de la journée, sans jamais en éteindre une. Le fil d’actualité reste prioritaire en toutes circonstances : quand la journée est chargée, ses traductions passent avant tout le reste. Seule la présence sur chaque fonction est comptée, rien de ce que vous y faites.' },
@@ -21337,12 +21338,63 @@ async function _computeNzdCourbe() {
     return out;
   } catch (e) { console.error('[NzdCourbe]', e && e.message); return null; }
 }
+/* ══ BCE (EUR) : CONTRATS « €STR DATÉS BCE » D'EUREX — LA MESURE LA PLUS DIRECTE QUI SOIT (24/09) ══
+   Source figée : rateprobability ne répond plus au VPS depuis le 09/09. Eurex cote des contrats dont
+   chaque période va EXACTEMENT d'une entrée en vigueur de décision BCE à la suivante (la « date » du
+   contrat est ce premier jour). Donc :
+     · le contrat de la période EN COURS (commencé avant aujourd'hui) = €STR + taux de dépôt actuel ;
+     · le contrat qui COMMENCE juste après la prochaine réunion = €STR + taux après cette réunion.
+   Leur différence est la variation attendue ; l'écart €STR/taux de dépôt, présent dans les deux,
+   s'annule. Aucune pondération, aucune hypothèse. Garde : l'écart mesuré doit rester plausible
+   (−25 à +5 pb), sinon lecture incohérente → rien n'est publié. */
+let _ecbWatch = null;
+const EUREX_ECB_URL = 'https://www.eurex.com/ex-en/markets/int/mon/3m-euro-str-futures/estr/ECB-Dated-Euro-STR-Futures-4853042';
+function _ecbDatedProchaine(contrats, dfr, reunions, now) {
+  const D = 864e5;
+  if (!Array.isArray(contrats) || contrats.length < 2 || !isFinite(dfr)) return null;
+  const next = (reunions || []).map(d => Date.parse(d + 'T12:00:00Z')).filter(t => t > now).sort((a, b) => a - b)[0];
+  if (!next) return null;
+  const cs = contrats.slice().sort((a, b) => a.date - b.date);
+  const iN = cs.findIndex(c => c.date > next);                // 1re période qui démarre APRÈS la réunion
+  if (iN < 1) return null;
+  const N = cs[iN], C = cs[iN - 1];
+  if (!(N.date - next <= 10 * D)) return null;                // la période doit démarrer à l'entrée en vigueur de CETTE décision
+  if (!(C.date <= now)) return null;                          // la période de référence doit être celle en cours
+  const delta = N.r - C.r, s = C.r - dfr;
+  if (!(s >= -0.25 && s <= 0.05)) return null;
+  if (!isFinite(delta) || Math.abs(delta) > 0.60) return null;
+  const step = 0.25, pMove = Math.max(0, Math.min(1, Math.abs(delta) / step));
+  return {
+    meeting: new Date(next).toISOString().slice(0, 10),
+    cut: Math.round((delta < -0.001 ? pMove : 0) * 100), hold: Math.round((1 - pMove) * 100), hike: Math.round((delta > 0.001 ? pMove : 0) * 100),
+    impliedRate: +(dfr + delta).toFixed(3), changeBps: +(delta * 100).toFixed(1), spreadBps: +(s * 100).toFixed(1),
+    src: 'Eurex ECB Dated €STR futures (FEMP)',
+    meth: 'périodes ' + new Date(C.date).toISOString().slice(0, 10) + ' / ' + new Date(N.date).toISOString().slice(0, 10) + ', écart €STR mesuré ' + (s * 100).toFixed(1) + ' pb',
+  };
+}
+async function _computeEcbWatch() {
+  try {
+    const cur = (_ratesState && _ratesState.banks && _ratesState.banks.EUR && +_ratesState.banks.EUR.rate);
+    const dfr = isFinite(cur) ? cur : ((CB.find(x => x.code === 'EUR') || {}).rate);
+    if (!isFinite(+dfr)) return null;
+    const pg = await _pageMarche(EUREX_ECB_URL);
+    if (!pg) return null;
+    const cs = _eurexSaronParse(pg.txt);                      // même tableau de règlements que le SARON
+    const out = _ecbDatedProchaine(cs, +dfr, CB_MEETINGS.EUR, Date.now());
+    if (!out) { if (cs.length) console.warn('[EcbWatch] contrats lus (' + cs.length + ') mais lecture incohérente → repli'); return null; }
+    out.at = Date.now(); out.via = pg.via;
+    _ecbWatch = out;
+    auth.aiCacheSet('rates:ecbwatch', out).catch(() => {});
+    return out;
+  } catch (e) { console.error('[EcbWatch]', e && e.message); return null; }
+}
+auth.aiCacheGet('rates:ecbwatch').then(v => { if (v && v.at) _ecbWatch = v; }).catch(() => {});
 auth.aiCacheGet('rates:snbwatch').then(v => { if (v && v.at) _snbWatch = v; }).catch(() => {});
 auth.aiCacheGet('rates:sov:NZD').then(v => { if (v && v.at) _sovCurve.NZD = v; }).catch(() => {});
 // Règlements Eurex une fois par jour (~17:30 CET), B2 une fois par jour (~15:00 NZT) : 4 h suffisent,
 // et bornent Firecrawl à 6 lectures par jour pour les deux au pire.
-setTimeout(() => { _computeSnbWatch().catch(() => {}); _computeNzdCourbe().catch(() => {}); }, 17000);
-setInterval(() => { _computeSnbWatch().catch(() => {}); _computeNzdCourbe().catch(() => {}); }, 4 * 3600e3);
+setTimeout(() => { _computeSnbWatch().catch(() => {}); _computeNzdCourbe().catch(() => {}); _computeEcbWatch().catch(() => {}); }, 17000);
+setInterval(() => { _computeSnbWatch().catch(() => {}); _computeNzdCourbe().catch(() => {}); _computeEcbWatch().catch(() => {}); }, 4 * 3600e3);
 
 // ─── SOURCE RÉELLE : rateprobability.com — probabilités implicites de MARCHÉ par banque centrale ───
 // API JSON publique par banque (taux implicites OIS/futures, par réunion). Fed/BCE/BoE/BoJ/BoC/RBA = gratuits ;
@@ -21644,6 +21696,7 @@ function _tauxEtat() {
     firecrawl: _fcEtat(),       // passerelle Firecrawl (dernier recours pour l'ASX) : clé posée ?, appels du jour, dernier OK/erreur
     rbaWatch: _rbaWatch ? { at: _rbaWatch.at, hike: _rbaWatch.hike, impliedRate: _rbaWatch.impliedRate, meth: _rbaWatch.meth } : null,   // pricing marché RBA (futures ASX)
     snbWatch: _snbWatch ? { at: _snbWatch.at, meeting: _snbWatch.meeting, hike: _snbWatch.hike, cut: _snbWatch.cut, impliedRate: _snbWatch.impliedRate, meth: _snbWatch.meth, via: _snbWatch.via } : null,   // BNS : futures SARON Eurex
+    ecbWatch: _ecbWatch ? { at: _ecbWatch.at, meeting: _ecbWatch.meeting, hike: _ecbWatch.hike, cut: _ecbWatch.cut, impliedRate: _ecbWatch.impliedRate, meth: _ecbWatch.meth, via: _ecbWatch.via } : null,   // BCE : futures €STR datés Eurex
     nzdCourbe: _sovCurve.NZD ? { at: _sovCurve.NZD.at, bias: _sovCurve.NZD.bias, conv: _sovCurve.NZD.conv, src: _sovCurve.NZD.src, via: _sovCurve.NZD.via } : null,   // RBNZ : bons bancaires B2
     sov: Object.fromEntries(Object.entries(_sovCurve).map(([c, s]) => [c, { spread: s.spread, bias: s.bias, at: s.at }])),   // lecture de courbe souveraine par banque (marché, temps réel)
     // Biais IA (poids monétaire du Radar de Biais + résolution CB non ancrée) : visibilité SÉPARÉE,
@@ -21898,8 +21951,9 @@ function _buildRatesPayload() {
     }
     /* BNS EN REPLI : LA PROCHAINE RÉUNION VIENT DES CONTRATS SARON D'EUREX (24/09, même principe que
        la Fed et la RBA). Même garde : même date, mesure de moins de 30 h (règlement quotidien). */
-    if (b.code === 'CHF' && meetings[0] && _snbWatch && _snbWatch.meeting === meetings[0].date && now - (_snbWatch.at || 0) < 30 * 3600e3) {
-      const sw = _snbWatch, base = sw.hike >= 50 ? 'HIKE' : (sw.cut >= 50 ? 'CUT' : 'HOLD');
+    const _futW = b.code === 'CHF' ? _snbWatch : (b.code === 'EUR' ? _ecbWatch : null);   // BNS (SARON) / BCE (€STR datés), Eurex
+    if (_futW && meetings[0] && _futW.meeting === meetings[0].date && now - (_futW.at || 0) < 30 * 3600e3) {
+      const sw = _futW, base = sw.hike >= 50 ? 'HIKE' : (sw.cut >= 50 ? 'CUT' : 'HOLD');
       meetings[0] = { ...meetings[0], hold: sw.hold, hike: sw.hike, cut: sw.cut, impliedBps: +(+sw.changeBps || 0).toFixed(1), baseCase: base };
       sc0 = { hold: sw.hold / 100, hike: sw.hike / 100, cut: sw.cut / 100, impliedBps: +sw.changeBps || 0 };
       fwUtilise = true;
@@ -21920,7 +21974,7 @@ function _buildRatesPayload() {
       rateSrc: _origineTaux(b.code, st.rate, false, null),   // le TAUX n'est PAS une estimation : décision publiée, sinon ancre relevée à la main
       panne: _rpPanne[slug] || 'jamais reçu',   // POURQUOI pas de marché (paywall ≠ réseau ≠ format) → badge honnête côté client
       sovCurve: _sovFrais ? { y: _sov.y, cur: _sov.cur, spread: _sov.spread, slope: _sov.slope, src: _sov.src, at: _sov.at } : null,   // lecture de la courbe souveraine (marché) quand pas de futures
-      marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : ((b.code === 'AUD' && _rbaWatch) ? _rbaWatch : ((b.code === 'CHF' && _snbWatch) ? _snbWatch : null)),   // Fed (CME ZQ) / RBA (ASX IB) / BNS (Eurex SARON) : proba marché
+      marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : ((b.code === 'AUD' && _rbaWatch) ? _rbaWatch : ((b.code === 'CHF' && _snbWatch) ? _snbWatch : ((b.code === 'EUR' && _ecbWatch) ? _ecbWatch : null))),   // Fed (CME ZQ) / RBA (ASX IB) / BNS (Eurex SARON) : proba marché
 
     };
   });
@@ -29831,6 +29885,68 @@ function _buildHeroNews() {
   for (const n of out) { if (n.dot) { if (dots < 2) dots++; else n.dot = false; } }
   return out;
 }
+
+/* ══ LA VITRINE COMPTE SES CLICS VERS L'ABONNEMENT (24/09, demande user « oui » à : « la vitrine ne
+   mesure aucun clic sur Accéder au terminal ; sans ça, impossible de savoir si le SEO rapporte ») ══
+   La règle de l'article SEO appliqué ce jour : une page qui se classe mais ne mène à personne ne vaut
+   rien. On compte donc, PAR PAGE de la vitrine, les clics vers la page d'abonnement (Whop).
+   ANONYME PAR CONSTRUCTION : aucun cookie, aucun identifiant, aucune adresse gardée. L'adresse IP ne
+   sert qu'à ignorer un double clic dans la même demi-heure : elle est réduite à une empreinte tronquée,
+   en mémoire seulement, oubliée à chaque demi-heure. Ce qui est gardé : jour → page → zone → nombre.
+   Stockage `ai_cache` (`lpcta:v1`), 60 jours glissants. Route PUBLIQUE (la vitrine est un autre
+   domaine) et bornée : corps de 1 Ko, page et zone validées par motif, sinon ignoré. */
+const _LP_P_RX = /^\/[A-Za-z0-9\-_\/.]{0,120}$/;
+const _LP_Z_RX = /^[a-z0-9\-]{0,40}$/;
+let _lpCta = {};
+const _lpVus = new Set(); let _lpTranche = 0, _lpSaveT = null;
+auth.aiCacheGet('lpcta:v1').then(d => {
+  if (!d || typeof d !== 'object') return;
+  for (const [j, pages] of Object.entries(d)) for (const [p, zs] of Object.entries(pages || {})) for (const [z, n] of Object.entries(zs || {})) {
+    const cur = ((_lpCta[j] = _lpCta[j] || {})[p] = _lpCta[j][p] || {});
+    cur[z] = Math.max(cur[z] || 0, +n || 0);
+  }
+}).catch(() => {});
+function _lpNote(p, z, empreinte, now) {
+  if (typeof p !== 'string' || !_LP_P_RX.test(p)) return false;
+  z = (typeof z === 'string' && _LP_Z_RX.test(z)) ? (z || 'page') : 'page';
+  const tr = Math.floor(now / 1800e3);
+  if (tr !== _lpTranche) { _lpVus.clear(); _lpTranche = tr; }
+  const k = empreinte + '|' + p + '|' + z;
+  if (_lpVus.has(k)) return false;
+  _lpVus.add(k);
+  const j = new Date(now).toISOString().slice(0, 10);
+  const pages = (_lpCta[j] = _lpCta[j] || {});
+  const zs = (pages[p] = pages[p] || {});
+  zs[z] = (zs[z] || 0) + 1;
+  const limite = new Date(now - 60 * 864e5).toISOString().slice(0, 10);
+  for (const d of Object.keys(_lpCta)) if (d < limite) delete _lpCta[d];
+  return true;
+}
+function _lpResume(jours, now) {
+  const depuis = new Date(now - (jours - 1) * 864e5).toISOString().slice(0, 10);
+  const parPage = {}, parJour = {}, parZone = {};
+  let total = 0;
+  for (const [j, pages] of Object.entries(_lpCta)) {
+    if (j < depuis) continue;
+    for (const [p, zs] of Object.entries(pages)) for (const [z, n] of Object.entries(zs)) {
+      total += n; parPage[p] = (parPage[p] || 0) + n; parJour[j] = (parJour[j] || 0) + n; parZone[z] = (parZone[z] || 0) + n;
+    }
+  }
+  const tri = o => Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ k, n }));
+  return { jours, total, parPage: tri(parPage), parZone: tri(parZone), parJour: Object.entries(parJour).sort().map(([k, n]) => ({ k, n })) };
+}
+app.post('/api/lp-cta', express.text({ type: '*/*', limit: '1kb' }), (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  try {
+    const b = JSON.parse(typeof req.body === 'string' ? req.body : '{}');
+    const empreinte = require('crypto').createHash('sha1').update(String(req.ip || '')).digest('hex').slice(0, 10);
+    if (_lpNote(b && b.p, b && b.z, empreinte, Date.now()) && !_lpSaveT) {
+      _lpSaveT = setTimeout(() => { _lpSaveT = null; auth.aiCacheSet('lpcta:v1', _lpCta).catch(() => {}); }, 60000);
+    }
+  } catch {}
+  res.status(204).end();
+});
+app.get('/api/admin/lp-cta', requireAdmin, (_req, res) => { res.json(_lpResume(30, Date.now())); });
 
 app.get('/api/hero-news', (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');

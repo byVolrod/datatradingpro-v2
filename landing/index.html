@@ -1948,6 +1948,22 @@
   </div>
 </section>
 
+<!-- QUI SOMMES-NOUS (24/09, demande user : « une équipe de développeurs et de traders, sans trop donner
+     d'informations »). La page classée première sur « terminal de trading » a sa section d'auteur ; la
+     nôtre dit qui fait le terminal SANS inventer de nom, de parcours ni de chiffre. -->
+<section class="blk" id="equipe" style="padding-top:20px">
+  <div class="wrap">
+    <div class="sec-eye">Qui sommes-nous</div>
+    <h2 class="sec-t">Une équipe de traders et de développeurs.</h2>
+    <p class="sec-s">DataTradingPro est conçu et maintenu par une équipe qui réunit des traders et des développeurs. Les uns décident de ce qui compte au moment d'une annonce ; les autres le rendent lisible, en temps réel, sur un seul écran.</p>
+    <div class="mods3">
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-chart-line"></i></div><h3>Des traders</h3></div><p>Ils choisissent ce qui mérite votre attention : les chiffres, les banques centrales, la réaction du marché.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-code"></i></div><h3>Des développeurs</h3></div><p>Ils rendent l'information fiable et lisible, du flux brut jusqu'à l'écran, sans rien inventer.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-comments"></i></div><h3>Vos retours</h3></div><p>Chaque demande des abonnés est lue, et chaque nouveauté est annoncée dans le terminal lui-même.</p></div>
+    </div>
+  </div>
+</section>
+
 <!-- FAQ -->
 <section class="blk" id="faq">
   <div class="wrap">
@@ -2458,6 +2474,8 @@
      ⚠️ CHARGÉ EN `async`, en fin de body : la vitrine ne l'attend pas pour s'afficher. Un pixel
      d'attribution ne doit jamais peser sur le premier rendu de la page qu'il mesure. -->
 <script>!function(w,d,s,u,n,a,b){if(w[n])return;a=w[n]={q:[],t:+new Date,s:[],o:u,track:function(){a.q.push([+new Date].concat([].slice.call(arguments)))},setScope:function(){a.s=[].slice.call(arguments).filter(function(x){return typeof x==="string"});a.q.push([+new Date,"setScope"].concat(a.s))},scope:function(){var c=[].slice.call(arguments);return{track:function(){a.q.push([+new Date].concat([].slice.call(arguments)).concat([{__scope:c}]))}}}};b=d.createElement(s);b.async=1;b.src=u+"/s.js";d.getElementsByTagName(s)[0].parentNode.insertBefore(b,d.getElementsByTagName(s)[0])}(window,document,"script","https://t.whop.tw","whop");whop.setScope("biz_v14m3etLS4jjJi");whop.track("page");</script>
+<!-- Compteur ANONYME des clics vers l'abonnement (24/09) : aucune donnée personnelle, aucun cookie. Voir /api/lp-cta. -->
+<script>(function(){try{document.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.target.closest('a[href*="whop.com"]');if(!a||!navigator.sendBeacon)return;var z=a.closest('header,section,nav,footer');var zone=z?(z.id||z.tagName.toLowerCase()):'';navigator.sendBeacon('https://desk.datatradingpro.com/api/lp-cta',new Blob([JSON.stringify({p:location.pathname||'/',z:String(zone).toLowerCase().replace(/[^a-z0-9-]/g,'').slice(0,40)})],{type:'text/plain'}));},true);}catch(e){}})();</script>
 </body>
 </html>
 

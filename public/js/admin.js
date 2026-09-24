@@ -8,6 +8,8 @@
     loadFinance();
     loadAdChat();
     loadOverview();
+    loadVitrine();
+    setInterval(loadVitrine, 5 * 60000);   // 24/09 : clics de la vitrine vers l'abonnement
     // Deep-link : restaure l'onglet (et la sous-vue campagne) depuis l'URL (#users, #aimon, #campaign/stats…)
     try {
       const h = location.hash.replace(/^#/, '');
@@ -3721,3 +3723,24 @@ try { document.addEventListener('DOMContentLoaded', adSupAvLoad); } catch (e) {}
     if (r && r.ok) { const i = document.getElementById('recup-uid'); if (i && i.value.trim()) setTimeout(() => constater(i.value.trim()), 900); }
   });
 })();
+
+/* ══ VITRINE : CLICS VERS L'ABONNEMENT, PAR PAGE (24/09) ══════════════════════════════════════════
+   Ce que le référencement rapporte vraiment : quelles pages de datatradingpro.com envoient des
+   visiteurs vers la page d'abonnement. Anonyme (cf. /api/lp-cta). */
+function loadVitrine() {
+  const el = document.getElementById('fin-vitrine');
+  if (!el) return;
+  fetch('/api/admin/lp-cta').then(r => r.json()).then(d => {
+    const esc = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    if (!d || !d.total) { el.innerHTML = '<div class="fin-sub">Aucun clic enregistré sur les 30 derniers jours. Le compteur tourne depuis le 24/09.</div>'; return; }
+    const NOMS = { '/': 'Accueil', '/index.html': 'Accueil' };
+    const nom = p => NOMS[p] || p.replace(/^\/documentation\//, 'Guide · ').replace(/\.html$/, '').replace(/-/g, ' ');
+    const max = d.parPage[0] ? d.parPage[0].n : 1;
+    el.innerHTML = '<div class="fin-sub" style="margin-bottom:8px">' + d.total + ' clic(s) vers l\'abonnement · ' + d.parPage.length + ' page(s) d\'origine</div>'
+      + d.parPage.slice(0, 12).map(x => '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'
+        + '<span style="flex:0 0 46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(x.k) + '">' + esc(nom(x.k)) + '</span>'
+        + '<span style="flex:1;height:6px;background:rgba(227,178,58,.12);border-radius:3px;overflow:hidden"><i style="display:block;height:100%;width:' + Math.max(4, Math.round(x.n / max * 100)) + '%;background:#e3b23a"></i></span>'
+        + '<b style="flex:0 0 36px;text-align:right">' + x.n + '</b></div>').join('')
+      + (d.parZone.length ? '<div class="fin-sub" style="margin-top:8px">Emplacement du bouton : ' + d.parZone.map(z => esc(z.k) + ' ' + z.n).join(' · ') + '</div>' : '');
+  }).catch(() => { el.innerHTML = '<div class="fin-sub">Lecture impossible pour le moment.</div>'; });
+}
