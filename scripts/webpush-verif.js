@@ -89,6 +89,36 @@ t('Apple, Google et Mozilla acceptés', ['https://web.push.apple.com/x', 'https:
 t('une adresse arbitraire est refusée (pas de requête signée vers n\'importe où)', !wp.abonnementValide({ endpoint: 'https://exemple.com/push', keys: abonnement.keys }));
 t('un abonnement sans clés valides est refusé', !wp.abonnementValide({ endpoint: 'https://web.push.apple.com/x', keys: { p256dh: 'abc', auth: 'def' } }));
 
+console.log('\n── Guetteur des publications par catégorie (tranche réelle de server.js) ──');
+{
+  const SRV = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const a = SRV.indexOf('const _pushVus = {};'), b = SRV.indexOf('setInterval(() => { try { const ev = _pushGuetter()');
+  t('la tranche du guetteur est extractible', a > 0 && b > a);
+  const env = { _swCache: [], allNews: [], _brCache: [], allCalendar: [] };
+  const G = new Function('env', 'const _calKeyDated = (c, t, ts) => c + "|" + t + "|" + ts; let _swCache = env._swCache, allNews = env.allNews, _brCache = env._brCache, allCalendar = env.allCalendar;'
+    + SRV.slice(a, b) + '; return { passe: () => { _swCache = env._swCache; allNews = env.allNews; _brCache = env._brCache; allCalendar = env.allCalendar; return _pushGuetter(); } };')(env);
+  const n = Date.now();
+  env._swCache = [{ id: 'w1', title: 'Ancien récap', timestamp: n - 3600e3 }];
+  env._brCache = [{ id: 'b1', title: 'Old note', institution: 'ING', timestamp: n - 3600e3 }];
+  t('premier passage : il apprend l’existant, rien ne part (un redémarrage ne spamme pas)', G.passe().length === 0);
+  env._swCache = [{ id: 'w2', aiTitle: 'Wall Street finit en hausse', timestamp: n }, ...env._swCache];
+  env._brCache = [{ id: 'b2', title: 'EUR/USD : vers 1,20', institution: 'Goldman Sachs', timestamp: n }, { id: 'b0', title: 'Archive', institution: 'X', timestamp: n - 40 * 3600e3 }, ...env._brCache];
+  env.allNews = [{ id: 'r1', _briefing: true, _reportType: 'DTP Daily', headline: 'Récap du jour', timestamp: n }];
+  env.allCalendar = [{ currency: 'USD', title: 'CPI m/m', impact: 'High', actual: '0.4%', forecast: '0.3%', timestamp: n - 60000 },
+                     { currency: 'EUR', title: 'Low thing', impact: 'Low', actual: '1', timestamp: n - 60000 },
+                     { currency: 'GBP', title: 'GDP', impact: 'High', actual: '', timestamp: n + 3600e3 }];
+  const ev = G.passe();
+  const cles = ev.map(e => e.cle).sort().join(',');
+  t('second passage : un récap analyste, un rapport DTP, une note d’institution, un chiffre du calendrier', cles === 'analyst,dtp,eco,institution', cles);
+  t('… l’archive de 40 h n’est pas notifiée (seul le frais part)', !ev.some(e => /Archive/.test(e.body)));
+  t('… impact faible et chiffre pas encore publié : écartés', ev.filter(e => e.cle === 'eco').length === 1);
+  const cal = ev.find(e => e.cle === 'eco') || {};
+  t('… le chiffre du calendrier porte réel et prévision', /Publié : 0\.4% · prévision 0\.3%/.test(cal.body || ''), cal.body);
+  const dtp = ev.find(e => e.cle === 'dtp') || {};
+  t('… le rapport DTP est nommé en français', /Récap quotidien/.test(dtp.title || ''), dtp.title);
+  t('troisième passage sans rien de neuf : rien ne repart', G.passe().length === 0);
+}
+
 console.log('\n── Envoi (service de push simulé) ──');
 (async () => {
   let recu = null;

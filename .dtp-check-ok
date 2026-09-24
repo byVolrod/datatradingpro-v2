@@ -1,5 +1,5 @@
 {
- "empreinte": "4f5ca325b784a2a17dbc5646c824b90aa5ca5639927ad9d357f3ec7709387a06",
- "date": "2026-09-24T22:13:36.645Z",
+ "empreinte": "1b14307bba329cf6fe4ea980c4145a1b8c86e94032b94d4a21c16f61d5268a5e",
+ "date": "2026-09-24T22:26:06.249Z",
  "note": "npm run check vert sur exactement ce contenu (scripts/attestation.js)"
 }

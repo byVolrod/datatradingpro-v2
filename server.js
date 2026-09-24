@@ -1377,6 +1377,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260924-notifs-categories', ts: Date.UTC(2026, 8, 24, 22, 20), title: 'Notifications sur téléphone : récaps, institutions et calendrier', desc: 'Jusqu’ici, votre téléphone ne recevait une notification que pour les actualités majeures. Il est désormais prévenu aussi quand un récap de séance arrive dans l’onglet Analystes, quand une banque publie une nouvelle note dans Institutions, quand un récap DTP sort, et dès qu’un chiffre à fort impact du calendrier économique tombe, avec le réel et la prévision. Les catégories que vous avez coupées dans le filtre des Alertes restent coupées, et le nombre de notifications par heure reste plafonné pour ne jamais vous submerger.' },
   { id: 'dtpu-20260924-site-noir', ts: Date.UTC(2026, 8, 24, 21, 40), title: 'Le site DataTradingPro passe en noir, comme le desk', desc: 'La page d’accueil de datatradingpro.com, la documentation et les pages d’actualités publiques affichaient un fond blanc, puis vous entriez dans un terminal entièrement noir. Elles adoptent désormais la même matière que le desk : fond noir, surfaces anthracite, filets fins et accents dorés. Rien ne change dans leur contenu ni dans leur organisation.' },
   { id: 'dtpu-20260924-saisonnalite-paires', ts: Date.UTC(2026, 8, 24, 21, 10), title: 'Saisonnalité : la paire affichée, avec ses drapeaux', desc: 'Dans les réglages des widgets Saisonnalité et Rendement mensuel, la liste commençait par un choix « Compte » que rien n’expliquait. Il est retiré : vous choisissez directement une paire, et celle que la carte affiche est cochée. Vos cartes gardent la paire qu’elles montraient. L’en-tête de la carte et la pastille de paire portent désormais les deux drapeaux, par exemple Canada et Japon pour CAD/JPY, et l’en-tête se met à jour dès que vous changez de paire, sans recharger la page.' },
   { id: 'dtpu-20260924-connexion-noire', ts: Date.UTC(2026, 8, 24, 20, 28), title: 'Connexion : la page passe en noir, comme le desk', desc: 'Sur ordinateur, la page de connexion affichait un panneau blanc avant de vous faire entrer dans un desk entièrement noir. Elle adopte désormais les couleurs du desk : fond noir, champs anthracite, bouton et liens dorés. Vous entrez directement dans l’ambiance du terminal, sans changement de lumière.' },
@@ -2338,6 +2339,72 @@ async function _pushEnvoyer(items) {
   } catch (e) { console.error('[Push]', e.message); }
   finally { _pushBusy = false; }
 }
+
+/* ═══ NOTIFICATIONS PAR CATÉGORIE (24/09) ══════════════════════════════════════════════════════════
+   Demande user : « recevoir les notifs mobiles quand une news importante sort, un récap de l'onglet
+   Analystes, quand les rapports des institutions sortent, ou une news du calendrier économique ».
+   _pushEnvoyer ne couvrait que les dépêches tier-1. Ici, un GUETTEUR compare toutes les 90 s ce que
+   le desk détient déjà (récaps de séance, rapports DTP, notes d'institutions, calendrier) à ce qu'il
+   détenait au passage précédent : seul le NOUVEAU part. Le premier passage ne fait qu'apprendre
+   l'existant (un redémarrage ne renvoie donc pas toute la bibliothèque aux téléphones).
+   Mêmes règles que les dépêches : réglages du compte (catégories coupées = mêmes clés que le panneau
+   Alertes : analyst, institution, eco, dtp), plafond horaire, appareils expirés retirés. */
+async function _pushDiffuser(evts) {
+  const neufs = (evts || []).filter(e => e && e.id && !_pushDejaVus.has(e.id));
+  if (!neufs.length) return;
+  neufs.forEach(e => _pushDejaVus.add(e.id));
+  try {
+    const idxExpo = await _pushIndex(), idxWeb = await _wpIndex();
+    const idx = new Set([...idxExpo, ...idxWeb]);
+    const expo = [];
+    for (const uid of idx) {
+      let cfg = null;
+      try { cfg = await auth.aiCacheGet('notifcfg:' + uid); } catch {}
+      if (cfg && (cfg.enabled === false || cfg.push === false)) continue;
+      const coupees = new Set(Array.isArray(cfg && cfg.catsOff) ? cfg.catsOff : []);
+      const pourLui = neufs.filter(e => !coupees.has(e.cle));
+      if (!pourLui.length) continue;
+      const place = _pushSousPlafond(uid, pourLui.length);
+      if (!place) continue;
+      const lot = pourLui.slice(0, place);
+      if (idxWeb.has(String(uid))) for (const e of lot) { try { await _wpEnvoyerA(uid, { title: e.title, body: e.body, url: e.url || '/', tag: 'dtp-' + String(e.id).slice(0, 40) }); } catch {} }
+      if (idxExpo.has(String(uid))) {
+        const jetons = await _pushJetons(uid);
+        for (const e of lot) for (const j of jetons) expo.push({ to: j.t, title: e.title, body: e.body, sound: 'default', priority: 'high', channelId: 'alertes', data: { id: String(e.id) } });
+      }
+    }
+    if (expo.length) await _pushExpo(expo);
+    console.log('[Push] ' + neufs.length + ' publication(s) par catégorie : ' + neufs.map(e => e.cle).join(', '));
+  } catch (e) { console.error('[Push]', e.message); }
+}
+const _pushVus = {};
+// Ce qui est nouveau depuis le passage précédent ; rien au premier passage (il apprend l'existant).
+function _pushNouveaux(cle, liste, idDe) {
+  const ids = new Set();
+  liste.forEach(x => { const i = idDe(x); if (i) ids.add(i); });
+  const prec = _pushVus[cle];
+  _pushVus[cle] = ids;
+  if (!prec) return [];
+  return liste.filter(x => { const i = idDe(x); return i && !prec.has(i); });
+}
+const _pushCourt = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+const _PUSH_RAPPORTS_FR = { 'Weekly Market Recap': 'Récap hebdo', 'FX Daily Recap': 'Récap FX', 'DTP Daily': 'Récap quotidien', 'Global Economic Weekly': 'Économie mondiale', 'FX Daily': 'FX Daily' };
+function _pushGuetter() {
+  const ev = [], frais = x => Date.now() - (+(x && x.timestamp) || 0) < 12 * 3600e3;
+  _pushNouveaux('sw', Array.isArray(_swCache) ? _swCache : [], x => x && (x.id || x.url || x.link)).filter(frais).slice(0, 2)
+    .forEach(w => ev.push({ cle: 'analyst', id: 'sw:' + (w.id || w.url || w.link), title: 'Analystes · récap de séance', body: _pushCourt(w.aiTitle || w.title || w.headline, 170) }));
+  _pushNouveaux('dtp', (Array.isArray(allNews) ? allNews : []).filter(i => i && i._briefing && i._reportType), x => x.id).filter(frais).slice(0, 2)
+    .forEach(r => ev.push({ cle: 'dtp', id: 'rap:' + r.id, title: 'DataTradingPro · ' + (_PUSH_RAPPORTS_FR[r._reportType] || r._reportType), body: _pushCourt(r._titreFr || r.headline, 170) }));
+  _pushNouveaux('br', Array.isArray(_brCache) ? _brCache : [], x => x && (x.id || x.url)).filter(frais).slice(0, 3)
+    .forEach(b => ev.push({ cle: 'institution', id: 'br:' + (b.id || b.url), title: 'Institutions · ' + _pushCourt(b.institution || b.source || 'nouveau rapport', 40), body: _pushCourt(b.title || b.headline, 170) }));
+  // Calendrier : un événement à FORT impact dont le chiffre vient de tomber (moins de 3 h).
+  const pub = (Array.isArray(allCalendar) ? allCalendar : []).filter(e => e && /^high$/i.test(String(e.impact || '')) && e.actual != null && String(e.actual).trim() !== '' && Date.now() - (+e.timestamp || 0) < 3 * 3600e3);
+  _pushNouveaux('cal', pub, e => _calKeyDated(e.currency, e.title, e.timestamp)).slice(0, 3)
+    .forEach(e => ev.push({ cle: 'eco', id: 'cal:' + _calKeyDated(e.currency, e.title, e.timestamp), title: 'Calendrier · ' + (e.currency || '') + ' ' + _pushCourt(e.title, 60),
+      body: 'Publié : ' + e.actual + (e.forecast ? ' · prévision ' + e.forecast : '') + (e.previous ? ' · précédent ' + e.previous : '') }));
+  return ev;
+}
+setInterval(() => { try { const ev = _pushGuetter(); if (ev.length) _pushDiffuser(ev).catch(() => {}); } catch {} }, 90 * 1000);
 
 // ── Badge « NEW » du journal de trading — annonce vue UNE SEULE FOIS par compte (KV durable, modèle
 //    symrecent → suit la reconnexion / le changement d'appareil ; dual-write KV = survit au blackout egress).
