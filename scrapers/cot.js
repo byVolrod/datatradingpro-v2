@@ -160,7 +160,19 @@ async function fetchCOTData(type = 'noncomm') {
    ailleurs (agrégat inverse des six autres, date par date). UNE requête pour les 7 contrats, gardée
    12 h en mémoire (le rapport est hebdomadaire). Semaines plafonnées à 780 (15 ans). */
 const _histo = {};   // "type|semaines" → { ts, data }
-function _histoDepuisLignes(rows, cfg) {
+/* Colonnes COMPLÉMENTAIRES du tableau détaillé (intérêt ouvert, spreads, nombre de traders). Elles ne
+   sont demandées qu'en PLUS : si la CFTC renomme ou refuse l'une d'elles (400), la lecture retombe sur
+   longs / shorts seuls — le tableau perd des colonnes, jamais l'historique. Les variations et les % de
+   l'intérêt ouvert se CALCULENT côté client à partir de ces valeurs : rien n'est recopié deux fois. */
+const HISTO_EXTRA = {
+  noncomm:    { oi: 'open_interest_all', spread: 'noncomm_postions_spread_all', tl: 'traders_noncomm_long_all', ts: 'traders_noncomm_short_all', tsp: 'traders_noncomm_spread_all', tt: 'traders_tot_all' },
+  lev_money:  { oi: 'open_interest_all', spread: 'lev_money_positions_spread', tl: 'traders_lev_money_long_all', ts: 'traders_lev_money_short_all', tsp: 'traders_lev_money_spread', tt: 'traders_tot_all' },
+  asset_mgr:  { oi: 'open_interest_all', spread: 'asset_mgr_positions_spread', tl: 'traders_asset_mgr_long_all', ts: 'traders_asset_mgr_short_all', tsp: 'traders_asset_mgr_spread', tt: 'traders_tot_all' },
+  dealer:     { oi: 'open_interest_all', spread: 'dealer_positions_spread_all', tl: 'traders_dealer_long_all', ts: 'traders_dealer_short_all', tsp: 'traders_dealer_spread_all', tt: 'traders_tot_all' },
+  other_rept: { oi: 'open_interest_all', spread: 'other_rept_positions_spread', tl: 'traders_other_rept_long_all', ts: 'traders_other_rept_short', tsp: 'traders_other_rept_spread', tt: 'traders_tot_all' },
+};
+const _entier = v => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : null; };
+function _histoDepuisLignes(rows, cfg, extra) {
   const parDate = {};
   for (const row of rows) {
     const c = FX_CONTRACTS.find(x => x.code === row.cftc_contract_market_code);
@@ -168,7 +180,9 @@ function _histoDepuisLignes(rows, cfg) {
     const date = String(row.report_date_as_yyyy_mm_dd || '').slice(0, 10);
     if (!date) continue;
     const l = parseInt(row[cfg.longCol]) || 0, s = parseInt(row[cfg.shortCol]) || 0;
-    (parDate[date] = parDate[date] || {})[c.key] = { long: l, short: s, net: l - s };
+    const o = { long: l, short: s, net: l - s };
+    if (extra) for (const k of Object.keys(extra)) { const v = _entier(row[extra[k]]); if (v != null) o[k] = v; }
+    (parDate[date] = parDate[date] || {})[c.key] = o;
   }
   const dates = Object.keys(parDate).sort();
   const out = {};
@@ -190,15 +204,24 @@ async function fetchCOTHistory(type = 'noncomm', semaines = 260) {
   const k = type + '|' + n;
   if (_histo[k] && Date.now() - _histo[k].ts < 12 * 3600e3) return _histo[k].data;
   const cfg = TYPE_CONFIG[type];
+  const extra = HISTO_EXTRA[type] || null;
   const codes = FX_CONTRACTS.map(c => `'${c.code}'`).join(',');
-  const url = `https://publicreporting.cftc.gov/resource/${cfg.endpoint}.json`
-    + `?$select=cftc_contract_market_code,report_date_as_yyyy_mm_dd,${cfg.longCol},${cfg.shortCol}`
+  const url = cols => `https://publicreporting.cftc.gov/resource/${cfg.endpoint}.json`
+    + `?$select=cftc_contract_market_code,report_date_as_yyyy_mm_dd,${cols.join(',')}`
     + `&$where=cftc_contract_market_code in(${codes})`
     + `&$order=report_date_as_yyyy_mm_dd DESC&$limit=${n * FX_CONTRACTS.length + 20}`;
+  const base = [cfg.longCol, cfg.shortCol];
   try {
-    const r = await axios.get(url, { timeout: 25000, headers: { Accept: 'application/json' } });
+    let r, avecExtra = !!extra;
+    try {
+      r = await axios.get(url(extra ? base.concat([...new Set(Object.values(extra))]) : base), { timeout: 25000, headers: { Accept: 'application/json' } });
+    } catch (e) {
+      if (!(extra && e.response && e.response.status === 400)) throw e;
+      avecExtra = false;   // une colonne complémentaire refusée : on garde l'essentiel
+      r = await axios.get(url(base), { timeout: 25000, headers: { Accept: 'application/json' } });
+    }
     if (!Array.isArray(r.data) || !r.data.length) throw new Error('réponse CFTC vide');
-    const data = _histoDepuisLignes(r.data, cfg);
+    const data = _histoDepuisLignes(r.data, cfg, avecExtra ? extra : null);
     _histo[k] = { ts: Date.now(), data };
     return data;
   } catch (e) {
@@ -207,4 +230,4 @@ async function fetchCOTHistory(type = 'noncomm', semaines = 260) {
   }
 }
 
-module.exports = { fetchCOTData, fetchCOTHistory, _histoDepuisLignes };
+module.exports = { fetchCOTData, fetchCOTHistory, _histoDepuisLignes, HISTO_EXTRA, VALID_TYPES, TYPE_CONFIG };

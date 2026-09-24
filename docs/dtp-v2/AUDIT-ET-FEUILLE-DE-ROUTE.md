@@ -329,6 +329,7 @@ désactivé, l'admin retrouve le desk des clients à l'identique. Chaque ligne a
 | 24/09 | **Santé des données** : chaque source dit si elle est à jour (panneau admin) | 1 | `sante-verif` |
 | 24/09 | **Traçabilité en direct** : l'aide des widgets dit l'état réel de sa source ; pastille « Sources » sur Fil, Taux, Biais, Semaine | 1 · UX n°1 | `v2-verif` |
 | 24/09 | **Briefing du matin sourcé** : fiche de faits numérotée, rédaction qui cite ses faits, vérification par le code (chiffre absent des faits cités, point sans source, consigne de trading : écartés, et comptés) | 2 | `briefing-verif`, `v2-verif` |
+| 24/09 | **Vue paire en grille de terminal** : COT (anneau, historique 1 à 15 ans, tableau CFTC complet, catégorie au choix), Saisonnalité (projection statistique à bandes 68/95, tableau de projection, carte mois × années, année type au jour près), Particuliers (historique relevé par DTP, anneau, statistiques). Panneaux collés, tracés au pixel, survol, export CSV | UX n°3 | `paire-grille-verif` |
 
 Déjà présent sur le desk et donc retiré de la liste UX : la pastille de régime de marché dans la barre du
 haut (I.1 n° 2) et le contexte entre crochets dans l'en-tête des cartes (I.1 n° 3).

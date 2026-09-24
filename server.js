@@ -31589,15 +31589,22 @@ app.post('/api/v2/briefing/regen', requireAdmin, async (req, res) => {
      Gardée 12 h par paire (une clôture mensuelle ne bouge qu'une fois par mois). */
 const saisonMod = require('./saison');
 const _saisCache = new Map();   // paire → { at, data }
+const _COT_CATEGORIES = { noncomm: 'Non-commerciaux (spéculateurs)', lev_money: 'Fonds à levier', asset_mgr: 'Gestionnaires d’actifs',
+                          dealer: 'Intermédiaires (banques)', other_rept: 'Autres déclarants' };
 app.get('/api/v2/cot-historique', requireAdmin, async (req, res) => {
   if (!_v2Actif()) return res.status(404).end();
   const ccy = String(req.query.ccy || '').toUpperCase();
   if (!/^(USD|EUR|GBP|JPY|CHF|CAD|AUD|NZD)$/.test(ccy)) return res.status(400).json({ error: 'devise inconnue' });
+  const type = _COT_CATEGORIES[req.query.type] ? req.query.type : 'noncomm';
   try {
-    const h = await fetchCOTHistory('noncomm', parseInt(req.query.semaines, 10) || 260);
-    res.json({ ccy, type: 'noncomm', rows: (h && h[ccy]) || [], source: 'CFTC Commitments of Traders (Legacy, non-commerciaux)' });
+    const h = await fetchCOTHistory(type, parseInt(req.query.semaines, 10) || 260);
+    res.json({ ccy, type, categorie: _COT_CATEGORIES[type], categories: _COT_CATEGORIES, rows: (h && h[ccy]) || [],
+               source: 'CFTC Commitments of Traders (' + (type === 'noncomm' ? 'Legacy' : 'Traders in Financial Futures') + ')' });
   } catch (e) { res.status(503).json({ error: 'CFTC indisponible : ' + String(e.message || e).slice(0, 120) }); }
 });
+/* La saisonnalité part des clôtures JOURNALIÈRES (plage « max », la seule plage longue que Yahoo
+   garantit en quotidien), ramenées aux 16 dernières années : le mensuel en découle (dernière clôture
+   de chaque mois), les courbes 5/10/15 ans et la projection se calculent au jour près. */
 app.get('/api/v2/saisonnalite', requireAdmin, async (req, res) => {
   if (!_v2Actif()) return res.status(404).end();
   const p = String(req.query.pair || '').toUpperCase().replace(/[^A-Z]/g, '');
@@ -31605,15 +31612,66 @@ app.get('/api/v2/saisonnalite', requireAdmin, async (req, res) => {
   const c = _saisCache.get(p);
   if (c && Date.now() - c.at < 12 * 3600e3) return res.json(c.data);
   try {
-    const { raw } = await _yfChart(p + '=X', '1mo', '15y');
+    const { raw } = await _yfChart(p + '=X', '1d', 'max');
     const r = raw && raw.chart && raw.chart.result && raw.chart.result[0];
-    const ts = (r && r.timestamp) || [], closes = (r && r.indicators && r.indicators.quote && r.indicators.quote[0] && r.indicators.quote[0].close) || [];
-    if (ts.length < 13) return res.status(503).json({ error: 'clôtures mensuelles indisponibles' });
-    const data = Object.assign({ pair: p, source: 'Yahoo Finance, clôtures mensuelles', lu: Date.now() }, saisonMod.saisonnalite(ts, closes));
+    const ts0 = (r && r.timestamp) || [], cl0 = (r && r.indicators && r.indicators.quote && r.indicators.quote[0] && r.indicators.quote[0].close) || [];
+    const borne = Date.UTC(new Date().getUTCFullYear() - 16, 0, 1) / 1000;
+    const ts = [], closes = [];
+    for (let i = 0; i < ts0.length; i++) if (ts0[i] >= borne) { ts.push(ts0[i]); closes.push(cl0[i]); }
+    if (ts.length < 300) return res.status(503).json({ error: 'clôtures journalières indisponibles' });
+    const data = Object.assign({ pair: p, source: 'Yahoo Finance, clôtures journalières', lu: Date.now() }, saisonMod.saisonnaliteComplete(ts, closes));
     _saisCache.set(p, { at: Date.now(), data });
-    if (_saisCache.size > 40) _saisCache.delete(_saisCache.keys().next().value);
+    if (_saisCache.size > 30) _saisCache.delete(_saisCache.keys().next().value);
     res.json(data);
   } catch (e) { res.status(503).json({ error: String(e.message || e).slice(0, 120) }); }
+});
+
+/* ── HISTORIQUE DES PARTICULIERS (DMX), RELEVÉ PAR DTP ─────────────────────────────────────────────
+   Myfxbook ne publie que l'instant présent : l'historique « jour par jour » des captures de référence
+   n'existe nulle part gratuitement. DTP le CONSTITUE donc lui-même, à partir des lectures qu'il fait
+   déjà : un relevé par heure (gardé 7 jours, en mémoire) et un par jour (gardé 120 jours, déposé dans
+   ai_cache, donc sur les quatre bases et dans la sauvegarde). Aucun relevé inventé : une heure sans
+   lecture fraîche n'écrit rien, et l'écran dit depuis quand l'historique existe.
+   Lecture SEULE du cache Myfxbook (outlookTs) : ce minuteur ne déclenche jamais de navigateur. */
+const _dmxHist = { h: {}, d: {}, depuis: 0, charge: false };
+async function _dmxHistCharger() {
+  if (_dmxHist.charge) return; _dmxHist.charge = true;
+  try { const v = await auth.aiCacheGet('dmx:histo:v1'); if (v && v.d) { _dmxHist.d = v.d; _dmxHist.depuis = v.depuis || 0; } } catch (e) {}
+}
+async function _dmxHistRelever() {
+  try {
+    await _dmxHistCharger();
+    const lu = outlookTs();
+    if (!lu || Date.now() - lu > 2 * 3600e3) return;          // pas de lecture fraîche : on n'écrit rien
+    const syms = await fetchCommunityOutlook('H1');
+    if (!Array.isArray(syms) || !syms.length) return;
+    const heure = Math.floor(Date.now() / 3600e3) * 3600e3, jour = Math.floor(Date.now() / 86400e3) * 86400e3;
+    for (const x of syms) {
+      if (!x || !/^[A-Z]{6}$/.test(x.symbol) || !Number.isFinite(x.longPct)) continue;
+      const h = (_dmxHist.h[x.symbol] = _dmxHist.h[x.symbol] || []);
+      if (!h.length || h[h.length - 1][0] !== heure) h.push([heure, x.longPct]); else h[h.length - 1][1] = x.longPct;
+      while (h.length && h[0][0] < heure - 7 * 86400e3) h.shift();
+      const d = (_dmxHist.d[x.symbol] = _dmxHist.d[x.symbol] || []);
+      if (!d.length || d[d.length - 1][0] !== jour) d.push([jour, x.longPct]); else d[d.length - 1][1] = x.longPct;
+      while (d.length > 120) d.shift();
+    }
+    if (!_dmxHist.depuis) _dmxHist.depuis = heure;
+    if (new Date().getUTCHours() % 6 === 0 || !_dmxHist._ecrit) {
+      _dmxHist._ecrit = Date.now();
+      auth.aiCacheSet('dmx:histo:v1', { d: _dmxHist.d, depuis: _dmxHist.depuis }).catch(() => {});
+    }
+  } catch (e) {}
+}
+setTimeout(_dmxHistRelever, 3 * 60e3);
+setInterval(_dmxHistRelever, 60 * 60e3);
+app.get('/api/v2/particuliers-historique', requireAdmin, async (req, res) => {
+  if (!_v2Actif()) return res.status(404).end();
+  const p = String(req.query.pair || '').toUpperCase().replace(/[^A-Z]/g, '');
+  if (!/^[A-Z]{6}$/.test(p)) return res.status(400).json({ error: 'paire invalide' });
+  await _dmxHistCharger();
+  const pas = req.query.pas === 'h' ? 'h' : 'd';
+  const pts = ((_dmxHist[pas][p]) || []).map(x => ({ t: x[0], long: x[1], short: +(100 - x[1]).toFixed(1) }));
+  res.json({ pair: p, pas, points: pts, depuis: _dmxHist.depuis || null, source: 'Myfxbook, relevé par DTP' });
 });
 
 app.get('/api/risk-sentiment', async (req, res) => {

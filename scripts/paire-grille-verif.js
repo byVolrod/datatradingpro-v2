@@ -17,7 +17,10 @@ const S = require(path.join(R, 'saison.js'));
 const COT = require(path.join(R, 'scrapers', 'cot.js'));
 const SRV = fs.readFileSync(path.join(R, 'server.js'), 'utf8');
 const BOOT = fs.readFileSync(path.join(R, 'public/js/v2/boot.js'), 'utf8');
+const PAIRE = fs.readFileSync(path.join(R, 'public/js/v2/paire.js'), 'utf8');
+const COTSRC = fs.readFileSync(path.join(R, 'scrapers/cot.js'), 'utf8');
 let ok = 0, ko = 0;
+(async () => {
 const v = (n, c, d) => { if (c) { ok++; console.log('  ✓ ' + n); } else { ko++; console.log('  ✗ ' + n + (d ? '\n      → ' + d : '')); } };
 
 console.log('\n── 1. Saisonnalité : rendements mensuels, carte de chaleur, année type ──');
@@ -54,10 +57,68 @@ console.log('\n── 2. Historique COT : par devise, USD dérivé seulement qua
   v('la lecture CFTC est plafonnée à 15 ans et gardée 12 h', /Math\.min\(780,/.test(fs.readFileSync(path.join(R, 'scrapers/cot.js'), 'utf8')) && /Date\.now\(\) - _histo\[k\]\.ts < 12 \* 3600e3/.test(fs.readFileSync(path.join(R, 'scrapers/cot.js'), 'utf8')));
 }
 
+console.log('\n── 2 bis. Tableau COT complet : colonnes en plus, jamais au prix de l\'historique ──');
+{
+  const rows = [{ cftc_contract_market_code: '099741', report_date_as_yyyy_mm_dd: '2026-09-15T00:00:00.000', l: '100', s: '40', oi: '500', sp: '7', tl: 'x' }];
+  const h = COT._histoDepuisLignes(rows, { longCol: 'l', shortCol: 's' }, { oi: 'oi', spread: 'sp', tl: 'tl' });
+  v('intérêt ouvert et spreads lus, une valeur illisible OMISE (pas de 0 inventé)', h.EUR[0].oi === 500 && h.EUR[0].spread === 7 && !('tl' in h.EUR[0]), JSON.stringify(h.EUR[0]));
+  v('chaque catégorie CFTC a ses colonnes complémentaires', COT.VALID_TYPES.every(t => COT.HISTO_EXTRA[t] && COT.HISTO_EXTRA[t].oi));
+  // La vraie fonction, avec un faux axios : la CFTC refuse une colonne complémentaire (400).
+  const appels = [];
+  const faux = { get: async url => { appels.push(url); if (/open_interest_all/.test(url)) { const e = new Error('400'); e.response = { status: 400 }; throw e; }
+    return { data: [{ cftc_contract_market_code: '099741', report_date_as_yyyy_mm_dd: '2026-09-15T00:00:00.000', noncomm_positions_long_all: '120', noncomm_positions_short_all: '20' }] }; } };
+  const charger = src => { const m = { exports: {} }; new Function('module', 'exports', 'require', '__dirname', src)(m, m.exports, x => x === 'axios' ? faux : require(x), path.join(R, 'scrapers')); return m.exports; };
+  const mod = charger(COTSRC);
+  const r = await mod.fetchCOTHistory('noncomm', 52).catch(e => ({ err: e.message }));
+  v('colonne refusée → nouvelle lecture avec longs / shorts seuls, l\'historique est servi', appels.length === 2 && r.EUR && r.EUR[0].net === 100 && !('oi' in r.EUR[0]), JSON.stringify({ appels: appels.length, r }));
+  const temoin = COTSRC.replace("if (!(extra && e.response && e.response.status === 400)) throw e;", 'throw e;');
+  v('(témoin) la mutation retire bien le repli', temoin !== COTSRC);
+  appels.length = 0;
+  const r2 = await charger(temoin).fetchCOTHistory('noncomm', 52).catch(e => ({ err: e.message }));
+  v('(témoin) sans le repli, une seule colonne refusée faisait perdre tout l\'historique', !!r2.err, JSON.stringify(r2));
+}
+
+console.log('\n── 2 ter. Saisonnalité au jour près, projection statistique ──');
+{
+  // 16 ans de jours ouvrés, prix plat sauf un saut de +2% chaque 1er mars et de +1% chaque 26 septembre.
+  const ts = [], cl = []; let c = 1;
+  for (let t = Date.UTC(2010, 0, 4); t <= Date.UTC(2026, 8, 24); t += 864e5) {
+    const d = new Date(t); if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
+    if (d.getUTCMonth() === 2 && d.getUTCDate() === 1) c *= 1.02;
+    if (d.getUTCMonth() === 8 && d.getUTCDate() === 26) c *= 1.01;
+    ts.push(t / 1000); cl.push(c);
+  }
+  // Les 1er mars et 26 septembre tombant parfois un week-end, on pose le saut au jour ouvré suivant.
+  const ts2 = [], cl2 = []; c = 1; let dueM = false, dueS = false;
+  for (let t = Date.UTC(2010, 0, 4); t <= Date.UTC(2026, 8, 24); t += 864e5) {
+    const d = new Date(t);
+    if (d.getUTCMonth() === 2 && d.getUTCDate() === 1) dueM = true;
+    if (d.getUTCMonth() === 8 && d.getUTCDate() === 26) dueS = true;
+    if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
+    if (dueM) { c *= 1.02; dueM = false; } if (dueS) { c *= 1.01; dueS = false; }
+    ts2.push(t / 1000); cl2.push(c);
+  }
+  const D = S.saisonnaliteComplete(ts2, cl2, Date.UTC(2026, 8, 24, 12));
+  const j = D.journalier;
+  v('année type : 0% en janvier, +2% après le 1er mars, +3,02% en fin d\'année (5 et 15 ans)', j.a5[10] === 0 && Math.abs(j.a5[100] - 2) < 1e-6 && Math.abs(j.a5[364] - 3.02) < 1e-6 && Math.abs(j.a15[364] - 3.02) < 1e-6, JSON.stringify([j.a5[10], j.a5[100], j.a5[364]]));
+  v('l\'année en cours s\'arrête à aujourd\'hui (jour 266), pas de trajectoire future', j.cetteAnnee.length === 267 && j.jourCourant === 266, j.cetteAnnee.length + ' / ' + j.jourCourant);
+  const P = D.projection;
+  v('projection : les 15 années passées ont monté de 1% entre le 24/09 et le 29/09 → 100% de hausse, médiane = dernier cours +1%',
+    P && P.tableau[0].h === 5 && P.tableau[0].proba === 100 && P.tableau[0].annees === 15 && Math.abs(P.tableau[0].base / P.depuis.c - 1.01) < 1e-4, JSON.stringify(P && P.tableau[0]));
+  v('huit horizons au tableau (5 à 54 jours) et 54 jours de bandes, 16e ≤ médiane ≤ 84e centile', P.tableau.length === 8 && P.bandes.length === 54 && P.bandes.every(b => b.p025 <= b.p16 && b.p16 <= b.p50 && b.p50 <= b.p84 && b.p84 <= b.p975));
+  const court = S.saisonnaliteComplete(ts2.slice(-900), cl2.slice(-900), Date.UTC(2026, 8, 24, 12));
+  v('3 ans et demi d\'historique : ni courbe 5 ans, ni projection (moins de 5 années observées)', court.journalier.a5 === null && court.projection === null);
+}
+
 console.log('\n── 3. Branchement ──');
-v('les deux routes sont réservées à l\'admin ET à la V2 active', /app\.get\('\/api\/v2\/cot-historique', requireAdmin,/.test(SRV) && /app\.get\('\/api\/v2\/saisonnalite', requireAdmin,/.test(SRV)
-  && (SRV.match(/app\.get\('\/api\/v2\/(?:cot-historique|saisonnalite)', requireAdmin, async \(req, res\) => \{\s*\n\s*if \(!_v2Actif\(\)\) return res\.status\(404\)\.end\(\);/g) || []).length === 2);
+v('les trois routes sont réservées à l\'admin ET à la V2 active',
+  (SRV.match(/app\.get\('\/api\/v2\/(?:cot-historique|saisonnalite|particuliers-historique)', requireAdmin, async \(req, res\) => \{\s*\n\s*if \(!_v2Actif\(\)\) return res\.status\(404\)\.end\(\);/g) || []).length === 3);
+v('la catégorie COT demandée est filtrée par une liste blanche', /const type = _COT_CATEGORIES\[req\.query\.type\] \? req\.query\.type : 'noncomm';/.test(SRV));
+v('l\'historique des particuliers n\'écrit RIEN sans lecture Myfxbook fraîche, et ne lance jamais de navigateur', /if \(!lu \|\| Date\.now\(\) - lu > 2 \* 3600e3\) return;/.test(SRV) && !/_dmxHistRelever[\s\S]{0,1500}forceFetchOutlook/.test(SRV));
 v('la saisonnalité est gardée 12 h par paire (une clôture mensuelle bouge une fois par mois)', /c && Date\.now\(\) - c\.at < 12 \* 3600e3\) return res\.json\(c\.data\)/.test(SRV));
 v('le chargeur V2 charge la vue paire en grille', /\/js\/v2\/paire\.js\?v=/.test(BOOT));
+v('la grille couvre COT base, COT cotée, Saisonnalité et Particuliers', ['sym-sub-cotbase', 'sym-sub-cotquote', 'sym-sub-seasonality', 'sym-sub-retail'].every(id => PAIRE.includes("libre('" + id + "'")));
+v('les graphiques sont tracés AU PIXEL (aucun SVG étiré, qui déforme textes et traits)', !/preserveAspectRatio="none"/.test(PAIRE) && /ResizeObserver/.test(PAIRE));
 console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec\n' : '✓ ' + ok + ' contrôles au vert\n'));
 process.exit(ko ? 1 : 0);
+})();
