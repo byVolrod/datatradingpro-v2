@@ -67,6 +67,15 @@ const SANTE = { at: Date.now(), weekend: false, compte: { ok: 5, degrade: 1, pan
   { groupe: 'Taux', nom: 'CME FedWatch (Fed)', age: 3600000, etat: 'ok', detail: 'réunion 2026-10-28' },
   { groupe: 'Positionnement', nom: 'COT (CFTC, hebdomadaire)', age: null, etat: 'panne', detail: 'aucun rapport lu' },
   { groupe: 'Calculs', nom: 'Force des devises', age: 60000, etat: 'ok', detail: '' } ] };
+// Briefing du matin tel que le serveur le sert APRÈS vérification (briefing.js) : faits + points cités.
+const BRIEF = { v: 1, jour: '2026-09-24', aujourdhui: true, genereA: Date.now() - 600000, fournisseur: 'gemma', ecartes: 2, total: 9,
+  motifs: { sansSource: 1, chiffre: 1, consigne: 0, vide: 0 }, titre: 'Un risk-on prudent avant le PCE américain',
+  faits: [{ id: 'F1', txt: 'Régime de risque : Risk-on léger (score 23) · 3 facteurs risk-on, 1 risk-off', source: 'Sentiment de risque (cotations Yahoo Finance)', at: Date.now() - 900000 },
+    { id: 'F2', txt: 'Devise la plus forte : GBP (+0,30) ; la plus faible : JPY (−0,21)', source: 'Force des devises (unité TD)', at: Date.now() - 800000 },
+    { id: 'F3', txt: '14:30 · USD · Core PCE Price Index MoM (impact fort) · attendu 0.3% · précédent 0.2%', source: 'Calendrier économique', at: Date.now() - 3600000 }],
+  synthese: [{ txt: 'Le marché ouvre en risk-on léger.', cites: ['F1'] }],
+  sections: [{ titre: 'Devises à suivre', points: [{ txt: 'La livre domine à +0,30 quand le yen cède 0,21.', cites: ['F2'] }] },
+    { titre: 'Agenda du jour', points: [{ txt: 'Le Core PCE de 14:30 est attendu à 0,3% après 0,2%.', cites: ['F3'] }] }] };
 const CCY = ['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CHF', 'CAD', 'NZD'];
 const FINS = { USD: 0.12, EUR: -0.05, JPY: -0.21, GBP: 0.3, AUD: 0.02, CHF: -0.09, CAD: 0.07, NZD: -0.11 };
 const FORCE = { currencies: CCY, updatedAt: new Date().toISOString(), series: Object.fromEntries(CCY.map(c => [c, Array.from({ length: 30 }, (_, i) => ({ t: 1790000000000 + i * 6e5, v: +(FINS[c] * (i + 1) / 30).toFixed(5) }))])) };
@@ -102,6 +111,7 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
     if (u === '/api/risk-sentiment') return j(RISQUE);
     if (u === '/api/currency-strength') return j(FORCE);
     if (u === '/api/admin/data-health') return SC.role === 'admin' ? j(SANTE) : (rs.writeHead(403), rs.end());
+    if (u === '/api/v2/briefing') return SC.role === 'admin' ? j(BRIEF) : (rs.writeHead(403), rs.end());
     base.emit('request', rq, rs);
   });
   await new Promise(r => srv.listen(4873, r));
@@ -124,6 +134,7 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
       const r = await page.evaluate(() => ({ app: document.documentElement.classList.contains('dtp-app'), barre: !!document.querySelector('.v2a-barre'), inter: !!document.getElementById('v2-interrupteur'), topbar: getComputedStyle(document.querySelector('.topbar')).display }));
       v('aucun fichier V2 demandé (même avec une préférence « on » héritée)', vus.length === 0, vus.join(', '));
       v('ni barre d\'onglets, ni interrupteur, barre du haut du desk intacte', !r.app && !r.barre && !r.inter && r.topbar !== 'none', JSON.stringify(r));
+      v('… ni bouton Briefing', await page.evaluate(() => !document.querySelector('.v2a-bf-btn')));
       await page.evaluate(() => { try { DTPWidgets.aideDe('force-devises'); } catch (e) {} });
       await new Promise(z => setTimeout(z, 500));
       v('l\'aide d\'un widget reste celle des clients (aucune section V3, aucune pastille Sources)', await page.evaluate(() => !!document.getElementById('wdg-aide') && !document.querySelector('.v2a-src') && !document.querySelector('.v2a-src-pill')));
@@ -170,6 +181,8 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
         lib: (document.querySelector('.v2a-risque-lib') || {}).textContent, cpt: (document.querySelector('.v2a-risque-cpt') || {}).textContent,
         source: (document.querySelector('#v2a-risque .v2a-source') || {}).textContent, titre: document.getElementById('v2a-titre').textContent }));
       v('onglet Marchés → l\'écran Marchés de l\'app', m.visible && m.titre === 'Marchés', JSON.stringify(m));
+      await new Promise(z => setTimeout(z, 800));
+      v('… avec la carte « Briefing du matin » en tête (V3)', await page.evaluate(() => { const c = document.getElementById('v2a-bf-carte'); return !!c && /Un risk-on prudent/.test(c.innerText) && c.parentElement.classList.contains('v2a-ecran'); }));
       v('… les 8 devises, de la plus forte à la plus faible', m.ordre === 'GBP,USD,CAD,AUD,EUR,CHF,NZD,JPY', m.ordre);
       v('… le régime de risque traduit, avec le décompte réel des facteurs (3 / 1)', m.lib === 'Risk-on léger' && /3 facteurs risk-on · 1 risk-off/.test(m.cpt), m.lib + ' · ' + m.cpt);
       v('… et sa source nommée (traçabilité)', /4 actifs suivis · cotations Yahoo Finance/.test(m.source || ''), m.source);
@@ -212,6 +225,22 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
       await page.evaluate(() => { try { DTPWidgets.aideDe('horloge'); } catch (e) {} });
       await new Promise(z => setTimeout(z, 600));
       v('… et RIEN pour un widget dont la source n\'est pas suivie (jamais un vert de complaisance)', await page.evaluate(() => !document.querySelector('#wdg-aide .v2a-src')));
+
+      console.log('\n── 7. V3 · briefing du matin sourcé (admin, V2 activée) ──');
+      await page.evaluate(() => { const a = document.getElementById('wdg-aide-ov'); if (a) a.click(); if (window.activateView) activateView('news'); });
+      await new Promise(z => setTimeout(z, 400));
+      v('un bouton « Briefing » dans l\'en-tête du Fil', await page.evaluate(() => !!document.querySelector('#view-news .v2a-bf-btn')));
+      await page.evaluate(() => document.querySelector('#view-news .v2a-bf-btn').click());
+      await new Promise(z => setTimeout(z, 600));
+      const bf = await page.evaluate(() => { const c = document.querySelector('.v2a-bf-corps'); return c ? { t: c.innerText, cites: c.querySelectorAll('.v2a-bf-cite').length, fiche: c.querySelectorAll('.v2a-bf-fiche li').length } : null; });
+      v('la feuille s\'ouvre : titre, points, et une citation cliquable par source utilisée', bf && /Un risk-on prudent/.test(bf.t) && bf.cites === 3 && bf.fiche === 3, JSON.stringify(bf));
+      v('… la sévérité du contrôle est affichée (points écartés)', bf && /2 points écartés à la vérification/.test(bf.t));
+      await page.evaluate(() => document.querySelector('.v2a-bf-cite[data-f="F2"]').click());
+      await new Promise(z => setTimeout(z, 300));
+      const bu = await page.evaluate(() => { const b = document.getElementById('v2a-bf-bulle'); return b ? b.innerText : ''; });
+      v('… un clic sur une citation montre le FAIT exact, sa source et son heure', /GBP \(\+0,30\)/.test(bu) && /Force des devises \(unité TD\)/.test(bu), bu.replace(/\n/g, ' | '));
+      await page.keyboard.press('Escape');
+      v('Échap referme la feuille', await page.evaluate(() => !document.getElementById('v2a-bf')));
       await ctx.close();
     }
   } catch (e) { v('le banc se termine', false, e.message); }

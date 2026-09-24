@@ -28,6 +28,10 @@
     var t = document.createElement('script');
     t.src = '/js/v2/tracabilite.js?v=' + VER; t.defer = true;
     document.head.appendChild(t);
+    // Briefing du matin sourcé (V3) : bouton du Fil, carte de l'écran Marchés.
+    var b = document.createElement('script');
+    b.src = '/js/v2/briefing-ui.js?v=' + VER; b.defer = true;
+    document.head.appendChild(b);
   }
 
   function poserInterrupteur() {

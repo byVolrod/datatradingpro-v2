@@ -31514,6 +31514,73 @@ app.get('/api/admin/data-health', requireAdmin, async (req, res) => {
   try { res.json(await _santeDonnees()); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* ══ V3 · BRIEFING DU MATIN SOURCÉ (comptes admin, derrière « Aperçu V2 ») ════════════════════════════
+   Phase 2 de la feuille de route (docs/dtp-v2). Le texte n'est pas libre : une FICHE DE FAITS est
+   assemblée depuis ce que le desk affiche déjà (risque, force des devises, agenda du jour, taux et
+   pricing, dépêches marquantes), l'IA rédige en citant ses faits, et briefing.js ÉCARTE tout point
+   sans source valide, avec un chiffre absent des faits cités, ou qui donne une consigne de trading.
+   Une rédaction par jour ouvré à partir de 08 h 30 (Paris), en tâche de fond, jamais à l'ouverture ;
+   crédits payants exclus (noClaude). Persisté dans ai_cache (`briefing:v1:<jour>`). */
+const briefingMod = require('./briefing');
+let _briefing = null, _briefingEnCours = false, _briefingEssai = 0, _briefingEchec = '';
+async function _briefingContexte(now) {
+  const ctx = { now };
+  try { const r = await fetchRiskSentiment(); if (r && r.label) ctx.risque = { label: r.label, score: r.score, assets: r.assets, ts: _riskTs || now }; } catch (e) {}
+  try { const cs = await computeCurrencyStrength('today'); if (cs && cs.series) ctx.force = { series: cs.series, ts: (_csCache && _csCache.today && _csCache.today.ts) || now }; } catch (e) {}
+  try { const items = await _buildTVCalendar(); if (Array.isArray(items) && items.length) ctx.calendrier = { items, ts: _calFetchedAt || now }; } catch (e) {}
+  try { const p = _buildRatesPayload(); if (p && Array.isArray(p.banks)) ctx.taux = { banks: p.banks, ts: now }; } catch (e) {}
+  try {
+    ctx.titres = (allNews || []).filter(n => n && n.timestamp > now - 14 * 3600e3 && n.timestamp <= now && !n._briefing && !n._marketWrap
+      && _isImportantNews(n.headline, n.category, n.priority)).sort((a, b) => b.timestamp - a.timestamp).slice(0, 6);
+  } catch (e) {}
+  return ctx;
+}
+async function _briefingGenerer() {
+  if (_briefingEnCours) return null;
+  _briefingEnCours = true; _briefingEssai = Date.now();
+  try {
+    const now = Date.now();
+    const faits = briefingMod.ficheDeFaits(await _briefingContexte(now));
+    if (faits.length < 5) { _briefingEchec = 'fiche de faits trop maigre (' + faits.length + ' faits) : sources indisponibles'; return null; }
+    const lib = new Date(now).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' });
+    const meta = {};
+    const brut = await ai.generateText(briefingMod.promptBriefing(faits, lib), 1800, { noClaude: true, meta });
+    const v = briefingMod.validerBriefing(brut, faits);
+    if (!v) { _briefingEchec = 'rédaction refusée par la vérification (moins de 3 points sourcés)'; return null; }
+    _briefing = Object.assign({ v: 1, jour: briefingMod.jourParis(now), genereA: now, faits, fournisseur: meta.fournisseur || 'cascade' }, v);
+    _briefingEchec = '';
+    auth.aiCacheSet('briefing:v1:' + _briefing.jour, _briefing).catch(() => {});
+    console.log('[Briefing] rédigé : ' + v.sections.reduce((a, s) => a + s.points.length, 0) + ' points gardés, ' + v.ecartes + ' écartés, ' + faits.length + ' faits');
+    return _briefing;
+  } catch (e) { _briefingEchec = 'IA indisponible : ' + String(e && e.message || e).slice(0, 140); return null; }
+  finally { _briefingEnCours = false; }
+}
+// Relu au démarrage : un redéploiement ne coûte pas une rédaction de plus.
+auth.aiCacheGet('briefing:v1:' + briefingMod.jourParis(Date.now())).then(b => { if (b && b.jour && !_briefing) _briefing = b; }).catch(() => {});
+// Planificateur : jours ouvrés, à partir de 08 h 30 (Paris) et jusqu'à 12 h, une tentative par 30 min au plus.
+setInterval(() => {
+  try {
+    if (!_v2Actif()) return;
+    const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const mn = p.getHours() * 60 + p.getMinutes(), dow = p.getDay();
+    if (dow === 0 || dow === 6 || mn < 8 * 60 + 30 || mn >= 12 * 60) return;
+    if (_briefing && _briefing.jour === briefingMod.jourParis(Date.now())) return;
+    if (Date.now() - _briefingEssai < 30 * 60e3) return;
+    _briefingGenerer().catch(() => {});
+  } catch (e) {}
+}, 5 * 60e3).unref();
+app.get('/api/v2/briefing', requireAdmin, (req, res) => {
+  if (!_v2Actif()) return res.status(404).end();
+  if (!_briefing) return res.json({ vide: true, raison: _briefingEchec || 'Pas encore rédigé : il part chaque jour ouvré à partir de 08 h 30.' });
+  res.json(Object.assign({ aujourdhui: _briefing.jour === briefingMod.jourParis(Date.now()) }, _briefing));
+});
+app.post('/api/v2/briefing/regen', requireAdmin, async (req, res) => {
+  if (!_v2Actif()) return res.status(404).end();
+  if (Date.now() - _briefingEssai < 2 * 60e3) return res.json(_briefing ? Object.assign({ aujourdhui: true }, _briefing) : { vide: true, raison: 'Une rédaction vient d’être tentée : réessayez dans deux minutes.' });
+  const b = await _briefingGenerer();
+  res.json(b ? Object.assign({ aujourdhui: true }, b) : { vide: true, raison: _briefingEchec || 'Rédaction impossible pour le moment.' });
+});
+
 app.get('/api/risk-sentiment', async (req, res) => {
   try {
     const data = await fetchRiskSentiment();

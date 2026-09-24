@@ -316,3 +316,22 @@ desk client (identique), retour arrière par l'interrupteur.
 les a presque tous) mais dans la **composition** (dispositions nommées, grilles de panneaux, en-têtes
 normalisés) et dans les **liens** entre modules. C'est exactement ce que visent les phases 1, 4 et 7 :
 la V2 est d'abord un travail d'assemblage de l'existant.
+
+## J. Avancement (mis à jour à chaque livraison)
+
+Tout ce qui suit est **réservé aux comptes admin**, derrière l'interrupteur « Aperçu V2 » (section 0) :
+désactivé, l'admin retrouve le desk des clients à l'identique. Chaque ligne a son banc dans `npm run check`.
+
+| Date | Livraison | Phase | Banc |
+|---|---|---|---|
+| 24/09 | Interrupteur « Aperçu V2 », garde serveur des fichiers V2, coupure `DTP_V2=0` | 0 | `v2-verif` |
+| 24/09 | App mobile (barre d'onglets, écran Marchés, puces du Fil) | UX | `v2-verif` |
+| 24/09 | **Santé des données** : chaque source dit si elle est à jour (panneau admin) | 1 | `sante-verif` |
+| 24/09 | **Traçabilité en direct** : l'aide des widgets dit l'état réel de sa source ; pastille « Sources » sur Fil, Taux, Biais, Semaine | 1 · UX n°1 | `v2-verif` |
+| 24/09 | **Briefing du matin sourcé** : fiche de faits numérotée, rédaction qui cite ses faits, vérification par le code (chiffre absent des faits cités, point sans source, consigne de trading : écartés, et comptés) | 2 | `briefing-verif`, `v2-verif` |
+
+Déjà présent sur le desk et donc retiré de la liste UX : la pastille de régime de marché dans la barre du
+haut (I.1 n° 2) et le contexte entre crochets dans l'en-tête des cartes (I.1 n° 3).
+
+**Suite proposée** : contexte d'une donnée macro en chaîne DATA → CONTEXTE → IMPACT (phase 2), puis la
+vue paire en grilles de panneaux (UX n° 3), sous-onglet par sous-onglet.
