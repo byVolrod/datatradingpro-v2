@@ -322,8 +322,41 @@
       .lp-dl-k { font-size: 9.5px; }
       .lp-dl-v { font-size: 12px; }
     }
+
+    /* ══ CONNEXION EN NOIR, GRAND ÉCRAN AUSSI (24/09, demande user : « met en noir le login, ça permet
+       d'entrer en immersion dans le desk qui est en noir ») ══════════════════════════════════════════
+       Le téléphone l'était déjà (mosaïque en fond, carte sombre). Le grand écran gardait un panneau
+       blanc : on passait d'une page claire à un desk noir. Même famille que le desk : fond #0a0a0c,
+       champs anthracite, bouton à liseré or, liens or. Seules les couleurs changent : ni la mise en
+       page, ni le formulaire, ni son comportement. */
+    @media (min-width: 901px) {
+      :root { --bg:#0a0a0c; --bg2:#121215; --panel:#0e0e11; --line:#1c1c21; --line2:#26262c;
+              --text:#ececf0; --text2:#9a9aa3; --text3:#6f6f78; --gold:#e3b23a; }
+      html, body { background: #0a0a0c; }
+      .lp-right { background: #0a0a0c; }
+      .lp-right::before { background: radial-gradient(circle, rgba(227,178,58,0.10), transparent 62%); }
+      .lp-title { color: #f4f4f6; }
+      .lp-title .em { color: #e3b23a; }
+      .lp-input { background: #111114; border-color: #26262c; color: #ececf0; }
+      .lp-input:focus { border-color: rgba(227,178,58,0.75); box-shadow: 0 0 0 3px rgba(227,178,58,0.10); }
+      .lp-input:-webkit-autofill, .lp-input:-webkit-autofill:hover, .lp-input:-webkit-autofill:focus {
+        -webkit-text-fill-color: #ececf0; -webkit-box-shadow: 0 0 0 100px #111114 inset; caret-color: #ececf0; transition: background-color 9999s; }
+      .lp-btn { color: #ececf0; border-color: rgba(227,178,58,0.55); }
+      .lp-btn:hover { border-color: rgba(227,178,58,0.95); background: rgba(227,178,58,0.07); }
+      .lp-renew-title { color: #ececf0; }
+      .lp-renew-msg { color: #d9a19b; }
+      .lp-error { color: #ff8a80; }
+      .dtpsel-btn { background: #111114; border-color: #26262c; color: #ececf0; }
+      .dtpsel-panel { background: #141417; border-color: #26262c; box-shadow: 0 18px 44px -16px rgba(0,0,0,0.7); }
+      .dtpsel-item { color: #b9b9c0; }
+      .dtpsel-item:hover, .dtpsel-item.sel { background: rgba(227,178,58,0.12); color: #f4f4f6; }
+      .lp-dl-btn { background: #121215; border-color: #22222a; }
+      .lp-dl-btn:hover { background: #16161a; border-color: rgba(227,178,58,0.5); }
+      .lp-machint { background: #111114; border-color: #1c1c21; }
+      .lp-left { border-left-color: #1c1c21; }
+    }
   </style>
-  <script src="/js/noinspect.js?v=20260924bbg1234"></script>
+  <script src="/js/noinspect.js?v=20260924bbg1235"></script>
 </head>
 <body>
 

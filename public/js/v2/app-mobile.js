@@ -27,6 +27,20 @@
     return '<svg viewBox="0 0 24 24" width="' + (w || 24) + '" height="' + (w || 24) + '" fill="none" stroke="currentColor" '
       + 'stroke-width="' + (epais || 1.6) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/></svg>';
   };
+  /* Icônes de la barre du bas dans le STYLE DU DESK (barre du haut) : un aplat léger (opacité .18)
+     sous un trait fin de 1,5 px. Même grammaire que la cloche, la bulle et le Copilote du desk. */
+  var svgDuo = function (fond, trait, w) {
+    return '<svg viewBox="0 0 24 24" width="' + (w || 26) + '" height="' + (w || 26) + '" aria-hidden="true">'
+      + '<path d="' + fond + '" fill="currentColor" opacity=".18"/>'
+      + '<path d="' + trait + '" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  };
+  var DUO = {
+    fil: ['M5 4h11v16H6a1 1 0 0 1-1-1z', 'M5 4h11v16H6a1 1 0 0 1-1-1zM16 8h3v11a1 1 0 0 1-1 1h-2M8 8h5M8 12h5M8 16h3'],
+    macro: ['M3 17l6-6 4 4 8-8v13H3z', 'M3 17l6-6 4 4 8-8M15 7h6v6'],
+    markets: ['M4 4h7v7H4zM13 13h7v7h-7z', 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z'],
+    analystes: ['M7 3h7l5 5v13H7z', 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6'],
+    banques: ['M4 8l8-4 8 4v13H4z', 'M4 21V8l8-4 8 4v13M4 21h16M8 11v2M12 11v2M16 11v2M8 16v2M12 16v2M16 16v2']
+  };
   var I = {
     macro: 'M3 17l6-6 4 4 8-8M15 7h6v6',
     fil: 'M5 4h11v16H6a1 1 0 0 1-1-1zM16 8h3v11a1 1 0 0 1-1 1h-2M8 8h5M8 12h5M8 16h3',
@@ -123,7 +137,7 @@
     barre.className = 'v2a-barre';
     barre.setAttribute('aria-label', 'Navigation');
     barre.innerHTML = ONGLETS.map(function (o) {
-      return '<button type="button" class="v2a-onglet" data-v2v="' + o.v + '">' + svg(o.ico, 27, 1.5) + '<span>' + o.t + '</span></button>';
+      return '<button type="button" class="v2a-onglet" data-v2v="' + o.v + '">' + (DUO[o.v] ? svgDuo(DUO[o.v][0], DUO[o.v][1]) : svg(o.ico, 27, 1.5)) + '<span>' + o.t + '</span></button>';
     }).join('');
     document.body.appendChild(barre);
 
@@ -169,6 +183,22 @@
     document.getElementById('v2a-alertes').addEventListener('click', function () { vibre(); fermerVolets(); if (alertes && alertes.classList.contains('v2a-ouverte')) fermerAlertes(); else ouvrirAlertes(); });
     document.getElementById('v2a-compte').addEventListener('click', function () { vibre(); fermerAlertes(); fermerVolets(); aller('compte'); });
     document.getElementById('v2a-retour').addEventListener('click', function () { vibre(); retour(); });
+
+    /* LES ICÔNES DE L'EN-TÊTE SONT CELLES DU DESK, clonées depuis sa barre du haut (Copilote, cloche,
+       avatar) : desk et app ne peuvent pas diverger, une retouche de l'un est la retouche de l'autre. */
+    var clone = function (src, dst, taille) {
+      var a = document.querySelector(src + ' svg'), b = document.getElementById(dst); if (!a || !b) return;
+      var c = a.cloneNode(true); c.setAttribute('width', taille); c.setAttribute('height', taille); c.removeAttribute('id');
+      var vieux = b.querySelector('svg, img'); if (vieux) vieux.replaceWith(c); else b.insertBefore(c, b.firstChild);
+    };
+    clone('#np-bell-btn', 'v2a-alertes', 23);
+    // Le Copilote : l'icône COMPLÈTE du desk (étoile verte + « IA »), pas seulement son dessin.
+    var ia = document.getElementById('ai-btn'), iaApp = document.getElementById('v2a-ia');
+    if (ia && iaApp) { iaApp.innerHTML = ia.innerHTML; var sv = iaApp.querySelector('svg'); if (sv) { sv.setAttribute('width', 18); sv.setAttribute('height', 18); } }
+    var av = document.getElementById('topbar-avatar'), cpt = document.getElementById('v2a-compte');
+    var syncAv = function () { if (av && cpt) { cpt.innerHTML = '<span class="v2a-av">' + av.innerHTML + '</span>'; } };
+    if (av && window.MutationObserver) new MutationObserver(syncAv).observe(av, { childList: true, subtree: true, attributes: true, characterData: true });
+    syncAv();
 
     // Le compteur de la cloche SUIT le badge du desk (même source, aucun second calcul).
     var badge = document.getElementById('notif-badge');
@@ -603,6 +633,18 @@
   }
   // Mémo pour le chargement suivant : index.html masque le desk web le temps que l'app se pose.
   function memoApp(on) { try { if (on) localStorage.setItem('dtp_v3_app', String(Date.now())); else localStorage.removeItem('dtp_v3_app'); } catch (e) {} }
+  /* Le voile d'attente ne tombe qu'une fois la feuille de l'app CHARGÉE : ce script peut s'exécuter
+     avant elle, et lever le voile trop tôt montrait le desk web une fraction de seconde. */
+  function leverVoile() {
+    var l = document.querySelector('link[href*="/css/v2/app.css"]');
+    var fini = function () { requestAnimationFrame(function () { H.classList.remove('dtp-app-attente'); }); };
+    var prete = false;
+    try { prete = !l || !!(l.sheet && l.sheet.cssRules && l.sheet.cssRules.length); } catch (e) { prete = true; }
+    if (prete) return fini();
+    l.addEventListener('load', fini, { once: true });
+    l.addEventListener('error', fini, { once: true });
+    setTimeout(fini, 4000);
+  }
   function appliquer() {
     if (MQ.matches) {
       var premiere = !tete;
@@ -610,7 +652,7 @@
       brancherFil();
       H.classList.add('dtp-app');
       verrouZoom(true); memoApp(true); brancherVolets();
-      H.classList.remove('dtp-app-attente');
+      leverVoile();
       if (premiere) aller('fil'); else if (courant) marquer(courant);
       setTimeout(function () { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 60);
     } else {

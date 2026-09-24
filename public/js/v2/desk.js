@@ -48,14 +48,61 @@
     if (e.target.closest('.v3-paire-x')) { fermees[p] = true; onglets(); return; }
     if (typeof window.openSymbol === 'function') window.openSymbol(p);
   }, true);
+  /* Voix officielle FinancialJuice (admin) : ouvre la Voice News sur financialjuice.com, dans une
+     petite fenêtre, avec la session de l'admin. C'est le seul moyen d'entendre la VRAIE voix sans la
+     rediffuser : le flux audio appartient à FinancialJuice (licence partenaire pour les clients). */
+  function voixFJ() {
+    var pied = document.querySelector('#sqwk-panel .sqwk-footer');
+    if (!pied || document.getElementById('v3-fj-voix')) return;
+    var b = document.createElement('button');
+    b.type = 'button'; b.id = 'v3-fj-voix'; b.className = 'v3-fj-voix';
+    b.textContent = 'Voix officielle FinancialJuice (mon compte) ↗';
+    b.addEventListener('click', function () {
+      var w = window.open('https://www.financialjuice.com/home', 'dtp_fj_voix', 'popup,width=460,height=780');
+      if (w) { try { w.opener = null; } catch (e) {} }
+    });
+    pied.appendChild(b);
+  }
+  /* Carte à onglets : UNE seule ligne d'en-tête (24/09, capture user « Horloge · Rebours » : sous la
+     barre d'onglets, un second bandeau « Compte à rebours » répétait les mêmes boutons). Le nom est
+     déjà porté par l'onglet ; les commandes du widget rejoignent la plaque de la carte, à côté des
+     commandes du panneau. Les widgets en case d'un onglet composite gardent leur bandeau : là, il
+     est le seul à les nommer. Grand écran seulement, comme le reste de cet habillage. */
+  var MQ_DESK = window.matchMedia ? window.matchMedia('(min-width: 821px)') : { matches: true };
+  function fusion(carte) {
+    var plaque = carte.querySelector(':scope > .wdg-head .wdg-actions');
+    if (!plaque || !carte.querySelector('.wdgt-bar')) return;
+    // Un seul corps d'onglet à la fois (widgets.js le vide à chaque changement, et purge alors toute
+    // commande de sous-widget de la carte, plaque comprise) : le bandeau présent est celui de l'onglet actif.
+    var bandeau = carte.querySelector('.wdgt-body > .wdgt-subname');
+    var dansPlaque = plaque.querySelector(':scope > .wdgt-subacts');
+    if (!MQ_DESK.matches || !bandeau) {
+      if (dansPlaque && bandeau) bandeau.appendChild(dansPlaque);
+      if (bandeau) bandeau.classList.remove('v3-fondu');
+      carte.classList.remove('v3-fusion');
+      return;
+    }
+    var acts = bandeau.querySelector('.wdgt-subacts');
+    if (acts) plaque.insertBefore(acts, plaque.querySelector(':scope > .wdg-ico--x'));
+    bandeau.classList.add('v3-fondu');
+    var g0 = plaque.querySelector(':scope > .wdg-ico'); if (g0 && g0.title === 'Réglages') g0.title = 'Réglages du panneau';
+    carte.classList.toggle('v3-fusion', !!(acts || dansPlaque));
+  }
+  function fusions() { document.querySelectorAll('#wdg-grid .wdg-card').forEach(function (c) { try { fusion(c); } catch (e) {} }); }
+  var fusionPrevue = 0;
+  function planifierFusions() { if (fusionPrevue) return; fusionPrevue = requestAnimationFrame(function () { fusionPrevue = 0; fusions(); }); }
   function demarrer() {
     puce();
+    voixFJ();
     onglets();
     var nav = document.getElementById('topbar-nav');
     if (nav && window.MutationObserver) new MutationObserver(function () { setTimeout(onglets, 0); }).observe(nav, { childList: true, subtree: true, characterData: true });
     var g = document.getElementById('wdg-grid');
     rangs(g);
     if (g && window.MutationObserver) new MutationObserver(function () { rangs(g); }).observe(g, { childList: true });
+    if (g && window.MutationObserver) new MutationObserver(planifierFusions).observe(g, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class'] });
+    if (MQ_DESK.addEventListener) MQ_DESK.addEventListener('change', planifierFusions);
+    planifierFusions();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer); else demarrer();
 })();

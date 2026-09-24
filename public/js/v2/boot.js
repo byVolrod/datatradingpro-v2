@@ -18,6 +18,8 @@
     if (window._dtpV2Charge) return;
     window._dtpV2Charge = true;
     document.documentElement.classList.add('dtp-v2');
+    // Mémo de l'app mobile posé dès maintenant (petit écran seulement, comme le voile qui le lit).
+    try { if (window.innerWidth <= 820 && !localStorage.getItem('dtp_v3_app')) localStorage.setItem('dtp_v3_app', String(Date.now())); } catch (e) {}
     var l = document.createElement('link');
     l.rel = 'stylesheet'; l.href = '/css/v2/app.css?v=' + VER;
     document.head.appendChild(l);

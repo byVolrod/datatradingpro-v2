@@ -630,3 +630,19 @@ html.dtp-app.v2a-volet .v2a-barre { transform: translateY(100%); }
 html.dtp-app .v2a-barre { transition: transform .25s cubic-bezier(.2,.8,.2,1); }
 html.dtp-app #v2a-detail { display: flex; }
 html.dtp-app.v2a-volet .v2a-direct { display: none; }
+/* Avatar de l'en-tête : celui du desk (image, silhouette or ou initiale), au même dessin. */
+html.dtp-app .v2a-av { position: relative; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: #16161a; border: 1px solid #2a2a31; color: #e8e8e8; font: 700 12px/1 'Inter', sans-serif; }
+html.dtp-app .v2a-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+html.dtp-app .v2a-av svg { width: 100%; height: 100%; }
+html.dtp-app .v2a-av .pd-status-mini { display: none; }
+html.dtp-app #v2a-ia svg { display: block; }
+html.dtp-app .v2a-onglet svg { display: block; }
+/* L'écran d'accueil du desk (« Bonsoir… Accéder au desk », bandeau de cotations) est une composition
+   de GRAND écran : dans l'app, l'accueil est le Fil. Il ne s'affiche pas, et aucun écran natif ne
+   laisse transparaître ce qui est dessous (capture user 24/09 : l'accueil se lisait à travers Banques). */
+html.dtp-app .home-overlay { display: none !important; }
+html.dtp-app .v2a-ecran.v2a-visible { background: #0a0a0c !important; isolation: isolate; }
+/* Icône du Copilote : celle du desk, étoile verte + « IA ». */
+html.dtp-app #v2a-ia { width: auto; padding: 0 6px; gap: 4px; color: #00e676; }
+html.dtp-app #v2a-ia .ai-spark-txt { font: 800 13px/1 'Inter Tight', system-ui, sans-serif; color: #00e676; letter-spacing: .02em; }

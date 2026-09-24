@@ -13100,7 +13100,6 @@ const _sqwkProcessed = new Set();   // IDs de news déjà diffusées (anti-doubl
 let   _sqwkLive       = false;       // Flash Marché LIVE = audio/voix (bouton play) : indépendant du texte auto
 let   _sqwkStarted    = false;       // flux déjà amorcé (évite de re-marquer l'existant à chaque toggle)
 
-function _sqwkTime() { return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
 function _sqwkEsc(s)  { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 /* ⚠️ SQUAWK = NEWS ECONOMIQUES MAJEURES SEULEMENT (21/08, demande user : « uniquement lors des
@@ -13117,12 +13116,16 @@ function _sqwkEsc(s)  { return String(s).replace(/&/g, '&amp;').replace(/</g, '&
 const _SQWK_ECO_CATS = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','FOMC',
   'EU Data','US Data','UK Data','Swiss Data','Japanese Data','Canadian Data','Australian Data','Chinese Data',
   'Fixed Income']);
-function _sqwkUsable(it) {
+/* Filtre de base : ce qui peut se lire a voix haute (titre reel, pas un briefing DTP ni un retweet). */
+function _sqwkBase(it) {
   if (!it || !it.headline) return false;
   if (it._briefing || it.source === 'DTP' || (typeof isPrimerItem === 'function' && isPrimerItem(it))) return false;
   const h = it.headline;
   if (/^\[No Title\]|^RT @|^@[A-Za-z]/.test(h)) return false;
-  if (h.replace(/[^a-z0-9]/gi, '').length < 14) return false;
+  return h.replace(/[^a-z0-9]/gi, '').length >= 14;
+}
+function _sqwkUsable(it) {
+  if (!_sqwkBase(it)) return false;
   // 1) MAJEURE
   if (typeof _isImportantNews === 'function' && !_isImportantNews(it)) return false;
   // 2) ECONOMIQUE : categorie eco/BC, resultat de calendrier, ou donnee a fort impact
@@ -13135,13 +13138,50 @@ function _sqwkUsable(it) {
   return estEco;
 }
 
+/* ⚠️ DEUX MODES DE LECTURE (24/09, demande user : « comme la Voice News de FinancialJuice, avec
+   l'audio et la retranscription »). La regle du 21/08 (« uniquement les news economiques
+   majeures ») rendait le squawk MUET des heures durant : l'utilisateur ouvrait le volet, voyait une
+   seule ligne, n'entendait rien, et concluait a juste titre que « ca ne marche pas ». La Voice News
+   de FinancialJuice lit CHAQUE depeche de son fil : c'est desormais le mode par defaut (« Toutes »).
+   La regle du 21/08 n'est pas perdue, elle devient le mode « Majeures », au choix de l'utilisateur. */
+const _sqwkIsFJ = it => it.source === 'FinancialJuice' || (it.id || '').startsWith('fj-');
+let _sqwkMode = 'fj';
+let _sqwkDernierTs = 0;   // horodatage de la depeche la plus recente deja vue
+function _sqwkEligible(it) {
+  if (_sqwkMode === 'majeures') return _sqwkUsable(it);
+  return _sqwkBase(it) && (_sqwkIsFJ(it) || _sqwkUsable(it));
+}
+function _sqwkHeure(it) {
+  const t = +(it && it.timestamp) || Date.now();
+  return new Date(Math.min(t, Date.now())).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+/* Retranscription : chaque ligne porte la part DEJA DITE (claire) et la part A DIRE (estompee).
+   msg.dit = nombre de caracteres prononces ; -1 = ligne d'historique, lue en entier. */
+function _sqwkLigneHTML(m) {
+  const n = m.dit < 0 ? m.text.length : m.dit;
+  const cls = 'sqwk-row' + (m.enCours ? ' sqwk-row--en-cours' : '');
+  return `<div class="${cls}" id="sqwk-row-${m.id}"><span class="sqwk-time">${m.ts}</span>`
+    + `<span class="sqwk-text" id="sqwk-txt-${m.id}"><span class="sqwk-dit">${_sqwkEsc(m.text.slice(0, n))}</span>`
+    + `<span class="sqwk-reste">${_sqwkEsc(m.text.slice(n))}</span></span></div>`;
+}
 function _sqwkRender() {
   const list = document.getElementById('sqwk-list');
   if (!list) return;
-  if (!_sqwkMessages.length) { list.innerHTML = '<div class="sqwk-empty">Activez la connexion automatique pour diffuser les news en direct.</div>'; return; }
-  list.innerHTML = _sqwkMessages.map(m =>
-    `<div class="sqwk-row"><span class="sqwk-time">${m.ts}</span><span class="sqwk-text" id="sqwk-txt-${m.id}">${_sqwkEsc(m.text)}</span></div>`
-  ).join('');
+  if (!_sqwkMessages.length) {
+    list.innerHTML = '<div class="sqwk-empty">' + ((_sqwkAuto || _sqwkLive)
+      ? 'En attente de la prochaine dépêche FinancialJuice…'
+      : "Appuyez sur lecture pour entendre les dépêches, ou activez la connexion automatique pour les lire à l'écran.") + '</div>';
+    return;
+  }
+  list.innerHTML = _sqwkMessages.map(_sqwkLigneHTML).join('');
+}
+function _sqwkMaj(m) {
+  const el = document.getElementById('sqwk-txt-' + m.id);
+  if (!el) return;
+  const n = m.dit < 0 ? m.text.length : m.dit;
+  el.firstChild.textContent = m.text.slice(0, n);
+  el.lastChild.textContent = m.text.slice(n);
 }
 
 /* ⚠️ LES VOIX SE CHARGENT EN ASYNCHRONE, et c est la cause n°1 d un squawk MUET : au premier appel,
@@ -13156,9 +13196,9 @@ function _sqwkChargerVoix() {
     if (!vs.length) return;
     const enUS = vs.filter(v => /en[-_]US/i.test(v.lang));
     const pool = enUS.length ? enUS : vs.filter(v => /^en/i.test(v.lang));
-    // Ordre de preference : Google US > Microsoft Natural > premiere anglaise disponible.
-    _sqwkVoix = pool.find(v => /google/i.test(v.name))
-             || pool.find(v => /natural|aria|jenny|guy/i.test(v.name))
+    // Ordre de preference : Microsoft Natural > Google US > premiere anglaise disponible.
+    _sqwkVoix = pool.find(v => /natural|aria|jenny|guy/i.test(v.name))
+             || pool.find(v => /google/i.test(v.name))
              || pool[0] || null;
   } catch {}
 }
@@ -13166,61 +13206,126 @@ if ('speechSynthesis' in window) {
   _sqwkChargerVoix();
   try { window.speechSynthesis.onvoiceschanged = _sqwkChargerVoix; } catch {}
 }
-// Voix "salle de marché" (Web Speech API, gratuite) : synchronisée avec l'écriture
-function _sqwkSpeak(text) {
-  if (!_sqwkLive || !('speechSynthesis' in window)) return;
-  if (typeof _npGlobalMute === 'function' && _npGlobalMute()) return;   // "Muet"/OFF des notifs = silence global
-  try {
-    if (!_sqwkVoix) _sqwkChargerVoix();                 // derniere chance si les voix viennent d arriver
-    window.speechSynthesis.cancel();                    // pas d empilement de phrases
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-US'; u.pitch = 0.95; u.rate = 1.02; u.volume = 1;
-    if (_sqwkVoix) u.voice = _sqwkVoix;
-    /* ⚠️ Certains navigateurs SUSPENDENT la synthese apres un temps d inactivite : une reprise
-       (resume) juste avant speak() evite un silence sur la premiere phrase apres une pause. */
-    try { window.speechSynthesis.resume(); } catch {}
-    window.speechSynthesis.speak(u);
-  } catch {}
+function _sqwkPeutParler() {
+  if (!_sqwkLive || !('speechSynthesis' in window)) return false;
+  return !(typeof _npGlobalMute === 'function' && _npGlobalMute());   // "Muet"/OFF des notifs = silence global
 }
 
-// Diffuse une VRAIE news : ligne en haut + écriture mot-par-mot + voix synchrone
-function _sqwkStreamNews(item) {
-  const text  = String(item.headline).replace(/\s+/g, ' ').trim();
-  const words = text.split(' ');
-  const msg   = { id: 'sq-' + item.id, ts: _sqwkTime(), text: '' };
-  _sqwkMessages.unshift(msg);
-  if (_sqwkMessages.length > 80) _sqwkMessages.length = 80;
+/* ⚠️ UNE FILE, PAS « LA PLUS RECENTE DU LOT ». L'ancien moteur ne lisait qu'UNE depeche par passage
+   (toutes les 15 s) et marquait le reste du lot comme deja diffuse : trois titres tombes ensemble,
+   deux perdus sans jamais apparaitre. Ici chaque depeche entre dans la file dans l'ordre d'arrivee
+   et se lit jusqu'au bout avant la suivante. */
+const _sqwkFile = [];
+let _sqwkOccupe = false;
+let _sqwkEnCours = null;
+let _sqwkGarde = null;
+function _sqwkParlant(on) { document.getElementById('sqwk-panel')?.classList.toggle('sqwk-parle', !!on); }
+function _sqwkFinLigne(m) {
+  if (m !== _sqwkEnCours) return;
+  clearInterval(_sqwkStreamTimer); clearTimeout(_sqwkGarde);
+  m.dit = -1; m.enCours = false; _sqwkEnCours = null;
+  _sqwkMaj(m);
+  document.getElementById('sqwk-row-' + m.id)?.classList.remove('sqwk-row--en-cours');
+  _sqwkParlant(false);
+  _sqwkOccupe = false;
+  setTimeout(_sqwkSuivant, 350);
+}
+function _sqwkDire(m) {
+  _sqwkOccupe = true; _sqwkEnCours = m; m.enCours = true; m.dit = 0;
   _sqwkRender();
-  _sqwkSpeak(text);                                    // l'audio démarre PILE quand l'écriture commence
-  let i = 0;
+  const mots = m.text.split(' ');
+  let i = 0, parSon = false;
+  /* Retranscription au rythme de la voix : l'evenement « boundary » donne la position exacte du mot
+     prononce. Certaines voix (les voix Google en ligne notamment) ne l'emettent jamais : un minuteur
+     cale sur le debit moyen prend alors le relais. Le texte ne recule jamais. */
+  const avancer = n => { if (n > m.dit) { m.dit = Math.min(n, m.text.length); _sqwkMaj(m); } };
+  const parle = _sqwkPeutParler();
+  const pas = parle ? 330 : 150;
   clearInterval(_sqwkStreamTimer);
   _sqwkStreamTimer = setInterval(() => {
-    if (i >= words.length) { clearInterval(_sqwkStreamTimer); return; }
-    msg.text += (msg.text ? ' ' : '') + words[i++];
-    const el = document.getElementById('sqwk-txt-' + msg.id);
-    if (el) el.textContent = msg.text;
-  }, 150);
+    if (parSon) return;
+    if (i >= mots.length) { clearInterval(_sqwkStreamTimer); if (!parle) _sqwkFinLigne(m); return; }
+    avancer(mots.slice(0, ++i).join(' ').length);
+  }, pas);
+  if (!parle) return;
+  _sqwkParlant(true);
+  try {
+    if (!_sqwkVoix) _sqwkChargerVoix();
+    const u = new SpeechSynthesisUtterance(m.text);
+    u.lang = 'en-US'; u.pitch = 0.95; u.rate = 1.05; u.volume = 1;
+    if (_sqwkVoix) u.voice = _sqwkVoix;
+    u.onboundary = e => {
+      if (e.name && e.name !== 'word') return;
+      parSon = true;
+      const fin = m.text.indexOf(' ', e.charIndex);
+      avancer(fin < 0 ? m.text.length : fin);
+    };
+    u.onend = () => _sqwkFinLigne(m);
+    u.onerror = () => _sqwkFinLigne(m);
+    /* ⚠️ Chrome SUSPEND la synthese apres un temps d'inactivite, et peut ne jamais emettre « end » :
+       resume() juste avant speak(), et une garde qui libere la file quoi qu'il arrive. */
+    try { window.speechSynthesis.resume(); } catch {}
+    window.speechSynthesis.speak(u);
+    _sqwkGarde = setTimeout(() => _sqwkFinLigne(m), mots.length * 700 + 5000);
+  } catch { _sqwkFinLigne(m); }
+}
+function _sqwkSuivant() {
+  if (_sqwkOccupe || !_sqwkFile.length) return;
+  if (!_sqwkAuto && !_sqwkLive) { _sqwkFile.length = 0; return; }
+  const it = _sqwkFile.shift();
+  const m = { id: 'sq-' + String(it.id).replace(/[^\w-]/g, ''), ts: _sqwkHeure(it), text: String(it.headline).replace(/\s+/g, ' ').trim(), dit: 0 };
+  _sqwkMessages.unshift(m);
+  if (_sqwkMessages.length > 80) _sqwkMessages.length = 80;
+  _sqwkDire(m);
 }
 
-// Poll des vraies news (allItems alimenté en direct par le WebSocket) → la plus récente non diffusée
-const _sqwkIsFJ = it => it.source === 'FinancialJuice' || (it.id || '').startsWith('fj-');
-function _sqwkPollReal() {
-  if (!_sqwkAuto && !_sqwkLive) return;   // flux actif si texte-auto OU squawk-live
+/* Historique : a l'ouverture, les 25 dernieres depeches sont deja retranscrites (comme le lecteur de
+   FinancialJuice). Un volet vide faisait croire a une panne. */
+function _sqwkAmorcer() {
   const src = (typeof allItems !== 'undefined' ? allItems : []);
-  const fresh = src.filter(it => _sqwkUsable(it) && !_sqwkProcessed.has(it.id));
-  if (!fresh.length) return;
-  // Flash Marché FinancialJuice : on PRIORISE les flashes FJ ; à défaut, autre news réelle.
-  const fjFresh = fresh.filter(_sqwkIsFJ);
-  const item = (fjFresh.length ? fjFresh : fresh)[0];  // allItems trié récent → ancien
-  fresh.forEach(it => _sqwkProcessed.add(it.id));      // on marque tout le batch (évite l'inondation)
-  _sqwkStreamNews(item);
+  const connus = new Set(_sqwkMessages.map(m => m.id));
+  const elig = src.filter(_sqwkEligible);
+  // TOUT l'existant est marque comme deja diffuse, pas seulement les 25 affichees : sinon les plus
+  // anciennes remontaient au passage suivant comme des « nouvelles », en tete, et se faisaient lire.
+  elig.forEach(it => { _sqwkProcessed.add(it.id); if ((+it.timestamp || 0) > _sqwkDernierTs) _sqwkDernierTs = +it.timestamp; });
+  const hist = elig.slice(0, 25);
+  const lignes = hist.map(it => ({ id: 'sq-' + String(it.id).replace(/[^\w-]/g, ''), ts: _sqwkHeure(it), text: String(it.headline).replace(/\s+/g, ' ').trim(), dit: -1 }))
+    .filter(m => !connus.has(m.id));
+  if (!lignes.length) return false;
+  _sqwkMessages.push(...lignes);
+  _sqwkMessages.sort((a, b) => (a.enCours ? -1 : b.enCours ? 1 : 0));
+  if (_sqwkMessages.length > 80) _sqwkMessages.length = 80;
+  return true;
 }
 
-// Démarre/arrête le flux + met à jour l'UI selon les 2 états INDÉPENDANTS :
+// Nouvelles depeches (allItems alimente en direct par le WebSocket) → file de lecture, de la plus ancienne a la plus recente
+function _sqwkPollReal() {
+  if (!_sqwkAuto && !_sqwkLive) return;
+  const src = (typeof allItems !== 'undefined' ? allItems : []);
+  if (!_sqwkMessages.length) { if (_sqwkAmorcer()) _sqwkRender(); }
+  let fresh = src.filter(it => !_sqwkProcessed.has(it.id) && _sqwkEligible(it));
+  if (!fresh.length) return;
+  fresh.forEach(it => _sqwkProcessed.add(it.id));
+  /* Un rattrapage d'historique (rechargement du fil, « Charger plus ») apporte des depeches ANCIENNES
+     jamais vues : elles ne sont pas « en direct », on ne les lit pas. Marge de 2 min pour l'ordre
+     d'arrivee entre sources. */
+  fresh = fresh.filter(it => !((+it.timestamp || 0) && _sqwkDernierTs && +it.timestamp < _sqwkDernierTs - 120000));
+  fresh.forEach(it => { if ((+it.timestamp || 0) > _sqwkDernierTs) _sqwkDernierTs = +it.timestamp; });
+  if (!fresh.length) return;
+  // Une rafale (reconnexion, rattrapage) ne se lit pas en entier : les 3 plus recentes, le reste en historique.
+  const ordre = fresh.slice().reverse();
+  const aLire = ordre.slice(-3);
+  const deja = ordre.slice(0, -3).map(it => ({ id: 'sq-' + String(it.id).replace(/[^\w-]/g, ''), ts: _sqwkHeure(it), text: String(it.headline).replace(/\s+/g, ' ').trim(), dit: -1 }));
+  if (deja.length) { _sqwkMessages.unshift(...deja.reverse()); if (!_sqwkOccupe) _sqwkRender(); }
+  _sqwkFile.push(...aLire);
+  _sqwkSuivant();
+}
+
+// Demarre/arrete le flux + met a jour l'UI selon les 2 etats INDEPENDANTS :
 //   _sqwkAuto = flux texte (toggle "Connexion automatique")  |  _sqwkLive = audio/voix (bouton play)
 function _sqwkRefresh() {
   const active = _sqwkAuto || _sqwkLive;   // le flux tourne si l'un OU l'autre est actif
-  // Icône topbar : verte si le squawk est actif, ROUGE s'il est désactivé (off)
+  // Icone topbar : verte si le squawk est actif, ROUGE s'il est desactive (off)
   document.getElementById('sqwk-btn')?.classList.toggle('sqwk-on', active);
   const st = document.getElementById('sqwk-toggle-state');
   const tg = document.getElementById('sqwk-toggle');
@@ -13228,35 +13333,60 @@ function _sqwkRefresh() {
   const play = document.getElementById('sqwk-play');
   if (st) st.textContent = _sqwkAuto ? 'ON' : 'OFF';
   if (tg) tg.classList.toggle('on', _sqwkAuto);
-  // Bouton play = Flash Marché LIVE (audio) : carré rouge si live, triangle vert sinon
+  // Bouton play = Flash Marche LIVE (audio) : carre rouge si live, triangle vert sinon
   if (play) { play.textContent = _sqwkLive ? '■' : '▶'; play.classList.toggle('sqwk-play--live', _sqwkLive); play.title = _sqwkLive ? 'Couper le squawk audio' : 'Activer le squawk audio (voix)'; }
   if (status) status.innerHTML = active
-    ? '<span class="sqwk-dot sqwk-dot--live"></span> Connected'
-    : '<span class="sqwk-dot"></span> Disconnected';
+    ? '<span class="sqwk-dot sqwk-dot--live"></span> ' + (_sqwkLive ? (_sqwkPeutParler() ? 'Connecté · voix active' : 'Connecté · son coupé (notifications en muet)') : 'Connecté · texte seul')
+    : '<span class="sqwk-dot"></span> Déconnecté';
   document.getElementById('sqwk-live-note')?.classList.toggle('hidden', !active);
+  const note = document.getElementById('sqwk-live-note-txt');
+  if (note) note.textContent = _sqwkMode === 'majeures'
+    ? 'Flux en direct connecté. Mode « Majeures » : seules les annonces économiques majeures sont lues.'
+    : "Flux FinancialJuice connecté : chaque dépêche est lue et retranscrite ici, dans l'ordre d'arrivée.";
+  document.querySelectorAll('#sqwk-mode [data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === _sqwkMode));
 
   clearInterval(_sqwkAutoTimer);
   if (active) {
-    if (!_sqwkStarted) {   // au (re)démarrage : ne diffuser que les nouvelles news (l'existant = déjà vu, sauf la dernière)
-      const usable = (typeof allItems !== 'undefined' ? allItems : []).filter(_sqwkUsable);
-      usable.slice(1).forEach(it => _sqwkProcessed.add(it.id));
+    if (!_sqwkStarted) {   // au (re)demarrage : l'existant part en historique, seules les nouvelles depeches sont lues
+      _sqwkAmorcer();
       _sqwkStarted = true;
-      _sqwkPollReal();
+      _sqwkRender();
     }
-    _sqwkAutoTimer = setInterval(_sqwkPollReal, 15000);
+    _sqwkAutoTimer = setInterval(_sqwkPollReal, 2500);
   } else {
     _sqwkStarted = false;
-    clearInterval(_sqwkStreamTimer);
+    _sqwkFile.length = 0;
+    clearInterval(_sqwkStreamTimer); clearTimeout(_sqwkGarde);
+    if (_sqwkEnCours) { _sqwkEnCours.dit = -1; _sqwkEnCours.enCours = false; _sqwkEnCours = null; }
+    _sqwkOccupe = false; _sqwkParlant(false);
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    _sqwkRender();
   }
 }
 
 // Toggle "Connexion automatique" = flux TEXTE (sans audio)
 function sqwkToggleAuto() { _sqwkAuto = !_sqwkAuto; _sqwkRefresh(); }
-// Bouton play = Flash Marché LIVE = AUDIO/voix (indépendant du texte auto)
+// Bouton play = Flash Marche LIVE = AUDIO/voix (independant du texte auto)
 function sqwkToggleLive() {
   _sqwkLive = !_sqwkLive;
   if (!_sqwkLive && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  _sqwkRefresh();
+  /* ⚠️ LE SON DOIT PARTIR DANS LE CLIC. Les navigateurs n'autorisent la synthese vocale qu'apres un
+     geste de l'utilisateur, et un bouton qui ne produit aucun son tant qu'aucune depeche ne tombe
+     passe pour casse. On relit donc tout de suite la derniere depeche : le son est confirme, et la
+     voix est deverrouillee pour la suite. */
+  if (_sqwkLive && !_sqwkOccupe && !_sqwkFile.length) {
+    const derniere = _sqwkMessages.find(m => !m.enCours);
+    if (derniere) {
+      _sqwkMessages.splice(_sqwkMessages.indexOf(derniere), 1);
+      _sqwkMessages.unshift(derniere);
+      _sqwkDire(derniere);
+    }
+  }
+}
+function sqwkMode(m) {
+  if (m !== 'fj' && m !== 'majeures') return;
+  _sqwkMode = m;
   _sqwkRefresh();
 }
 

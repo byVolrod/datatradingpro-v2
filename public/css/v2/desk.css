@@ -117,6 +117,15 @@
   html.dtp-v2 .custom-scrollbar::-webkit-scrollbar-thumb, html.dtp-v2 .wdg-body ::-webkit-scrollbar-thumb { background: #26262c; border-radius: 3px; }
   html.dtp-v2 .custom-scrollbar::-webkit-scrollbar-thumb:hover, html.dtp-v2 .wdg-body ::-webkit-scrollbar-thumb:hover { background: #b8860b; }
 
+  /* Carte à onglets : une seule ligne d'en-tête. Le bandeau du widget d'onglet (nom + commandes)
+     se fond dans la barre (js/v2/desk.js) : ses commandes rejoignent la plaque, où le panneau ne
+     garde que ses réglages et sa fermeture (Remplacer et Aide y sont ceux du widget affiché). */
+  html.dtp-v2 .wdgt-body > .wdgt-subname.v3-fondu { display: none; }
+  html.dtp-v2 .wdg-card.v3-fusion > .wdg-head .wdg-actions > .wdg-ico:not(:first-child):not(.wdg-ico--x) { display: none; }
+  html.dtp-v2 .wdg-card.v3-fusion > .wdg-head .wdg-actions > .wdgt-subacts { display: inline-flex; align-items: center; gap: 3px; margin: 0 3px; padding: 0 3px;
+    border-left: 1px solid #22222a; border-right: 1px solid #22222a; }
+  html.dtp-v2 .wdg-card.v3-fusion > .wdg-head .wdg-actions > .wdgt-subacts .wdg-ico[title="Retirer"] { display: none; }
+
   @media (prefers-reduced-motion: reduce) {
     html.dtp-v2 .topbar::after, html.dtp-v2 .wdg-card, html.dtp-v2 .wdgt-body { animation: none; }
   }

@@ -10372,6 +10372,44 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
   font-size: var(--fs-title); line-height: 1.5;
 }
 .sqwk-live-note.hidden { display: none; }
+/* ── REFONTE DU SQUAWK (24/09, capture de référence) : bandeau vert « flux connecté », bouton rouge
+   quand la voix est en direct, dernière annonce mise en avant, bascule ON / OFF lisible. ── */
+.sqwk-live-note { display: flex; align-items: flex-start; gap: 8px; padding: 9px 14px; background: rgba(0,230,118,.07);
+  border-bottom: 1px solid rgba(0,230,118,.18); color: #34d399; font-size: 11.5px; line-height: 1.45; }
+.sqwk-note-dot { flex: 0 0 7px; width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; background: #00e676; animation: pulse-green 2s infinite; }
+.sqwk-play.sqwk-play--live { background: #ef4444 !important; color: #0c0c0e !important; border-color: #ef4444 !important; font-size: 11px; }
+.sqwk-list .sqwk-row:first-child { background: linear-gradient(90deg, rgba(239,68,68,.10), rgba(239,68,68,.02)); box-shadow: inset 2px 0 0 #ef4444; }
+.sqwk-list .sqwk-row:first-child .sqwk-text { color: #f4f4f6; }
+/* Retranscription synchronisée : la part déjà dite en clair, la part à dire estompée. */
+.sqwk-reste { color: rgba(201,209,222,.32); }
+.sqwk-row--en-cours .sqwk-dit { color: #fff; }
+.sqwk-row--en-cours .sqwk-time { color: #ef4444; }
+.sqwk-row { animation: sqwk-entree .35s ease-out both; }
+@keyframes sqwk-entree { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* Égaliseur : s'anime pendant que la voix parle, à plat sinon. */
+.sqwk-eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; margin-left: auto; margin-right: 10px; }
+.sqwk-eq i { display: block; width: 3px; height: 3px; border-radius: 1px; background: #3f3f46; transition: background .2s; }
+.sqwk-parle .sqwk-eq i { background: #00e676; animation: sqwk-eq .9s ease-in-out infinite; }
+.sqwk-parle .sqwk-eq i:nth-child(2) { animation-delay: -.6s; }
+.sqwk-parle .sqwk-eq i:nth-child(3) { animation-delay: -.3s; }
+.sqwk-parle .sqwk-eq i:nth-child(4) { animation-delay: -.75s; }
+.sqwk-parle .sqwk-eq i:nth-child(5) { animation-delay: -.45s; }
+@keyframes sqwk-eq { 0%, 100% { height: 3px; } 50% { height: 15px; } }
+/* Choix de lecture : toutes les dépêches (comme la Voice News) ou les seules majeures. */
+.sqwk-modebar { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.sqwk-modebar .sqwk-auto-lbl { font-size: 12px; color: var(--text2); }
+.sqwk-mode { display: inline-flex; border: 1px solid #26262c; border-radius: 5px; overflow: hidden; }
+.sqwk-mode button { background: transparent; border: 0; color: #8b8b93; font: inherit; font-size: 11px; padding: 4px 10px; cursor: pointer; }
+.sqwk-mode button + button { border-left: 1px solid #26262c; }
+.sqwk-mode button:hover { color: #ececf0; }
+.sqwk-mode button.on { background: rgba(227,178,58,.14); color: #e3b23a; }
+@media (prefers-reduced-motion: reduce) { .sqwk-row, .sqwk-parle .sqwk-eq i { animation: none; } }
+.sqwk-toggle { width: 48px; height: 22px; border-radius: 4px; }
+.sqwk-toggle::after { top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 3px; }
+.sqwk-toggle.on::after { left: 29px; }
+.sqwk-toggle-state { font-size: 9px; letter-spacing: .04em; }
+.sqwk-toggle.on .sqwk-toggle-state { right: auto; left: 7px; color: #0c0c0e; }
+.sqwk-toggle:not(.on) .sqwk-toggle-state { left: auto; right: 6px; color: #9ca3af; }
 .sqwk-note-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; margin-top: 4px; flex-shrink: 0; box-shadow: 0 0 6px rgba(34,197,94,0.8); }
 /* Texte des news : blanc cassé légèrement bleuté (façon DataTradingPro) */
 .sqwk-text { color: #c9d1de; }
@@ -11974,8 +12012,10 @@ body.theme-light .arlib-back-btn:hover{background:#efeae0;color:#241f17;}
 
 /* ═══ Indicateurs "live"/"Direct" : le POINT (.live-dot) est REACTIVE (juil. 2026, demande user)
    avec un pulse discret opacite seule (cf. keyframes pulse-green adoucis). Les libelles/badges texte
-   (Direct / DIRECT / En direct / bandeau squawk) restent masques en attendant leur refonte. ═══ */
-.live-label, .cal-live-badge, .wa3-live, .sqwk-live-note { display: none !important; }
+   (Direct / DIRECT / En direct) restent masques en attendant leur refonte. Le BANDEAU DU SQUAWK, lui,
+   est revenu le 24/09 avec la refonte du panneau (demande user, capture de référence) : il n'est plus
+   dans cette liste. ═══ */
+.live-label, .cal-live-badge, .wa3-live { display: none !important; }
 
 /* ═══ Premium LOT 6 : focus CLAVIER accessible on-brand (anneau or net, sans outline natif) ═══
    N'apparait QU'au focus clavier (:focus-visible) — la souris n'affiche aucun anneau. */
