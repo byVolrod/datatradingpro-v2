@@ -1,0 +1,66 @@
+/* ═══ DTP V3 · HABILLAGE DU PANNEAU ADMIN ═══════════════════════════════════════════════════════════
+   Demande user (24/09) : « vérifie que tout est à jour pour la V3, idem pour le panel admin,
+   uniquement pour l'admin ». Le panneau n'est servi qu'aux comptes admin, et cette feuille vit sous
+   /css/v2, que le serveur refuse à tout autre compte : elle ne peut atteindre personne d'autre.
+   Même grammaire que le desk V3 (css/v2/desk.css) : en-têtes compacts en casse normale, panneaux
+   à filet fin, liseré d'or qui s'allume au survol, apparitions courtes. Aucune règle ne change une
+   grille, une largeur de colonne ou un comportement : seulement l'apparence.
+   ⚠️ BORNÉ : chaque règle commence par `html.dtp-v3-admin`, posée par admin.html. Retirer la classe
+   rend le panneau d'avant, au pixel. */
+
+html.dtp-v3-admin body { background: radial-gradient(1100px 380px at 14% -140px, rgba(227,178,58,.07), transparent 70%), #08080a; }
+
+/* ── Barre du haut : marque en dégradé d'or, puce V3, filet d'or animé ── */
+html.dtp-v3-admin .topbar { background: linear-gradient(180deg, #0f0f12, #0b0b0d); border-bottom: 1px solid #1a1a1f; position: relative; }
+html.dtp-v3-admin .topbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, rgba(227,178,58,0) 20%, rgba(227,178,58,.55) 50%, rgba(227,178,58,0) 80%, transparent 100%);
+  background-size: 200% 100%; animation: v3aFilet 9s linear infinite; opacity: .8; }
+@keyframes v3aFilet { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+html.dtp-v3-admin .topbar-logo { background: linear-gradient(100deg, #f6d77b 0%, #e3b23a 45%, #b8860b 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.dtp-v3-admin .topbar-logo::after { content: 'V3'; display: inline-flex; align-items: center; height: 16px; margin-left: 8px; padding: 0 6px; border-radius: 3px;
+  border: 1px solid rgba(227,178,58,.55); color: #e3b23a; -webkit-text-fill-color: #e3b23a; font: 700 9.5px/1 'Inter Tight', system-ui, sans-serif;
+  letter-spacing: .08em; background: rgba(227,178,58,.08); vertical-align: 3px; }
+html.dtp-v3-admin .topbar-title { text-transform: none; letter-spacing: 0; font: 500 13px/1 'Inter Tight', system-ui, sans-serif; color: #8e8e98; }
+
+/* ── Rail de navigation : pastille d'or glissante sur l'élément actif ── */
+html.dtp-v3-admin .adm-rail { background: #0a0a0c; border-right: 1px solid #16161a; background-image: none; }
+html.dtp-v3-admin .rail-group-label { text-transform: none; letter-spacing: 0; font: 600 11.5px/1 'Inter Tight', system-ui, sans-serif; color: #5f5f68; }
+html.dtp-v3-admin .rail-item { font: 500 13.5px/1.2 'Inter Tight', system-ui, sans-serif; color: #a1a1aa; transition: color .15s, background .15s; position: relative; }
+html.dtp-v3-admin .rail-item:hover { color: #ececf0; background: rgba(255,255,255,.025); }
+html.dtp-v3-admin .rail-item--active { color: #f4f4f6; background: linear-gradient(90deg, rgba(227,178,58,.10), rgba(227,178,58,0) 85%); }
+html.dtp-v3-admin .rail-item--active .rail-ic { color: #e3b23a; }
+
+/* ── Titre de vue ── */
+html.dtp-v3-admin .view-title { font: 600 20px/1.2 'Inter Tight', system-ui, sans-serif; letter-spacing: -.01em; color: #f4f4f6; }
+html.dtp-v3-admin .view-sub { color: #7c7c86; }
+
+/* ── Panneaux : filet fin, en-tête compact en casse normale, liseré d'or au survol ── */
+html.dtp-v3-admin .panel-card { background: #0c0c0e; border: 1px solid #17171b; border-radius: 4px; box-shadow: none;
+  animation: v3aCarte .42s cubic-bezier(.2,.8,.2,1) both; }
+html.dtp-v3-admin .panel-card::before { left: 0; right: 0; z-index: 2; background: linear-gradient(90deg, transparent, #e3b23a 30%, #f6d77b 50%, #e3b23a 70%, transparent);
+  opacity: 0; transform: scaleX(0); transform-origin: 50% 0; transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .2s; }
+html.dtp-v3-admin .panel-card:hover::before { opacity: 1; transform: scaleX(1); }
+html.dtp-v3-admin .panel-card:hover { border-color: #22222a; }
+@keyframes v3aCarte { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+html.dtp-v3-admin .panel-head { min-height: 34px; padding-top: 0; padding-bottom: 0; background: #0e0e11; border-bottom: 1px solid #17171b; }
+html.dtp-v3-admin .panel-head h2 { text-transform: none; letter-spacing: 0; font: 600 13px/1.2 'Inter Tight', system-ui, sans-serif; color: #f0f0f3; }
+html.dtp-v3-admin .panel-body { background: #0c0c0e; }
+
+/* ── Indicateurs ── */
+html.dtp-v3-admin .kpi-lbl { text-transform: none; letter-spacing: 0; font: 500 11.5px/1.3 'Inter Tight', system-ui, sans-serif; color: #7c7c86; }
+html.dtp-v3-admin .kpi-val { font-family: 'Inter Tight', system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+
+/* ── Tables : en-têtes en casse normale, chiffres alignés, survol discret ── */
+html.dtp-v3-admin th { text-transform: none !important; letter-spacing: 0 !important; font: 600 11.5px/1.2 'Inter Tight', system-ui, sans-serif !important; color: #8e8e98; background: #0e0e11; }
+html.dtp-v3-admin td { font-variant-numeric: tabular-nums; }
+html.dtp-v3-admin tbody tr { transition: background .12s; }
+html.dtp-v3-admin tbody tr:hover { background: rgba(227,178,58,.035); }
+
+/* ── Boutons et champs : bord or au focus, comme le desk ── */
+html.dtp-v3-admin .btn, html.dtp-v3-admin .btn-sm { transition: border-color .15s, color .15s, background .15s, transform .1s; }
+html.dtp-v3-admin .btn:active, html.dtp-v3-admin .btn-sm:active { transform: scale(.97); }
+html.dtp-v3-admin input:focus, html.dtp-v3-admin select:focus, html.dtp-v3-admin textarea:focus { border-color: rgba(227,178,58,.55) !important; box-shadow: 0 0 0 3px rgba(227,178,58,.08); outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  html.dtp-v3-admin .topbar::after, html.dtp-v3-admin .panel-card { animation: none; }
+}

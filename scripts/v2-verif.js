@@ -61,6 +61,16 @@ v('index.html ne charge le chargeur V2 que si admin ET annoncé par le serveur',
   rd.forEach(sel => sel.split(',').map(x => x.trim()).filter(Boolean).forEach(x => { if (!/^html\.dtp-v2\b/.test(x)) horsD.push(x); }));
   v('chaque sélecteur de l\'habillage V3 du desk est borné (html.dtp-v2)', rd.length > 20 && horsD.length === 0, horsD.slice(0, 5).join(' | '));
   v('… et vit dans un @media grand écran (l\'app mobile garde sa propre feuille)', /^\s*@media \(min-width: 821px\) \{/m.test(DESK.replace(/\/\*[\s\S]*?\*\//g, '')));
+  // L'habillage V3 du panneau admin : borné à html.dtp-v3-admin, posé par admin.html, et servi sous
+  // /css/v2 (donc refusé à tout compte non admin par la même garde).
+  const ADM = fs.readFileSync(path.join(R, 'public/css/v2/admin.css'), 'utf8');
+  const ra = ADM.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@keyframes[^{]+\{(?:[^{}]*\{[^}]*\})*\s*\}/g, '')
+    .replace(/@media[^{]+\{/g, '').split('}').map(b => b.split('{')[0].trim()).filter(Boolean);
+  const horsA = [];
+  ra.forEach(sel => sel.split(',').map(x => x.trim()).filter(Boolean).forEach(x => { if (!/^html\.dtp-v3-admin\b/.test(x)) horsA.push(x); }));
+  const HADM = fs.readFileSync(path.join(R, 'public/admin.html'), 'utf8');
+  v('chaque sélecteur de l\'habillage V3 du panneau admin est borné (html.dtp-v3-admin)', ra.length > 15 && horsA.length === 0, horsA.slice(0, 5).join(' | '));
+  v('… admin.html pose la classe et charge la feuille depuis /css/v2 (garde admin)', /<html[^>]*class="[^"]*dtp-v3-admin/.test(HADM) && /href="\/css\/v2\/admin\.css\?v=/.test(HADM));
 }
 
 // Jeux d'essai de l'écran Marchés : 3 actifs dans le sens du risque, 1 contre (variation × sens).
