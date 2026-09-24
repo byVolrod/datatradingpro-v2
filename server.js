@@ -1362,6 +1362,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260924-taux-bns-rbnz-marche', ts: Date.UTC(2026, 8, 24, 9, 0), title: 'Onglet Taux : la BNS et la RBNZ passent aux données de marché', desc: 'Jusqu’ici, le franc suisse et le dollar néo-zélandais étaient les deux seules devises de l’onglet Taux sans aucune donnée de marché : notre fournisseur habituel réserve ces deux banques centrales à une offre payante. Le desk lit désormais directement les sources officielles. Pour la BNS, les prix de règlement quotidiens des contrats à terme SARON 3 mois d’Eurex, la bourse où ils se négocient : ils donnent la probabilité de hausse, de maintien ou de baisse à la prochaine réunion, calculée comme le fait la Fed, sans aucune hypothèse ajoutée. Pour la RBNZ, la courbe officielle des bons bancaires à 30, 60 et 90 jours publiée chaque jour par la banque centrale : elle donne la direction que le marché anticipe et sa conviction. Une lecture incohérente, par exemple un prix arrêté avant une décision, n’est jamais publiée : la carte garde alors l’estimation du desk.' },
   { id: 'dtpu-20260924-graphique-bougie-annonce', ts: Date.UTC(2026, 8, 24, 8, 10), title: 'Graphique de réaction : le repère tombe sur la bougie de l’annonce', desc: 'Vous nous avez signalé que le cercle rouge du graphique de réaction était souvent décalé par rapport à la grande bougie de l’annonce. Sur l’analyse de la BNS, il se posait à 09:36 alors que la décision, et la grande bougie verte, dataient de 09:30. La raison : le repère suivait l’heure de la dépêche, qui sort toujours quelques minutes après le chiffre, et même une dizaine pour une analyse. Désormais, une analyse s’ancre sur l’heure réelle de l’annonce, et pour toute autre dépêche, le repère se pose sur la bougie d’impulsion des quinze minutes précédentes, quand elle se détache nettement. La mesure de la réaction du marché part elle aussi de l’annonce, ce qui évite les « 0 point » quand les cotations suivantes n’étaient pas encore arrivées.' },
   { id: 'dtpu-20260924-calendrier-fiche-instantanee', ts: Date.UTC(2026, 8, 24, 8, 0), title: 'Calendrier : la fiche de chaque indicateur s’ouvre instantanément', desc: 'Vous nous avez montré la fiche de « SNB Monetary Policy Assessment » bloquée sur « la source est lente, on insiste… ». La fiche d’un indicateur (description, effet habituel, fréquence, historique) n’était récupérée qu’au moment où vous cliquiez, et un indicateur rare, comme la BNS qui ne se réunit que quatre fois par an, tombait à chaque fois sur ce premier clic, le plus lent. Le desk prépare désormais d’avance, en tâche de fond, la fiche de chaque événement de la semaine, en commençant par les annonces à venir les plus importantes, et la remet à jour une fois le chiffre publié. Quand vous cliquez, la fiche est déjà là.' },
   { id: 'dtpu-20260924-ia-usage-reel', ts: Date.UTC(2026, 8, 24, 1, 0), title: 'Analyses IA : le quota suit ce que vous lisez, le fil d’actualité en tête', desc: 'Le desk dispose chaque jour d’un volume d’analyses IA gratuit et limité. Il le répartissait jusqu’ici selon des parts fixes, identiques pour toutes les fonctions. Désormais, il observe ce que vous ouvrez réellement (fil d’actualité, notes d’analystes, institutions, biais, taux, semaine à venir, copilote), heure par heure, et donne davantage aux fonctions les plus consultées à ce moment de la journée, sans jamais en éteindre une. Le fil d’actualité reste prioritaire en toutes circonstances : quand la journée est chargée, ses traductions passent avant tout le reste. Seule la présence sur chaque fonction est comptée, rien de ce que vous y faites.' },
@@ -21083,7 +21084,7 @@ function _fcEtat() {
   return { pose: !!FC_KEY, capJour: FC_CAP_JOUR, jour: _fcTel.jour || _fcJour(), n: _fcTel.n,
            okAt: _fcTel.okAt || null, errAt: _fcTel.errAt || null, err: _fcTel.err || '' };
 }
-async function _firecrawlFetch(url, formats) {
+async function _firecrawlFetch(url, formats, opts) {
   if (!_fcBudgetOk()) return null;
   _fcNote();
   const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 25000);
@@ -21091,7 +21092,8 @@ async function _firecrawlFetch(url, formats) {
     const r = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + FC_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, formats: formats || ['rawHtml'], onlyMainContent: false, timeout: 20000 }),
+      // (24/09) `opts.principal` : page de bourse ou de banque centrale, très lourde en HTML → on ne demande que le contenu principal
+      body: JSON.stringify({ url, formats: formats || ['rawHtml'], onlyMainContent: !!(opts && opts.principal), timeout: 20000 }),
       signal: ctrl.signal,
     });
     if (!r.ok) { _fcTel.errAt = Date.now(); _fcTel.err = 'HTTP ' + r.status; return null; }
@@ -21198,6 +21200,149 @@ function _refreshSovCurve() { for (const code of Object.keys(SOV)) { _computeSov
 Object.keys(SOV).forEach(code => { auth.aiCacheGet('rates:sov:' + code).then(v => { if (v && v.at) _sovCurve[code] = v; }).catch(() => {}); });
 setTimeout(_refreshSovCurve, 13000);
 setInterval(_refreshSovCurve, 30 * 60 * 1000);   // 30 min : les rendements bougent en continu, la décision est lente
+
+/* ══ BNS (CHF) ET RBNZ (NZD) : NOS PROPRES LECTURES DE MARCHÉ, DEPUIS LES SOURCES OFFICIELLES (24/09) ══
+   Demande user : « je veux juste avoir les taux fiables et réels de TOUTES les banques ». Ces deux-là
+   n'avaient AUCUNE source de marché : rateprobability.com les réserve à son offre payante (HTTP 401,
+   mesuré le 30/08), et on ne contourne pas ses protections. On lit donc ce que publient les bourses
+   et la banque centrale elles-mêmes — des prix, pas des estimations :
+   · CHF → contrats à terme SARON 3 mois d'EUREX (la bourse où ils se négocient) : règlements
+     quotidiens officiels. Le SARON suit le taux directeur de la BNS à quelques points près, donc le
+     prix d'un contrat = taux attendu sur sa période. Méthode FedWatch : deux contrats consécutifs,
+     le premier CONTIENT la réunion, le second vient APRÈS sans autre réunion. L'écart SARON/taux
+     directeur, identique dans les deux, S'ANNULE dans la différence : aucune constante supposée.
+       r_A = s + taux + w·Δ   (w = part de la période A postérieure à la décision)
+       r_B = s + taux + Δ     →   Δ = (r_B − r_A) / (1 − w),   s = r_B − taux − Δ
+     GARDE : s doit rester un écart SARON plausible (−25 à +5 pb). Un règlement arrêté AVANT une
+     décision (la réunion du jour pricée la veille) sort de cette plage → rien n'est publié, repli.
+   · NZD → tableau B2 de la RBNZ (bons bancaires 30/60/90 jours, clôture officielle NZFMA). La NZ
+     n'a plus de contrat sur l'OCR ; un bon à 90 jours contient déjà trois mois d'anticipations et
+     une prime : on n'en tire PAS de probabilité par réunion (ce serait inventer), mais la DIRECTION
+     et une conviction bornée, par le taux à terme 30→60 jours comparé au 30 jours (la prime, voisine
+     d'une échéance à l'autre, s'annule). Présenté comme un biais de marché, pas comme un pricing.
+   Accès : direct depuis le VPS d'abord, Firecrawl en dernier recours (budgété), sources publiques. */
+let _snbWatch = null;
+const EUREX_SARON_URL = 'https://www.eurex.com/ex-en/markets/int/mon/saron-futures/saron/3M-SARON-Futures-1405958';
+const RBNZ_B2_URL = 'https://www.rbnz.govt.nz/statistics/series/exchange-and-interest-rates/wholesale-interest-rates';
+function _txtCellules(txt) {
+  // HTML ou markdown → texte à cellules séparées par « | » (les deux formes se lisent pareil ensuite)
+  return String(txt || '').replace(/<\/t[dh]>/gi, ' | ').replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/_/g, ' ').replace(/[ \t]+/g, ' ');
+}
+function _eurexSaronParse(txt) {
+  // Lignes « M | 16/12/2026 | ouv | haut | bas | dernier | RÈGLEMENT | … » du tableau des règlements quotidiens.
+  const t = _txtCellules(txt).replace(/\|/g, ' ').replace(/\s+/g, ' ');
+  const out = [], vus = new Set();
+  const rx = /\bM (\d{2})\/(\d{2})\/(\d{4}) ([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+)/g;
+  let m;
+  while ((m = rx.exec(t))) {
+    const date = Date.UTC(+m[3], +m[2] - 1, +m[1]);
+    const p = +m[8];
+    if (!(p > 90 && p < 105) || vus.has(date)) continue;   // prix plausible uniquement (jamais NaN servi)
+    vus.add(date);
+    out.push({ date, r: +(100 - p).toFixed(4) });
+  }
+  return out.sort((a, b) => a.date - b.date);
+}
+function _saronProchaine(contrats, cur, reunions, now) {
+  const D = 864e5;
+  if (!Array.isArray(contrats) || contrats.length < 2 || !isFinite(cur)) return null;
+  const next = (reunions || []).map(d => Date.parse(d + 'T12:00:00Z')).filter(t => t > now).sort((a, b) => a - b)[0];
+  if (!next) return null;
+  const eff = next - 12 * 3600e3 + D;   // effet le lendemain de la décision
+  const cs = contrats.slice().sort((a, b) => a.date - b.date);
+  for (let i = 0; i < cs.length - 1; i++) {
+    const A = cs[i], B = cs[i + 1];
+    const debA = i > 0 ? cs[i - 1].date : A.date - 91 * D;   // contrat 3 mois « à rebours » : sa période FINIT à son échéance
+    if (!(eff > debA && eff <= A.date)) continue;
+    const autreDansB = (reunions || []).some(d => { const e = Date.parse(d + 'T00:00:00Z') + D; return e > A.date && e < B.date; });
+    if (autreDansB) return null;                              // B doit être vierge de réunion, sinon Δ n'est pas identifiable
+    const w = (A.date - eff) / (A.date - debA);
+    if (!(w >= 0 && w < 0.9)) return null;
+    const delta = (B.r - A.r) / (1 - w);
+    const s = B.r - cur - delta;
+    if (!(s >= -0.25 && s <= 0.05)) return null;             // écart SARON invraisemblable → lecture périmée ou cassée
+    if (!isFinite(delta) || Math.abs(delta) > 0.60) return null;
+    const step = 0.25, pMove = Math.max(0, Math.min(1, Math.abs(delta) / step));
+    return {
+      meeting: new Date(next).toISOString().slice(0, 10),
+      cut: Math.round((delta < -0.001 ? pMove : 0) * 100), hold: Math.round((1 - pMove) * 100), hike: Math.round((delta > 0.001 ? pMove : 0) * 100),
+      impliedRate: +(cur + delta).toFixed(3), changeBps: +(delta * 100).toFixed(1), spreadBps: +(s * 100).toFixed(1),
+      src: 'Eurex 3M SARON futures (FSR3)',
+      meth: 'contrats ' + new Date(A.date).toISOString().slice(0, 7) + ' / ' + new Date(B.date).toISOString().slice(0, 7) + ', écart SARON mesuré ' + (s * 100).toFixed(1) + ' pb',
+    };
+  }
+  return null;
+}
+async function _pageMarche(url) {
+  // Direct d'abord ; Firecrawl (contenu principal, markdown) en dernier recours.
+  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': ASX_UA, 'Accept': 'text/html,application/xhtml+xml' }, signal: ctrl.signal });
+    if (r.ok) { const t = await r.text(); if (t && t.length < 3e6) return { txt: t, via: 'direct' }; }
+  } catch {} finally { clearTimeout(to); }
+  const fc = await _firecrawlFetch(url, ['markdown'], { principal: true });
+  return fc ? { txt: fc, via: 'firecrawl' } : null;
+}
+async function _computeSnbWatch() {
+  try {
+    const cur = (_ratesState && _ratesState.banks && _ratesState.banks.CHF && +_ratesState.banks.CHF.rate);
+    const taux = isFinite(cur) ? cur : ((CB.find(x => x.code === 'CHF') || {}).rate);
+    if (!isFinite(+taux)) return null;
+    const pg = await _pageMarche(EUREX_SARON_URL);
+    if (!pg) return null;
+    const cs = _eurexSaronParse(pg.txt);
+    const out = _saronProchaine(cs, +taux, CB_MEETINGS.CHF, Date.now());
+    if (!out) { if (cs.length) console.warn('[SnbWatch] contrats lus (' + cs.length + ') mais lecture incohérente → repli'); return null; }
+    out.at = Date.now(); out.via = pg.via;
+    _snbWatch = out;
+    auth.aiCacheSet('rates:snbwatch', out).catch(() => {});
+    return out;
+  } catch (e) { console.error('[SnbWatch]', e && e.message); return null; }
+}
+function _rbnzB2Parse(txt) {
+  // Dernière ligne datée du tableau B2 : Date | OCR | dépôt | repo | interbancaire | 30 j | 60 j | 90 j | …
+  const lignes = _txtCellules(txt).split(/\n/);
+  let der = null;
+  for (const l of lignes) {
+    const c = l.split('|').map(x => x.trim()).filter(x => x !== '');
+    if (c.length < 8 || !/^\d{1,2} [A-Z][a-z]+\.? \d{4}$/.test(c[0])) continue;
+    const n = k => { const v = parseFloat(c[k]); return isFinite(v) ? v : null; };
+    const row = { date: c[0], ocr: n(1), b30: n(5), b60: n(6), b90: n(7) };
+    if (row.ocr != null && row.b30 != null && row.b60 != null && row.b90 != null) der = row;
+  }
+  return der;
+}
+function _nzdCourbe(b2) {
+  if (!b2 || !(b2.ocr > 0)) return null;
+  const { ocr, b30, b60, b90 } = b2;
+  if ([b30, b60, b90].some(v => !(v > 0) || Math.abs(v - ocr) > 1.5)) return null;   // donnée aberrante → rien
+  const fwd = (b60 * 60 - b30 * 30) / 30;                  // taux à terme 30→60 jours
+  const signal = fwd - b30;                                // la prime, voisine d'une échéance à l'autre, s'annule
+  let bias = 'hold';
+  if (signal > 0.08) bias = 'hike'; else if (signal < -0.08) bias = 'cut';
+  const conv = Math.max(0.55, Math.min(0.80, 0.55 + Math.min(Math.abs(signal), 0.25) / 0.25 * 0.25));
+  return { bias, conv: +conv.toFixed(2), y: +b90.toFixed(3), cur: +ocr, spread: +(b30 - ocr).toFixed(3), slope: +signal.toFixed(3),
+           src: 'bons bancaires 30/60/90 j (RBNZ, tableau B2, ' + b2.date + ')', at: Date.now() };
+}
+async function _computeNzdCourbe() {
+  try {
+    const pg = await _pageMarche(RBNZ_B2_URL);
+    if (!pg) return null;
+    const out = _nzdCourbe(_rbnzB2Parse(pg.txt));
+    if (!out) return null;
+    out.via = pg.via;
+    _sovCurve.NZD = out;
+    auth.aiCacheSet('rates:sov:NZD', out).catch(() => {});
+    return out;
+  } catch (e) { console.error('[NzdCourbe]', e && e.message); return null; }
+}
+auth.aiCacheGet('rates:snbwatch').then(v => { if (v && v.at) _snbWatch = v; }).catch(() => {});
+auth.aiCacheGet('rates:sov:NZD').then(v => { if (v && v.at) _sovCurve.NZD = v; }).catch(() => {});
+// Règlements Eurex une fois par jour (~17:30 CET), B2 une fois par jour (~15:00 NZT) : 4 h suffisent,
+// et bornent Firecrawl à 6 lectures par jour pour les deux au pire.
+setTimeout(() => { _computeSnbWatch().catch(() => {}); _computeNzdCourbe().catch(() => {}); }, 17000);
+setInterval(() => { _computeSnbWatch().catch(() => {}); _computeNzdCourbe().catch(() => {}); }, 4 * 3600e3);
 
 // ─── SOURCE RÉELLE : rateprobability.com — probabilités implicites de MARCHÉ par banque centrale ───
 // API JSON publique par banque (taux implicites OIS/futures, par réunion). Fed/BCE/BoE/BoJ/BoC/RBA = gratuits ;
@@ -21498,6 +21643,8 @@ function _tauxEtat() {
     relais: { ..._rpRelais },   // banques servies via une passerelle publique (nom dans `via`) parce que l'accès direct est refusé
     firecrawl: _fcEtat(),       // passerelle Firecrawl (dernier recours pour l'ASX) : clé posée ?, appels du jour, dernier OK/erreur
     rbaWatch: _rbaWatch ? { at: _rbaWatch.at, hike: _rbaWatch.hike, impliedRate: _rbaWatch.impliedRate, meth: _rbaWatch.meth } : null,   // pricing marché RBA (futures ASX)
+    snbWatch: _snbWatch ? { at: _snbWatch.at, meeting: _snbWatch.meeting, hike: _snbWatch.hike, cut: _snbWatch.cut, impliedRate: _snbWatch.impliedRate, meth: _snbWatch.meth, via: _snbWatch.via } : null,   // BNS : futures SARON Eurex
+    nzdCourbe: _sovCurve.NZD ? { at: _sovCurve.NZD.at, bias: _sovCurve.NZD.bias, conv: _sovCurve.NZD.conv, src: _sovCurve.NZD.src, via: _sovCurve.NZD.via } : null,   // RBNZ : bons bancaires B2
     sov: Object.fromEntries(Object.entries(_sovCurve).map(([c, s]) => [c, { spread: s.spread, bias: s.bias, at: s.at }])),   // lecture de courbe souveraine par banque (marché, temps réel)
     // Biais IA (poids monétaire du Radar de Biais + résolution CB non ancrée) : visibilité SÉPARÉE,
     // mesurée le 17/09 après avoir trouvé `rates:aibias` figée 14 jours sans que rien ne le dise.
@@ -21749,6 +21896,14 @@ function _buildRatesPayload() {
       sc0 = { hold: rw.hold / 100, hike: rw.hike / 100, cut: rw.cut / 100, impliedBps: +rw.changeBps || 0 };
       fwUtilise = true;
     }
+    /* BNS EN REPLI : LA PROCHAINE RÉUNION VIENT DES CONTRATS SARON D'EUREX (24/09, même principe que
+       la Fed et la RBA). Même garde : même date, mesure de moins de 30 h (règlement quotidien). */
+    if (b.code === 'CHF' && meetings[0] && _snbWatch && _snbWatch.meeting === meetings[0].date && now - (_snbWatch.at || 0) < 30 * 3600e3) {
+      const sw = _snbWatch, base = sw.hike >= 50 ? 'HIKE' : (sw.cut >= 50 ? 'CUT' : 'HOLD');
+      meetings[0] = { ...meetings[0], hold: sw.hold, hike: sw.hike, cut: sw.cut, impliedBps: +(+sw.changeBps || 0).toFixed(1), baseCase: base };
+      sc0 = { hold: sw.hold / 100, hike: sw.hike / 100, cut: sw.cut / 100, impliedBps: +sw.changeBps || 0 };
+      fwUtilise = true;
+    }
     const n = meetings[0];
     const bandeFed = b.code === 'USD' ? { lo: +(st.rate - 0.25).toFixed(2), hi: +(+st.rate).toFixed(2) } : null;   // l'état maison Fed porte la BORNE HAUTE (convention de CB[] et du calendrier)
     return {
@@ -21765,7 +21920,7 @@ function _buildRatesPayload() {
       rateSrc: _origineTaux(b.code, st.rate, false, null),   // le TAUX n'est PAS une estimation : décision publiée, sinon ancre relevée à la main
       panne: _rpPanne[slug] || 'jamais reçu',   // POURQUOI pas de marché (paywall ≠ réseau ≠ format) → badge honnête côté client
       sovCurve: _sovFrais ? { y: _sov.y, cur: _sov.cur, spread: _sov.spread, slope: _sov.slope, src: _sov.src, at: _sov.at } : null,   // lecture de la courbe souveraine (marché) quand pas de futures
-      marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : ((b.code === 'AUD' && _rbaWatch) ? _rbaWatch : null),   // Fed (CME ZQ) / RBA (ASX IB) : cross-check proba marché
+      marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : ((b.code === 'AUD' && _rbaWatch) ? _rbaWatch : ((b.code === 'CHF' && _snbWatch) ? _snbWatch : null)),   // Fed (CME ZQ) / RBA (ASX IB) / BNS (Eurex SARON) : proba marché
 
     };
   });
