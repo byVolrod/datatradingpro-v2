@@ -1937,6 +1937,20 @@
       + cacheRows
       + fondRows
       + `<div class="aim-sec-title">Demande attendue (apprise)</div>` + nh
+      /* (24/09) OÙ LES CLIENTS SE SERVENT DU DESK, et le poids qui en découle pour la part de quota
+         de chaque fonction à cette heure (0,6 → 1,4 ; 1 = neutre). Le fil n'est jamais baissé. */
+      + (() => {
+        const u = b.usageClients;
+        if (!u || !u.poidsMaintenant) return '';
+        const NOM = { news: 'Fil d\'actualité', analyst: 'Analystes / récaps', bank: 'Institutions', bias: 'Biais', ratesbias: 'Taux', weekahead: 'Semaine à venir', chat: 'Copilote IA', outlook: 'Perspectives' };
+        const tot = u.total || {};
+        const lignes = Object.keys(u.poidsMaintenant).sort((x, y) => (tot[y] || 0) - (tot[x] || 0)).map(c => {
+          const w = u.poidsMaintenant[c];
+          const col = w > 1.05 ? '#22c55e' : (w < 0.95 ? '#ffb300' : '#9ca3af');
+          return `<div class="aim-fc-row"><span>${NOM[c] || c}</span><b>${tot[c] || 0} lecture(s) · <span style="color:${col}">poids ${String(w).replace('.', ',')}</span></b></div>`;
+        }).join('');
+        return `<div class="aim-sec-title">Usage réel des clients (quota réparti)</div>` + lignes;
+      })()
       /* ══ PLAFOND PAR REQUÊTE, APPRIS (16/09) ═════════════════════════════════
          Le Récap Quotidien est resté des jours en anglais parce que son appel dépassait ce que la
          chaîne gratuite accepte PAR REQUÊTE. Le desk l'apprend maintenant sur ses propres refus,

@@ -677,6 +677,9 @@ function requireSupport(req, res, next) {
 }
 
 app.use(requireAuth);
+// USAGE RÉEL DU DESK PAR FONCTION (24/09) : compté ICI, avant les routes, sinon il ne verrait rien
+// (express sert dans l'ordre d'enregistrement). Aucun effet sur la requête : on compte et on passe.
+app.use((req, _res, next) => { try { _aiVueNote(req); } catch {} next(); });
 
 /* PAGE DE CONNEXION : DÉJÀ CONNECTÉ → ON RENVOIE AU DESK.
    ⚠️ CETTE ROUTE DOIT RESTER AVANT `express.static`. Elle vivait plus bas dans le fichier, donc
@@ -1359,6 +1362,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260924-ia-usage-reel', ts: Date.UTC(2026, 8, 24, 1, 0), title: 'Analyses IA : le quota suit ce que vous lisez, le fil d’actualité en tête', desc: 'Le desk dispose chaque jour d’un volume d’analyses IA gratuit et limité. Il le répartissait jusqu’ici selon des parts fixes, identiques pour toutes les fonctions. Désormais, il observe ce que vous ouvrez réellement (fil d’actualité, notes d’analystes, institutions, biais, taux, semaine à venir, copilote), heure par heure, et donne davantage aux fonctions les plus consultées à ce moment de la journée, sans jamais en éteindre une. Le fil d’actualité reste prioritaire en toutes circonstances : quand la journée est chargée, ses traductions passent avant tout le reste. Seule la présence sur chaque fonction est comptée, rien de ce que vous y faites.' },
   { id: 'dtpu-20260924-mobile-alignement', ts: Date.UTC(2026, 8, 24, 0, 30), title: 'Mon Desk sur téléphone : titres et boutons bien alignés', desc: 'Vous nous avez signalé deux décalages sur téléphone. Dans l’onglet Taux, le titre « Taux des banques » occupait seul sa ligne et ses boutons de réglage tombaient sur la suivante : ils sont maintenant côte à côte, sur une seule ligne. Dans le Calendrier, sur les petits écrans, la navigation de semaine (‹ 21 – 25 sept. ›) partait seule sous les filtres Tous, Élevé, Moyen et Faible : elle reste désormais sur la même ligne qu’eux. Les flèches gardent leur taille, pour rester faciles à toucher du doigt. Rien ne change sur grand écran.' },
   { id: 'dtpu-20260924-ia-gemini-modeles', ts: Date.UTC(2026, 8, 24, 0, 20), title: 'Analyses IA : le desk suit tout seul les modèles de Google', desc: 'Google a retiré une génération de ses modèles d’IA, celle qu’utilisait encore une partie de nos analyses. Le desk continuait de les appeler et prenait chaque refus pour une panne passagère : il ralentissait alors toutes ses rédactions de fond (traductions, enrichissements, récaps) sans raison. Désormais, le desk consulte régulièrement la liste officielle des modèles disponibles, écarte aussitôt un modèle retiré et le remplace par la version stable la plus récente. Les analyses repartent donc à plein régime, et le prochain retrait se gérera de lui-même, sans attendre une intervention.' },
   { id: 'dtpu-20260923-taux-rba-marche', ts: Date.UTC(2026, 8, 23, 15, 0), title: 'Onglet Taux : la RBA passe au pricing de marché', desc: 'Après la Fed, c’est au tour de la Banque de réserve d’Australie (AUD) d’afficher des probabilités issues du marché réel, et non plus d’une estimation. Le desk lit désormais les contrats à terme de taux de l’ASX (ceux qui alimentent le « RBA Rate Tracker » officiel de la Bourse australienne) et en déduit ce que le marché price pour la prochaine réunion. Pour la décision du 29 septembre, cela donne une hausse à environ 86%, contre 58% dans notre estimation précédente. Les données sont récupérées directement, plusieurs fois par heure ; si elles venaient à manquer, la carte revient proprement à l’estimation maison, sans jamais inventer de chiffre.' },
@@ -3287,6 +3291,7 @@ app.get('/api/admin/ai-status', requireAdmin, async (req, res) => {
     learner: {
       currentSlot: _aiDemandSlot(), expectedNow: aiExpectedDemand(), slotsLearned: Object.keys(_aiDemand).length,
       busiestSlots: Object.entries(_aiDemand).map(([s, v]) => ({ slot: s, total: v._t || 0 })).sort((a, b) => b.total - a.total).slice(0, 6),
+      usageClients: _aiVuesEtat(),   // (24/09) ce que les clients ouvrent réellement, et le poids qui en découle
     },
   });
 });
@@ -7839,6 +7844,85 @@ function _aiDemandPrePeak() {
   return peak >= avg * 0.8;                                                  // proche/au-dessus de la moyenne → pré-pic
 }
 
+/* ══ OÙ LES CLIENTS SE SERVENT VRAIMENT DU DESK (24/09, demande user : « mets les requêtes IA là où
+   c'est le plus demandé par les utilisateurs dans le desk, en gardant le fil d'actu en priorité n°1,
+   et fais-le intelligemment pour ne pas gâcher le quota, selon les heures des utilisateurs connectés
+   et les pics ») ══════════════════════════════════════════════════════════════════════════════════
+   `_aiDemand` compte les APPELS IA, pas l'usage : s'en servir pour répartir le quota se mordrait la
+   queue (une fonction qui consomme beaucoup en recevrait davantage, qu'on la lise ou non). On compte
+   donc ce que les CLIENTS ouvrent : un client × une fonction × une tranche de 10 minutes = 1 (les
+   rafraîchissements automatiques d'un onglet resté ouvert ne gonflent rien). Le personnel (admin,
+   support) est exclu : il teste tout, il fausserait la mesure. Créneau jour de semaine × heure de
+   Paris, comme `_aiDemand` ; persisté dans `ai_cache` (survit aux déploiements). */
+const _AI_VUES_ROUTES = [
+  [/^\/api\/(news|translate|analyse|article|reaction-explain|news-info)(\/|$)/, 'news'],
+  [/^\/api\/(session-wraps|session-wrap-content|report-insights|briefings?|eu-wrap|london-prep|us-briefing|weekly-reports)(\/|$)/, 'analyst'],
+  [/^\/api\/(bank-research|bank-research-content|bank-positions)(\/|$)/, 'bank'],
+  [/^\/api\/(smart-bias|bias)(\/|$)/, 'bias'],
+  [/^\/api\/rates(\/|$)/, 'ratesbias'],
+  [/^\/api\/(week-ahead|week-ahead-news)(\/|$)/, 'weekahead'],
+  [/^\/api\/ai\/chat(\/|$)/, 'chat'],
+  [/^\/api\/(analyst-outlook|community-outlook)(\/|$)/, 'outlook'],
+];
+const _AI_VUES_CATS = ['news', 'analyst', 'bank', 'bias', 'ratesbias', 'weekahead', 'chat', 'outlook'];
+let _aiVues = {};   // "wd-hh" → { <catégorie>: nb de (client × tranche de 10 min) }
+auth.aiCacheGet('aivues:v1').then(d => {
+  if (!d || typeof d !== 'object') return;
+  for (const [slot, o] of Object.entries(d)) {   // max par case : un boot qui a déjà compté ne perd rien
+    const cur = _aiVues[slot] || (_aiVues[slot] = {});
+    for (const [c, n] of Object.entries(o || {})) cur[c] = Math.max(cur[c] || 0, +n || 0);
+  }
+}).catch(() => {});
+const _aiVuesVus = new Set();
+let _aiVuesTranche = 0, _aiVuesSaveT = null;
+function _aiVueCategorie(p) { for (const [rx, c] of _AI_VUES_ROUTES) if (rx.test(p)) return c; return null; }
+function _aiVueNote(req) {
+  const p = req.path || '';
+  if (!p.startsWith('/api/')) return;
+  const u = req.session && req.session.user;
+  const uid = (req.session && req.session.userId) || (u && (u.id || u.email));
+  if (!uid || (u && (u.role === 'admin' || u.role === 'support'))) return;
+  const cat = _aiVueCategorie(p);
+  if (!cat) return;
+  const tr = Math.floor(Date.now() / 600e3);
+  if (tr !== _aiVuesTranche) { _aiVuesVus.clear(); _aiVuesTranche = tr; }
+  const k = uid + '|' + cat;
+  if (_aiVuesVus.has(k)) return;
+  _aiVuesVus.add(k);
+  const slot = _aiDemandSlot();
+  const s = _aiVues[slot] || (_aiVues[slot] = {});
+  s[cat] = (s[cat] || 0) + 1;
+  if (!_aiVuesSaveT) _aiVuesSaveT = setTimeout(() => { _aiVuesSaveT = null; auth.aiCacheSet('aivues:v1', _aiVues).catch(() => {}); }, 60000);
+}
+/* Poids d'une catégorie À CETTE HEURE : sa part de l'usage sur l'heure courante et les deux
+   suivantes (on prépare ce qui va être lu, pas seulement ce qui l'est), rapportée à une part
+   égale. Borné [0,6 ; 1,4] : une fonction délaissée garde 60 % de sa part (elle ne s'éteint
+   jamais), une fonction très lue gagne 40 %. Moins de 20 observations sur la fenêtre → 1 (on
+   n'invente pas une préférence à partir de trois visites). */
+function _aiPoidsCategorie(cat) {
+  try {
+    const p = _aiParis(), wd = p.getDay(), h = p.getHours();
+    let tot = 0, c = 0;
+    for (let d = 0; d < 3; d++) {
+      const hh = (h + d) % 24, w = (wd + Math.floor((h + d) / 24)) % 7;
+      const s = _aiVues[w + '-' + hh];
+      if (!s) continue;
+      for (const k of _AI_VUES_CATS) tot += (s[k] || 0);
+      c += (s[cat] || 0);
+    }
+    if (tot < 20) return 1;
+    const rel = (c / tot) * _AI_VUES_CATS.length;   // 1 = part égale
+    return Math.max(0.6, Math.min(1.4, 0.6 + 0.4 * rel));
+  } catch { return 1; }
+}
+function _aiVuesEtat() {
+  const tot = {};
+  for (const o of Object.values(_aiVues)) for (const [c, n] of Object.entries(o || {})) tot[c] = (tot[c] || 0) + (n || 0);
+  const poids = {};
+  for (const c of _AI_VUES_CATS) poids[c] = Math.round(_aiPoidsCategorie(c) * 100) / 100;
+  return { slots: Object.keys(_aiVues).length, total: tot, poidsMaintenant: poids };
+}
+
 // ════════════════ AI TELEMETRY & PREDICTION (monitoring + prévision d'épuisement) ════════════════
 // On échantillonne ai.status() (déjà riche : santé par modèle/clé, 429, tokens) et on cumule les
 // DELTAS dans des seaux HORAIRES persistés (ai_cache `aitel:<YYYY-MM-DDTHH>`, durables Supabase →
@@ -7959,6 +8043,7 @@ function _telForecast(buckets) {
     prewarmActive: (typeof _prewarmGate === 'function') ? _prewarmGate() : null,                   // préchauffage de fond en marche ?
     prePeak: (typeof _aiDemandPrePeak === 'function') ? _aiDemandPrePeak() : null,                 // Phase 2 : pré-pic de demande appris ?
     learnedSlots: Object.keys(_aiDemand).length,                                                   // nb de créneaux appris (maturité du learner)
+    usageClients: (typeof _aiVuesEtat === 'function') ? _aiVuesEtat() : null,                      // (24/09) usage réel par fonction → poids du quota
   };
 }
 // Endpoint admin : santé providers + budget + tendance horaire + prévisions (alimente le dashboard).
@@ -8894,12 +8979,20 @@ function aiAllowed(category, opts = {}) {
   // TIER BACKGROUND (préchauffage) : on RÉSERVE ~40% du quota du jour aux requêtes user ET au contenu
   // CRITIQUE planifié (narratifs Smart Bias, biais par banque, Week Ahead) → le préchauffage cède EN PREMIER
   // et bien plus tôt → on ne brûle jamais tout le quota sur du prewarming « au cas où ».
-  if (prio === 'background' && dayTotal >= Math.floor(cap * 0.60)) return false;
+  // ⚠️ SAUF LE FIL D'ACTUALITÉ (24/09, « le fil d'actu en priorité n°1 ») : c'est ce que tous les
+  // clients lisent en premier, à toute heure. Son fond (traductions anticipées) va jusqu'à 85 %.
+  const _estFil = category === 'news';
+  if (prio === 'background' && dayTotal >= Math.floor(cap * (_estFil ? 0.85 : 0.60))) return false;
   // PLANCHER pour le contenu PLANIFIÉ irremplaçable : les chemins 'user' (analyst/news/chat/outlook),
   // qui sautent pacing ET heures calmes et dont les parts cumulées dépassent 100%, pourraient saturer
   // le plafond dur et affamer les générations planifiées (narratifs, Week Ahead) — qui, elles, ne
   // basculent plus sur Claude. On réserve donc les 10% du haut au planifié (symétrique de la réserve background).
-  if (prio === 'user' && !opts.scheduled && dayTotal >= Math.floor(cap * 0.90)) return false;
+  // RÉSERVE DU FIL (24/09) : au-delà de 90 % du plafond, hors planifié, seul le fil passe encore
+  // (jusqu'à 97 % ; les 3 derniers restent au planifié). Quand la journée est tendue, c'est lui qui a
+  // la main ; les autres fonctions retombent sur les fournisseurs gratuits hors enveloppe Gemini
+  // (_aiSmartBrut) : elles ne s'arrêtent pas pour autant.
+  if (!opts.scheduled && !_estFil && dayTotal >= Math.floor(cap * 0.90)) return false;
+  if (_estFil && !opts.scheduled && dayTotal >= Math.floor(cap * 0.97)) return false;
   // ── Pacing intra-journée ────────────────────────────────────────────────────
   // On n'autorise au plus que la PART ÉCOULÉE du jour (+ un petit burst) → la conso s'étale jusqu'au reset.
   // Sauf : générations PLANIFIÉES (opts.scheduled) ET priorité 'user' (l'utilisateur n'est jamais freiné).
@@ -8909,7 +9002,10 @@ function aiAllowed(category, opts = {}) {
   }
   // Part du quota du jour allouée à une catégorie (PRIORITÉ = part plus grande). Le plafond DUR
   // du jour (dayTotal ≥ cap) reste la limite globale ; ces parts règlent qui passe en premier.
-  const share = f => catUsed < Math.floor(cap * f);
+  // (24/09) Chaque part est modulée par l'usage RÉEL de la fonction à cette heure (_aiPoidsCategorie,
+  // 0,6 → 1,4) : le quota va là où les clients sont. Le fil n'est jamais modulé à la baisse.
+  const _poids = _estFil ? Math.max(1, _aiPoidsCategorie(category)) : _aiPoidsCategorie(category);
+  const share = f => catUsed < Math.floor(cap * f * _poids);
   if (_aiIsWeekend()) {
     // Week-end (marchés fermés) : news OFF, mais on PRIORISE le contenu premium
     // (Analyst + AI Insights, Institution, Bias) → toujours frais à l'ouverture.
@@ -8929,7 +9025,7 @@ function aiAllowed(category, opts = {}) {
   // Bias un cran en dessous. Le plafond DUR du jour reste la limite globale.
   if (category === 'analyst') return share(0.45);                       // Analyst + AI Insights
   if (category === 'bank')    return share(0.45);                       // Institution (ING)
-  if (category === 'news')    return !!opts.important && share(0.45);   // news importantes
+  if (category === 'news')    return !!opts.important && share(0.60);   // fil d'actualité : priorité n°1 (24/09, 0,45 → 0,60)
   if (category === 'bias')    return share(0.30);
   if (category === 'ratesbias') return share(0.18);   // biais TAUX : part modeste, hebdo
   if (category === 'weekahead') return share(0.22);   // éditorial Week Ahead : hebdo
