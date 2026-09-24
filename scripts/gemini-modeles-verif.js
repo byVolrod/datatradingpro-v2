@@ -37,7 +37,11 @@ const CATALOGUE = new Set(['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-
 console.log('\n── 1. Le code est extractible et branché ──');
 v('le bloc « modèles retirés / catalogue » est extractible d\'ai.js', !!BLOC);
 v('la cascade n\'itère que sur les modèles VIVANTS', /const models = _gemLive\(maxTokens <= LITE_MAXTOK \? GEMINI_MODELS_LITE_FIRST : GEMINI_MODELS\)/.test(AI));
-v('un 404 écarte le MODÈLE pour toutes les clés et passe au suivant (break)', AI.split('\n').some(l => /if \(e\.status === 404\) \{ _gemMarkDead\(model, 'HTTP 404/.test(l) && /break; \}\s*$/.test(l)));
+// 24/09 : le classement des échecs vit dans _gemEchec (partagé Gemini/Gemma) ; la boucle passe au
+// modèle suivant (break) sur la classe 'modele'. Même comportement, vérifié aux deux bouts.
+v('un 404 écarte le MODÈLE pour toutes les clés et passe au suivant (break)',
+  /if \(st === 404\) \{ _gemMarkDead\(model, 'HTTP 404 \(modèle retiré par Google\)'\); return 'modele'; \}/.test(AI)
+  && /const c = _gemEchec\(model, idx, e, prompt\);[\s\S]{0,400}if \(c === 'modele' \|\| c === 'requete'\) break;/.test(AI));
 v('… et ne gèle plus de couple (modèle, clé) sur un 404', !/e\.status === 404 \|\| e\.status === 503/.test(AI));
 v('la pression ne compte plus les modèles retirés comme une panne', (AI.match(/for \(const m of _gemLive\(GEMINI_MODELS\)\)/g) || []).length >= 2);
 v('le catalogue officiel est relu au démarrage puis toutes les 6 h (minuteries non bloquantes)',

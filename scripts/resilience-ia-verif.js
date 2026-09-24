@@ -305,7 +305,7 @@ console.log('\n── La dernière erreur de chaque fournisseur, sans secret ─
   const src = (a >= 0 && b > a) ? AI.slice(a, b) : null;
   v('_sansSecret + _noteErreur sont extractibles de ai.js', !!src);
   if (src) {
-    const api = new Function(src + '\nreturn { _sansSecret, _noteErreur, _derniereErreur };')();
+    const api = new Function(src + '\nreturn { _sansSecret, _noteErreur, _derniereErreur, _errSaut, _journalErr };')();
     const fuite = api._sansSecret('401 invalid x-api-key sk-ant-api03-o1yqU_AbCdEfGhIjKl ; gsk_0123456789abc ; github_pat_11ABCDEFGH ; AIzaSyA1234567890123 ; Bearer abc.def ; ?key=zzz');
     v('aucune clé ne survit au masquage (Anthropic, Groq, GitHub, Google, Bearer, paramètre)',
       !/o1yqU|gsk_0|github_pat_1|AIzaSy|abc\.def|key=zzz/.test(fuite), fuite);
@@ -313,9 +313,22 @@ console.log('\n── La dernière erreur de chaque fournisseur, sans secret ─
     api._noteErreur('groq', Object.assign(new Error('Invalid API Key'), { status: 401 }));
     const g = api._derniereErreur.groq || {};
     v('le code HTTP et le compte sont gardés par fournisseur', g.status === 401 && g.n === 2 && !/gsk_/.test(g.msg || ''), JSON.stringify(g));
+    /* 24/09 : « sans code » masquait la vraie cause. Un fournisseur SAUTÉ (toutes ses clés en attente)
+       n'a pas d'erreur à lui : son saut ne doit jamais effacer le 401 qui a provoqué l'attente. */
+    api._noteErreur('groq', api._errSaut('Groq : aucun appel (clés en attente)'));
+    const g2 = api._derniereErreur.groq || {};
+    v('un SAUT ne remplace pas la dernière erreur réelle (le 401 reste lisible)', g2.status === 401 && g2.n === 2 && g2.sauts === 1 && /Invalid API Key/.test(g2.msg || ''), JSON.stringify(g2));
+    api._noteErreur('cohere', api._errSaut('Cohere : aucun appel (clés en attente)'));
+    v('… et un fournisseur qui n\'a JAMAIS été appelé le dit, sans inventer de code', !(api._derniereErreur.cohere || {}).status && /aucun appel/.test((api._derniereErreur.cohere || {}).msg || ''));
+    api._noteErreur('github', Object.assign(new Error('Rate limit: please wait 12 seconds'), { status: 429 }));
+    api._noteErreur('github', Object.assign(new Error('Rate limit: please wait 37 seconds'), { status: 429 }));
+    api._noteErreur('github', Object.assign(new Error('fetch failed'), {}));
+    const jg = api._journalErr.github || [];
+    v('le journal garde les causes DISTINCTES (même cause à un chiffre près = une ligne comptée deux fois)',
+      jg.length === 2 && (jg.find(x => x.status === 429) || {}).n === 2 && jg.some(x => /fetch failed/.test(x.msg)), JSON.stringify(jg));
   }
   v('chaque échec compté transmet son erreur (9 sites + Gemini)',
-    (AI.match(/_aiStat\('(?:claude|groq|openrouter|github|cohere|xai)Fail', e\)/g) || []).length === 9 && /_noteErreur\('gemini', e\);/.test(AI));
+    (AI.match(/_aiStat\('(?:claude|groq|openrouter|github|cohere|xai)Fail', e\)/g) || []).length === 9 && /_noteErreur\(_estGemma\(model\) \? 'gemma' : 'gemini', e\);/.test(AI));
   v('ai.status() expose les erreurs', /erreurs: JSON\.parse\(JSON\.stringify\(_derniereErreur\)\)/.test(AI));
   const SRV2 = lire('server.js'), ADM = lire('public/js/admin.js');
   v('… le moniteur les reçoit', /erreurs: st\.erreurs \|\| \{\},/.test(SRV2));

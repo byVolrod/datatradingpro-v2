@@ -34,15 +34,15 @@ const satFn = (() => {
   if (!bloc || !satFn) { console.log('\n✗ banc interrompu\n'); process.exit(1); }
 
   const monter = (code, t0) => {
-    let now = t0, appels = 0, produire = false;
+    let now = t0, appels = 0, produire = false, flash = true;
     const allNews = [];
     class D extends Date { constructor(...a) { super(...(a.length ? a : [now])); } static now() { return now; } }
-    const api = new Function('Date', 'allNews', 'RECAP_MIN_OK', 'generateWeeklyMarketRecap', '_aiPrioriteRapport', 'console',
+    const api = new Function('Date', 'allNews', 'RECAP_MIN_OK', 'generateWeeklyMarketRecap', '_aiPrioriteRapport', 'console', 'ai',
       'let _weeklyGenLock = 0;\n' + satFn + '\n' + code + '\nreturn { _gardienHebdo, verrou: v => { _weeklyGenLock = v; } };')(
       D, allNews, 41,
       async () => { appels++; if (produire) allNews.push({ _reportType: 'Weekly Market Recap', _weekly: { v: 52 }, timestamp: now }); },
-      () => {}, { log() {}, warn() {} });
-    return { api, avancer: ms => { now += ms; }, appels: () => appels, reussir: () => { produire = true; }, allNews };
+      () => {}, { log() {}, warn() {} }, { flashDispo: () => flash });
+    return { api, avancer: ms => { now += ms; }, appels: () => appels, reussir: () => { produire = true; }, flash: b => { flash = b; }, allNews };
   };
   const MARDI = Date.UTC(2026, 8, 22, 10, 0);   // mardi 22/09 10:00 UTC, récap de la semaine absent
   const MIN = 60e3;
@@ -78,6 +78,29 @@ const satFn = (() => {
   a.allNews.push({ _reportType: 'Weekly Market Recap', _weekly: { v: 52 }, timestamp: Date.UTC(2026, 8, 12, 6) });
   await a.api._gardienHebdo();
   v('le récap de la semaine D\'AVANT ne compte pas pour la semaine écoulée', a.appels() === 1);
+
+  console.log('\n── 3 bis. Quota Flash à sec : il ATTEND son retour au lieu de vider la chaîne (24/09) ──');
+  const q = monter(bloc, MARDI);   // mardi = 4 jours après le samedi → au-delà de 48 h : on tente quand même
+  q.flash(false);
+  r = await q.api._gardienHebdo();
+  v('récap très en retard (> 48 h) : tenté même quota Flash à sec', q.appels() === 1, r);
+  const q2 = monter(bloc, Date.UTC(2026, 8, 26, 14, 0));   // samedi 14:00 UTC : 8 h après le samedi de référence
+  q2.flash(false);
+  r = await q2.api._gardienHebdo();
+  v('samedi, Flash à sec → aucune rédaction lancée (« quota »)', r === 'quota' && q2.appels() === 0, r + ' / ' + q2.appels());
+  q2.avancer(5 * MIN); r = await q2.api._gardienHebdo();
+  v('… toujours rien 5 min plus tard, sans escalade ni verrou posé', r === 'quota' && q2.appels() === 0, r);
+  q2.flash(true); q2.avancer(5 * MIN); r = await q2.api._gardienHebdo();
+  v('… et la rédaction part dès que le quota revient (pas d\'espacement accumulé pendant l\'attente)', q2.appels() === 1, r + ' / ' + q2.appels());
+  const qm = bloc.replace("&& now - _expectedRecapSatTs() < 48 * 3600e3) return 'quota';", "&& false) return 'quota';");
+  v('(témoin) la mutation retire bien l\'attente du quota', qm !== bloc);
+  if (qm !== bloc) {
+    const t = monter(qm, Date.UTC(2026, 8, 26, 14, 0)); t.flash(false);
+    await t.api._gardienHebdo();
+    v('(témoin) sans elle, la rédaction part sur un quota à sec', t.appels() === 1, t.appels() + ' — si 0, le témoin ne mord plus');
+  }
+  v('la route de l\'onglet applique la même attente du quota Flash', /const _flashSec = ai\.flashDispo && !ai\.flashDispo\(\)/.test(SRV) && /if \(!_flashSec && Date\.now\(\) - _weeklyGenLock/.test(SRV));
+  v('un repli ne remplace jamais une version rédigée de la même semaine', /if \(!\(weekly\.v >= 2\)\) \{\s*\n\s*const _mieux = allNews\.find\(/.test(SRV));
 
   console.log('\n── 4. Témoin ──');
   const mut = bloc.replace("if (now < _gardienHebdoProchain) return 'attente';", '');

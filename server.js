@@ -1377,6 +1377,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260924-fil-francais-heures-pointe', ts: Date.UTC(2026, 8, 24, 15, 40), title: 'Fil d’actualité : il reste en français aux heures de pointe', desc: 'Aux heures les plus chargées, une partie des titres du fil repassait en anglais : notre traducteur principal atteignait sa limite de la journée vers midi. Les titres passent désormais par une voie de traduction dédiée, bien plus large, et un traducteur de secours prend le relais si elle venait à saturer. Le Récap Hebdo, lui, attend le moment où l’IA dispose de toute sa capacité, au lieu de sortir dans une version incomplète.' },
   { id: 'dtpu-20260924-taux-bns-rbnz-courbe', ts: Date.UTC(2026, 8, 24, 10, 10), title: 'Onglet Taux : la BNS et la RBNZ ont leur courbe de marché complète', desc: 'Les cartes du franc suisse et du dollar néo-zélandais affichent désormais, comme les autres banques centrales, la probabilité de hausse, de maintien ou de baisse pour chacune des prochaines réunions, et plus seulement pour la suivante. Ces chiffres viennent d’une courbe publique construite sur les contrats à terme cotés (SARON pour la BNS, bons bancaires à 90 jours pour la RBNZ). Relevé du jour : la RBNZ est pricée à 100% pour une hausse le 28 octobre. Le desk vérifie avant chaque affichage que le taux directeur de la source est bien celui en vigueur et qu’aucune réunion n’a eu lieu depuis ; sinon, il garde sa lecture précédente.' },
   { id: 'dtpu-20260924-taux-directeurs-corriges', ts: Date.UTC(2026, 8, 24, 9, 15), title: 'Onglet Taux : les taux de la Fed et de la BoJ corrigés', desc: 'Vous nous avez signalé des taux faux dans l’onglet Taux, et vous aviez raison : la hausse de la Fed du 16 septembre (fourchette désormais à 3,75–4,00%) et celle de la Banque du Japon du 18 septembre (1,25%) n’avaient pas été prises en compte. Le jour même de ces décisions, notre calendrier contenait, à côté du vrai chiffre, une seconde ligne portant une valeur erronée ; face à deux chiffres, le desk préférait ne rien écrire, et gardait l’ancien taux. Il retient désormais la valeur plausible et le bon intitulé. Surtout, le desk lit de nouveau chaque jour les probabilités de rateprobability.com pour la Fed, la BCE, la BoE, la BoJ, la BoC et la RBA, et recale ses taux sur cette source dès qu’elle se met à jour.' },
   { id: 'dtpu-20260924-navigation-fluide', ts: Date.UTC(2026, 8, 24, 8, 40), title: 'Navigation : les onglets s’ouvrent sans attendre', desc: 'Vous nous avez demandé une navigation plus agréable et plus fluide. En mesurant, nous avons constaté que revenir sur un onglet déjà vu était immédiat, mais que la première ouverture du Calendrier, des Taux, du Radar de Biais, de la Semaine à venir et des Banques attendait à chaque fois le serveur, avec un écran de chargement. Désormais, pendant que vous lisez le fil d’actualité, le desk prépare discrètement ces onglets, un par un, et les tient prêts : ils s’ouvrent aussitôt. Survoler un onglet suffit aussi à le préparer avant même le clic. Le graphique de l’onglet Banques garde ses bougies quelques minutes au lieu de les recharger à chaque ouverture, et la Semaine à venir ne se redessine plus quand rien n’a changé. Sur une connexion en mode économie de données, cette préparation ne se fait pas.' },
@@ -7353,7 +7354,8 @@ app.get('/api/weekly-reports', async (_req, res) => {
   let generating = false;
   if (!current) {
     generating = true;
-    if (Date.now() - _weeklyGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {   // 1 tentative / 15 min max — suspendu pendant une panne IA totale (backoff)
+    const _flashSec = ai.flashDispo && !ai.flashDispo() && Date.now() - _expectedRecapSatTs() < 48 * 3600e3;   // même attente du quota Flash que le gardien (_gardienHebdo)
+    if (!_flashSec && Date.now() - _weeklyGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {   // 1 tentative / 15 min max — suspendu pendant une panne IA totale (backoff)
       _weeklyGenLock = Date.now();
       generateWeeklyMarketRecap(true).catch(e => console.error('[Weekly Recap] auto-gen échec:', e.message));
     }
@@ -8014,17 +8016,17 @@ function _aiVuesEtat() {
 // On échantillonne ai.status() (déjà riche : santé par modèle/clé, 429, tokens) et on cumule les
 // DELTAS dans des seaux HORAIRES persistés (ai_cache `aitel:<YYYY-MM-DDTHH>`, durables Supabase →
 // survivent aux redéploys). Aucune modification du routage : couche d'OBSERVATION pure, additive.
-let _telPrev = null, _telLiveStatus = null, _telDirty = false;
+let _telPrev = null, _telLiveStatus = null, _telDirty = false, _telErrSig = '';
 const _telDirtyKeys = new Set();   // seaux réellement modifiés depuis le dernier flush (évite de réécrire TOUT le Map en KV)
 const _telBuckets = new Map();                                                   // hourKey → seau (flush périodique vers KV)
 function _telHourKey(t) { return new Date(t || Date.now()).toISOString().slice(0, 13); }   // "2026-06-12T14"
-function _telEmpty(hk) { return { hour: hk, gemini: { calls: 0, e429: 0, tokIn: 0, tokOut: 0 }, groq: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, github: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, openrouter: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, cohere: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, cloudflare: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, xai: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, claude: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, fallback: 0, gemKeys: [] }; }
+function _telEmpty(hk) { return { hour: hk, gemini: { calls: 0, e429: 0, tokIn: 0, tokOut: 0 }, gemma: { calls: 0, fail: 0 }, groq: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, github: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, openrouter: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, cohere: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, cloudflare: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, xai: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, claude: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, fallback: 0, gemKeys: [] }; }
 function _telBucket(hk) { let b = _telBuckets.get(hk); if (!b) { b = _telEmpty(hk); _telBuckets.set(hk, b); } return b; }
 function _telSample() {
   let st; try { st = ai.status(); } catch { return; }
   _telLiveStatus = st;
   const u = st.usageToday || {}, tk = st.tokensToday || {};
-  const cur = { day: st.today, gemini: u.gemini || 0, gemini429: u.gemini429 || 0, github: u.github || 0, githubFail: u.githubFail || 0,
+  const cur = { day: st.today, gemini: u.gemini || 0, gemini429: u.gemini429 || 0, gemma: u.gemma || 0, gemmaFail: u.gemmaFail || 0, github: u.github || 0, githubFail: u.githubFail || 0,
     openrouter: u.openrouter || 0, openrouterFail: u.openrouterFail || 0,
     groq: u.groq || 0, groqFail: u.groqFail || 0, cohere: u.cohere || 0, cohereFail: u.cohereFail || 0, cloudflare: u.cloudflare || 0, cloudflareFail: u.cloudflareFail || 0, xai: u.xai || 0, xaiFail: u.xaiFail || 0,
     claude: u.claude || 0, claudeFail: u.claudeFail || 0, fallback: u.fallback || 0,
@@ -8042,6 +8044,15 @@ function _telSample() {
     if (b.groq)   { b.groq.calls   += dl('groq');   b.groq.fail   += dl('groqFail');   b.groq.tokIn   += dl('grIn'); b.groq.tokOut   += dl('grOut'); }
     if (b.cohere) { b.cohere.calls += dl('cohere'); b.cohere.fail += dl('cohereFail'); b.cohere.tokIn += dl('coIn'); b.cohere.tokOut += dl('coOut'); }
     if (b.xai)    { b.xai.calls    += dl('xai');    b.xai.fail    += dl('xaiFail');    b.xai.tokIn    += dl('xaIn'); b.xai.tokOut    += dl('xaOut'); }
+    if (!b.gemma) b.gemma = { calls: 0, fail: 0 };   // seau antérieur à la voie Gemma (24/09) : on le complète
+    b.gemma.calls += dl('gemma'); b.gemma.fail += dl('gemmaFail');
+    /* Le JOURNAL des erreurs distinctes (ai.js, _journalErreur) voyage avec le seau de l'heure : la CAUSE
+       d'une panne se lit ainsi après coup dans `aitel:*`, sans accès au conteneur. Instantané léger (≤ 6
+       lignes par fournisseur, messages déjà expurgés de tout secret). */
+    try {
+      const j = st.journalErreurs || {}, sig = JSON.stringify(j);
+      if (sig !== '{}' && b.hour + sig !== _telErrSig) { b.err = j; _telErrSig = b.hour + sig; _telDirty = true; _telDirtyKeys.add(b.hour); }
+    } catch (e) {}
     if (!b.cloudflare) b.cloudflare = { calls: 0, fail: 0, tokIn: 0, tokOut: 0 };   // seau antérieur au 24/09 : on le complète
     b.cloudflare.calls += dl('cloudflare'); b.cloudflare.fail += dl('cloudflareFail'); b.cloudflare.tokIn += dl('cfIn'); b.cloudflare.tokOut += dl('cfOut');
     // Par clé Gemini : mêmes deltas que le reste (jour changé → la valeur courante EST le delta).
@@ -8055,7 +8066,7 @@ function _telSample() {
     });
     b.claude.calls += dl('claude'); b.claude.fail += dl('claudeFail'); b.claude.tokIn += dl('clIn'); b.claude.tokOut += dl('clOut');
     b.fallback += dl('fallback');
-    if (dl('gemini') + dl('groq') + dl('github') + dl('openrouter') + dl('cohere') + dl('cloudflare') + dl('xai') + dl('claude') + dl('gemini429') + dl('fallback') + gkDelta > 0) { _telDirty = true; _telDirtyKeys.add(b.hour); }
+    if (dl('gemini') + dl('gemma') + dl('gemmaFail') + dl('groq') + dl('github') + dl('openrouter') + dl('cohere') + dl('cloudflare') + dl('xai') + dl('claude') + dl('gemini429') + dl('fallback') + gkDelta > 0) { _telDirty = true; _telDirtyKeys.add(b.hour); }
   }
   _telPrev = cur;
 }
@@ -8186,6 +8197,11 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       // Dernière erreur PAR fournisseur (code HTTP, message sans secret, horodatage) — cf. _noteErreur (ai.js).
       // Sans elle, « 190 échecs/heure » ne disait jamais POURQUOI : clé expirée, compte bloqué, quota ?
       erreurs: st.erreurs || {},
+      journal: st.journalErreurs || {},   // erreurs DISTINCTES récentes par fournisseur (la cause, pas seulement la dernière)
+      // Voie de MASSE (24/09) : Gemma, mêmes clés que Gemini, quota ~14 400/j — absorbe les titres du fil.
+      gemma: Object.assign({}, st.gemma || {}, { callsToday: u.gemma || 0, failToday: u.gemmaFail || 0, callsWindow: sum('gemma', 'calls'), failWindow: sum('gemma', 'fail') }),
+      trSecours: _trSecoursEtat(),         // traduction de secours HORS IA (DeepL si clé, sinon MyMemory) : ce qu'elle a sauvé
+      openrouterModelesEcartes: st.openrouterModelesEcartes || [],
       descFr: _descFrStats(),
       proposFr: _proposFrStats(),
       impacts: _impactStats(),   // « Impact marché » sur les stats du fil : généré/tenté/plafond du jour
@@ -8977,7 +8993,7 @@ function _aiReset() {
   const mo = _aiMonth(), d = _aiDay();
   if (_aiUsage.month !== mo) { _aiUsage = { month: mo, day: d, total: 0, dayCounts: {}, claudeCounts: {} }; _aiSave(); }
   else if (_aiUsage.day !== d) {
-    _aiUsage.day = d; _aiUsage.dayCounts = {}; _aiUsage.claudeCounts = {}; _aiSave();   // claudeCounts est un compteur DU JOUR → vidé au changement de jour (sinon la métrique « crédits Claude du jour » cumulait tout le mois)
+    _aiUsage.day = d; _aiUsage.dayCounts = {}; _aiUsage.claudeCounts = {}; _aiUsage.gemmaCounts = {}; _aiSave();   // claudeCounts est un compteur DU JOUR → vidé au changement de jour (sinon la métrique « crédits Claude du jour » cumulait tout le mois)
     // Déclin des habitudes d'expansion (×0.95/jour) : les usages récents pèsent plus que les anciens.
     try { for (const k in _expandHabits) _expandHabits[k] = Math.round(_expandHabits[k] * 0.95 * 100) / 100; auth.aiCacheSet('learn:expand1', _expandHabits).catch(() => {}); } catch {}
   }
@@ -9123,6 +9139,8 @@ function aiAllowed(category, opts = {}) {
 function aiNote(category) { _aiReset(); _aiUsage.dayCounts[category] = (_aiUsage.dayCounts[category] || 0) + 1; _aiUsage.total = (_aiUsage.total || 0) + 1; _aiSave(); _aiDemandNote(category); }
 // Déversements Claude (crédits payants) : comptés À PART (claudeCounts) — visibles dans
 // /api/admin/ai-status, mais HORS dayCounts/total pour ne pas amputer l'enveloppe Gemini.
+// Réponse servie par GEMMA : comptée à part (visibilité) et dans la demande apprise, PAS dans l'enveloppe Flash.
+function _aiNoteGemma(category) { _aiReset(); if (!_aiUsage.gemmaCounts) _aiUsage.gemmaCounts = {}; _aiUsage.gemmaCounts[category] = (_aiUsage.gemmaCounts[category] || 0) + 1; _aiSave(); _aiDemandNote(category); }
 function _aiNoteClaude(category) { _aiReset(); if (!_aiUsage.claudeCounts) _aiUsage.claudeCounts = {}; _aiUsage.claudeCounts[category] = (_aiUsage.claudeCounts[category] || 0) + 1; _aiSave(); }
 // ── Persistance DURABLE de l'état budget (Supabase ai_cache) ────────────────
 // Le fichier local disparaît à chaque rebuild Docker → le compteur mensuel repartait à 0 et le
@@ -9214,12 +9232,16 @@ async function aiSmart(category, prompt, maxTokens, opts = {}) {
 async function _aiSmartBrut(category, prompt, maxTokens, opts = {}) {
   // Bascule Claude hors-budget : réservée aux requêtes UTILISATEUR (sauf opt-in/out explicite).
   const claudeOverBudget = (opts.claudeOverBudget === true) || (opts.claudeOverBudget !== false && opts.priority === 'user');
+  /* `masse` (titres du fil…) : Gemma d'abord, Flash gardé pour le reste. `meta.fournisseur` dit QUI a
+     répondu : une réponse de Gemma ne consomme pas l'enveloppe qui pace le quota de FLASH — la compter
+     aurait refermé l'enveloppe des autres catégories sur un quota qu'elles n'ont pas touché. */
+  const _meta = {};
   if (aiAllowed(category, opts)) {
     try {
       // noClaude : si l'appelant interdit explicitement Claude (claudeOverBudget:false), on coupe
       // AUSSI le repli Claude in-cascade → un flux de fond ne dépense plus de crédits payants, in-budget compris.
-      const out = await ai.generateText(prompt, maxTokens, { noClaude: opts.claudeOverBudget === false });
-      aiNote(category);   // compté APRÈS succès → les 429/échecs ne brûlent plus le budget
+      const out = await ai.generateText(prompt, maxTokens, { noClaude: opts.claudeOverBudget === false, masse: !!opts.masse, meta: _meta });
+      if (_meta.fournisseur === 'gemma') _aiNoteGemma(category); else aiNote(category);   // compté APRÈS succès → les 429/échecs ne brûlent plus le budget
       return out;
     } catch (e) {
       // generateText a DÉJÀ parcouru toute la cascade (Claude inclus, sauf si noClaude voulu) → on
@@ -9234,7 +9256,8 @@ async function _aiSmartBrut(category, prompt, maxTokens, opts = {}) {
   // étaient à 100/100 et n'avaient reçu AUCUN appel de la journée (constaté en production).
   // On tente donc la cascade SANS Gemini avant toute dépense — et avant d'abandonner.
   try {
-    const out = await ai.generateText(prompt, maxTokens, { noGemini: true, noClaude: !claudeOverBudget });
+    const out = await ai.generateText(prompt, maxTokens, { noGemini: true, noClaude: !claudeOverBudget, masse: !!opts.masse, meta: _meta });
+    if (_meta.fournisseur === 'gemma') _aiNoteGemma(category);
     return out;   // pas de aiNote() : ce chemin ne consomme PAS l'enveloppe Gemini
   } catch (e) {
     // Si la cascade a déjà traversé Claude, inutile d'y repasser juste après.
@@ -12320,6 +12343,85 @@ function _trBudget(lignes) {
   const car = lignes.join(' ').length;
   return Math.max(300, Math.min(4000, Math.round((car / 2.6) * 1.45) + 60 * lignes.length + 120));
 }
+/* ══ TRADUCTION DE SECOURS HORS IA (24/09, urgence « le fil repasse en anglais aux heures de pointe ») ══
+   Quand TOUTE la cascade d'IA est à sec (quotas du jour épuisés, fournisseurs en panne), le fil
+   affichait l'anglais d'origine. Ce secours ne passe par AUCUN modèle de langage, donc par aucun des
+   quotas qui viennent de lâcher :
+     1. DeepL, si une clé est posée dans le .env du VPS (DEEPL_API_KEY ; une clé « :fx » = offre
+        gratuite, 500 000 caractères/mois) : la meilleure qualité de traduction automatique ;
+     2. MyMemory, sans clé : ~5 000 caractères/jour (une cinquantaine de titres), ~50 000 si
+        MYMEMORY_EMAIL est posé. Borné par jour (MYMEMORY_CHARS_JOUR), arrêté net au premier
+        signal de quota.
+   Ce qui revient passe le MÊME contrôle de langue que les traductions d'IA (_traductionFrValide).
+   Rien n'est écrit dans le cache DURABLE des traductions : pour la traduction au clic, un secours
+   n'est gardé que 6 h en mémoire, et l'IA revenue le remplace par le sien. Le fil, lui, affiche ce
+   secours dans le champ d'affichage de la dépêche (`_titreFr`) : une traduction automatique
+   honnête vaut mieux que l'anglais sur un produit annoncé 100% français. */
+const _trSec = { jour: '', car: 0, mmBloque: 0, dlBloque: 0, dl: 0, mm: 0, echecs: 0, err: '', errAt: 0 };
+const _trSecCache = new Map();   // texte → { fr, t }
+const _TR_SEC_TTL = 6 * 3600e3;
+function _trSecCap() { return parseInt(process.env.MYMEMORY_CHARS_JOUR, 10) || (process.env.MYMEMORY_EMAIL ? 45000 : 4500); }
+function _trSecoursLu(t) { const x = _trSecCache.get(t); if (!x) return null; if (Date.now() - x.t > _TR_SEC_TTL) { _trSecCache.delete(t); return null; } return x.fr; }
+function _trSecoursEtat() { return { deepl: !!(process.env.DEEPL_API_KEY || '').trim(), jour: _trSec.jour, deeplLignes: _trSec.dl, myMemoryLignes: _trSec.mm, myMemoryCar: _trSec.car, capCar: _trSecCap(), echecs: _trSec.echecs, err: _trSec.err || null, errAt: _trSec.errAt || null, enMemoire: _trSecCache.size }; }
+function _entitesHtml(t) { return String(t || '').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n)).replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'); }
+async function _fetchDelai(url, init, ms) {
+  const c = new AbortController(); const to = setTimeout(() => c.abort(), ms);
+  try { return await fetch(url, Object.assign({}, init || {}, { signal: c.signal })); } finally { clearTimeout(to); }
+}
+// Rend un tableau ALIGNÉ sur `lignes` : une traduction française vérifiée, ou null. Ne jette jamais.
+async function _traductionSecours(lignes) {
+  const out = lignes.map(() => null), source = lignes.map(() => '');
+  const jour = new Date().toISOString().slice(0, 10);
+  if (_trSec.jour !== jour) { _trSec.jour = jour; _trSec.car = 0; _trSec.dl = 0; _trSec.mm = 0; _trSec.echecs = 0; }
+  const note = m => { _trSec.err = String(m || '').slice(0, 140); _trSec.errAt = Date.now(); };
+  const dk = (process.env.DEEPL_API_KEY || '').trim();
+  if (dk && Date.now() > _trSec.dlBloque) {
+    try {
+      const url = /:fx$/.test(dk) ? 'https://api-free.deepl.com/v2/translate' : 'https://api.deepl.com/v2/translate';
+      const r = await _fetchDelai(url, { method: 'POST', headers: { 'Authorization': 'DeepL-Auth-Key ' + dk, 'Content-Type': 'application/json' }, body: JSON.stringify({ text: lignes, source_lang: 'EN', target_lang: 'FR' }) }, 12000);
+      if (r.ok) { const j = await r.json(); (j.translations || []).forEach((t, i) => { if (t && t.text && i < out.length) { out[i] = t.text; source[i] = 'dl'; } }); }
+      else { note('DeepL HTTP ' + r.status); _trSec.dlBloque = Date.now() + (r.status === 429 ? 60e3 : 6 * 3600e3); }   // 456 = quota du mois, 403 = clé refusée
+    } catch (e) { note('DeepL : ' + e.message); }
+  }
+  const email = (process.env.MYMEMORY_EMAIL || '').trim();
+  for (let i = 0; i < lignes.length; i++) {
+    if (out[i] || Date.now() < _trSec.mmBloque) continue;
+    const t = String(lignes[i] || '').slice(0, 480);
+    if (_trSec.car + t.length > _trSecCap()) { note('MyMemory : plafond du jour atteint (' + _trSecCap() + ' car.)'); break; }
+    try {
+      const u = 'https://api.mymemory.translated.net/get?langpair=en%7Cfr&q=' + encodeURIComponent(t) + (email ? '&de=' + encodeURIComponent(email) : '');
+      const r = await _fetchDelai(u, {}, 8000);
+      _trSec.car += t.length;
+      const j = r.ok ? await r.json().catch(() => null) : null;
+      const fr = j && j.responseData && j.responseData.translatedText;
+      if (!j || j.quotaFinished || Number(j.responseStatus) === 429 || /MYMEMORY WARNING|QUOTA/i.test(String(fr || ''))) {
+        const d = new Date(); d.setUTCHours(24, 5, 0, 0); _trSec.mmBloque = d.getTime();
+        note('MyMemory : quota du jour' + (r.status ? ' (HTTP ' + r.status + ')' : '')); break;
+      }
+      if (fr && Number(j.responseStatus) === 200) { out[i] = _entitesHtml(fr); source[i] = 'mm'; }
+    } catch (e) { note('MyMemory : ' + e.message); }
+  }
+  // MÊME contrôle de sortie que l'IA : du français, et pas une recopie de la source.
+  return out.map((fr, i) => {
+    const f = String(fr || '').trim();
+    if (!f) return null;
+    if (f === String(lignes[i]).trim() || !_traductionFrValide(f)) { _trSec.echecs++; return null; }
+    if (source[i] === 'dl') _trSec.dl++; else _trSec.mm++;
+    return f;
+  });
+}
+// Complète `result` (aligné sur `texts`) pour les indices `idx` restés vides. Ne jette jamais.
+async function _trSecoursComplete(texts, result, idx) {
+  try {
+    const cibles = idx.filter(i => result[i] == null && !_looksFr(String(texts[i] || '')));
+    if (!cibles.length) return 0;
+    const fr = await _traductionSecours(cibles.map(i => String(texts[i])));
+    let n = 0;
+    cibles.forEach((i, k) => { if (fr[k]) { result[i] = fr[k]; _trSecCache.set(texts[i], { fr: fr[k], t: Date.now() }); n++; } });
+    while (_trSecCache.size > 3000) _trSecCache.delete(_trSecCache.keys().next().value);
+    return n;
+  } catch (e) { return 0; }
+}
 /* ─── TRADUCTION D'UN LOT : IMPLEMENTATION UNIQUE ────────────────────────────────────────────
    Appelee par DEUX chemins : l'endpoint /api/translate (au clic, priorite « user ») et la
    pre-traduction de fond des news importantes (priorite « background »).
@@ -12335,13 +12437,13 @@ async function _traduireLot(texts, opts = {}) {
 }
 async function _traduireLotBrut(texts, opts = {}) {
   const _prio = opts.priority || 'user';
-  const result = texts.map(t => _trCache.has(_trKey(t)) ? _trCache.get(_trKey(t)) : null);
+  const result = texts.map(t => _trCache.has(_trKey(t)) ? _trCache.get(_trKey(t)) : _trSecoursLu(t));
   const missIdx = result.map((v, i) => (v == null ? i : -1)).filter(i => i >= 0);
   if (!missIdx.length) return ({ translations: result });   // tout en cache → 0 appel IA
 
   const toTr = missIdx.map(i => texts[i]);
   const cacheKey = 'trb:' + toTr.join('').slice(0, 300);   // coalescing des batches identiques simultanés
-  if (_aiFailCooling(cacheKey)) { missIdx.forEach(i => { if (result[i] == null) result[i] = texts[i]; }); return ({ translations: result, fallback: true }); }
+  if (_aiFailCooling(cacheKey)) { await _trSecoursComplete(texts, result, missIdx); missIdx.forEach(i => { if (result[i] == null) result[i] = texts[i]; }); return ({ translations: result, fallback: true }); }
   try {
     const out = await _aiInflight(cacheKey, async () => {
       const numbered = toTr.map((t, i) => `[[${i + 1}]] ${t}`).join('\n');
@@ -12352,7 +12454,7 @@ RULES:
 - If a line is ALREADY in French, return it unchanged (with its marker).
 - Reply ONLY with the [[n]] lines translated : no preamble, no extra text.
 
-${numbered}`, _trBudget(toTr), { important: true, priority: _prio, claudeOverBudget: false });   // important:true OBLIGATOIRE : aiAllowed('news') exige opts.important (sans lui → 100 % des trads refusées par le budget, BUG corrigé 03/07) ; gratuit-first : jamais de crédits payants pour une simple traduction
+${numbered}`, _trBudget(toTr), { important: true, priority: _prio, claudeOverBudget: false, masse: true });   // important:true OBLIGATOIRE : aiAllowed('news') exige opts.important (sans lui → 100 % des trads refusées par le budget, BUG corrigé 03/07) ; gratuit-first : jamais de crédits payants pour une simple traduction
       const map = {};
       String(txt || '').split('\n').forEach(l => { const m = l.match(/^\s*\[\[(\d+)\]\]\s*(.+?)\s*$/); if (m) { const n = parseInt(m[1], 10) - 1; if (n >= 0 && n < toTr.length) map[n] = m[2].trim(); } });
       const passe1 = toTr.map((orig, i) => map[i] || null);
@@ -12366,7 +12468,7 @@ ${numbered}`, _trBudget(toTr), { important: true, priority: _prio, claudeOverBud
         try {
           const t2 = await aiSmart('news', `Translate each numbered line into natural, professional FRENCH. Keep the [[n]] marker EXACTLY, one line per marker, same order. Preserve tickers, numbers and institution names. Reply ONLY with the [[n]] lines.
 
-${rates.map((i, k) => `[[${k + 1}]] ${toTr[i]}`).join('\n')}`, _trBudget(rates.map(i => toTr[i])), { important: true, priority: _prio, claudeOverBudget: false });
+${rates.map((i, k) => `[[${k + 1}]] ${toTr[i]}`).join('\n')}`, _trBudget(rates.map(i => toTr[i])), { important: true, priority: _prio, claudeOverBudget: false, masse: true });
           String(t2 || '').split('\n').forEach(l => {
             const m = l.match(/^\s*\[\[(\d+)\]\]\s*(.+?)\s*$/); if (!m) return;
             const k = parseInt(m[1], 10) - 1, cible = rates[k];
@@ -12384,14 +12486,20 @@ ${rates.map((i, k) => `[[${k + 1}]] ${toTr[i]}`).join('\n')}`, _trBudget(rates.m
       const src = texts[origIdx];
       const fr = out && out[k];
       if (fr && (fr !== src || _looksFr(src))) { result[origIdx] = fr; _trCache.set(_trKey(src), fr); }
-      else result[origIdx] = src;   // échec sur cette ligne → source affichée, PAS cachée → retentera au prochain passage
+      // échec sur cette ligne → rien n'est caché : elle retentera au prochain passage
     });
     while (_trCache.size > 8000) _trCache.delete(_trCache.keys().next().value);
     _saveJsonMap(TRANSLATE_CACHE_FILE, _trCache);
+    // Si TOUT le lot est revenu sans traduction, c'est une panne de cascade déguisée en réponse : même
+    // traitement qu'une panne, le secours hors IA prend le relais. Un raté isolé attend le cycle suivant.
+    const restes = missIdx.filter(i => result[i] == null);
+    if (restes.length && restes.length === missIdx.length) await _trSecoursComplete(texts, result, missIdx);
+    missIdx.forEach(i => { if (result[i] == null) result[i] = texts[i]; });   // source affichée, jamais un blanc
     return ({ translations: result });
   } catch (e) {
     _aiFailMark(cacheKey);
-    missIdx.forEach(i => { if (result[i] == null) result[i] = texts[i]; });   // IA en panne → original
+    await _trSecoursComplete(texts, result, missIdx);                     // IA en panne → secours hors IA d'abord
+    missIdx.forEach(i => { if (result[i] == null) result[i] = texts[i]; });   // puis l'original, jamais un blanc
     return ({ translations: result, fallback: true });
   }
 }
@@ -15157,6 +15265,14 @@ ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = nul
     priority: 'normal', tags: ['Weekly Recap', 'Markets', 'FX'],
     _briefing: true, _reportType: 'Weekly Market Recap', _weekly: weekly,
   };
+  /* ⚠️ UN REPLI N'ÉCRASE JAMAIS UNE VERSION RÉDIGÉE DE LA MÊME SEMAINE (24/09). Constaté en base : la
+     semaine du 14-18/09, rédigée par l'IA, a été remplacée le 24/09 par un repli (v1, titre anglais,
+     aucune analyse par devise) sorti d'une nouvelle tentative ratée — en mémoire ET dans le stockage
+     durable, donc pour toujours. Un échec de rédaction ne doit rien retirer de ce qui existait. */
+  if (!(weekly.v >= 2)) {
+    const _mieux = allNews.find(i => i && i._reportType === 'Weekly Market Recap' && String(i.id || '').startsWith(weekPrefix) && i._weekly && (i._weekly.v || 0) >= 2);
+    if (_mieux) { console.warn('[Weekly Recap] repli NON publié : ' + weekKey + ' a déjà une version rédigée (v' + _mieux._weekly.v + ')'); return _mieux; }
+  }
   // ÉCHANGE ATOMIQUE (build-then-swap) : on insère le nouveau recap ET on retire UNIQUEMENT l'ancienne version
   // de LA MÊME SEMAINE (startsWith weekPrefix), comme le GEW (ligne ~7417). AVANT, le filtre retirait TOUS les
   // Weekly Market Recap → l'historique des semaines passées était RASÉ à chaque génération (« je vois pas les
@@ -27651,6 +27767,18 @@ async function _gardienHebdo() {
   if (d.getUTCDay() === 6 && d.getUTCHours() === 0 && d.getUTCMinutes() < 30) return 'creneau';
   if (now < _gardienHebdoProchain) return 'attente';
   if (now - _weeklyGenLock < 15 * 60 * 1000) return 'verrou';
+  /* ⚠️ QUOTA FLASH À SEC : ON ATTEND SON RETOUR, ON NE VIDE PAS LE RESTE DE LA CHAÎNE (24/09).
+     MESURÉ en base : 146 appels « weekly » réussis le 24/09, et le récap de la semaine 14-18/09
+     enregistré… en REPLI (v1, titre anglais). Le récap hebdo est la rédaction la plus lourde du desk ;
+     lancée quand Flash est épuisé, sa partie globale échoue, le repli s'écrit, et la tentative
+     suivante recommence — en consommant au passage le quota dont le fil avait besoin pour rester en
+     français. Le créneau du samedi (00 h 05 UTC) tombe d'ailleurs à la FIN de la journée Pacifique,
+     quand le quota de la veille est déjà vidé : c'est pour ça que les hebdos sortaient avec des jours
+     de retard. Tant que Flash n'a plus aucun couple utilisable, le gardien ATTEND (sans compter une
+     tentative, sans allonger l'espacement) ; au retour du quota, il part. Au-delà de 48 h après le
+     samedi, on tente quand même : un hebdo très en retard vaut mieux qu'aucun. */
+  if (typeof ai !== 'undefined' && ai && typeof ai.flashDispo === 'function' && !ai.flashDispo()
+      && now - _expectedRecapSatTs() < 48 * 3600e3) return 'quota';
   _weeklyGenLock = now;
   _gardienHebdoProchain = now + _gardienHebdoPas;
   _gardienHebdoPas = Math.min(_gardienHebdoPas * 2, _GARDIEN_HEBDO_MAX_MS);

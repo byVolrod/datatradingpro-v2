@@ -90,6 +90,9 @@ async function _gemDecouvrir() {
       const j = await r.json();
       const dispo = new Set((j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => String(m.name || '').replace(/^models\//, '')));
       if (_gemAppliquerCatalogue(dispo)) {
+        // Le Gemma servi est choisi ICI, hors de _gemAppliquerCatalogue : cette fonction est éprouvée
+        // seule au banc (gemini-modeles-verif extrait sa tranche) et ne doit dépendre de rien d'autre.
+        _gemmaChoisir(dispo); _gemCatalogue.gemma = GEMMA_MODEL || null;
         console.log(`[AI] Catalogue Gemini : ${dispo.size} modèles servis · vivants : ${_gemLive(GEMINI_MODELS).join(', ') || 'aucun'}${_gemAjoutes.length ? ' · ajoutés : ' + _gemAjoutes.join(', ') : ''}`);
         return true;
       }
@@ -99,6 +102,150 @@ async function _gemDecouvrir() {
 }
 { const t1 = setTimeout(() => { _gemDecouvrir().catch(() => {}); }, 5000); if (t1.unref) t1.unref();
   const t2 = setInterval(() => { _gemDecouvrir().catch(() => {}); }, 6 * 3600e3); if (t2.unref) t2.unref(); }
+
+/* ══ GEMMA : LA CAPACITÉ DE MASSE DES MÊMES CLÉS (24/09, urgence « le fil repasse en anglais ») ═════
+   MESURÉ dans la télémétrie (`aitel:*`, 23 et 24/09) : Gemini Flash plafonne à ~250-280 réponses PAR
+   JOUR sur les 7 clés. Le palier gratuit n'est plus que de quelques dizaines de requêtes par modèle et
+   par projet : il se remplit à 07 h UTC (minuit Pacifique), se vide entre 11 h et 13 h UTC, et le fil
+   retombe en anglais tout le reste de la journée. Ajouter des clés ne change rien à cet ordre de
+   grandeur. Les MÊMES clés ouvrent pourtant les modèles Gemma, dont le palier gratuit est d'un tout
+   autre ordre (≈14 400 requêtes/jour, 30/min et 15 000 jetons/min par projet).
+   → Les tâches de MASSE (titres du fil : courtes, nombreuses) partent sur Gemma EN PREMIER, et Gemma
+   sert aussi de repli à toute tâche assez légère quand Flash est épuisé. Flash est ainsi gardé pour ce
+   qui en a besoin (rapports, JSON longs), au lieu d'être brûlé sur des titres dès le matin.
+   Deux différences d'API, gérées dans `_gemini` : pas d'instruction système (le contexte commun passe
+   en tête du message) et pas de réglage de réflexion. Le modèle est choisi dans le catalogue officiel
+   (le plus récent, puis le plus grand, ≥ 12 milliards de paramètres) ; GEMMA_MODEL le force, et
+   DTP_GEMMA=0 coupe toute la voie. Débit : on tient le compte des jetons envoyés par clé sur la
+   dernière minute, et on ne dépasse jamais 85% du plafond (GEMMA_TPM), 60% hors titres du fil. */
+const _estGemma = m => /^gemma-/i.test(String(m || ''));
+const GEMMA_ON = String(process.env.DTP_GEMMA || '1') !== '0';
+const GEMMA_FORCE = (process.env.GEMMA_MODEL || '').trim();
+let GEMMA_MODEL = GEMMA_ON ? (GEMMA_FORCE || 'gemma-3-27b-it') : '';
+const GEMMA_TPM = parseInt(process.env.GEMMA_TPM, 10) || 15000;
+function _gemmaRang(nom) {
+  const m = /^gemma-(\d+(?:\.\d+)?)-(\d+)b-it$/.exec(String(nom || ''));
+  if (!m || parseFloat(m[2]) < 12) return -1;
+  return parseFloat(m[1]) * 1000 + parseFloat(m[2]);
+}
+// Pure (aucun I/O) → éprouvée au banc. Nom forcé : écarté s'il n'est pas servi, jamais remplacé.
+function _gemmaChoisir(dispo) {
+  if (!GEMMA_ON || !dispo || !dispo.size) return GEMMA_MODEL;
+  if (GEMMA_FORCE) { if (!dispo.has(GEMMA_FORCE)) _gemMarkDead(GEMMA_FORCE, 'absent du catalogue Google'); return GEMMA_MODEL; }
+  const cands = [...dispo].filter(n => _gemmaRang(n) >= 0).sort((a, b) => _gemmaRang(b) - _gemmaRang(a));
+  if (cands.length) { GEMMA_MODEL = cands[0]; _gemModelDead.delete(GEMMA_MODEL); }
+  else if (GEMMA_MODEL) _gemMarkDead(GEMMA_MODEL, 'aucun Gemma servi par le catalogue');
+  return GEMMA_MODEL;
+}
+const _gemmaFen = new Map();   // idx → [[t, jetons], …] sur la dernière minute
+/* RÉSERVE POUR LE FIL : les tâches de fond qui retombent sur Gemma (Flash épuisé) ne prennent que 60% du
+   débit de chaque clé ; les titres du fil (masse) peuvent monter à 85%. Aux heures de pointe, c'est le fil
+   que les clients regardent : il garde toujours de quoi être traduit, même quand tout le reste se replie. */
+function _gemmaDebitOk(idx, jetons, masse) {
+  const now = Date.now(), f = (_gemmaFen.get(idx) || []).filter(x => now - x[0] < 60000);
+  _gemmaFen.set(idx, f);
+  return f.reduce((a, x) => a + x[1], 0) + jetons <= GEMMA_TPM * (masse ? 0.85 : 0.60);
+}
+function _gemmaDebitNote(idx, jetons) { const f = _gemmaFen.get(idx) || []; f.push([Date.now(), jetons]); _gemmaFen.set(idx, f); }
+function _gemmaJetons(prompt, maxTokens) { return Math.ceil((String(prompt || '').length + AI_SYSTEM.length + 400) / 3.2) + (maxTokens || 0); }
+/* FLASH A-T-IL ENCORE DE QUOI RÉPONDRE ? (lecture pure, aucun appel). Un couple (modèle vivant, clé)
+   hors attente et hors disjoncteur suffit. Sert aux rapports LOURDS (récap hebdo) : leur prompt dépasse
+   le débit de Gemma, et les lancer quand Flash est à sec ne fait que vider les autres fournisseurs
+   sur une rédaction vouée au repli. Ils attendent donc le retour du quota (minuit Pacifique). */
+function flashDispo() {
+  const n = GEMINI_KEYS.length; if (!n) return false;
+  for (const m of _gemLive(GEMINI_MODELS)) for (let i = 0; i < n; i++) if (!_gemIsCool(m, i) && !_hBroken(m, i)) return true;
+  return false;
+}
+// Utilisable pour CETTE requête ? (lecture pure : sert au routage ET au panneau)
+function gemmaDispo(prompt, maxTokens) {
+  if (!GEMMA_MODEL || !GEMINI_KEYS.length || _gemModelIsDead(GEMMA_MODEL)) return false;
+  return prompt == null || _gemmaJetons(prompt, maxTokens) <= GEMMA_TPM * 0.8;
+}
+
+/* ══ LES 400 DE GEMINI NE SONT PLUS DES PANNES DE CLÉ (24/09) ══════════════════════════════════════
+   CAPTURE du Moniteur IA : « Gemini 0/100 · 6 clés sans modèle utilisable · 6 breaker ouvert ·
+   dernière erreur HTTP 400 », et par clé « 54 refus ». Un 400 ne dit RIEN du quota : c'est soit la
+   REQUÊTE qui est refusée (contenu, paramètre), soit le MODÈLE qui ne sait pas faire ce qu'on lui
+   demande, soit la CLÉ (invalide, expirée, région, facturation). L'ancien code le traitait comme un
+   échec du couple (modèle, clé) : il retentait la même requête sur les 7 clés — 7 réponses
+   identiques — puis ouvrait un disjoncteur de 5 min sur chaque couple au 4e refus. Une requête
+   refusée par NATURE éteignait ainsi toutes les clés, et avec elles tout ce qui passait derrière.
+   Désormais le corps de la réponse est lu et le 400 est rangé :
+     · CLÉ → cette clé seule est mise de côté 6 h, pour tous ses modèles ; on passe à la clé suivante ;
+     · MODÈLE → le modèle est écarté 6 h pour toutes les clés ; on passe au modèle suivant ;
+     · REQUÊTE → rien n'est gelé ni disjoncté : on passe au modèle suivant, puis au fournisseur suivant.
+   Filet statistique : un modèle qui refuse en 400 des requêtes DIFFÉRENTES sur 3 clés différentes en
+   30 min sans une seule réussite est écarté comme un modèle cassé (un alias qui pointe ailleurs, un
+   paramètre qu'il n'accepte plus) — sans avoir à connaître son message à l'avance. */
+function _gem400Classe(corps) {
+  const t = String(corps || '');
+  if (/API_KEY_INVALID|API key (?:not valid|expired)|PERMISSION_DENIED|SERVICE_DISABLED|CONSUMER_SUSPENDED|billing|location is not supported|FAILED_PRECONDITION/i.test(t)) return 'cle';
+  if (/is not supported|not supported (?:by|for) (?:this|the) model|does not support|unsupported model|is not found for API version|not enabled for (?:this )?model|Developer instruction is not enabled|only works in|not available for (?:this|the) model/i.test(t)) return 'modele';
+  return 'requete';
+}
+const _gem400Req = new Map();   // modèle → [{ t, idx, h }] (fenêtre 30 min)
+const _gemOkAt = new Map();     // modèle → dernière réussite
+function _gemHash(p) { let h = 0; const s = String(p || ''); for (let i = 0; i < s.length; i += 7) h = (h * 31 + s.charCodeAt(i)) | 0; return h + ':' + s.length; }
+function _gem400Note(model, idx, prompt, now) {
+  now = now || Date.now();
+  const l = (_gem400Req.get(model) || []).filter(x => now - x.t < 30 * 60e3);
+  l.push({ t: now, idx, h: _gemHash(prompt) });
+  _gem400Req.set(model, l);
+  const cles = new Set(l.map(x => x.idx)).size, reqs = new Set(l.map(x => x.h)).size;
+  const okRecent = now - (_gemOkAt.get(model) || 0) < 30 * 60e3;
+  if (cles >= 3 && reqs >= 2 && !okRecent) { _gemMarkDead(model, 'HTTP 400 répétés sur ' + cles + ' clés', 6 * 3600e3); _gem400Req.delete(model); return true; }
+  return false;
+}
+function _gemCleCool(idx, ms) {
+  const fin = Date.now() + ms;
+  for (const m of [...GEMINI_MODELS, GEMMA_MODEL].filter(Boolean)) _gemCooldown.set(m + '|' + idx, Math.max(_gemCooldown.get(m + '|' + idx) || 0, fin));
+}
+// Traitement COMMUN d'un échec Gemini/Gemma. Rend la classe ; l'appelant en déduit s'il doit
+// changer de clé ('429', 'cle', '5xx', 'reseau') ou de modèle ('modele', 'requete').
+function _gemEchec(model, idx, e, prompt) {
+  const st = e && e.status;
+  _noteErreur(_estGemma(model) ? 'gemma' : 'gemini', e);
+  if (st === 404) { _gemMarkDead(model, 'HTTP 404 (modèle retiré par Google)'); return 'modele'; }
+  if (st === 429) {
+    if (!_estGemma(model)) { _gkNote(idx, 'e429', 429); _aiStat('gemini429'); }
+    _hFail(model, idx, true); _gemCool(model, idx, 429, e.retryDelayMs, e.quotaDaily); return '429';
+  }
+  if (!_estGemma(model)) _gkNote(idx, 'fail', st);
+  if (st === 400 || st === 403) {
+    const c = st === 403 ? 'cle' : _gem400Classe(e.corps || e.message);
+    if (c === 'cle') { _gemCleCool(idx, 6 * 3600e3); return 'cle'; }
+    if (c === 'modele') { _gemMarkDead(model, ('HTTP 400 : ' + String(e.message || '').replace(/^Gemini \S+ 400:\s*/, '')).slice(0, 80), 6 * 3600e3); return 'modele'; }
+    _gem400Note(model, idx, prompt); return 'requete';
+  }
+  _hFail(model, idx, false);
+  if (st >= 500) { _gemCool(model, idx, st); return '5xx'; }
+  return 'reseau';
+}
+let _gemmaCur = 0;
+async function _gemmaEssai(prompt, maxTokens, masse) {
+  const model = GEMMA_MODEL;
+  if (!gemmaDispo(prompt, maxTokens)) throw _errSaut('Gemma : indisponible pour cette requête');
+  const n = GEMINI_KEYS.length, jetons = _gemmaJetons(prompt, maxTokens);
+  _gemmaCur = (_gemmaCur + 1) % n;
+  let lastErr, tente = 0;
+  for (let i = 0; i < n; i++) {
+    const idx = (_gemmaCur + i) % n;
+    if (_gemIsCool(model, idx) || _hBroken(model, idx) || !_gemmaDebitOk(idx, jetons, masse)) continue;
+    _gemmaDebitNote(idx, jetons); tente++;
+    const t0 = Date.now();
+    try {
+      const out = await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens);
+      _hOk(model, idx, Date.now() - t0); _gemOkAt.set(model, Date.now()); _aiStat('gemma'); return out;
+    } catch (e) {
+      lastErr = e;
+      const c = _gemEchec(model, idx, e, prompt);
+      if (c === 'modele' || c === 'requete') break;
+    }
+  }
+  if (!tente) throw _errSaut('Gemma : toutes les clés en attente ou au débit maximal');
+  throw lastErr;
+}
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
 
@@ -169,7 +316,7 @@ const OPENROUTER_KEYS = (() => {
 let _orCursor = 0;
 const OPENROUTER_BASE   = process.env.OPENROUTER_URL || 'https://openrouter.ai/api/v1';
 const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS ||
-  'openai/gpt-oss-120b:free,openai/gpt-oss-20b:free,qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free,nousresearch/hermes-3-llama-3.1-405b:free')
+  'openai/gpt-oss-120b:free,openai/gpt-oss-20b:free,qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free')
   .split(',').map(s => s.trim()).filter(Boolean);
 
 // ── Groq (api.groq.com) — API OpenAI-compatible. ⚠️ RETIRÉ DE LA CASCADE le 23/09 (demande user : Groq
@@ -283,7 +430,10 @@ const _gemSansThinking = new Set();
 async function _gemini(model, key, prompt, maxTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   const _cfg = { maxOutputTokens: maxTokens, temperature: 0.4 };
-  if (!_gemSansThinking.has(model)) _cfg.thinkingConfig = { thinkingBudget: 0 };
+  // Gemma (même API, mêmes clés) n'accepte ni instruction système ni réglage de réflexion : le
+  // contexte commun passe donc EN TÊTE du message, à l'identique pour le modèle (voir GEMMA_MODEL).
+  const _gm = _estGemma(model);
+  if (!_gm && !_gemSansThinking.has(model)) _cfg.thinkingConfig = { thinkingBudget: 0 };
   // Timeout 20s : une requête Gemini bloquée ne doit jamais s'empiler / geler la file (anti-OOM/502)
   const _ctrl = new AbortController();
   const _to = setTimeout(() => _ctrl.abort(), 20000);
@@ -293,7 +443,10 @@ async function _gemini(model, key, prompt, maxTokens) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: _ctrl.signal,
-      body: JSON.stringify({
+      body: JSON.stringify(_gm ? {
+        contents: [{ role: 'user', parts: [{ text: _buildSystem() + '\n\n---\n\n' + prompt }] }],
+        generationConfig: _cfg,
+      } : {
         systemInstruction: { parts: [{ text: _buildSystem() }] },   // contexte commun + état LIVE du terminal
         contents: [{ parts: [{ text: prompt }] }],
         // thinkingBudget:0 → pas de "réflexion" qui consomme les tokens de sortie
@@ -305,8 +458,13 @@ async function _gemini(model, key, prompt, maxTokens) {
   if (!r.ok) {
     const t = await r.text().catch(() => '');
     if (r.status === 400 && _cfg.thinkingConfig && /thinking/i.test(t)) { _gemSansThinking.add(model); return _gemini(model, key, prompt, maxTokens); }
-    const err = new Error(`Gemini ${model} ${r.status}: ${t.slice(0, 150)}`);
+    // Le message utile de Google est DANS le corps JSON (error.message / error.status) : on le garde
+    // lisible pour la classification des 400 (_gem400Classe) et pour le journal d'erreurs.
+    let _gMsg = '';
+    try { const j = JSON.parse(t); _gMsg = [j && j.error && j.error.status, j && j.error && j.error.message].filter(Boolean).join(' : '); } catch {}
+    const err = new Error(`Gemini ${model} ${r.status}: ${(_gMsg || t).slice(0, 220)}`);
     err.status = r.status;
+    err.corps = t.slice(0, 1200);
     // Google renvoie souvent le délai à respecter dans le corps du 429 ("retryDelay": "37s") → on le lit
     if (r.status === 429) {
       const m = t.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/); if (m) err.retryDelayMs = Math.ceil(parseFloat(m[1]) * 1000);
@@ -390,7 +548,7 @@ async function _anthropic(prompt, maxTokens) {
       console.warn(`[AI] Claude clé #${idx + 1}/${n} échec${status ? ' (' + status + ')' : ''} [gel: ${reason}]: ${String(e.message).slice(0, 120)} → clé suivante`);
     }
   }
-  if (!tried) throw lastErr || new Error('Claude: toutes les clés sont en cooldown (crédit/auth/429) — aucune tentée');
+  if (!tried) throw lastErr || Object.assign(_errSaut('Claude : aucune clé tentée (crédit, accès ou débit en attente)'), { _knownState: true });
   throw lastErr || new Error('Toutes les clés Anthropic ont échoué');
 }
 
@@ -454,7 +612,7 @@ function _gkEtat() {
   });
 }
 // Suivi quotidien (visibilité "combien d'appels / 429 par jour").
-const _AI_STATS_ZERO = () => ({ gemini: 0, gemini429: 0, github: 0, githubFail: 0, openrouter: 0, openrouterFail: 0, groq: 0, groqFail: 0, cohere: 0, cohereFail: 0, cloudflare: 0, cloudflareFail: 0, xai: 0, xaiFail: 0, claude: 0, claudeFail: 0, fallback: 0 });
+const _AI_STATS_ZERO = () => ({ gemini: 0, gemini429: 0, gemma: 0, gemmaFail: 0, github: 0, githubFail: 0, openrouter: 0, openrouterFail: 0, groq: 0, groqFail: 0, cohere: 0, cohereFail: 0, cloudflare: 0, cloudflareFail: 0, xai: 0, xaiFail: 0, claude: 0, claudeFail: 0, fallback: 0 });
 const _AI_TOK_ZERO   = () => ({ geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, openrouterIn: 0, openrouterOut: 0, groqIn: 0, groqOut: 0, cohereIn: 0, cohereOut: 0, cloudflareIn: 0, cloudflareOut: 0, xaiIn: 0, xaiOut: 0, claudeIn: 0, claudeOut: 0 });
 let _aiDay = '', _aiStats = _AI_STATS_ZERO();
 function _aiStat(f, err) {
@@ -484,16 +642,41 @@ function _sansSecret(t) {
     .replace(/\b(sk-[\w-]{6,}|sk-ant-[\w-]{6,}|gsk_[\w]{6,}|ghp_[\w]{6,}|github_pat_[\w]{6,}|gho_[\w]{6,}|AIza[\w-]{10,}|xai-[\w-]{6,}|co-[\w]{10,})/g, '[clé masquée]');
 }
 
+/* ⚠️ « SANS CODE » MASQUAIT LA VRAIE CAUSE (24/09, capture du Moniteur IA). GitHub, Cohere et
+   Cloudflare affichaient tous « dernière erreur : sans code », 240 échecs, zéro réussite. Ce n'était
+   pas une erreur : c'était le message d'un fournisseur qu'on n'avait même pas APPELÉ, parce que
+   toutes ses clés étaient en attente (gelées après un vrai refus, ou budget du jour atteint). Ce
+   saut écrasait l'erreur réelle qui avait provoqué l'attente — la seule qui dise quoi réparer. Un
+   saut porte donc désormais la marque `saut` (_errSaut) : il est compté, daté, mais il ne remplace
+   plus jamais la dernière erreur RÉELLE. */
+function _errSaut(msg) { const e = new Error(msg); e.saut = true; return e; }
+/* JOURNAL des erreurs DISTINCTES par fournisseur (les 6 dernières), persisté par le serveur dans les
+   seaux horaires `aitel:*` : la cause d'une panne se lit après coup, sans accès au conteneur. */
+const _journalErr = {};
+function _journalErreur(f, e) {
+  const l = _journalErr[f] || (_journalErr[f] = []);
+  const cle = (e.status || '') + '|' + String(e.msg || '').replace(/\d+/g, '#').slice(0, 90);
+  const x = l.find(y => y.cle === cle);
+  if (x) { x.n++; x.der = e.at; x.msg = e.msg; } else { l.push({ cle, status: e.status, msg: e.msg, n: 1, prem: e.at, der: e.at }); }
+  l.sort((a, b) => b.der - a.der); l.length = Math.min(l.length, 6);
+}
 function _noteErreur(fournisseur, err) {
   try {
     const prev = _derniereErreur[fournisseur] || { n: 0 };
+    if (err && err.saut) {
+      _derniereErreur[fournisseur] = Object.assign({}, prev, { sauts: (prev.sauts || 0) + 1, sautAt: Date.now(), sautMsg: _sansSecret(err.message || '').slice(0, 120) });
+      if (!prev.at) _derniereErreur[fournisseur].msg = _derniereErreur[fournisseur].sautMsg;
+      return;
+    }
     _derniereErreur[fournisseur] = {
       status: (err && (err.status || err.statusCode)) || null,
-      msg: _sansSecret((err && (err.message || err)) || '').slice(0, 180),
-      at: Date.now(), n: prev.n + 1,
+      msg: _sansSecret((err && (err.message || err)) || '').slice(0, 220),
+      at: Date.now(), n: prev.n + 1, sauts: prev.sauts || 0, sautAt: prev.sautAt || 0,
     };
+    _journalErreur(fournisseur, _derniereErreur[fournisseur]);
   } catch {}
 }
+
 
 // ── Backoff GLOBAL de panne : signale aux boucles de fond de s'espacer ────────
 // Après 3 échecs TOTAUX consécutifs de generateText (tous providers down — le scénario de
@@ -799,7 +982,7 @@ async function _githubModels(prompt, maxTokens) {
       }
     }
   }
-  throw lastErr || new Error('GitHub Models: tous les (modèle, token) ont échoué (ou en cooldown)');
+  throw lastErr || _errSaut('GitHub Models : aucun appel (jetons en attente ou budget du jour atteint)');
 }
 
 // ── OpenRouter — cooldown PAR CLÉ (auth/crédit) ; rotation multi-clés ET multi-modèles ───────
@@ -807,6 +990,36 @@ async function _githubModels(prompt, maxTokens) {
 // clé est saine → on bascule de MODÈLE (même clé) sans geler la clé. On ne gèle la clé que sur
 // 401/403 (clé morte) ou 429 « rate-limited » côté compte.
 const _orCooldown = new Map();   // idx → fin de cooldown
+/* MODÈLES OPENROUTER RETIRÉS (24/09, capture : « HTTP 404 · modèle introuvable »). Les :free
+   changent sans préavis. Même traitement que Gemini : un 404 écarte le modèle 12 h, et le catalogue
+   PUBLIC (sans clé) est lu au démarrage puis toutes les 12 h — un modèle absent est écarté, et s'il
+   reste moins de deux modèles vivants on complète avec les gratuits servis des familles connues. */
+const _orModeleMort = new Map();   // modèle → fin d'écartement
+function _orModeleVivant(m) { const t = _orModeleMort.get(m); return !t || t < Date.now(); }
+const _OR_FAMILLES = /(?:llama-3\.3-70b|gpt-oss-120b|gpt-oss-20b|qwen3|deepseek-(?:chat|v3)|gemma-3-27b|mistral-small)/i;
+function _orAppliquerCatalogue(ids) {
+  if (!ids || !ids.size) return false;
+  for (const m of OPENROUTER_MODELS) { if (ids.has(m)) _orModeleMort.delete(m); else _orModeleMort.set(m, Date.now() + 12 * 3600e3); }
+  if (OPENROUTER_MODELS.filter(_orModeleVivant).length < 2) {
+    for (const id of [...ids].filter(i => /:free$/.test(i) && _OR_FAMILLES.test(i) && !OPENROUTER_MODELS.includes(i)).sort()) {
+      if (OPENROUTER_MODELS.filter(_orModeleVivant).length >= 4) break;
+      OPENROUTER_MODELS.push(id);
+    }
+  }
+  return true;
+}
+async function _orDecouvrir() {
+  if (!OPENROUTER_KEYS.length) return false;
+  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const r = await fetch(OPENROUTER_BASE + '/models', { signal: ctrl.signal });
+    if (!r.ok) return false;
+    const j = await r.json();
+    return _orAppliquerCatalogue(new Set((j.data || []).map(m => String(m.id || '')).filter(Boolean)));
+  } catch { return false; } finally { clearTimeout(to); }
+}
+{ const o1 = setTimeout(() => { _orDecouvrir().catch(() => {}); }, 9000); if (o1.unref) o1.unref();
+  const o2 = setInterval(() => { _orDecouvrir().catch(() => {}); }, 12 * 3600e3); if (o2.unref) o2.unref(); }
 function _orCool(idx, status) { _orCooldown.set(idx, Date.now() + ((status === 401 || status === 403) ? 6 * 3600 * 1000 : status === 429 ? 5 * 60 * 1000 : 60000)); }
 function _orIsCool(idx) { const t = _orCooldown.get(idx); return !!t && t > Date.now(); }
 async function _openrouter(prompt, maxTokens) {
@@ -818,6 +1031,7 @@ async function _openrouter(prompt, maxTokens) {
     const key = OPENROUTER_KEYS[idx];
     // Les modèles :free sont flaky → on en tente plusieurs jusqu'à une vraie réponse.
     for (const model of OPENROUTER_MODELS) {
+      if (!_orModeleVivant(model)) continue;   // retiré (404 ou absent du catalogue) → plus un seul appel perdu dessus
       const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
       try {
         const r = await fetch(OPENROUTER_BASE + '/chat/completions', {
@@ -837,11 +1051,15 @@ async function _openrouter(prompt, maxTokens) {
       } catch (e) {
         lastErr = e;
         if (e.status === 401 || e.status === 403) { _orCool(idx, e.status); break; }   // clé morte → gèle la clé, modèles inutiles
+        // 404 « No endpoints found matching your data policy » : ce n'est PAS le modèle, c'est un RÉGLAGE
+        // du compte (Privacy → autoriser les modèles gratuits). Tous les :free répondraient pareil.
+        if (e.status === 404 && /data policy|privacy|guardrail/i.test(String(e.message))) { e.message = 'OpenRouter 404 : réglage du compte à changer (Settings → Privacy → autoriser les modèles gratuits). ' + String(e.message).slice(0, 80); _orCool(idx, 403); break; }
+        if (e.status === 404) _orModeleMort.set(model, Date.now() + 12 * 3600e3);   // modèle retiré → écarté 12 h
         // 429/5xx/timeout = CE modèle saturé → modèle suivant (même clé), sans geler la clé
       } finally { clearTimeout(t); }
     }
   }
-  throw lastErr || new Error('OpenRouter: toutes les clés/modèles ont échoué (ou en cooldown)');
+  throw lastErr || _errSaut('OpenRouter : aucun appel (clés en attente ou modèles écartés)');
 }
 
 // ── Cooldown générique PAR CLÉ (Groq/Cohere/xAI) : auth/crédit = long (6 h), 429 = court, réseau = 1 min ──
@@ -896,7 +1114,7 @@ async function _oaiCompatible(cfg, prompt, maxTokens) {
       } finally { clearTimeout(t); }
     }
   }
-  throw lastErr || new Error(name + ': toutes les clés/modèles ont échoué (ou en cooldown)');
+  throw lastErr || _errSaut(name + ' : aucun appel (clés en attente)');
 }
 function _groq(prompt, maxTokens) { return _oaiCompatible({ name: 'Groq', base: GROQ_BASE, keys: GROQ_KEYS, models: GROQ_MODELS, cool: _groqCool, cur: _groqCur, stat: 'groq' }, prompt, maxTokens); }
 function _xai(prompt, maxTokens)  { return _oaiCompatible({ name: 'xAI',  base: XAI_BASE,  keys: XAI_KEYS,  models: XAI_MODELS,  cool: _xaiCool,  cur: _xaiCur,  stat: 'xai'  }, prompt, maxTokens); }
@@ -934,7 +1152,7 @@ async function _cohere(prompt, maxTokens) {
       } finally { clearTimeout(t); }
     }
   }
-  throw lastErr || new Error('Cohere: toutes les clés/modèles ont échoué (ou en cooldown)');
+  throw lastErr || _errSaut('Cohere : aucun appel (clés en attente)');
 }
 
 // ── Groq STREAMING (chat) — SSE OpenAI-compatible, ultra-rapide → tenté EN PREMIER dans generateTextStream.
@@ -1181,6 +1399,13 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
      seconde gagnée pour celui qui peut répondre. Rien n'est sauté tant que rien n'est appris. */
   const _bud = budgetAppel(prompt, maxTokens);
   const _saute = (prov) => { if (_plafAutorise(prov, _bud)) return false; console.warn(`[AI] ${prov} saut\u00e9 : ${_bud} jetons demand\u00e9s > plafond appris ${plafondDe(prov)}`); return true; };
+  // ── TÂCHES DE MASSE (opts.masse : titres du fil…) → GEMMA D'ABORD ────────────────────────────
+  // Courtes et nombreuses : elles vidaient le quota de Flash avant midi. Gemma les absorbe ; Flash
+  // n'est sollicité que si Gemma ne répond pas (et reste alors disponible pour tout le reste).
+  if (opts.masse && GEMMA_ON && gemmaDispo(prompt, maxTokens)) {
+    try { const out = await _gemmaEssai(prompt, maxTokens, true); if (opts.meta) opts.meta.fournisseur = 'gemma'; return out; }
+    catch (e) { if (!e.saut) console.warn(`[AI] Gemma (masse) échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → cascade`); _aiStat('gemmaFail', e); }
+  }
   // ── PRINCIPAL : Groq (gratuit, latence minimale) ─────────────────────────────
   // Tenté AVANT Gemini : capacité free la plus fiable du moment, et on évite le gate anti-rafale
   // Gemini (_gemBucketGate, jusqu'à 6 s d'attente) sur le chemin nominal. _groq gère en interne
@@ -1213,25 +1438,30 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
       cand.sort((a, b) => _hScore(model, b) - _hScore(model, a));   // meilleure santé d'abord
       for (const idx of cand) {
         const t0 = Date.now();
-        try { const out = await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens); notePlafondOk('gemini', _bud); _hOk(model, idx, Date.now() - t0); _aiStat('gemini'); _gkNote(idx, 'ok'); return out; }
+        try { const out = await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens); notePlafondOk('gemini', _bud); _hOk(model, idx, Date.now() - t0); _gemOkAt.set(model, Date.now()); _aiStat('gemini'); _gkNote(idx, 'ok'); return out; }
         catch (e) {
-          lastErr = e; const is429 = e.status === 429;
-          // 404 = le MODÈLE est retiré chez Google, pas la clé : on l'écarte pour TOUTES les clés et on passe
-          // au modèle suivant tout de suite (avant : retenté sur les 7 clés, 7 couples gelés 6 h chacun).
-          if (e.status === 404) { _gemMarkDead(model, 'HTTP 404 (modèle retiré par Google)'); console.warn(`[AI] Gemini ${model} : 404 → modèle écarté pour toutes les clés`); break; }
-          _gkNote(idx, is429 ? 'e429' : 'fail', e.status);
+          lastErr = e;
           if (estRefusTaille(e)) notePlafondKo('gemini', _bud);
-          _hFail(model, idx, is429);
-          _noteErreur('gemini', e);
-          if (is429) { _gemCool(model, idx, 429, e.retryDelayMs, e.quotaDaily); _aiStat('gemini429'); }
-          else if (e.status === 503 || e.status === 500) _gemCool(model, idx, e.status);
-          console.warn(`[AI] Gemini ${model} clé #${idx + 1}/${n} échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suivant`);
+          // Classement COMMUN (_gemEchec) : 404/modèle → modèle écarté pour toutes les clés ; 400 de
+          // requête → ni gel ni disjoncteur, la même requête serait refusée par les 7 clés ; clé → cette
+          // clé seule mise de côté ; 429/5xx/réseau → comme avant, par couple (modèle, clé).
+          const c = _gemEchec(model, idx, e, prompt);
+          console.warn(`[AI] Gemini ${model} clé #${idx + 1}/${n} échec${e.status ? ' (' + e.status + ')' : ''} [${c}]: ${String(e.message).slice(0, 110)} → ${c === 'modele' || c === 'requete' ? 'modèle suivant' : 'clé suivante'}`);
+          if (c === 'modele' || c === 'requete') break;
         }
       }
     }
-    // Groq (principal) a déjà été tenté plus haut → il ne compte plus comme maillon restant ici.
-    if (!GITHUB_TOKENS.length && !OPENROUTER_KEYS.length && !COHERE_KEYS.length && claudeOff) throw lastErr || new Error('Groq/Gemini indisponibles');
   }
+
+  // ── Repli n°2 : GEMMA (mêmes clés, quota gratuit ~50× celui de Flash) ─────────────────────────
+  // Tenté même quand l'enveloppe Gemini (noGemini) est vide : elle pace le quota de FLASH, pas celui de
+  // Gemma. Une requête trop lourde pour son débit (15 000 jetons/min) le saute sans appel.
+  if (!opts.masse && GEMMA_ON && gemmaDispo(prompt, maxTokens)) {
+    try { const out = await _gemmaEssai(prompt, maxTokens); if (opts.meta) opts.meta.fournisseur = 'gemma'; return out; }
+    catch (e) { if (!e.saut) console.warn(`[AI] Gemma échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('gemmaFail', e); }
+  }
+  // Groq (principal) a déjà été tenté plus haut → il ne compte plus comme maillon restant ici.
+  if (!GITHUB_TOKENS.length && !OPENROUTER_KEYS.length && !COHERE_KEYS.length && !CLOUDFLARE_KEYS.length && claudeOff) throw new Error('Gemini/Gemma indisponibles');
 
   // ── Repli gratuit AVANT Claude ──────────────────────────────────────────────
   // Ordre : github/openrouter (ordre APPRIS, borné) → Cohere (free trial) → xAI (PAYANT, gaté par
@@ -1316,6 +1546,10 @@ function status() {
     geminiModelsLive: _gemLive(GEMINI_MODELS),
     geminiModelsDead: [..._gemModelDead.entries()].filter(([, d]) => d.until > Date.now()).map(([m, d]) => ({ m, raison: d.raison, until: d.until })),
     geminiCatalogue: _gemCatalogue,                                                                  // dernier catalogue Google lu (nb de modèles, ajouts automatiques)
+    gemma: { on: GEMMA_ON, model: GEMMA_MODEL || null, dispo: gemmaDispo(null), tpm: GEMMA_TPM,             // voie de MASSE (mêmes clés, quota ~14 400/j)
+      raison: GEMMA_MODEL && _gemModelIsDead(GEMMA_MODEL) ? (_gemModelDead.get(GEMMA_MODEL) || {}).raison : null },
+    journalErreurs: JSON.parse(JSON.stringify(_journalErr)),                                         // erreurs DISTINCTES récentes par fournisseur (persistées dans aitel:*)
+    openrouterModelesEcartes: [..._orModeleMort.entries()].filter(([, t]) => t > Date.now()).map(([m]) => m),
     // ── AI Traffic Intelligence ──
     intel: {
       rpmTarget: _GEM_RPM,
@@ -1344,6 +1578,8 @@ module.exports = {
   setFallbackOrder,
   budgetAppel, estRefusTaille, notePlafondOk, notePlafondKo, plafondDe, budgetSur, plafonds, setPlafonds,
   setLiveContext,
+  gemmaDispo,
+  flashDispo,
   hasAnthropic,
   claudeUsable,
   backoffActive,

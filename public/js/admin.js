@@ -1820,9 +1820,12 @@
       const e = ERR[k]; if (!e || !e.at) return [];
       const min = Math.max(0, Math.round((Date.now() - e.at) / 60000));
       const quand = min < 1 ? 'à l’instant' : min < 60 ? 'il y a ' + min + ' min' : 'il y a ' + Math.round(min / 60) + ' h';
-      const code = e.status ? 'HTTP ' + e.status + (cause(e.status) ? ' · ' + cause(e.status) : '') : 'sans code';
+      const code = e.status ? 'HTTP ' + e.status + (cause(e.status) ? ' · ' + cause(e.status) : '') : (/fetch failed|aborted|timeout/i.test(e.msg || '') ? 'réseau ou délai dépassé' : 'sans code');
       const esc2 = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-      return [['Dernière erreur', `<span title="${esc2(e.msg)}">${esc2(code)} · ${quand}</span>`]];
+      /* 24/09 : le MESSAGE s'affiche en clair (il n'était lisible qu'au survol : invisible sur téléphone),
+         et un fournisseur sauté (clés en attente) ne masque plus l'erreur réelle qui l'a mis en attente. */
+      const saut = e.sauts ? `<span style="display:block;color:#6b7280;font-weight:400">sauté ${e.sauts} fois depuis (en attente)</span>` : '';
+      return [['Dernière erreur', `${esc2(code)} · ${quand}<span style="display:block;color:#8b8f98;font-weight:400;font-size:10.5px;line-height:1.35;margin-top:2px;word-break:break-word">${esc2(String(e.msg || '').slice(0, 160))}</span>${saut}`]];
     };
     const card = (label, tier, score, rows, chips, cle, extra) => {
       const col = _hcol(score);
@@ -1851,7 +1854,10 @@
     }).join('') + '</details>' : '';
     document.getElementById('aim-providers').innerHTML =
       card('Gemini', 'gratuit', h.gemini, [
-        ['Clés', g.keys + ' (' + (g.coolingKeys || 0) + ' gelée' + ((g.coolingKeys || 0) > 1 ? 's' : '') + ')'], ['Modèles actifs', gLive.length ? escG(gLive.join(', ')) : 'aucun'], ['Appels aujourd’hui', g.callsToday + ''], ['Erreurs 429', g.err429Today + ''], ['RPM effectif', (g.effRpm || 0) + ' / ' + (g.rpmTarget || 0)],
+        ['Clés', g.keys + ' (' + (g.coolingKeys || 0) + ' gelée' + ((g.coolingKeys || 0) > 1 ? 's' : '') + ')'], ['Modèles actifs', gLive.length ? escG(gLive.join(', ')) : 'aucun'],
+        // 24/09 : Gemma = voie de MASSE sur les mêmes clés (quota ~14 400/j), qui porte les titres du fil.
+        ['Gemma (titres du fil)', P.gemma && P.gemma.model ? escG(P.gemma.model) + ' · ' + (P.gemma.callsToday || 0) + ' ok · ' + (P.gemma.failToday || 0) + ' échec(s)' + (P.gemma.raison ? ' · écarté : ' + escG(P.gemma.raison) : '') : 'désactivé'],
+        ['Traduction de secours', P.trSecours ? ((P.trSecours.myMemoryLignes || 0) + (P.trSecours.deeplLignes || 0)) + ' ligne(s) sauvée(s) · ' + (P.trSecours.deepl ? 'DeepL + MyMemory' : 'MyMemory') + (P.trSecours.err ? ' · ' + escG(P.trSecours.err) : '') : '-'], ['Appels aujourd’hui', g.callsToday + ''], ['Erreurs 429', g.err429Today + ''], ['RPM effectif', (g.effRpm || 0) + ' / ' + (g.rpmTarget || 0)],
       ], [chip('fournisseur principal', 'aim-chip--ok'), g.coolingKeys ? chip(g.coolingKeys + ' clé(s) sans modèle utilisable') : chip('clés OK', 'aim-chip--ok'), g.breakersOpen ? chip(g.breakersOpen + ' breaker ouvert') : '',
           ...gDead.map(d => chip('retiré : ' + escG(d.m) + ' (écarté auto)')), ...gAjout.map(m => chip('ajouté : ' + escG(m), 'aim-chip--ok'))].filter(Boolean), 'gemini', gKeysHtml)
       + card('GitHub Models', 'gratuit', h.github, gh.tokens ? [
