@@ -365,6 +365,9 @@
     background:radial-gradient(circle,rgba(255,160,90,.09) 0%,transparent 62%);filter:blur(38px);z-index:0;pointer-events:none}
   .hero-grid{display:grid;grid-template-columns:.92fr 1.08fr;gap:46px;align-items:center;position:relative;z-index:1}
   .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange2);margin-bottom:22px;font-family:var(--tight);animation:heroFadeUp .5s ease .0s both}
+  /* Bandeau DANS le H1 (24/09) : il y reste sur sa propre ligne, à sa taille, sans hériter de
+     l'interlignage serré ni de l'animation décalée du titre. */
+  h1 .eyebrow{display:flex;width:fit-content;line-height:normal;font-weight:700;animation:none}
   .eyebrow .pulse{width:7px;height:7px;border-radius:50%;background:var(--orange);box-shadow:0 0 0 0 rgba(230,189,77,.6);animation:p 2.2s infinite}
   @keyframes p{0%{box-shadow:0 0 0 0 rgba(230,189,77,.5)}70%{box-shadow:0 0 0 9px rgba(230,189,77,0)}100%{box-shadow:0 0 0 0 rgba(230,189,77,0)}}
   h1{font-family:var(--serif);font-weight:500;font-size:clamp(42px,5.6vw,70px);line-height:1.02;letter-spacing:-.015em;animation:heroFadeUp .5s ease .08s both}
@@ -1247,8 +1250,13 @@
 <header class="hero">
   <div class="wrap hero-grid">
     <div class="hero-l">
-      <div class="eyebrow"><span class="pulse"></span>Terminal macro &amp; forex · en français</div>
-      <h1>Tout le marché.<br><span class="em accent">Un seul écran.</span></h1>
+      <!-- ⚠️ LA REQUÊTE VISÉE DANS LE H1, SANS RIEN CHANGER À L'ÉCRAN (24/09). Le H1 disait « Tout le
+           marché. Un seul écran. » : un slogan, qui ne contient pas « terminal de trading ». Mesuré le
+           même jour : sur « terminal de trading forex français », c'est notre GUIDE qui sortait, pas
+           l'accueil, et la page classée première portait la requête dans son titre ET son H1. Le
+           bandeau doré au-dessus du titre passe donc DANS le H1 (même classe, même rendu), et il
+           nomme la requête telle qu'on la tape. -->
+      <h1><span class="eyebrow"><span class="pulse"></span>Terminal de trading forex &amp; macro · en français</span>Tout le marché.<br><span class="em accent">Un seul écran.</span></h1>
       <p class="sub">Le <strong>terminal de trading forex &amp; macro</strong> en français : news en temps réel, Smart Bias, force des devises, calendrier économique et recherche institutionnelle. Agrégés, filtrés et prêts à l'action.</p>
       <!-- ⚠️ DEUX BOUTONS, PLUS TROIS (03/09). Ils étaient trois côte à côte, dont « Explorer les
            modules » qui ne fait que descendre la page — c'est-à-dire ce que le visiteur fait déjà en
@@ -1826,10 +1834,10 @@
         <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-calendar-days"></i></div><h3><a href="/documentation/calendrier.html">Calendrier économique</a></h3></div><p>Chaque publication à son heure de Paris, avec le consensus, le précédent et le réel dès qu'il tombe.</p></div>
         <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-list"></i></div><h3>Liste FX</h3></div><p>Vos paires sous les yeux en permanence : cours, variation du jour, et le graphique en un clic.</p></div>
         <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-calendar-week"></i></div><h3>Semaine à Venir</h3></div><p>Ce qui attend le marché sur les sept prochains jours, trié par impact, avant que la semaine commence.</p></div>
-        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-percent"></i></div><h3>Taux directeurs</h3></div><p>Le taux de chaque banque centrale, et ce que le marché price déjà pour les prochaines réunions.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-percent"></i></div><h3>Taux directeurs et probabilités</h3></div><p>Le taux de chaque grande banque centrale, sa prochaine réunion, et la probabilité de hausse, de statu quo ou de baisse que le marché lui attribue, lue sur les contrats à terme de taux quand ils existent.</p></div>
         <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-building-columns"></i></div><h3><a href="/documentation/positions-banques.html">Banques</a></h3></div><p>Les transactions publiées par les grandes banques : entrée, objectif, stop, et leur statut.</p></div>
-        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-book"></i></div><h3>Journal de Trading</h3></div><p>Vos trades consignés, avec statistiques, courbe de performance et tableau de bord — importables depuis Notion ou un CSV.</p></div>
-        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-calculator"></i></div><h3>Calculatrice de position</h3></div><p>La taille à prendre pour le risque que vous acceptez, sans la calculer de tête.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-book"></i></div><h3>Journal de Trading</h3></div><p>Vos trades consignés sur plusieurs comptes (compte personnel, challenge de prop firm), avec statistiques, courbe de performance et tableau de bord, importables depuis Notion ou un CSV.</p></div>
+        <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-calculator"></i></div><h3>Taille de position et Kelly</h3></div><p>La taille de lot à prendre pour le risque que vous acceptez, et le critère de Kelly pour dimensionner selon vos propres statistiques, sans rien calculer de tête.</p></div>
         <div class="mcard"><div class="lead"><div class="bic"><i class="fa-solid fa-mobile-screen"></i></div><h3>Sur votre téléphone</h3></div><p>Le terminal s'installe depuis l'écran d'accueil et suit chaque mise à jour sans rien télécharger.</p></div>
     </div>
   </div>
