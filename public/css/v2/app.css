@@ -653,3 +653,6 @@ html.dtp-app #v2a-ia .ai-spark-txt { font: 800 13px/1 'Inter Tight', system-ui, 
 .v2a-wp-aide > b:first-child { display: block; margin-bottom: 4px; color: var(--v2a-or, #e3b23a); }
 .v2a-wp-msg { padding: 12px 16px; color: #34d399; font: 13.5px/1.45 'Inter', sans-serif; background: rgba(0,230,118,.06); }
 .v2a-wp-msg.v2a-wp-err { color: #ff8a65; background: rgba(255,61,0,.07); }
+
+/* ── Widgets V3 embarqués dans l'écran Marchés (Multi-actifs, Carte du monde) : bord à bord ── */
+html.dtp-app .v2a-embarque { margin: 10px -18px -16px; border-top: 1px solid #1c1c20; border-radius: 0 0 12px 12px; overflow: hidden; }

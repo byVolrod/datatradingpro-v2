@@ -49,6 +49,10 @@
     var ca = document.createElement('script');
     ca.src = '/js/v2/carte.js?v=' + VER; ca.defer = true;
     document.head.appendChild(ca);
+    // Multi-actifs (V3) : métaux, énergie, indices, crypto, taux et volatilité.
+    var mu = document.createElement('script');
+    mu.src = '/js/v2/multi.js?v=' + VER; mu.defer = true;
+    document.head.appendChild(mu);
   }
 
   function poserInterrupteur() {

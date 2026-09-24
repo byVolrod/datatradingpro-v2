@@ -46,6 +46,24 @@ const dep = new Function('allItems', SRC.slice(debut, fin) + '; return depeches(
 ]);
 t('fenêtre : seule la dépêche récente ET rattachable est retenue', dep.length === 1 && dep[0].it.id === 'a' && dep[0].passages[0] === 'hormuz');
 
+console.log('\n── 1 bis. Multi-actifs : le calcul de ligne réel de server.js ──');
+{
+  const SRV = fs.readFileSync(path.join(R, 'server.js'), 'utf8');
+  const a = SRV.indexOf('function _multiLigne('), b = SRV.indexOf('async function _multiLire(');
+  t('la fonction _multiLigne est extractible', a > 0 && b > a);
+  const ligne = new Function(SRV.slice(a, b) + '; return _multiLigne;')();
+  const brut = (prix, prec, closes) => ({ chart: { result: [{ meta: { regularMarketPrice: prix, chartPreviousClose: prec, marketState: 'REGULAR' }, indicators: { quote: [{ close: closes }] } }] } });
+  const closes = Array.from({ length: 200 }, (_, i) => 2600 + i * 0.3);
+  const or = ligne(['GC=F', 'Or', 'XAU/USD', 2], brut(2654.3, 2632.2, closes.concat([null])));
+  t('or : variation en pourcent depuis la clôture précédente', or.ok && Math.abs(or.chg - 0.84) < 0.01, JSON.stringify({ chg: or.chg }));
+  t('… courbe réduite à 48 points environ, trous écartés', or.spark.length <= 50 && or.spark.length >= 40 && or.spark.every(v => Number.isFinite(v)));
+  t('… plus haut et plus bas de séance lus sur la courbe', or.haut === 2659.7 && or.bas === 2600);
+  const dix = ligne(['^TNX', 'US 10 ans', 'US10Y', 2, 1], brut(3.781, 3.739, [3.74, 3.76, 3.781]));
+  t('rendement US 10 ans : variation en POINTS DE BASE (+4,2 pb), pas en pourcent de lui-même', dix.rendement && Math.abs(dix.chg - 4.2) < 0.05, String(dix.chg));
+  const muet = ligne(['NG=F', 'Gaz naturel', 'NG', 3], null);
+  t('instrument muet : ligne conservée, marquée indisponible (jamais une ligne qui disparaît)', muet.ok === false && muet.nom === 'Gaz naturel');
+}
+
 console.log('\n── 2. Rendu dans Chromium ──');
 (async () => {
   let pp, nav;
@@ -121,6 +139,24 @@ console.log('\n── 2. Rendu dans Chromium ──');
     t('Points de passage : Ormuz, nommé par l’actualité, passe au rouge', r3.rouges >= 1 && /Détroit d’Ormuz · 1/.test(r3.lib), r3.lib);
     t('Ressources « Or » : les États-Unis éclairés, l’Iran non (hors liste)', !!r3.usOr && !r3.irOr);
     t('Banques centrales : la Fed porte son taux lu sur /api/rates', r3.bc.some(x => /^Fed 3,88%$/.test(x)), r3.bc.join('|'));
+    // Multi-actifs : la grille se monte, un instrument muet reste listé.
+    const MULTI = fs.readFileSync(path.join(R, 'public/js/v2/multi.js'), 'utf8');
+    await page.evaluate(() => {
+      window._declare = null;
+      const D = { at: Date.now(), classes: [
+        { k: 'metaux', n: 'Métaux', items: [{ ok: true, nom: 'Or', code: 'XAU/USD', prix: 2654.3, prec: 2632.2, chg: 0.84, dec: 2, haut: 2660, bas: 2630, spark: [1, 2, 3, 2, 4] }] },
+        { k: 'energie', n: 'Énergie', items: [{ ok: false, nom: 'Gaz naturel', code: 'NG' }] },
+        { k: 'taux', n: 'Taux et volatilité', items: [{ ok: true, nom: 'US 10 ans', code: 'US10Y', prix: 3.781, prec: 3.739, chg: 4.2, dec: 2, rendement: true, haut: 3.79, bas: 3.73, spark: [3, 2, 4] }] } ] };
+      window.fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve(D) });
+      const m = document.createElement('div'); m.id = 'm'; m.style.cssText = 'width:700px;height:400px'; document.body.appendChild(m);
+    });
+    await page.addScriptTag({ content: MULTI });
+    await page.evaluate(() => window._v3MultiMonter(document.getElementById('m')));
+    await new Promise(r => setTimeout(r, 400));
+    const rm = await page.evaluate(() => { const m = document.getElementById('m'); return { n: m.querySelectorAll('.v3m-l').length, txt: m.textContent, dec: window._declare && window._declare.id }; });
+    t('Multi-actifs : trois lignes, dont le gaz « indisponible » (pas effacé)', rm.n === 3 && /Gaz naturel.*indisponible/.test(rm.txt));
+    t('… or en pourcent (+0,84%), US 10 ans en points de base (+4,2 pb)', /\+0,84%/.test(rm.txt) && /\+4,2 pb/.test(rm.txt), rm.txt.slice(0, 200));
+    t('… le widget se déclare au catalogue : id v3-multi', rm.dec === 'v3-multi');
     t('aucune erreur de page', erreurs.length === 0, erreurs.join(' | '));
   } catch (e) { t('rendu Chromium', false, e.message); }
   finally { if (nav) await nav.close(); }

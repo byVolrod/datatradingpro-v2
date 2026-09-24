@@ -427,6 +427,9 @@
         + '<div class="v2a-carte"><div class="v2a-carte-titre">Force des devises</div>'
         + '<div class="v2a-ut">' + UT.map(function (u) { return '<button type="button" data-ut="' + u[0] + '"' + (u[0] === periode ? ' class="v2a-ut-on"' : '') + '>' + u[1] + '</button>'; }).join('') + '</div>'
         + '<div id="v2a-force"><div class="v2a-attente">Chargement…</div></div></div>'
+        // Même grille et même carte que le desk V3 (cohérence desk / app, demande user du 24/09).
+        + '<div class="v2a-carte"><div class="v2a-carte-titre">Multi-actifs</div><div id="v2a-multi" class="v2a-embarque" style="height:460px"></div></div>'
+        + '<div class="v2a-carte"><div class="v2a-carte-titre">Carte du monde</div><div id="v2a-carte-monde" class="v2a-embarque" style="height:420px"></div></div>'
         + '<div class="v2a-carte v2a-outils"><div class="v2a-carte-titre">Outils du desk</div><div class="v2a-grille">'
         + OUTILS.filter(function (o) { return existe(o.v); }).map(function (o) { return '<button type="button" class="v2a-tuile" data-v2v="' + o.v + '">' + svg(o.ico, 22) + '<span>' + o.t + '</span></button>'; }).join('')
         + '<button type="button" class="v2a-tuile" id="v2a-detail">' + svg(I.horloge, 22) + '<span>Horloges & sessions</span></button>'
@@ -444,6 +447,11 @@
       });
       document.getElementById('v2a-detail').addEventListener('click', function () { vibre(); montrerEcran(null); pile.push('markets'); window.activateView('markets'); marquer('markets'); H.classList.add('v2a-sous-ecran'); var r = document.getElementById('v2a-retour'); if (r) r.hidden = false; });
     }
+    // Les deux widgets V3 se montent une fois (ils se relisent seuls) ; leurs scripts peuvent arriver
+    // après l'écran : on réessaie à chaque ouverture tant qu'ils ne sont pas là.
+    var mu = document.getElementById('v2a-multi'), cm = document.getElementById('v2a-carte-monde');
+    if (mu && !mu._monte && typeof window._v3MultiMonter === 'function') { mu._monte = true; window._v3MultiMonter(mu); }
+    if (cm && !cm._monte && typeof window._v3CarteMonter === 'function') { cm._monte = true; window._v3CarteMonter(cm, {}); }
     chargerRisque(); chargerForce();
     arreterMarches();
     minuterie = setInterval(function () { if (document.visibilityState === 'visible') { chargerRisque(); chargerForce(); } }, 60000);

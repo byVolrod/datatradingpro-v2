@@ -31827,6 +31827,72 @@ async function _dmxHistRelever() {
 }
 setTimeout(_dmxHistRelever, 3 * 60e3);
 setInterval(_dmxHistRelever, 60 * 60e3);
+/* ═══ V3 · MULTI-ACTIFS (24/09, admin) ═════════════════════════════════════════════════════════════
+   Demande user : « prendre en compte les métaux, la crypto… pour les traders qui sont sur ces
+   marchés ». Une route, cinq classes (métaux, énergie, indices, crypto, taux et volatilité), le même
+   fournisseur que le bandeau de cotations (Yahoo, _yfChart : session puis repli sans session).
+   Par instrument : dernier prix, variation du jour, plus haut / plus bas de séance et une courbe de
+   séance réduite à 48 points (assez pour la lire, assez peu pour ne rien peser).
+   Anti-OOM : cache 90 s partagé, UNE lecture à la fois (verrou), 4 requêtes en parallèle au plus, et
+   un instrument muet n'empêche jamais les autres de s'afficher. */
+const _MULTI_CLASSES = [
+  { k: 'metaux', n: 'Métaux', items: [['GC=F', 'Or', 'XAU/USD', 2], ['SI=F', 'Argent', 'XAG/USD', 3], ['PL=F', 'Platine', 'XPT/USD', 1], ['PA=F', 'Palladium', 'XPD/USD', 1], ['HG=F', 'Cuivre', 'HG', 4]] },
+  { k: 'energie', n: 'Énergie', items: [['CL=F', 'Pétrole WTI', 'WTI', 2], ['BZ=F', 'Pétrole Brent', 'Brent', 2], ['NG=F', 'Gaz naturel', 'NG', 3]] },
+  { k: 'indices', n: 'Indices', items: [['^GSPC', 'S&P 500', 'SPX', 1], ['^NDX', 'Nasdaq 100', 'NDX', 1], ['^DJI', 'Dow Jones', 'DJI', 0], ['^GDAXI', 'DAX', 'DAX', 0], ['^FCHI', 'CAC 40', 'CAC', 0], ['^FTSE', 'FTSE 100', 'UKX', 0], ['^N225', 'Nikkei 225', 'NKY', 0], ['^HSI', 'Hang Seng', 'HSI', 0]] },
+  { k: 'crypto', n: 'Crypto', items: [['BTC-USD', 'Bitcoin', 'BTC/USD', 0], ['ETH-USD', 'Ethereum', 'ETH/USD', 1], ['SOL-USD', 'Solana', 'SOL/USD', 2], ['XRP-USD', 'XRP', 'XRP/USD', 4]] },
+  { k: 'taux', n: 'Taux et volatilité', items: [['^IRX', 'US 3 mois', 'US3M', 2, 1], ['^FVX', 'US 5 ans', 'US5Y', 2, 1], ['^TNX', 'US 10 ans', 'US10Y', 2, 1], ['^TYX', 'US 30 ans', 'US30Y', 2, 1], ['DX-Y.NYB', 'Dollar index', 'DXY', 2], ['^VIX', 'VIX', 'VIX', 2]] },
+];
+let _multiCache = { at: 0, data: null }, _multiVol = null;
+function _multiLigne(def, raw) {
+  const [sym, nom, code, dec, rendement] = def;
+  const r = raw && raw.chart && raw.chart.result && raw.chart.result[0];
+  const meta = (r && r.meta) || {};
+  const prix = meta.regularMarketPrice, prec = meta.chartPreviousClose ?? meta.previousClose;
+  if (prix == null || !prec) return { sym, nom, code, ok: false };
+  const cl = ((r.indicators && r.indicators.quote && r.indicators.quote[0] && r.indicators.quote[0].close) || []).filter(v => v != null && isFinite(v));
+  const pas = Math.max(1, Math.ceil(cl.length / 48));
+  const spark = cl.filter((_, i) => i % pas === 0 || i === cl.length - 1).map(v => +v.toFixed(dec + 2));
+  const haut = cl.length ? Math.max(...cl) : null, bas = cl.length ? Math.min(...cl) : null;
+  return {
+    sym, nom, code, ok: true, dec, rendement: !!rendement,
+    prix: +prix.toFixed(dec), prec: +(+prec).toFixed(dec),
+    // Un rendement se lit en points de base, pas en pourcent de lui-même.
+    chg: rendement ? +((prix - prec) * 100).toFixed(1) : +((prix / prec - 1) * 100).toFixed(2),
+    haut: haut != null ? +haut.toFixed(dec) : null, bas: bas != null ? +bas.toFixed(dec) : null,
+    spark, marche: meta.marketState || null,
+  };
+}
+async function _multiLire() {
+  const defs = _MULTI_CLASSES.flatMap(c => c.items.map(d => ({ c: c.k, d })));
+  const res = new Array(defs.length);
+  let i = 0;
+  const ouvrier = async () => {
+    while (i < defs.length) {
+      const k = i++;
+      try { const { raw } = await _yfChart(defs[k].d[0], '5m', '1d'); res[k] = _multiLigne(defs[k].d, raw); }
+      catch (e) { res[k] = { sym: defs[k].d[0], nom: defs[k].d[1], code: defs[k].d[2], ok: false }; }
+    }
+  };
+  await Promise.all([ouvrier(), ouvrier(), ouvrier(), ouvrier()]);
+  return {
+    at: Date.now(),
+    classes: _MULTI_CLASSES.map(c => ({ k: c.k, n: c.n, items: res.filter((_, k) => defs[k].c === c.k) })),
+  };
+}
+app.get('/api/v2/multi-actifs', requireAdmin, async (req, res) => {
+  if (!_v2Actif()) return res.status(404).end();
+  if (_multiCache.data && Date.now() - _multiCache.at < 90000) return res.json(_multiCache.data);
+  try {
+    if (!_multiVol) _multiVol = _multiLire().finally(() => { _multiVol = null; });
+    const d = await _multiVol;
+    if (d.classes.some(c => c.items.some(x => x.ok))) _multiCache = { at: Date.now(), data: d };
+    res.json(_multiCache.data || d);
+  } catch (e) {
+    if (_multiCache.data) return res.json(_multiCache.data);
+    res.status(502).json({ error: 'multi-actifs indisponible' });
+  }
+});
+
 app.get('/api/v2/particuliers-historique', requireAdmin, async (req, res) => {
   if (!_v2Actif()) return res.status(404).end();
   const p = String(req.query.pair || '').toUpperCase().replace(/[^A-Z]/g, '');
