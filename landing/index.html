@@ -14,6 +14,7 @@
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <meta name="author" content="DataTradingPro">
 <meta name="theme-color" content="#08080a">
+<meta name="color-scheme" content="dark">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Terminal de Trading Forex & Macro | DataTradingPro">
 <meta property="og:description" content="Le terminal de trading forex & macro en français : news priorisée, calendrier économique, Smart Bias, COT et analyses IA. Dès 24,99 €/mois, sans engagement.">
@@ -87,7 +88,22 @@
       "name": "DataTradingPro",
       "applicationCategory": "FinanceApplication",
       "keywords": "terminal de trading, trading forex, forex, terminal macro, news forex en temps réel, calendrier économique, Smart Bias, COT/CFTC, force des devises",
-      "operatingSystem": "Web",
+      "operatingSystem": "Web, iOS, Android, Windows, macOS",
+      "applicationSubCategory": "Terminal de trading forex & macro",
+      "inLanguage": "fr",
+      "featureList": [
+        "Actualités macro et forex en temps réel, priorisées par impact",
+        "Flash Marché : dépêches lues à voix haute et retranscrites en direct",
+        "Calendrier économique avec réel, prévision et précédent",
+        "Force des devises en direct sur les 8 devises majeures",
+        "Radar de Biais (Smart Bias) par devise",
+        "Banques centrales, taux directeurs et probabilités de marché",
+        "Positionnement COT CFTC et particuliers",
+        "Rapports des banques d'investissement et récaps d'analystes",
+        "Assistant macro IA en français",
+        "Or, pétrole, indices, rendements et Bitcoin dans les cotations",
+        "Notifications sur téléphone, écran verrouillé compris"
+      ],
       "image": "https://datatradingpro.com/og-cover-v2.jpg",
       "screenshot": "https://datatradingpro.com/img/hero-desk.jpg",
       "inLanguage": "fr-FR",
@@ -1158,7 +1174,42 @@
 /* Logo reduit au seul sceau DTP (21/08, demande user : texte retire) : on l agrandit un peu pour qu il tienne le role de logo, et on epaissit les 3 lettres. */
 .logo--markonly .mk{width:34px;height:34px;border-radius:9px;font-size:11px;letter-spacing:-.2px}
 .logo-wm{font-family:var(--tight);font-weight:800;letter-spacing:-.02em}
- html{scrollbar-width:thin;scrollbar-color:#cdb15a transparent} </style>
+ html{scrollbar-width:thin;scrollbar-color:#cdb15a transparent}
+/* ═══ THÈME NOIR (24/09, demande user : « fais pas en blanc mais en noir, même vision que le desk »).
+   La vitrine passe dans la matière du terminal : fond noir, surfaces anthracite, filets fins, or vif.
+   Les jetons de :root sont redéfinis ICI, en dernier, plutôt que réécrits à la source : le thème clair
+   reste lisible dans l'historique et le retour arrière tient en une suppression de bloc. Les écrans
+   produit (.term) étaient déjà sombres ; l'aperçu PDF garde son papier, c'est un document. ═══ */
+:root{
+  --bg:#0a0a0c; --bg2:#0e0e11; --panel:#111114; --panel2:#15151a; --line:#1c1c21; --line2:#26262c;
+  --text:#ececf0; --text2:#a1a1aa; --text3:#6f6f78;
+  --orange:#e3b23a; --orange2:#e3b23a; --peach:#f6d77b; --amber:#ffb300;
+  --green:#00e676; --red:#ff3d00;
+  --grad:linear-gradient(102deg,#f6d77b 0%,#e3b23a 50%,#b8860b 100%);
+  --sh-card:0 18px 40px -22px rgba(0,0,0,.85),0 1px 0 rgba(255,255,255,.02) inset;
+  --sh-card-hover:0 28px 60px -24px rgba(0,0,0,.9),0 0 0 1px rgba(227,178,58,.28);
+  --gold-border:rgba(227,178,58,.5);
+}
+html,body{background:#0a0a0c}
+body{background:radial-gradient(1200px 520px at 18% -160px,rgba(227,178,58,.08),transparent 70%),#0a0a0c}
+::selection{background:rgba(227,178,58,.3);color:#fff}
+nav{background:rgba(10,10,12,.82);border-bottom:1px solid #1a1a1f;backdrop-filter:saturate(1.4) blur(12px);-webkit-backdrop-filter:saturate(1.4) blur(12px)}
+.ticker{background:#0c0c0e;border-bottom:1px solid #1a1a1f}
+.ticker .live{background:#101013;border-right:1px solid #1a1a1f}
+.strip{background:#0e0e11;border-top:1px solid #16161a;border-bottom:1px solid #16161a}
+.frband{background:linear-gradient(180deg,#0e0e11,#0a0a0c)}
+.btn-ghost{border-color:rgba(227,178,58,.45);color:#ececf0;background:transparent}
+.btn-ghost:hover{border-color:#e3b23a;background:rgba(227,178,58,.08)}
+.qa summary:hover{background:rgba(227,178,58,.05)}
+.hero::before{background:radial-gradient(circle,rgba(227,178,58,.14) 0%,transparent 62%)}
+.hero::after{background:radial-gradient(closest-side,rgba(227,178,58,.12),transparent 72%)}
+.final::before{background:radial-gradient(ellipse,rgba(227,178,58,.12) 0%,transparent 65%)}
+.plan:hover{box-shadow:0 26px 56px -22px rgba(0,0,0,.9),0 0 0 1px rgba(227,178,58,.25)}
+.card:hover,.dk-card:hover,.pricing-card:hover,.feat-card:hover{box-shadow:0 26px 56px -24px rgba(0,0,0,.9),0 0 0 1px rgba(227,178,58,.22)}
+.nav-links.open{box-shadow:0 24px 44px -20px rgba(0,0,0,.9)}
+::-webkit-scrollbar-thumb{background:#3a3120}
+html{scrollbar-color:#5a4a22 transparent}
+</style>
 </head>
 <body>
 <!-- Parrainage : capture ?ref= -> cookie partagé .datatradingpro.com (lu par le desk au 1er login) -->
