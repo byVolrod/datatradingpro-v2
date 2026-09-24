@@ -9,7 +9,9 @@
     loadAdChat();
     loadOverview();
     loadVitrine();
-    setInterval(loadVitrine, 5 * 60000);   // 24/09 : clics de la vitrine vers l'abonnement
+    setInterval(loadVitrine, 5 * 60000);
+    loadSante();
+    setInterval(loadSante, 60000);   // 24/09 : Data Health, rafraîchi chaque minute   // 24/09 : clics de la vitrine vers l'abonnement
     // Deep-link : restaure l'onglet (et la sous-vue campagne) depuis l'URL (#users, #aimon, #campaign/stats…)
     try {
       const h = location.hash.replace(/^#/, '');
@@ -3742,5 +3744,41 @@ function loadVitrine() {
         + '<span style="flex:1;height:6px;background:rgba(227,178,58,.12);border-radius:3px;overflow:hidden"><i style="display:block;height:100%;width:' + Math.max(4, Math.round(x.n / max * 100)) + '%;background:#e3b23a"></i></span>'
         + '<b style="flex:0 0 36px;text-align:right">' + x.n + '</b></div>').join('')
       + (d.parZone.length ? '<div class="fin-sub" style="margin-top:8px">Emplacement du bouton : ' + d.parZone.map(z => esc(z.k) + ' ' + z.n).join(' · ') + '</div>' : '');
+  }).catch(() => { el.innerHTML = '<div class="fin-sub">Lecture impossible pour le moment.</div>'; });
+}
+
+/* ══ DATA HEALTH (24/09) : l'état de chaque source, lu sur /api/admin/data-health ══════════════════
+   🟢 à jour · 🟠 dégradée (en retard, partielle) · 🔴 indisponible. L'âge est celui de la dernière
+   donnée reçue (ou, pour un calcul à la demande, de la dernière demande). */
+function loadSante() {
+  const el = document.getElementById('adm-sante');
+  if (!el) return;
+  fetch('/api/admin/data-health').then(r => r.json()).then(d => {
+    const esc = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    if (!d || !Array.isArray(d.sources)) { el.innerHTML = '<div class="fin-sub">Lecture impossible pour le moment.</div>'; return; }
+    const COUL = { ok: '#00e676', degrade: '#ffb300', panne: '#ff3d00' };
+    const LIB = { ok: 'À jour', degrade: 'Dégradée', panne: 'Indisponible' };
+    const age = ms => {
+      if (ms == null) return 'jamais';
+      const m = Math.round(ms / 60000);
+      if (m < 1) return 'à l’instant';
+      if (m < 60) return 'il y a ' + m + ' min';
+      const h = Math.round(m / 60);
+      return h < 48 ? 'il y a ' + h + ' h' : 'il y a ' + Math.round(h / 24) + ' j';
+    };
+    const c = d.compte || {};
+    let html = '<div class="fin-sub" style="margin-bottom:10px">'
+      + '<b style="color:' + COUL.ok + '">● ' + (c.ok || 0) + ' à jour</b> · <b style="color:' + COUL.degrade + '">● ' + (c.degrade || 0) + ' dégradée(s)</b> · '
+      + '<b style="color:' + COUL.panne + '">● ' + (c.panne || 0) + ' indisponible(s)</b>' + (d.weekend ? ' · week-end : seuils du fil élargis' : '') + '</div>';
+    let groupe = '';
+    d.sources.forEach(x => {
+      if (x.groupe !== groupe) { groupe = x.groupe; html += '<div style="margin:10px 0 4px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#8b8b93">' + esc(groupe) + '</div>'; }
+      html += '<div style="display:flex;align-items:baseline;gap:10px;padding:6px 0;border-top:1px solid rgba(255,255,255,.05)">'
+        + '<span title="' + LIB[x.etat] + '" style="flex:0 0 10px;color:' + COUL[x.etat] + '">●</span>'
+        + '<span style="flex:0 0 38%;font-weight:600">' + esc(x.nom) + '</span>'
+        + '<span style="flex:0 0 22%;color:#b9b9c0">' + age(x.age) + '</span>'
+        + '<span style="flex:1;color:#8b8b93;font-size:11.5px">' + esc(x.detail) + '</span></div>';
+    });
+    el.innerHTML = html;
   }).catch(() => { el.innerHTML = '<div class="fin-sub">Lecture impossible pour le moment.</div>'; });
 }

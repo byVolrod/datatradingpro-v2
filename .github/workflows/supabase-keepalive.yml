@@ -1,8 +1,8 @@
 name: Supabase keep-alive
 
 # Empêche la mise en pause des projets Supabase free-tier (seuil ≈ 7 jours d'inactivité).
-# Tourne sur GitHub Actions = TOTALEMENT découplé de l'app : fonctionne même si Render dort
-# ou si le VPS redémarre. Repo privé = 2000 min/mois gratuits ; ce job ≈ 30 s/jour (~15 min/mois).
+# DÉSARMÉ PAR DÉFAUT (24/09/2026) : la vraie tâche tourne sur le VPS (minuteur systemd). Ce doublon
+# ne démarre que si la variable de dépôt DTP_KEEPALIVE_GITHUB vaut 'oui' — voir le `if:` du job.
 
 on:
   schedule:
@@ -47,7 +47,15 @@ jobs:
     # un `env:` de job (autorisé), et ce sont les ÉTAPES qui se sautent. Le passage est alors VERT et
     # muet, ce qui est exactement ce qui était demandé, et le job se réarme tout seul le jour où un
     # secret est posé.
-    if: ${{ github.repository == 'byVolrod/datatradingpro-v2' }}
+    #
+    # ⚠️ MINUTES ACTIONS (24/09/2026, urgence : 1 800 / 2 000 min consommées). « Démarrer puis sauter
+    # toutes les étapes » n'est PAS gratuit : GitHub facture chaque job démarré à la minute
+    # supérieure — deux passages par jour, ~60 min par mois, pour ne rien faire (la vraie tâche
+    # tourne sur le VPS). Un `if:` de JOB peut lire `vars` (contrairement à `secrets`) : le job ne
+    # démarre plus du tout tant que la variable de dépôt DTP_KEEPALIVE_GITHUB ne vaut pas 'oui'.
+    # Job « ignoré » = zéro minute, aucun courriel. Pour le réarmer : Settings › Secrets and
+    # variables › Actions › Variables › DTP_KEEPALIVE_GITHUB = oui (et poser SUPABASE_URL/KEY).
+    if: ${{ github.repository == 'byVolrod/datatradingpro-v2' && vars.DTP_KEEPALIVE_GITHUB == 'oui' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:

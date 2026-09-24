@@ -127,6 +127,35 @@
     syncAv();
   }
 
+  /* ── Le Fil, en écran d'app : l'en-tête d'écran porte déjà le titre et « en direct » ; à la place
+     de la liste déroulante de bureau, une rangée de puces. Elles appellent les fonctions EXISTANTES
+     du fil (`_toggleNewsMode`, `toggleSectionDropdown`) : aucun filtre n'est réécrit ici. ── */
+  function modeEssentiel() { try { return !!newsEssentialMode; } catch (e) { return false; } }   // `let` global d'app.js
+  function pucesFil() {
+    var pn = document.querySelector('#view-news .panel-news');
+    var tb = pn && pn.querySelector('.panel-toolbar');
+    if (!pn || !tb || document.getElementById('v2a-puces-fil')) return;
+    var bar = document.createElement('div');
+    bar.className = 'v2a-puces'; bar.id = 'v2a-puces-fil';
+    bar.innerHTML = '<button type="button" data-mode="tout">Tout</button><button type="button" data-mode="essentiel">Essentiel</button>'
+      + '<span class="v2a-puces-sep"></span><button type="button" data-sections="1">Sections ▾</button>';
+    pn.insertBefore(bar, tb);
+    var sync = function () {
+      var e = modeEssentiel();
+      bar.querySelector('[data-mode="tout"]').classList.toggle('v2a-puce-on', !e);
+      bar.querySelector('[data-mode="essentiel"]').classList.toggle('v2a-puce-on', e);
+    };
+    bar.addEventListener('click', function (ev) {
+      var b = ev.target.closest('button'); if (!b) return;
+      vibre();
+      if (b.dataset.sections) { if (typeof window.toggleSectionDropdown === 'function') window.toggleSectionDropdown(); return; }
+      var veut = b.dataset.mode === 'essentiel';
+      if (veut !== modeEssentiel() && typeof window._toggleNewsMode === 'function') window._toggleNewsMode();
+      sync();
+    });
+    sync();
+  }
+
   function ouvrirPlus(on) {
     if (!feuille) return;
     feuille.classList.toggle('v2a-ouverte', !!on);
@@ -284,6 +313,7 @@
     if (MQ.matches) {
       var premiere = !tete;
       construire();
+      pucesFil();
       H.classList.add('dtp-app');
       // Mon Desk est une composition de GRAND écran : l'app s'ouvre sur le Fil (il reste dans « Plus »).
       if (premiere && vueCourante() === 'widgets') aller('news'); else marquer(vueCourante());

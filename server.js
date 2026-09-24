@@ -182,6 +182,7 @@ function _capNews(arr) {
     .sort((x, y) => (y.timestamp || 0) - (x.timestamp || 0));
 }
 let allCalendar = [];   // FF calendar events served separately
+let _calFetchedAt = 0;   // (24/09, Data Health) dernier remplissage RÉUSSI du calendrier
 let isFirstLoad = true;
 let _saveTimer  = null;
 let _mosaicImages     = [];
@@ -5398,7 +5399,7 @@ async function _ensureCalendar() {
   if (getCalendarRaw().length || (allCalendar && allCalendar.length)) return;
   if (!_calFetchInflight) {
     _calFetchInflight = scrapeForexFactory()
-      .then(items => { if (Array.isArray(items) && items.length) allCalendar = items; })
+      .then(items => { if (Array.isArray(items) && items.length) { allCalendar = items; _calFetchedAt = Date.now(); } })
       .catch(() => {})
       .finally(() => { _calFetchInflight = null; });
   }
@@ -24248,7 +24249,7 @@ async function refreshNews() {
   ]).then(rs => rs.map(r => r.status === 'fulfilled' && Array.isArray(r.value) ? r.value : []));
 
   // Calendar events go to their own store — NOT mixed into the news feed
-  if (ffCalItems.length > 0) allCalendar = ffCalItems;
+  if (ffCalItems.length > 0) { allCalendar = ffCalItems; _calFetchedAt = Date.now(); }
   // Actuals : source PRINCIPALE TradingView (HTTP, sans Cloudflare) + complément depuis nos news.
   _refreshTVActuals().catch(() => {});
   try { _backfillActualsFromNews(); } catch {}
@@ -31164,6 +31165,77 @@ async function fetchRiskSentiment() {
   try { _riskHistSample(_riskData); } catch {}   // échantillon quotidien depuis la SEULE source (zéro recalcul)
   return _riskData;
 }
+
+/* ══ DATA HEALTH : CHAQUE SOURCE DIT SI ELLE EST À JOUR (24/09, phase 1 de la V2) ══════════════════
+   Demande user : « savoir immédiatement si DTP reçoit correctement ses données », en 🟢 / 🟠 / 🔴.
+   On ne mesure RIEN de nouveau : on LIT l'état que chaque pipeline tient déjà (horodatages, pannes
+   nommées, caches). Un seul point d'agrégation, en lecture seule, qui ne déclenche aucun appel
+   réseau (sauf le COT, servi par son propre cache).
+   ⚠️ UN CACHE « À LA DEMANDE » N'EST PAS UNE SOURCE EN PANNE : le sentiment de risque ou la force des
+   devises ne se recalculent que si quelqu'un les demande. Leur âge dit « dernière demande », pas
+   « source morte » : ils ne passent en rouge que s'ils n'ont JAMAIS rien produit.
+   Seuils : ceux de la cadence réelle de chaque source (et le week-end, un fil calme n'est pas une
+   panne : le marché est fermé). */
+function _santeEtat(age, ok, degrade) {
+  if (age == null || !isFinite(age)) return 'panne';
+  return age <= ok ? 'ok' : (age <= degrade ? 'degrade' : 'panne');
+}
+async function _santeDonnees(now) {
+  now = now || Date.now();
+  const H = 3600e3, J = 24 * H;
+  const jour = new Date(now).getUTCDay(), weekend = jour === 6 || jour === 0;
+  const out = [];
+  const pousse = (groupe, nom, age, ok, degrade, detail, etatForce) => out.push({
+    groupe, nom, age: age == null ? null : Math.max(0, Math.round(age)), detail: detail || '',
+    etat: etatForce || _santeEtat(age, ok, degrade),
+  });
+  // Actualités : la dépêche la plus récente.
+  let derNews = 0;
+  for (const n of (allNews || [])) { const t = +n.timestamp || 0; if (t > derNews) derNews = t; }
+  pousse('Flux', 'Fil d’actualité', derNews ? now - derNews : null, weekend ? 12 * H : 45 * 60e3, weekend ? 60 * H : 4 * H,
+    (allNews || []).length + ' dépêches en mémoire');
+  pousse('Flux', 'Calendrier économique', _calFetchedAt ? now - _calFetchedAt : null, 6 * H, 24 * H,
+    (allCalendar || []).length + ' événements', (allCalendar || []).length ? null : 'panne');
+  // Taux : chaque source, banque par banque.
+  const bankAt = (_rpCache && _rpCache.bankAt) || {};
+  const rpCodes = Object.keys(RP_MAP || {});
+  const rpVieux = rpCodes.filter(c => !(bankAt[c] && now - bankAt[c] < 30 * H));
+  const rpDer = Math.max(0, ...rpCodes.map(c => bankAt[c] || 0));
+  pousse('Taux', 'rateprobability (Fed, BCE, BoE, BoJ, BoC, RBA)', rpDer ? now - rpDer : null, 30 * H, 7 * J,
+    rpVieux.length ? 'à relire : ' + rpVieux.join(', ') : 'toutes les banques lues depuis moins de 30 h',
+    rpVieux.length && rpVieux.length < rpCodes.length ? 'degrade' : null);
+  const wtB = Object.keys((_wtCache && _wtCache.banks) || {});
+  pousse('Taux', 'WatchTower (BNS, RBNZ, secours)', _wtCache && _wtCache.at ? now - _wtCache.at : null, 14 * H, 48 * H,
+    (_wtCache && _wtCache.err ? 'dernière erreur : ' + _wtCache.err + ' · ' : '') + (wtB.length ? wtB.length + ' banques lues' : 'jamais lue'));
+  pousse('Taux', 'CME FedWatch (Fed)', _fedWatch && _fedWatch.at ? now - _fedWatch.at : null, 6 * H, 24 * H, _fedWatch ? 'réunion ' + (_fedWatch.meeting || '?') : 'aucune lecture');
+  pousse('Taux', 'ASX IB (RBA)', _rbaWatch && _rbaWatch.at ? now - _rbaWatch.at : null, 24 * H, 72 * H, _rbaWatch ? 'réunion ' + (_rbaWatch.meeting || '?') : 'aucune lecture');
+  // Positionnement.
+  let cotDate = null;
+  try { const c = await fetchCOTData('noncomm'); for (const x of (c || [])) if (x && x.reportDate && (!cotDate || x.reportDate > cotDate)) cotDate = x.reportDate; } catch {}
+  const cotAge = cotDate ? now - Date.parse(cotDate + 'T20:30:00Z') : null;
+  pousse('Positionnement', 'COT (CFTC, hebdomadaire)', cotAge, 10 * J, 17 * J, cotDate ? 'rapport du ' + cotDate.split('-').reverse().join('/') : 'aucun rapport lu');
+  let dmxTs = 0; try { dmxTs = outlookTs() || 0; } catch {}
+  pousse('Positionnement', 'DMX particuliers (Myfxbook)', dmxTs ? now - dmxTs : null, 3 * H, 24 * H, dmxTs ? '' : 'aucune lecture depuis le démarrage');
+  // Calculs à la demande (âge = dernière demande, rouge seulement si jamais produit).
+  pousse('Calculs', 'Sentiment de risque', _riskTs ? now - _riskTs : null, 30 * 60e3, 7 * J,
+    _riskData ? (_riskData.assets || []).length + ' actifs cotés · ' + _riskData.label : 'jamais calculé', _riskData ? null : 'panne');
+  const cs = _csCache && _csCache.today;
+  pousse('Calculs', 'Force des devises', cs ? now - cs.ts : null, 30 * 60e3, 7 * J, cs ? '' : 'jamais calculée (période TD)', cs ? null : 'panne');
+  pousse('Calculs', 'Liste FX', _fxlTs ? now - _fxlTs : null, 30 * 60e3, 7 * J, _fxlCache ? '' : 'jamais calculée', _fxlCache ? null : 'panne');
+  // Relais payant.
+  try {
+    const f = _fcEtat();
+    pousse('Relais', 'Firecrawl (budget quotidien)', f.okAt ? now - f.okAt : null, 24 * H, 72 * H,
+      (f.n || 0) + ' / ' + (f.capJour || '?') + ' crédits aujourd’hui' + (f.err ? ' · dernière erreur : ' + f.err : ''),
+      !f.pose ? 'degrade' : (f.n >= f.capJour ? 'degrade' : null));
+  } catch {}
+  const compte = { ok: 0, degrade: 0, panne: 0 };
+  out.forEach(x => { compte[x.etat]++; });
+  return { at: now, weekend, compte, sources: out };
+}
+app.get('/api/admin/data-health', requireAdmin, async (req, res) => {
+  try { res.json(await _santeDonnees()); } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 app.get('/api/risk-sentiment', async (req, res) => {
   try {

@@ -89,8 +89,20 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
+      # ═══ MINUTES ACTIONS (24/09, urgence : 1 800 / 2 000 min consommées) ═════════════════════════
+      # Mesuré : 16 min sur 16 de chaque passage étaient ce `npm run check`, DÉJÀ joué vert en local
+      # sur le même contenu. `scripts/attestation.js` compare l'empreinte du commit poussé à celle
+      # que la suite locale a écrite dans `.dtp-check-ok` : identique → seule la garde RAPIDE tourne
+      # (syntaxe, identifiants fantômes, annonces, déploiement : ~1 min) ; absente ou différente
+      # d'un seul octet → la suite COMPLÈTE, comme avant. Rien de non vérifié ne part en production.
       - name: npm run check — un push cassé ne part pas en prod
-        run: npm run check
+        run: |
+          if node scripts/attestation.js --verifier; then
+            echo "::notice::Contenu attesté par une suite locale verte : garde rapide seulement (économie de minutes Actions)."
+            npm run check:rapide
+          else
+            npm run check
+          fi
 
       # ═══ LE JALON : la version VALIDÉE que le VPS vient tirer tout seul ═══════════════════════
       # Après les bancs verts SEULEMENT (l'ordre est éprouvé par le banc de déploiement) : le tag

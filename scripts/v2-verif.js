@@ -141,6 +141,12 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
       v('le contenu tient ENTRE l\'en-tête et la barre, sans vide ni recouvrement', Math.abs(r.debutContenu - r.finTete) <= 1 && Math.abs(r.finContenu - r.hautBarre) <= 1, JSON.stringify(r));
       v('l\'app s\'ouvre sur le Fil : Mon Desk (grand écran) ne se rouvre pas tout seul', await page.evaluate(() => document.getElementById('view-widgets').classList.contains('hidden') && !document.getElementById('view-news').classList.contains('hidden') && document.querySelector('.v2a-onglet.v2a-actif').dataset.v2v === 'news'));
       const aller = async sel => { await page.click(sel); await new Promise(z => setTimeout(z, 500)); };
+      const f = await page.evaluate(() => ({ puces: document.querySelectorAll('#v2a-puces-fil button').length,
+        titre: getComputedStyle(document.querySelector('#view-news .panel-header')).display }));
+      v('Fil : le titre en double disparaît, les puces Tout / Essentiel / Sections le remplacent', f.puces === 3 && f.titre === 'none', JSON.stringify(f));
+      await aller('#v2a-puces-fil [data-mode="essentiel"]');
+      v('… « Essentiel » bascule le vrai filtre du fil (fonction existante)', await page.evaluate(() => { try { return newsEssentialMode === true && document.querySelector('#v2a-puces-fil [data-mode="essentiel"]').classList.contains('v2a-puce-on'); } catch (e) { return false; } }));
+      await aller('#v2a-puces-fil [data-mode="tout"]');
       await aller('.v2a-onglet[data-v2v="calendar"]');
       const c = await page.evaluate(() => ({ vue: !document.getElementById('view-calendar').classList.contains('hidden'), titre: document.getElementById('v2a-titre').textContent, actif: document.querySelector('.v2a-onglet.v2a-actif').dataset.v2v }));
       v('onglet Calendrier → la vraie vue Calendrier du desk, titre et onglet à jour', c.vue && c.titre === 'Calendrier' && c.actif === 'calendar', JSON.stringify(c));

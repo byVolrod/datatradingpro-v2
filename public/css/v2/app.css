@@ -181,3 +181,22 @@ html.dtp-app .v2a-ecran.v2a-visible {
   display: block; width: 100%; margin: 4px 0 0; padding: 13px 14px; border-radius: 12px; cursor: pointer; text-align: left;
   background: none; border: 1px dashed rgba(227,178,58,.35); color: var(--v2a-or); font: 600 12.5px/1.2 'Inter', sans-serif;
 }
+
+/* ── Écrans du desk vus comme des écrans d'app : pas de titre en double sous l'en-tête ── */
+html.dtp-app #view-news .panel-header { display: none; }
+html.dtp-app #view-news #section-filter-btn { display: none; }
+html.dtp-app #view-calendar .cal-title,
+html.dtp-app #view-calendar .cal-title-sep { display: none; }
+.v2a-puces { display: none; }
+html.dtp-app .v2a-puces {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px 8px; overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid var(--v2a-trait);
+}
+html.dtp-app .v2a-puces::-webkit-scrollbar { display: none; }
+.v2a-puces button {
+  flex: 0 0 auto; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+  background: var(--v2a-surface); border: 1px solid var(--v2a-trait); color: #b9b9c0;
+  font: 600 12px/1 'Inter', sans-serif; -webkit-tap-highlight-color: transparent;
+}
+.v2a-puces button.v2a-puce-on { background: rgba(227,178,58,.16); border-color: rgba(227,178,58,.55); color: var(--v2a-or); }
+.v2a-puces-sep { width: 1px; height: 18px; background: var(--v2a-trait); flex: 0 0 auto; }
