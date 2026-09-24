@@ -21,6 +21,13 @@
     var l = document.createElement('link');
     l.rel = 'stylesheet'; l.href = '/css/v2/app.css?v=' + VER;
     document.head.appendChild(l);
+    // Habillage V3 du desk grand écran (en-têtes, onglets, cartes, finitions) + son accompagnement.
+    var d = document.createElement('link');
+    d.rel = 'stylesheet'; d.href = '/css/v2/desk.css?v=' + VER;
+    document.head.appendChild(d);
+    var dj = document.createElement('script');
+    dj.src = '/js/v2/desk.js?v=' + VER; dj.defer = true;
+    document.head.appendChild(dj);
     var s = document.createElement('script');
     s.src = '/js/v2/app-mobile.js?v=' + VER; s.defer = true;
     document.head.appendChild(s);

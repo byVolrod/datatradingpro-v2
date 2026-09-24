@@ -53,6 +53,14 @@ v('index.html ne charge le chargeur V2 que si admin ET annoncé par le serveur',
   const hors = [];
   regles.forEach(sel => sel.split(',').map(x => x.trim()).filter(Boolean).forEach(x => { if (!/^html\.dtp-app\b|^\.v2a-/.test(x)) hors.push(x); }));
   v('chaque sélecteur de la feuille V2 est borné (html.dtp-app ou .v2a-)', hors.length === 0, hors.slice(0, 5).join(' | '));
+  // L'habillage V3 du desk grand écran : chaque règle commence par html.dtp-v2 (sans la classe, rien).
+  const DESK = fs.readFileSync(path.join(R, 'public/css/v2/desk.css'), 'utf8');
+  const rd = DESK.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@keyframes[^{]+\{(?:[^{}]*\{[^}]*\})*\s*\}/g, '')
+    .replace(/@media[^{]+\{/g, '').split('}').map(b => b.split('{')[0].trim()).filter(Boolean);
+  const horsD = [];
+  rd.forEach(sel => sel.split(',').map(x => x.trim()).filter(Boolean).forEach(x => { if (!/^html\.dtp-v2\b/.test(x)) horsD.push(x); }));
+  v('chaque sélecteur de l\'habillage V3 du desk est borné (html.dtp-v2)', rd.length > 20 && horsD.length === 0, horsD.slice(0, 5).join(' | '));
+  v('… et vit dans un @media grand écran (l\'app mobile garde sa propre feuille)', /^\s*@media \(min-width: 821px\) \{/m.test(DESK.replace(/\/\*[\s\S]*?\*\//g, '')));
 }
 
 // Jeux d'essai de l'écran Marchés : 3 actifs dans le sens du risque, 1 contre (variation × sens).
@@ -254,6 +262,9 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       const { page, ctx } = await ouvrir({ role: 'admin', v2: 'on' }, 1400, 900);
       const r = await page.evaluate(() => ({ app: document.documentElement.classList.contains('dtp-app'), topbar: getComputedStyle(document.querySelector('.topbar')).display }));
       v('au-delà d\'un téléphone : desk normal', !r.app && r.topbar !== 'none', JSON.stringify(r));
+      const hab = await page.evaluate(() => { const g = document.getElementById('wdg-grid'), t = document.querySelector('.wdg-title'), c = document.querySelector('.wdg-card');
+        return { puce: !!document.querySelector('.topbar .v3-puce'), gap: g ? getComputedStyle(g).columnGap : null, casse: t ? getComputedStyle(t).textTransform : null, rang: c ? c.style.getPropertyValue('--v3i') : null }; });
+      v('habillage V3 du desk : puce V3, cartes collées (1 px), titres en casse normale, apparition échelonnée', hab.puce && hab.gap === '1px' && hab.casse === 'none' && hab.rang !== '', JSON.stringify(hab));
 
       console.log('\n── 6. V3 · traçabilité en direct (admin, V2 activée) ──');
       const p = await page.evaluate(() => [...document.querySelectorAll('.v2a-src-pill')].map(b => ({ v: b.dataset.vue, c: getComputedStyle(b.querySelector('i')).backgroundColor })));
