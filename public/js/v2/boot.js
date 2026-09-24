@@ -74,6 +74,8 @@
   function demarrer() {
     poserInterrupteur();
     if (actif()) chargerInterface();
+    // Aperçu désactivé : le mémo de l'app mobile (voile d'attente d'index.html) n'a plus lieu d'être.
+    else { try { localStorage.removeItem('dtp_v3_app'); } catch (e) {} document.documentElement.classList.remove('dtp-app-attente'); }
   }
   /* ⚠️ CE FICHIER PEUT S'EXÉCUTER AVANT charts.js, qui définit le magasin de préférences : il est
      injecté dès la réponse de /api/auth/me, et un script injecté n'attend personne. Décider sans le

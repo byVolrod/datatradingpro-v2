@@ -80,8 +80,8 @@
 
   /* ── Les onglets (référence : 5 onglets, pas de « Plus ») et les outils du desk ─────────────────── */
   var ONGLETS = [
-    { v: 'macro',     t: 'Macro',     titre: 'Macro',         ico: I.macro },
     { v: 'fil',       t: 'Fil',       titre: 'Fil en direct', ico: I.fil },
+    { v: 'macro',     t: 'Macro',     titre: 'Macro',         ico: I.macro },
     { v: 'markets',   t: 'Marchés',   titre: 'Marchés',       ico: I.marches },
     { v: 'analystes', t: 'Analystes', titre: 'Analystes',     ico: I.analyst },
     { v: 'banques',   t: 'Banques',   titre: 'Banques',       ico: I.banques }
@@ -111,7 +111,7 @@
     tete = document.createElement('header');
     tete.className = 'v2a-tete';
     tete.innerHTML = '<div class="v2a-titre-bloc"><button type="button" class="v2a-retour" id="v2a-retour" aria-label="Retour" hidden>' + svg(I.retour, 22, 2) + '</button>'
-      + '<h1 class="v2a-titre" id="v2a-titre">Macro</h1><span class="v2a-direct"><i></i>En direct</span></div>'
+      + '<h1 class="v2a-titre" id="v2a-titre">Fil en direct</h1><span class="v2a-direct"><i></i>En direct</span></div>'
       + '<div class="v2a-actions">'
       + '<button type="button" class="v2a-bt v2a-ia" id="v2a-ia" aria-label="Copilote Macro (IA)"><img src="/assets/images/macro-ai-spark.svg" alt=""></button>'
       + '<button type="button" class="v2a-bt" id="v2a-alertes" aria-label="Alertes">' + svg(I.cloche, 25) + '<b class="v2a-compteur" id="v2a-compteur" hidden></b><b class="v2a-point" id="v2a-point"></b></button>'
@@ -142,7 +142,7 @@
     document.body.appendChild(feuille);
 
     // Les écrans natifs, dans cet ordre (le premier reçoit la carte du Briefing, cf. briefing-ui.js).
-    ['macro', 'fil', 'markets', 'analystes', 'banques', 'compte'].forEach(function (k) {
+    ['macro', 'fil', 'markets', 'analystes', 'banques', 'compte'].forEach(function (k) {   // Macro d'abord : il reçoit la carte du Briefing
       var s = document.createElement('section');
       s.className = 'v2a-ecran'; s.dataset.ecran = k;
       s.setAttribute('aria-label', TITRES[k] || k);
@@ -153,7 +153,7 @@
     // ── Événements ──
     barre.addEventListener('click', function (e) {
       var b = e.target.closest('[data-v2v]'); if (!b) return;
-      vibre(); ouvrirPlus(false); fermerAlertes(); aller(b.dataset.v2v);
+      vibre(); ouvrirPlus(false); fermerAlertes(); fermerVolets(); aller(b.dataset.v2v);
     });
     feuille.addEventListener('click', function (e) {
       var b = e.target.closest('[data-v2v]'); if (!b) return;
@@ -166,8 +166,8 @@
     feuille.addEventListener('touchmove', function (e) { if (y0 == null) return; var d = e.touches[0].clientY - y0; if (d > 0) feuille.style.transform = 'translateY(' + d + 'px)'; }, { passive: true });
     feuille.addEventListener('touchend', function (e) { if (y0 == null) return; var d = e.changedTouches[0].clientY - y0; y0 = null; feuille.style.transform = ''; if (d > 70) ouvrirPlus(false); });
     document.getElementById('v2a-ia').addEventListener('click', function () { vibre(); fermerAlertes(); var b = document.getElementById('ai-btn'); if (b) b.click(); });
-    document.getElementById('v2a-alertes').addEventListener('click', function () { vibre(); if (alertes && alertes.classList.contains('v2a-ouverte')) fermerAlertes(); else ouvrirAlertes(); });
-    document.getElementById('v2a-compte').addEventListener('click', function () { vibre(); fermerAlertes(); aller('compte'); });
+    document.getElementById('v2a-alertes').addEventListener('click', function () { vibre(); fermerVolets(); if (alertes && alertes.classList.contains('v2a-ouverte')) fermerAlertes(); else ouvrirAlertes(); });
+    document.getElementById('v2a-compte').addEventListener('click', function () { vibre(); fermerAlertes(); fermerVolets(); aller('compte'); });
     document.getElementById('v2a-retour').addEventListener('click', function () { vibre(); retour(); });
 
     // Le compteur de la cloche SUIT le badge du desk (même source, aucun second calcul).
@@ -225,12 +225,37 @@
     marquer(v);
   }
   function retour() {
+    // Un volet (IA, support) ouvert : Retour le referme, comme le geste retour d'une app.
+    if (voletOuvert()) { fermerVolets(); return; }
+    // Un lecteur de rapport du desk : on le referme aussi, sans quoi la vue du desk resterait
+    // bloquée sur ce rapport à la prochaine visite.
+    if (courant === 'analyst') { var ba = document.getElementById('arlib-back-btn'); if (ba) ba.click(); }
+    if (courant === 'institution') { var bb = document.getElementById('br-back-btn'); if (bb) bb.click(); }
     var v = pile.pop();
-    if (!v) v = 'macro';
+    if (!v) v = 'fil';
     // Un lecteur de rapport ouvert : on referme d'abord le lecteur, on revient à la liste native.
     aller(v, { sansPile: true });
   }
   window._v2aAller = aller;
+
+  /* ── Les volets du desk (Copilote IA, support) dans l'app : titre d'écran et bouton Retour. Sans
+     cela, le volet s'ouvrait sous un en-tête qui annonçait encore l'écran d'avant. ── */
+  var VOLETS = [['ai-panel', 'Copilote Macro', 'aiClose'], ['chat-panel', 'Support DTP', 'chatClose']];
+  function voletOuvert() { for (var i = 0; i < VOLETS.length; i++) { var p = document.getElementById(VOLETS[i][0]); if (p && p.classList.contains('open')) return VOLETS[i]; } return null; }
+  function fermerVolets() { VOLETS.forEach(function (v) { var p = document.getElementById(v[0]); if (p && p.classList.contains('open')) appel(v[2]); }); syncVolet(); }
+  function syncVolet() {
+    if (!H.classList.contains('dtp-app')) return;
+    var v = voletOuvert(), t = document.getElementById('v2a-titre'), r = document.getElementById('v2a-retour');
+    H.classList.toggle('v2a-volet', !!v);
+    if (v) { if (t) t.textContent = v[1]; if (r) r.hidden = false; }
+    else if (courant) marquer(courant);
+  }
+  function brancherVolets() {
+    VOLETS.forEach(function (v) {
+      var p = document.getElementById(v[0]);
+      if (p && !p._v2a && window.MutationObserver) { p._v2a = true; new MutationObserver(syncVolet).observe(p, { attributes: true, attributeFilter: ['class'] }); }
+    });
+  }
 
   // Toute navigation faite AILLEURS (ouverture d'une paire, lien d'une alerte…) resynchronise la barre.
   var origine = window.activateView;
@@ -241,7 +266,7 @@
          automatique retombe sur l'écran d'accueil de l'app. */
       if (v === 'widgets' && H.classList.contains('dtp-app') && !window._v2aDeskDemande) {
         window._v2aDeskDemande = false;
-        setTimeout(function () { aller('macro'); }, 0);
+        setTimeout(function () { aller('fil'); }, 0);
         return;
       }
       window._v2aDeskDemande = false;
@@ -264,6 +289,7 @@
     var mk = glob('markRead'), rk = glob('_reportReadKey');
     try { if (typeof mk === 'function' && typeof rk === 'function') mk(rk(it)); } catch (e) {}
     aller('analyst');
+    var t = document.getElementById('v2a-titre'); if (t) t.textContent = 'Rapport';
     try { var r = glob('renderArlibReader'); if (typeof r === 'function') r(it); var s = glob('arlibShowReader'); if (typeof s === 'function') s(); } catch (e) {}
   }
   RENDUS.macro = function () {
@@ -373,7 +399,8 @@
         + '<div id="v2a-force"><div class="v2a-attente">Chargement…</div></div></div>'
         + '<div class="v2a-carte v2a-outils"><div class="v2a-carte-titre">Outils du desk</div><div class="v2a-grille">'
         + OUTILS.filter(function (o) { return existe(o.v); }).map(function (o) { return '<button type="button" class="v2a-tuile" data-v2v="' + o.v + '">' + svg(o.ico, 22) + '<span>' + o.t + '</span></button>'; }).join('')
-        + '</div></div><button type="button" class="v2a-lien" id="v2a-detail">Colonne Marchés du desk : horloges, COT, DMX, saisonnalité ' + svg(I.suite, 14, 2) + '</button>');
+        + '<button type="button" class="v2a-tuile" id="v2a-detail">' + svg(I.horloge, 22) + '<span>Horloges & sessions</span></button>'
+        + '</div></div>');
       e.querySelector('.v2a-ut').addEventListener('click', function (ev) {
         var b = ev.target.closest('[data-ut]'); if (!b) return;
         vibre(); periode = b.dataset.ut;
@@ -471,6 +498,7 @@
       var it = items[+b.dataset.i];
       try { var mk = glob('markBrRead'); if (typeof mk === 'function') mk(it.id); } catch (x) {}
       aller('institution');
+      var t = document.getElementById('v2a-titre'); if (t) t.textContent = 'Rapport';
       try { var r = glob('renderBrReader'); if (typeof r === 'function') r(it); } catch (x) {}
     };
   };
@@ -565,16 +593,29 @@
     var p = document.querySelector('.view-panel:not(.hidden)');
     return p ? p.id.replace(/^view-/, '') : 'news';
   }
+  /* ── Une app ne zoome pas : pincement et double-tap coupés TANT QUE l'app est active (la balise
+     viewport d'origine est rendue dès qu'on quitte l'app, grand écran compris). ── */
+  var vpOrig = null;
+  function verrouZoom(on) {
+    var m = document.querySelector('meta[name="viewport"]'); if (!m) return;
+    if (vpOrig == null) vpOrig = m.getAttribute('content') || '';
+    m.setAttribute('content', on ? 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' : vpOrig);
+  }
+  // Mémo pour le chargement suivant : index.html masque le desk web le temps que l'app se pose.
+  function memoApp(on) { try { if (on) localStorage.setItem('dtp_v3_app', String(Date.now())); else localStorage.removeItem('dtp_v3_app'); } catch (e) {} }
   function appliquer() {
     if (MQ.matches) {
       var premiere = !tete;
       construire();
       brancherFil();
       H.classList.add('dtp-app');
-      if (premiere) aller('macro'); else if (courant) marquer(courant);
+      verrouZoom(true); memoApp(true); brancherVolets();
+      H.classList.remove('dtp-app-attente');
+      if (premiere) aller('fil'); else if (courant) marquer(courant);
       setTimeout(function () { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 60);
     } else {
-      H.classList.remove('dtp-app', 'v2a-sous-ecran', 'v2a-al-ouvert');
+      H.classList.remove('dtp-app', 'v2a-sous-ecran', 'v2a-al-ouvert', 'v2a-volet', 'dtp-app-attente');
+      verrouZoom(false); memoApp(false);
       ouvrirPlus(false); fermerAlertes(); montrerEcran(null);
       setTimeout(function () { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 60);
     }

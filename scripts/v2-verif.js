@@ -181,13 +181,15 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
           ecran: e ? e.dataset.ecran : null, debut: re ? Math.round(re.top) : null, fin: re ? Math.round(re.bottom) : null, titre: document.getElementById('v2a-titre').textContent };
       });
       const r = await geo();
-      v('l\'app est active : 5 onglets comme la référence (Macro, Fil, Marchés, Analystes, Banques)', r.app && r.onglets === 'macro,fil,markets,analystes,banques', JSON.stringify(r) + ' · fichiers : ' + vus.join(', '));
+      v('l\'app est active : 5 onglets, le Fil en premier (Fil, Macro, Marchés, Analystes, Banques)', r.app && r.onglets === 'fil,macro,markets,analystes,banques', JSON.stringify(r) + ' · fichiers : ' + vus.join(', '));
       v('l\'ancienne barre du haut et la rangée d\'onglets sont masquées', r.topbar === 'none' && r.nav === 'none');
       v('la barre d\'onglets est collée au bas de l\'écran', r.barreBas === r.hauteur);
-      v('l\'app s\'ouvre sur l\'écran Macro, logé ENTRE l\'en-tête et la barre', r.ecran === 'macro' && r.titre === 'Macro' && Math.abs(r.debut - r.finTete) <= 1 && Math.abs(r.fin - r.hautBarre) <= 1, JSON.stringify(r));
+      v('l\'app s\'ouvre sur le Fil en direct, logé ENTRE l\'en-tête et la barre', r.ecran === 'fil' && r.titre === 'Fil en direct' && Math.abs(r.debut - r.finTete) <= 1 && Math.abs(r.fin - r.hautBarre) <= 1, JSON.stringify(r));
       v('… Mon Desk (grand écran) ne se rouvre pas tout seul', await page.evaluate(() => document.getElementById('view-widgets').classList.contains('hidden')));
+      v('… zoom verrouillé comme une app (pincement et double-tap coupés)', await page.evaluate(() => /maximum-scale=1/.test(document.querySelector('meta[name=viewport]').content) && /user-scalable=no/.test(document.querySelector('meta[name=viewport]').content)));
+      await page.click('.v2a-onglet[data-v2v="macro"]');
       await new Promise(z => setTimeout(z, 900));
-      v('… avec la carte « Briefing du matin » en tête (V3)', await page.evaluate(() => { const c = document.getElementById('v2a-bf-carte'); return !!c && /Un risk-on prudent/.test(c.innerText) && c.parentElement.dataset.ecran === 'macro'; }));
+      v('onglet Macro : la carte « Briefing du matin » en tête (V3)', await page.evaluate(() => { const c = document.getElementById('v2a-bf-carte'); return !!c && /Un risk-on prudent/.test(c.innerText) && c.parentElement.dataset.ecran === 'macro'; }));
       const aller = async sel => { await page.click(sel); await new Promise(z => setTimeout(z, 500)); };
       // Captures sur demande (V2_CAPTURES=dossier) : pour juger l'app À L'ŒIL, pas seulement au banc.
       const capture = async nom => { if (process.env.V2_CAPTURES) await page.screenshot({ path: path.join(process.env.V2_CAPTURES, 'app-' + nom + '.png') }); };

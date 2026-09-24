@@ -67,13 +67,13 @@
 
   /* Navigation principale et onglets de la colonne droite : même grammaire que les onglets de carte. */
   html.dtp-v2 #topbar-nav { background: #0b0b0d; border-bottom: 1px solid #17171b; }
-  html.dtp-v2 #topbar-nav .nav-item, html.dtp-v2 .right-panel-tabs .right-tab {
+  html.dtp-v2 #topbar-nav .nav-item, html.dtp-v2 .wdg-bar .nav-item, html.dtp-v2 .right-panel-tabs .right-tab {
     position: relative; text-transform: none; letter-spacing: 0; font: 500 12.5px/1 'Inter Tight', system-ui, sans-serif; color: #8e8e98; background: none; box-shadow: none; transition: color .15s; }
-  html.dtp-v2 #topbar-nav .nav-item:hover, html.dtp-v2 .right-panel-tabs .right-tab:hover { color: #e6e6ea; }
-  html.dtp-v2 #topbar-nav .nav-item::after, html.dtp-v2 .right-panel-tabs .right-tab::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px;
+  html.dtp-v2 #topbar-nav .nav-item:hover, html.dtp-v2 .wdg-bar .nav-item:hover, html.dtp-v2 .right-panel-tabs .right-tab:hover { color: #e6e6ea; }
+  html.dtp-v2 #topbar-nav .nav-item::after, html.dtp-v2 .wdg-bar .nav-item::after, html.dtp-v2 .right-panel-tabs .right-tab::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px;
     border-radius: 2px 2px 0 0; background: #e3b23a; transform: scaleX(0); transition: transform .25s cubic-bezier(.2,.8,.2,1); display: block; }
-  html.dtp-v2 #topbar-nav .nav-item.nav-item--active, html.dtp-v2 .right-panel-tabs .right-tab.right-tab--active { color: #f4f4f6; font-weight: 600; background: none; }
-  html.dtp-v2 #topbar-nav .nav-item.nav-item--active::after, html.dtp-v2 .right-panel-tabs .right-tab.right-tab--active::after { transform: scaleX(1); }
+  html.dtp-v2 #topbar-nav .nav-item.nav-item--active, html.dtp-v2 .wdg-bar .nav-item.nav-item--active, html.dtp-v2 .right-panel-tabs .right-tab.right-tab--active { color: #f4f4f6; font-weight: 600; background: none; }
+  html.dtp-v2 #topbar-nav .nav-item.nav-item--active::after, html.dtp-v2 .wdg-bar .nav-item.nav-item--active::after, html.dtp-v2 .right-panel-tabs .right-tab.right-tab--active::after { transform: scaleX(1); }
   html.dtp-v2 .right-panel-tabs { background: #0e0e11; border-bottom-color: #17171b; }
   /* Titres de panneaux du desk (Calendrier, Sessions, Taux…) : casse normale, compacts. */
   html.dtp-v2 .chart-header-title { text-transform: none; letter-spacing: 0; font: 600 13px/1 'Inter Tight', system-ui, sans-serif; color: #f0f0f3; }
@@ -101,6 +101,13 @@
   html.dtp-v2 .ai-head-title,
   html.dtp-v2 .np-title {
     text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; font-weight: 600 !important; font-family: 'Inter Tight', system-ui, sans-serif !important; }
+
+  /* Paires ouvertes en onglets (desk.js) : drapeau, nom, croix discrète. */
+  html.dtp-v2 #topbar-nav .v3-paire { display: inline-flex; align-items: center; gap: 6px; }
+  html.dtp-v2 #topbar-nav .v3-paire .sym-tab-flag { width: 16px; height: 12px; border-radius: 2px; }
+  html.dtp-v2 #topbar-nav .v3-paire-x { margin-left: 2px; width: 16px; height: 16px; display: inline-grid; place-items: center; border-radius: 3px; color: #6f6f78; font-size: 14px; opacity: 0; transition: opacity .15s, color .15s, background .15s; }
+  html.dtp-v2 #topbar-nav .v3-paire:hover .v3-paire-x { opacity: 1; }
+  html.dtp-v2 #topbar-nav .v3-paire-x:hover { color: #ff3d00; background: rgba(255,61,0,.1); }
 
   /* Barre de dispositions de Mon Desk : même grammaire que les onglets. */
   html.dtp-v2 .wdg-bar { background: #0b0b0d; border-bottom: 1px solid #17171b; }
