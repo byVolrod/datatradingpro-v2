@@ -47,10 +47,10 @@
     row.setAttribute('style', 'display:flex;align-items:center;gap:12px;margin:10px 14px 6px;padding:12px 14px;'
       + 'border:1px solid rgba(227,178,58,.35);border-radius:8px;background:rgba(227,178,58,.06)');
     row.innerHTML = '<div style="flex:1;min-width:0">'
-      + '<div style="font-weight:700;color:#e3b23a;letter-spacing:.02em">Aperçu V2 <span style="font-weight:500;color:#8b8b93">· admin</span></div>'
+      + '<div style="font-weight:700;color:#e3b23a;letter-spacing:.02em">Aperçu V3 <span style="font-weight:500;color:#8b8b93">· admin</span></div>'
       + '<div style="font-size:11px;color:#8b8b93;margin-top:2px">Nouvelle interface en validation. Désactivé : le desk des clients, à l’identique.</div>'
       + '</div>'
-      + '<button type="button" role="switch" aria-checked="' + on + '" aria-label="Aperçu V2" '
+      + '<button type="button" role="switch" aria-checked="' + on + '" aria-label="Aperçu V3" '
       + 'style="flex:0 0 auto;width:44px;height:26px;border-radius:13px;border:0;cursor:pointer;position:relative;'
       + 'background:' + (on ? '#e3b23a' : '#2a2a30') + ';transition:background .2s">'
       + '<span style="position:absolute;top:3px;left:' + (on ? '21px' : '3px') + ';width:20px;height:20px;border-radius:50%;'

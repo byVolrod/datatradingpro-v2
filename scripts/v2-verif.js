@@ -94,6 +94,15 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
   }
 }
 
+const MAINT = Date.now();
+const NEWS = [
+  { id: 'n1', headline: 'Fed\'s Waller: another hike is on the table', _titreFr: 'Waller (Fed) : une nouvelle hausse reste sur la table', category: 'Central Banks', timestamp: MAINT - 5 * 6e4, priority: 'high', description: 'Waller said inflation remains too high.' },
+  { id: 'n2', headline: 'German Ifo business climate rises to 88.9', category: 'Economic Data', timestamp: MAINT - 12 * 6e4, priority: 'low' },
+  { id: 'n3', headline: 'Oil extends gains as supply worries persist', category: 'Commodities', timestamp: MAINT - 40 * 6e4, priority: 'low' },
+];
+const WRAPS = [{ id: 'w1', source: 'DTP', title: 'London Opening Preparation : le dollar reprend la main', headline: 'London Opening Preparation : le dollar reprend la main', description: 'Le dollar se raffermit avant le PCE.', timestamp: MAINT - 3600e3, tags: ['USD', 'Fed', 'PCE'] }];
+const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering risks', institution: 'MUFG', timestamp: MAINT - 7200e3, tags: ['EUR/USD', 'USD/JPY'] }];
+
 (async () => {
   const { serveur, trouverNavigateur } = require('./mobile-apercu.js');
   const exe = trouverNavigateur();
@@ -112,6 +121,10 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
     if (u === '/api/currency-strength') return j(FORCE);
     if (u === '/api/admin/data-health') return SC.role === 'admin' ? j(SANTE) : (rs.writeHead(403), rs.end());
     if (u === '/api/v2/briefing') return SC.role === 'admin' ? j(BRIEF) : (rs.writeHead(403), rs.end());
+    // Données des écrans natifs de l'app (V3) : fil, rapports du desk, rapports de banques.
+    if (u === '/api/news') return j({ items: NEWS, total: NEWS.length });
+    if (u === '/api/session-wraps') return j(WRAPS);
+    if (u === '/api/bank-research') return j(BANQUES);
     base.emit('request', rq, rs);
   });
   await new Promise(r => srv.listen(4873, r));
@@ -148,57 +161,91 @@ console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (mêm
       v('l\'interface V2 n\'est pas chargée', !r.app && !vus.some(u => /app\.css|app-mobile|tracabilite/.test(u)), vus.join(', '));
       await ctx.close();
     }
-    console.log('\n── 4. Admin, « Aperçu V2 » activé, téléphone : l\'app ──');
+    console.log('\n── 4. Admin, « Aperçu V2 » activé, téléphone : l\'app (écrans natifs, référence Drive) ──');
     {
       const { page, ctx, erreurs } = await ouvrir({ role: 'admin', v2: 'on' }, 390, 844);
-      const r = await page.evaluate(() => {
-        const b = document.querySelector('.v2a-barre'), ml = document.getElementById('main-layout'), t = document.querySelector('.v2a-tete');
-        const rb = b && b.getBoundingClientRect(), rm = ml && ml.getBoundingClientRect(), rt = t && t.getBoundingClientRect();
-        return { app: document.documentElement.classList.contains('dtp-app'), onglets: b ? b.querySelectorAll('.v2a-onglet').length : 0,
+      const geo = () => page.evaluate(() => {
+        const b = document.querySelector('.v2a-barre'), t = document.querySelector('.v2a-tete'), e = document.querySelector('.v2a-ecran.v2a-visible');
+        const rb = b && b.getBoundingClientRect(), rt = t && t.getBoundingClientRect(), re = e && e.getBoundingClientRect();
+        return { app: document.documentElement.classList.contains('dtp-app'), onglets: b ? [...b.querySelectorAll('.v2a-onglet')].map(x => x.dataset.v2v).join(',') : '',
           topbar: getComputedStyle(document.querySelector('.topbar')).display, nav: getComputedStyle(document.getElementById('topbar-nav')).display,
-          barreBas: rb ? Math.round(rb.bottom) : null, hauteur: innerHeight, finContenu: rm ? Math.round(rm.bottom) : null, hautBarre: rb ? Math.round(rb.top) : null,
-          debutContenu: rm ? Math.round(rm.top) : null, finTete: rt ? Math.round(rt.bottom) : null };
+          barreBas: rb ? Math.round(rb.bottom) : null, hauteur: innerHeight, hautBarre: rb ? Math.round(rb.top) : null, finTete: rt ? Math.round(rt.bottom) : null,
+          ecran: e ? e.dataset.ecran : null, debut: re ? Math.round(re.top) : null, fin: re ? Math.round(re.bottom) : null, titre: document.getElementById('v2a-titre').textContent };
       });
-      v('l\'app est active : 5 onglets (4 écrans + Plus)', r.app && r.onglets === 5, JSON.stringify(r) + ' · fichiers : ' + vus.join(', ') + ' · ' + JSON.stringify(await page.evaluate(() => ({ boot: !!window._dtpV2Boot, charge: !!window._dtpV2Charge, app: !!window._dtpV2App, pref: window.DTPPref && DTPPref.get('v2', '?')}))) + ' ' + erreurs.join(' | '));
+      const r = await geo();
+      v('l\'app est active : 5 onglets comme la référence (Macro, Fil, Marchés, Analystes, Banques)', r.app && r.onglets === 'macro,fil,markets,analystes,banques', JSON.stringify(r) + ' · fichiers : ' + vus.join(', '));
       v('l\'ancienne barre du haut et la rangée d\'onglets sont masquées', r.topbar === 'none' && r.nav === 'none');
       v('la barre d\'onglets est collée au bas de l\'écran', r.barreBas === r.hauteur);
-      v('le contenu tient ENTRE l\'en-tête et la barre, sans vide ni recouvrement', Math.abs(r.debutContenu - r.finTete) <= 1 && Math.abs(r.finContenu - r.hautBarre) <= 1, JSON.stringify(r));
-      v('l\'app s\'ouvre sur le Fil : Mon Desk (grand écran) ne se rouvre pas tout seul', await page.evaluate(() => document.getElementById('view-widgets').classList.contains('hidden') && !document.getElementById('view-news').classList.contains('hidden') && document.querySelector('.v2a-onglet.v2a-actif').dataset.v2v === 'news'));
+      v('l\'app s\'ouvre sur l\'écran Macro, logé ENTRE l\'en-tête et la barre', r.ecran === 'macro' && r.titre === 'Macro' && Math.abs(r.debut - r.finTete) <= 1 && Math.abs(r.fin - r.hautBarre) <= 1, JSON.stringify(r));
+      v('… Mon Desk (grand écran) ne se rouvre pas tout seul', await page.evaluate(() => document.getElementById('view-widgets').classList.contains('hidden')));
+      await new Promise(z => setTimeout(z, 900));
+      v('… avec la carte « Briefing du matin » en tête (V3)', await page.evaluate(() => { const c = document.getElementById('v2a-bf-carte'); return !!c && /Un risk-on prudent/.test(c.innerText) && c.parentElement.dataset.ecran === 'macro'; }));
       const aller = async sel => { await page.click(sel); await new Promise(z => setTimeout(z, 500)); };
-      const f = await page.evaluate(() => ({ puces: document.querySelectorAll('#v2a-puces-fil button').length,
-        titre: getComputedStyle(document.querySelector('#view-news .panel-header')).display }));
-      v('Fil : le titre en double disparaît, les puces Tout / Essentiel / Sections le remplacent', f.puces === 3 && f.titre === 'none', JSON.stringify(f));
+      // Captures sur demande (V2_CAPTURES=dossier) : pour juger l'app À L'ŒIL, pas seulement au banc.
+      const capture = async nom => { if (process.env.V2_CAPTURES) await page.screenshot({ path: path.join(process.env.V2_CAPTURES, 'app-' + nom + '.png') }); };
+      await capture('macro');
+      // Le fil du desk arrive par WebSocket (absent du banc) : on lui livre les dépêches par SON
+      // gestionnaire de messages, le chemin réel — l'écran Fil doit les montrer sans rien d'autre.
+      await page.evaluate(items => { try { handleMessage({ type: 'initial', items, total: items.length }); } catch (e) {} }, NEWS);
+      await aller('.v2a-onglet[data-v2v="fil"]');
+      const f = await page.evaluate(() => ({ puces: document.querySelectorAll('#v2a-puces-fil button').length, lignes: document.querySelectorAll('#v2a-fil .v2a-news').length,
+        desk: (() => { try { return getFilteredItems().length; } catch (e) { return -1; } })(), fr: [...document.querySelectorAll('#v2a-fil .v2a-news p')].some(p => /Waller \(Fed\) : une nouvelle hausse/.test(p.textContent)),
+        imp: !!document.querySelector('#v2a-fil .v2a-news.v2a-imp'), titre: document.getElementById('v2a-titre').textContent,
+        ids: (() => { try { return getFilteredItems().slice(0, 4).map(i => i.id + ':' + (i._titreFr ? 'fr' : '') + ':' + i.priority); } catch (e) { return String(e); } })() }));
+      v('Fil : natif, les MÊMES dépêches que le fil du desk (getFilteredItems)', f.lignes > 0 && f.lignes === Math.min(60, f.desk) && f.titre === 'Fil en direct', JSON.stringify(f));
+      const acc = await page.evaluate(() => { try {
+        const it = getFilteredItems().slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 30);
+        const dom = [...document.querySelectorAll('#v2a-fil .v2a-news')];
+        return { n: it.length, titres: it.every((x, i) => dom[i] && dom[i].dataset.id === String(x.id) && dom[i].querySelector('p').textContent === _newsDisplayTitle(x)),
+                 imp: it.every((x, i) => dom[i] && dom[i].classList.contains('v2a-imp') === !!_estNewsRouge(x)) };
+      } catch (e) { return { err: String(e) }; } });
+      v('… chaque ligne porte le titre AFFICHÉ par le desk (traduction comprise) et son importance, puces Tout / Essentiel / Importantes', acc.n > 0 && acc.titres && acc.imp && f.puces === 3, JSON.stringify(acc));
+      await capture('fil');
       await aller('#v2a-puces-fil [data-mode="essentiel"]');
       v('… « Essentiel » bascule le vrai filtre du fil (fonction existante)', await page.evaluate(() => { try { return newsEssentialMode === true && document.querySelector('#v2a-puces-fil [data-mode="essentiel"]').classList.contains('v2a-puce-on'); } catch (e) { return false; } }));
       await aller('#v2a-puces-fil [data-mode="tout"]');
-      await aller('.v2a-onglet[data-v2v="calendar"]');
-      const c = await page.evaluate(() => ({ vue: !document.getElementById('view-calendar').classList.contains('hidden'), titre: document.getElementById('v2a-titre').textContent, actif: document.querySelector('.v2a-onglet.v2a-actif').dataset.v2v }));
-      v('onglet Calendrier → la vraie vue Calendrier du desk, titre et onglet à jour', c.vue && c.titre === 'Calendrier' && c.actif === 'calendar', JSON.stringify(c));
+      await page.click('#v2a-fil .v2a-news[data-ouvrable]');
+      v('… « + » déplie le texte de la dépêche', await page.evaluate(() => { const n = document.querySelector('#v2a-fil .v2a-news[data-ouvrable]'); return n.classList.contains('v2a-ouvert') && getComputedStyle(n.querySelector('.v2a-news-desc')).display !== 'none'; }));
       await aller('.v2a-onglet[data-v2v="markets"]');
       await new Promise(z => setTimeout(z, 600));
-      const m = await page.evaluate(() => ({ visible: !!document.querySelector('.v2a-ecran.v2a-visible'),
+      const m = await page.evaluate(() => ({ visible: !!document.querySelector('.v2a-ecran[data-ecran="markets"].v2a-visible'),
         ordre: [...document.querySelectorAll('.v2a-force-nom b')].map(b => b.textContent).join(','),
         lib: (document.querySelector('.v2a-risque-lib') || {}).textContent, cpt: (document.querySelector('.v2a-risque-cpt') || {}).textContent,
-        source: (document.querySelector('#v2a-risque .v2a-source') || {}).textContent, titre: document.getElementById('v2a-titre').textContent }));
-      v('onglet Marchés → l\'écran Marchés de l\'app', m.visible && m.titre === 'Marchés', JSON.stringify(m));
-      await new Promise(z => setTimeout(z, 800));
-      v('… avec la carte « Briefing du matin » en tête (V3)', await page.evaluate(() => { const c = document.getElementById('v2a-bf-carte'); return !!c && /Un risk-on prudent/.test(c.innerText) && c.parentElement.classList.contains('v2a-ecran'); }));
+        source: (document.querySelector('#v2a-risque .v2a-source') || {}).textContent, titre: document.getElementById('v2a-titre').textContent, outils: document.querySelectorAll('.v2a-outils .v2a-tuile').length }));
+      v('onglet Marchés → sentiment de risque + force des devises + outils du desk', m.visible && m.titre === 'Marchés' && m.outils >= 6, JSON.stringify(m));
       v('… les 8 devises, de la plus forte à la plus faible', m.ordre === 'GBP,USD,CAD,AUD,EUR,CHF,NZD,JPY', m.ordre);
-      v('… le régime de risque traduit, avec le décompte réel des facteurs (3 / 1)', m.lib === 'Risk-on léger' && /3 facteurs risk-on · 1 risk-off/.test(m.cpt), m.lib + ' · ' + m.cpt);
+      v('… le régime de risque traduit, avec le décompte réel des facteurs (3 / 1)', m.lib === 'Risk-on léger' && /Risk-on : 3 · Risk-off : 1/.test(m.cpt), m.lib + ' · ' + m.cpt);
       v('… et sa source nommée (traçabilité)', /4 actifs suivis · cotations Yahoo Finance/.test(m.source || ''), m.source);
+      await capture('marches');
+      await aller('.v2a-outils .v2a-tuile[data-v2v="taux"]');
+      const t = await page.evaluate(() => ({ vue: !document.getElementById('view-taux').classList.contains('hidden'), ecran: !!document.querySelector('.v2a-ecran.v2a-visible'), retour: !document.getElementById('v2a-retour').hidden, onglet: ((document.querySelector('.v2a-onglet.v2a-actif') || {}).dataset || {}).v2v }));
+      v('un outil ouvre la VRAIE vue du desk, avec un bouton Retour, et Marchés reste allumé', t.vue && !t.ecran && t.retour && t.onglet === 'markets', JSON.stringify(t));
+      await aller('#v2a-retour');
+      v('… Retour ramène à l\'écran Marchés', await page.evaluate(() => !!document.querySelector('.v2a-ecran[data-ecran="markets"].v2a-visible') && document.getElementById('v2a-retour').hidden));
       await aller('#v2a-detail');
-      v('« Voir le détail » ouvre la colonne Marchés du desk, intacte', await page.evaluate(() => document.getElementById('main-layout').classList.contains('show-right-mobile') && !document.querySelector('.v2a-ecran.v2a-visible')));
-      await aller('.v2a-onglet[data-v2v="plus"]');
-      v('« Plus » ouvre la feuille de tous les outils', await page.evaluate(() => document.querySelector('.v2a-feuille').classList.contains('v2a-ouverte') && document.querySelectorAll('.v2a-tuile').length >= 6));
-      await aller('.v2a-tuile[data-v2v="taux"]');
-      const t = await page.evaluate(() => ({ vue: !document.getElementById('view-taux').classList.contains('hidden'), feuille: document.querySelector('.v2a-feuille').classList.contains('v2a-ouverte'), plus: document.querySelector('.v2a-onglet[data-v2v="plus"]').classList.contains('v2a-actif') }));
-      v('une tuile ouvre sa vue, referme la feuille, et « Plus » reste allumé', t.vue && !t.feuille && t.plus, JSON.stringify(t));
-      await aller('.v2a-onglet[data-v2v="plus"]');
-      await aller('.v2a-tuile[data-v2v="widgets"]');
-      v('… mais la tuile « Mon Desk » l\'ouvre bien (choix de l\'utilisateur)', await page.evaluate(() => !document.getElementById('view-widgets').classList.contains('hidden')));
+      v('« Colonne Marchés du desk » ouvre la colonne du desk, intacte', await page.evaluate(() => document.getElementById('main-layout').classList.contains('show-right-mobile') && !document.querySelector('.v2a-ecran.v2a-visible')));
+      await aller('.v2a-onglet[data-v2v="analystes"]');
+      await new Promise(z => setTimeout(z, 2800));
+      const an = await page.evaluate(() => ({ titres: [...document.querySelectorAll('.v2a-rapport-t')].map(x => x.textContent).slice(0, 4), n: (() => { try { return getArlibItems().length; } catch (e) { return String(e); } })(), sw: (() => { try { return _sessionWraps.length; } catch (e) { return String(e); } })() }));
+      v('onglet Analystes → la liste des rapports en cartes (même liste que l\'onglet du desk)', an.titres.some(x => /le dollar reprend la main/.test(x)), JSON.stringify(an));
+      await capture('analystes');
+      await aller('.v2a-onglet[data-v2v="banques"]');
+      await new Promise(z => setTimeout(z, 2800));
+      v('onglet Banques → les rapports de banques en cartes, banque et date', await page.evaluate(() => { const c = document.querySelector('.v2a-banque'); return !!c && /MUFG/.test(c.innerText) && /FX Weekly/.test(c.innerText); }));
+      await capture('banques');
+      await aller('#v2a-alertes');
+      await new Promise(z => setTimeout(z, 400));
+      await capture('alertes');
+      const al = await page.evaluate(() => ({ ouverte: !!document.querySelector('.v2a-alertes.v2a-ouverte'), filtres: [...document.querySelectorAll('.v2a-seg button')].map(b => b.textContent).join(','), deskOuvert: document.getElementById('np-panel') && document.getElementById('np-panel').classList.contains('open') }));
+      v('la cloche ouvre la feuille Alertes : Tout · Rapports · Actu · Calendrier, sans ouvrir le panneau du desk', al.ouverte && al.filtres === 'Tout,Rapports,Actu,Calendrier' && !al.deskOuvert, JSON.stringify(al));
+      await aller('.v2a-alertes .v2a-x');
+      await aller('#v2a-compte');
+      const cp = await page.evaluate(() => ({ ecran: ((document.querySelector('.v2a-ecran.v2a-visible') || {}).dataset || {}).ecran, sortie: !!document.querySelector('.v2a-sortie'), mail: /x@y\.z/.test((document.querySelector('.v2a-profil') || {}).innerText || ''), retour: !document.getElementById('v2a-retour').hidden }));
+      v('le bouton compte ouvre l\'écran Compte (profil, sections, déconnexion) avec Retour', cp.ecran === 'compte' && cp.sortie && cp.mail && cp.retour, JSON.stringify(cp));
+      await capture('compte');
       await page.evaluate(() => window.activateView('news'));
       await new Promise(z => setTimeout(z, 300));
-      v('une navigation faite ailleurs (activateView) resynchronise la barre', await page.evaluate(() => document.querySelector('.v2a-onglet.v2a-actif').dataset.v2v === 'news'));
+      v('une navigation faite ailleurs (activateView) resynchronise la barre', await page.evaluate(() => (document.querySelector('.v2a-onglet.v2a-actif') || {}).dataset.v2v === 'fil'));
       v('aucune erreur JavaScript', erreurs.length === 0, erreurs.slice(0, 3).join(' | '));
       await ctx.close();
     }

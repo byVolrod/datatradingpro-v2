@@ -1,15 +1,20 @@
 /* ═══ DTP V2 · L'APP MOBILE (comptes admin, interrupteur « Aperçu V2 ») ═══════════════════════════
    Demande user (24/09) : « je veux une app mobile, vraiment, pas une web app — mais en version web
-   d'abord, avant de basculer vers la création de l'app ». Donc : l'ERGONOMIE d'une app native
-   (en-tête d'écran, barre d'onglets en bas, feuille « Plus », transitions), posée AU-DESSUS du desk
-   existant, qui reste intact dessous. Chaque onglet ouvre une vue EXISTANTE par `activateView` :
-   aucune donnée, aucun chargeur, aucune vue n'est recréée. Structure inspirée des captures de
-   référence (5 onglets, en-tête titre + « en direct », IA · alertes · compte en haut à droite),
-   habillage 100% DTP (or, Fraunces, français).
-   ⚠️ LE DESK DESSOUS NE DOIT RIEN SAVOIR DE CE FICHIER. Tout passe par des fonctions déjà publiques
-   (activateView, npToggle, pdToggle, le bouton #ai-btn) et par une classe sur <html> (`dtp-app`)
-   que seule la feuille css/v2/app.css lit. Retirer ce fichier = le desk exact d'avant.
-   Actif seulement en largeur de téléphone ; au-delà (rotation, fenêtre élargie) il s'efface. */
+   d'abord, avant de basculer vers la création de l'app ». Référence : les 14 captures du dossier
+   Drive (application mobile d'un terminal concurrent), dont on reprend l'ERGONOMIE et l'emplacement
+   des boutons, jamais l'habillage :
+     · en-tête : titre d'écran + pastille « En direct » ; à droite IA, cloche (nombre de non-lus), compte ;
+     · barre du bas, 5 onglets : Macro · Fil · Marchés · Analystes · Banques ;
+     · Alertes : feuille plein écran, 4 filtres (Tout · Rapports · Actu · Calendrier), non-lus comptés ;
+     · Compte : écran à sections (fuseau, abonnement, préférences, assistance) et déconnexion.
+   Les écrans de LISTE sont natifs (construits ici), et leurs données sont celles que le desk a DÉJÀ en
+   mémoire : le fil (`getFilteredItems`, alimenté en direct par le WebSocket), les rapports
+   (`getArlibItems`, `_brArticles`), les alertes (`_npItems`). Aucun second chargeur, aucune donnée
+   recalculée. Ouvrir un rapport passe par le LECTEUR du desk (`renderArlibReader`, `renderBrReader`),
+   éprouvé par ses bancs ; les outils (calendrier, taux, biais…) restent les vues du desk.
+   ⚠️ LE DESK DESSOUS NE DOIT RIEN SAVOIR DE CE FICHIER. Tout passe par des fonctions déjà publiques et
+   par une classe sur <html> (`dtp-app`) que seule css/v2/app.css lit. Retirer ce fichier = le desk
+   exact d'avant. Actif seulement en largeur de téléphone ; au-delà il s'efface. */
 (function () {
   'use strict';
   if (window._dtpV2App) return;
@@ -18,79 +23,137 @@
   var MQ = window.matchMedia('(max-width: 820px)');
   var H = document.documentElement;
 
-  // ── Les écrans : les 4 premiers sont des onglets, le reste vit dans la feuille « Plus » ──
-  var ONGLETS = [
-    { v: 'news',     t: 'Fil',        titre: 'Fil d’actualité', ico: 'M4 5h16M4 10h16M4 15h10M4 20h7' },
-    { v: 'calendar', t: 'Calendrier', titre: 'Calendrier',           ico: 'M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM4 10h16M9 3v4M15 3v4' },
-    { v: 'markets',  t: 'Marchés',    titre: 'Marchés',              ico: 'M4 19V11M9 19V5M14 19v-6M19 19V8' },
-    { v: 'analyst',  t: 'Analyses',   titre: 'Analyses',             ico: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6' },
-  ];
-  var PLUS = [
-    { v: 'institution', t: 'Banques',          ico: 'M3 10l9-6 9 6M5 10v9M19 10v9M9 10v9M15 10v9M3 21h18' },
-    { v: 'taux',        t: 'Taux',             ico: 'M5 19L19 5M7 7h.01M17 17h.01' },
-    { v: 'bias',        t: 'Radar de Biais',   ico: 'M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M12 12l7-7' },
-    { v: 'weekahead',   t: 'Semaine à venir',  ico: 'M5 5h14v14H5zM5 9h14M9 13h2M13 13h2M9 16h2' },
-    { v: 'fxlist',      t: 'Liste FX',         ico: 'M4 6h16M4 12h16M4 18h16M8 3v18' },
-    { v: 'bank',        t: 'Positions banques', ico: 'M4 18l5-6 4 3 7-9M20 6v5M20 6h-5' },
-    { v: 'journal',     t: 'Journal',          ico: 'M6 3h11a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-3 2V5a2 2 0 0 1 2-2zM9 8h6M9 12h6' },
-    { v: 'calculator',  t: 'Calculatrice',     ico: 'M6 3h12v18H6zM9 7h6M9 11h.01M12 11h.01M15 11h.01M9 15h.01M12 15h.01M15 15h.01' },
-    { v: 'widgets',     t: 'Mon Desk',         ico: 'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z' },
-  ];
-  var TITRES = {};
-  ONGLETS.forEach(function (o) { TITRES[o.v] = o.titre; });
-  PLUS.forEach(function (o) { TITRES[o.v] = o.t; });
-  TITRES.symbol = 'Paire'; TITRES.widgets = 'Mon Desk';
-
-  var svg = function (d, w) {
-    return '<svg viewBox="0 0 24 24" width="' + (w || 22) + '" height="' + (w || 22) + '" fill="none" stroke="currentColor" '
-      + 'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/></svg>';
+  var svg = function (d, w, epais) {
+    return '<svg viewBox="0 0 24 24" width="' + (w || 24) + '" height="' + (w || 24) + '" fill="none" stroke="currentColor" '
+      + 'stroke-width="' + (epais || 1.6) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + d + '"/></svg>';
   };
-  var existe = function (v) { return v === 'markets' || !!document.getElementById('view-' + v); };
+  var I = {
+    macro: 'M3 17l6-6 4 4 8-8M15 7h6v6',
+    fil: 'M5 4h11v16H6a1 1 0 0 1-1-1zM16 8h3v11a1 1 0 0 1-1 1h-2M8 8h5M8 12h5M8 16h3',
+    marches: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+    analyst: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
+    banques: 'M4 21V7l8-4 8 4v14M4 21h16M8 10v2M12 10v2M16 10v2M8 15v2M12 15v2M16 15v2',
+    cloche: 'M6 17V11a6 6 0 1 1 12 0v6l1.5 2h-15zM10 21h4',
+    compte: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
+    x: 'M6 6l12 12M18 6L6 18',
+    retour: 'M15 5l-7 7 7 7',
+    suite: 'M9 5l7 7-7 7',
+    bas: 'M6 9l6 6 6-6',
+    cal: 'M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM4 10h16M9 3v4M15 3v4',
+    doc: 'M7 3h7l5 5v13H7zM14 3v5h5',
+    actu: 'M4 5h12v14H5a1 1 0 0 1-1-1zM16 9h4v9a1 1 0 0 1-1 1h-3M7 9h6M7 13h6M7 16h4',
+    risque: 'M12 3l9 16H3zM12 10v4M12 17h.01',
+    horloge: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+    carte: 'M3 7h18v12H3zM3 11h18',
+    bulle: 'M4 5h16v11H9l-5 4z',
+    son: 'M5 9v6h4l5 4V5L9 9zM17 9a4 4 0 0 1 0 6',
+    etoile: 'M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z',
+    sortie: 'M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4M16 17l5-5-5-5M21 12H9',
+    hausse: 'M3 17l6-6 4 4 8-8M15 7h6v6',
+    baisse: 'M3 7l6 6 4-4 8 8M15 17h6v-6'
+  };
+  var esc = function (x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var vibre = function () { try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {} };
+  var appel = function (nom) { var f = window[nom]; if (typeof f === 'function') { try { return f.apply(null, [].slice.call(arguments, 1)); } catch (e) {} } return undefined; };
+  /* Les FONCTIONS de premier niveau d'app.js sont sur window ; ses `let` / `const` n'y sont pas, mais
+     l'environnement lexical global est PARTAGÉ entre scripts classiques : on les lit par leur nom,
+     derrière un `typeof` (le desk pourrait ne pas les avoir encore déclarés). Aucun eval. */
+  var glob = function (nom) {
+    try {
+      switch (nom) {
+        case '_brArticles':        return typeof _brArticles !== 'undefined' ? _brArticles : undefined;
+        case '_npItems':           return typeof _npItems !== 'undefined' ? _npItems : undefined;
+        case 'newsEssentialMode':  return typeof newsEssentialMode !== 'undefined' ? newsEssentialMode : undefined;
+        case '_npEnabled':         return typeof _npEnabled !== 'undefined' ? _npEnabled : undefined;
+      }
+    } catch (e) { return undefined; }
+    return window[nom];
+  };
+  var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+  var dateHeure = function (ts) { var d = new Date(ts); return p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear() + ' | ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); };
+  var jourLong = function (ts) { try { return new Date(ts).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\s(\d)/, ' $1'); } catch (e) { return ''; } };
+  var dateCourte = function (ts) { try { return new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return ''; } };
+  var ilYa = function (ts) {
+    var f = glob('_npTimeAgo'); if (typeof f === 'function') return f(ts);
+    var s = Math.max(0, (Date.now() - ts) / 1000); return s < 3600 ? 'il y a ' + Math.floor(s / 60) + ' min' : 'il y a ' + Math.floor(s / 3600) + ' h';
+  };
 
-  // ── Construction (une seule fois) ──
-  var tete, barre, feuille, voile, courant = '';
+  /* ── Les onglets (référence : 5 onglets, pas de « Plus ») et les outils du desk ─────────────────── */
+  var ONGLETS = [
+    { v: 'macro',     t: 'Macro',     titre: 'Macro',         ico: I.macro },
+    { v: 'fil',       t: 'Fil',       titre: 'Fil en direct', ico: I.fil },
+    { v: 'markets',   t: 'Marchés',   titre: 'Marchés',       ico: I.marches },
+    { v: 'analystes', t: 'Analystes', titre: 'Analystes',     ico: I.analyst },
+    { v: 'banques',   t: 'Banques',   titre: 'Banques',       ico: I.banques }
+  ];
+  var OUTILS = [
+    { v: 'calendar',    t: 'Calendrier',        ico: I.cal },
+    { v: 'taux',        t: 'Taux',              ico: 'M5 19L19 5M7 7h.01M17 17h.01' },
+    { v: 'bias',        t: 'Radar de Biais',    ico: 'M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M12 12l7-7' },
+    { v: 'weekahead',   t: 'Semaine à venir',   ico: 'M5 5h14v14H5zM5 9h14M9 13h2M13 13h2M9 16h2' },
+    { v: 'fxlist',      t: 'Liste FX',          ico: 'M4 6h16M4 12h16M4 18h16M8 3v18' },
+    { v: 'bank',        t: 'Positions banques', ico: 'M4 18l5-6 4 3 7-9M20 6v5M20 6h-5' },
+    { v: 'journal',     t: 'Journal',           ico: 'M6 3h11a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-3 2V5a2 2 0 0 1 2-2zM9 8h6M9 12h6' },
+    { v: 'calculator',  t: 'Calculatrice',      ico: 'M6 3h12v18H6zM9 7h6M9 11h.01M12 11h.01M15 11h.01M9 15h.01M12 15h.01M15 15h.01' },
+    { v: 'widgets',     t: 'Mon Desk',          ico: 'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z' }
+  ];
+  var TITRES = { news: 'Fil en direct', analyst: 'Analystes', institution: 'Banques', symbol: 'Paire', compte: 'Compte' };
+  ONGLETS.forEach(function (o) { TITRES[o.v] = o.titre; });
+  OUTILS.forEach(function (o) { TITRES[o.v] = o.t; });
+  // Vue du desk → onglet de l'app qui l'éclaire (le lecteur d'un rapport garde son onglet allumé).
+  var PARENT = { news: 'fil', analyst: 'analystes', institution: 'banques' };
+  var existe = function (v) { return !!document.getElementById('view-' + v); };
+
+  /* ── Construction de la coquille (une seule fois) ──────────────────────────────────────────────── */
+  var tete, barre, feuille, voile, alertes, courant = '', ecrans = {};
   function construire() {
     if (tete) return;
     tete = document.createElement('header');
     tete.className = 'v2a-tete';
-    tete.innerHTML = '<div class="v2a-titre-bloc"><h1 class="v2a-titre" id="v2a-titre">Fil d’actualité</h1>'
-      + '<span class="v2a-direct"><i></i>En direct</span></div>'
+    tete.innerHTML = '<div class="v2a-titre-bloc"><button type="button" class="v2a-retour" id="v2a-retour" aria-label="Retour" hidden>' + svg(I.retour, 22, 2) + '</button>'
+      + '<h1 class="v2a-titre" id="v2a-titre">Macro</h1><span class="v2a-direct"><i></i>En direct</span></div>'
       + '<div class="v2a-actions">'
-      + '<button type="button" class="v2a-bt v2a-ia" id="v2a-ia" aria-label="Copilote IA"><span class="v2a-ia-txt">IA</span></button>'
-      + '<button type="button" class="v2a-bt" id="v2a-alertes" aria-label="Alertes">' + svg('M6 17V11a6 6 0 1 1 12 0v6l1.5 2h-15zM10 21h4', 20) + '<b class="v2a-point" id="v2a-point"></b></button>'
-      + '<button type="button" class="v2a-bt v2a-compte" id="v2a-compte" aria-label="Mon compte"></button>'
+      + '<button type="button" class="v2a-bt v2a-ia" id="v2a-ia" aria-label="Copilote Macro (IA)"><img src="/assets/images/macro-ai-spark.svg" alt=""></button>'
+      + '<button type="button" class="v2a-bt" id="v2a-alertes" aria-label="Alertes">' + svg(I.cloche, 25) + '<b class="v2a-compteur" id="v2a-compteur" hidden></b><b class="v2a-point" id="v2a-point"></b></button>'
+      + '<button type="button" class="v2a-bt v2a-compte" id="v2a-compte" aria-label="Mon compte">' + svg(I.compte, 25) + '</button>'
       + '</div>';
     document.body.insertBefore(tete, document.body.firstChild);
 
     barre = document.createElement('nav');
     barre.className = 'v2a-barre';
     barre.setAttribute('aria-label', 'Navigation');
-    barre.innerHTML = ONGLETS.filter(function (o) { return existe(o.v); }).map(function (o) {
-      return '<button type="button" class="v2a-onglet" data-v2v="' + o.v + '">' + svg(o.ico) + '<span>' + o.t + '</span></button>';
-    }).join('') + '<button type="button" class="v2a-onglet" data-v2v="plus">' + svg('M5 12h.01M12 12h.01M19 12h.01', 22) + '<span>Plus</span></button>';
+    barre.innerHTML = ONGLETS.map(function (o) {
+      return '<button type="button" class="v2a-onglet" data-v2v="' + o.v + '">' + svg(o.ico, 27, 1.5) + '<span>' + o.t + '</span></button>';
+    }).join('');
     document.body.appendChild(barre);
 
+    // La feuille « Tous les outils » : ouverte depuis l'écran Marchés (et par un appui long sur Marchés).
     voile = document.createElement('div');
     voile.className = 'v2a-voile';
     feuille = document.createElement('div');
     feuille.className = 'v2a-feuille';
     feuille.setAttribute('role', 'dialog');
-    feuille.setAttribute('aria-label', 'Plus');
+    feuille.setAttribute('aria-label', 'Tous les outils');
     feuille.innerHTML = '<div class="v2a-poignee"></div><div class="v2a-feuille-titre">Tous les outils</div><div class="v2a-grille">'
-      + PLUS.filter(function (o) { return existe(o.v); }).map(function (o) {
+      + OUTILS.filter(function (o) { return existe(o.v); }).map(function (o) {
         return '<button type="button" class="v2a-tuile" data-v2v="' + o.v + '">' + svg(o.ico, 24) + '<span>' + o.t + '</span></button>';
       }).join('') + '</div>';
     document.body.appendChild(voile);
     document.body.appendChild(feuille);
 
+    // Les écrans natifs, dans cet ordre (le premier reçoit la carte du Briefing, cf. briefing-ui.js).
+    ['macro', 'fil', 'markets', 'analystes', 'banques', 'compte'].forEach(function (k) {
+      var s = document.createElement('section');
+      s.className = 'v2a-ecran'; s.dataset.ecran = k;
+      s.setAttribute('aria-label', TITRES[k] || k);
+      document.body.appendChild(s);
+      ecrans[k] = s;
+    });
+
     // ── Événements ──
     barre.addEventListener('click', function (e) {
       var b = e.target.closest('[data-v2v]'); if (!b) return;
-      vibre();
-      if (b.dataset.v2v === 'plus') { ouvrirPlus(!feuille.classList.contains('v2a-ouverte')); return; }
-      ouvrirPlus(false);
-      aller(b.dataset.v2v);
+      vibre(); ouvrirPlus(false); fermerAlertes(); aller(b.dataset.v2v);
     });
     feuille.addEventListener('click', function (e) {
       var b = e.target.closest('[data-v2v]'); if (!b) return;
@@ -98,131 +161,199 @@
       vibre(); ouvrirPlus(false); aller(b.dataset.v2v);
     });
     voile.addEventListener('click', function () { ouvrirPlus(false); });
-    // Glisser la feuille vers le bas la referme (geste natif attendu).
-    var y0 = null;
+    var y0 = null;   // glisser la feuille vers le bas la referme (geste natif attendu)
     feuille.addEventListener('touchstart', function (e) { y0 = e.touches[0].clientY; }, { passive: true });
-    feuille.addEventListener('touchmove', function (e) {
-      if (y0 == null) return; var d = e.touches[0].clientY - y0;
-      if (d > 0) feuille.style.transform = 'translateY(' + d + 'px)';
-    }, { passive: true });
-    feuille.addEventListener('touchend', function (e) {
-      if (y0 == null) return; var d = (e.changedTouches[0].clientY - y0); y0 = null;
-      feuille.style.transform = '';
-      if (d > 70) ouvrirPlus(false);
-    });
-    document.getElementById('v2a-ia').addEventListener('click', function () { vibre(); var b = document.getElementById('ai-btn'); if (b) b.click(); });
-    document.getElementById('v2a-alertes').addEventListener('click', function () { vibre(); if (typeof window.npToggle === 'function') window.npToggle(); });
-    document.getElementById('v2a-compte').addEventListener('click', function () { vibre(); if (typeof window.pdToggle === 'function') window.pdToggle(); });
+    feuille.addEventListener('touchmove', function (e) { if (y0 == null) return; var d = e.touches[0].clientY - y0; if (d > 0) feuille.style.transform = 'translateY(' + d + 'px)'; }, { passive: true });
+    feuille.addEventListener('touchend', function (e) { if (y0 == null) return; var d = e.changedTouches[0].clientY - y0; y0 = null; feuille.style.transform = ''; if (d > 70) ouvrirPlus(false); });
+    document.getElementById('v2a-ia').addEventListener('click', function () { vibre(); fermerAlertes(); var b = document.getElementById('ai-btn'); if (b) b.click(); });
+    document.getElementById('v2a-alertes').addEventListener('click', function () { vibre(); if (alertes && alertes.classList.contains('v2a-ouverte')) fermerAlertes(); else ouvrirAlertes(); });
+    document.getElementById('v2a-compte').addEventListener('click', function () { vibre(); fermerAlertes(); aller('compte'); });
+    document.getElementById('v2a-retour').addEventListener('click', function () { vibre(); retour(); });
 
-    // Le point d'alerte et l'avatar SUIVENT ceux du desk (même source, aucun second calcul).
+    // Le compteur de la cloche SUIT le badge du desk (même source, aucun second calcul).
     var badge = document.getElementById('notif-badge');
-    var point = document.getElementById('v2a-point');
-    var syncPoint = function () { if (badge && point) point.classList.toggle('v2a-on', badge.style.display !== 'none'); };
-    if (badge) new MutationObserver(syncPoint).observe(badge, { attributes: true, attributeFilter: ['style', 'class'] });
-    syncPoint();
-    var av = document.getElementById('topbar-avatar');
-    var cpt = document.getElementById('v2a-compte');
-    var syncAv = function () { if (av && cpt) cpt.innerHTML = av.innerHTML; };
-    if (av) new MutationObserver(syncAv).observe(av, { childList: true, subtree: true, attributes: true, characterData: true });
-    syncAv();
-  }
-
-  /* ── Le Fil, en écran d'app : l'en-tête d'écran porte déjà le titre et « en direct » ; à la place
-     de la liste déroulante de bureau, une rangée de puces. Elles appellent les fonctions EXISTANTES
-     du fil (`_toggleNewsMode`, `toggleSectionDropdown`) : aucun filtre n'est réécrit ici. ── */
-  function modeEssentiel() { try { return !!newsEssentialMode; } catch (e) { return false; } }   // `let` global d'app.js
-  function pucesFil() {
-    var pn = document.querySelector('#view-news .panel-news');
-    var tb = pn && pn.querySelector('.panel-toolbar');
-    if (!pn || !tb || document.getElementById('v2a-puces-fil')) return;
-    var bar = document.createElement('div');
-    bar.className = 'v2a-puces'; bar.id = 'v2a-puces-fil';
-    bar.innerHTML = '<button type="button" data-mode="tout">Tout</button><button type="button" data-mode="essentiel">Essentiel</button>'
-      + '<span class="v2a-puces-sep"></span><button type="button" data-sections="1">Sections ▾</button>';
-    pn.insertBefore(bar, tb);
-    var sync = function () {
-      var e = modeEssentiel();
-      bar.querySelector('[data-mode="tout"]').classList.toggle('v2a-puce-on', !e);
-      bar.querySelector('[data-mode="essentiel"]').classList.toggle('v2a-puce-on', e);
+    var syncBadge = function () {
+      var n = badge && badge.style.display !== 'none' ? (parseInt(badge.textContent, 10) || 0) : 0;
+      var c = document.getElementById('v2a-compteur'), pt = document.getElementById('v2a-point');
+      if (c) { c.hidden = !n; c.textContent = n > 99 ? '99+' : String(n); }
+      if (pt) pt.classList.toggle('v2a-on', !!(badge && badge.style.display !== 'none') && !n);
     };
-    bar.addEventListener('click', function (ev) {
-      var b = ev.target.closest('button'); if (!b) return;
-      vibre();
-      if (b.dataset.sections) { if (typeof window.toggleSectionDropdown === 'function') window.toggleSectionDropdown(); return; }
-      var veut = b.dataset.mode === 'essentiel';
-      if (veut !== modeEssentiel() && typeof window._toggleNewsMode === 'function') window._toggleNewsMode();
-      sync();
-    });
-    sync();
+    if (badge) new MutationObserver(syncBadge).observe(badge, { attributes: true, childList: true, characterData: true, subtree: true });
+    syncBadge();
   }
 
   function ouvrirPlus(on) {
     if (!feuille) return;
     feuille.classList.toggle('v2a-ouverte', !!on);
     voile.classList.toggle('v2a-ouverte', !!on);
-    var bp = barre.querySelector('[data-v2v="plus"]');
-    if (bp) bp.classList.toggle('v2a-actif', !!on || (courant && !ONGLETS.some(function (o) { return o.v === courant; })));
   }
 
+  /* ── Navigation ─────────────────────────────────────────────────────────────────────────────────── */
+  var pile = [];   // écrans d'outil / lecteur ouverts depuis un onglet : « Retour » y ramène
   function marquer(v) {
     courant = v;
     var t = document.getElementById('v2a-titre');
     if (t) t.textContent = TITRES[v] || 'DataTradingPro';
-    if (!barre) return;
-    var dansOnglets = ONGLETS.some(function (o) { return o.v === v; });
-    barre.querySelectorAll('.v2a-onglet').forEach(function (b) {
-      b.classList.toggle('v2a-actif', b.dataset.v2v === v || (b.dataset.v2v === 'plus' && !dansOnglets));
-    });
+    var onglet = ONGLETS.some(function (o) { return o.v === v; }) ? v : (PARENT[v] || (v === 'compte' ? '' : 'markets'));
+    if (barre) barre.querySelectorAll('.v2a-onglet').forEach(function (b) { b.classList.toggle('v2a-actif', b.dataset.v2v === onglet); });
+    var r = document.getElementById('v2a-retour');
+    if (r) r.hidden = !(v === 'compte' || !ONGLETS.some(function (o) { return o.v === v; }));
+    H.classList.toggle('v2a-sous-ecran', v === 'compte');
   }
-
-  function aller(v) {
-    if (v === 'markets') { ecranMarches(true); marquer('markets'); return; }
+  function montrerEcran(k) {
+    Object.keys(ecrans).forEach(function (x) { ecrans[x].classList.toggle('v2a-visible', x === k); });
+    if (k && ecrans[k]) { var e = ecrans[k]; e.classList.remove('v2a-entre'); void e.offsetWidth; e.classList.add('v2a-entre'); }
+    if (k !== 'markets') arreterMarches();
+  }
+  var RENDUS = {};
+  function aller(v, opts) {
+    opts = opts || {};
+    if (ecrans[v]) {
+      if (ONGLETS.some(function (o) { return o.v === v; })) pile = [];
+      else if (courant && courant !== v) pile.push(courant);
+      montrerEcran(v); marquer(v);
+      if (RENDUS[v]) RENDUS[v]();
+      return;
+    }
+    // Une vue du desk (outil, lecteur) : les écrans natifs s'effacent, la vue apparaît dessous.
+    if (courant && courant !== v && !opts.sansPile) pile.push(courant);
+    montrerEcran(null);
     if (typeof window.activateView !== 'function') return;
     window.activateView(v);
-    // Transition d'écran : courte, et seulement sur ce qui vient d'apparaître.
-    var p = v === 'markets' ? document.getElementById('panel-right') : document.getElementById('view-' + v);
+    var p = document.getElementById('view-' + v);
     if (p) { p.classList.remove('v2a-entre'); void p.offsetWidth; p.classList.add('v2a-entre'); }
     marquer(v);
   }
+  function retour() {
+    var v = pile.pop();
+    if (!v) v = 'macro';
+    // Un lecteur de rapport ouvert : on referme d'abord le lecteur, on revient à la liste native.
+    aller(v, { sansPile: true });
+  }
+  window._v2aAller = aller;
 
   // Toute navigation faite AILLEURS (ouverture d'une paire, lien d'une alerte…) resynchronise la barre.
   var origine = window.activateView;
   if (typeof origine === 'function' && !origine._v2) {
-    var enveloppe = function (v, o) {
-      /* Mon Desk se rouvre tout seul au démarrage d'un admin (widgets.js, mesuré au banc ~1,2 s après
-         le chargement) : c'est une composition de GRAND écran. Dans l'app, seule la tuile « Mon Desk »
-         de la feuille « Plus » l'ouvre ; toute autre ouverture automatique retombe sur le Fil. */
+    var enveloppe = function (v) {
+      /* Mon Desk se rouvre tout seul au démarrage d'un admin (widgets.js) : c'est une composition de
+         GRAND écran. Dans l'app, seule la tuile « Mon Desk » l'ouvre ; toute autre ouverture
+         automatique retombe sur l'écran d'accueil de l'app. */
       if (v === 'widgets' && H.classList.contains('dtp-app') && !window._v2aDeskDemande) {
-        arguments[0] = v = 'news';
+        window._v2aDeskDemande = false;
+        setTimeout(function () { aller('macro'); }, 0);
+        return;
       }
       window._v2aDeskDemande = false;
-      try { ecranMarches(false); } catch (e) {}
-      var r = origine.apply(this, arguments); try { marquer(v); } catch (e) {} return r;
+      if (H.classList.contains('dtp-app')) montrerEcran(null);
+      var r = origine.apply(this, arguments); try { if (H.classList.contains('dtp-app')) marquer(v); } catch (e) {} return r;
     };
     enveloppe._v2 = true;
     window.activateView = enveloppe;
   }
 
-  /* ══ ÉCRAN « MARCHÉS » : RÉGIME DE RISQUE + FORCE DES DEVISES (structure des captures de référence) ══
-     Deux blocs, lisibles d'un coup d'œil sur un téléphone, et RIEN d'inventé :
-       · le régime de risque vient de /api/risk-sentiment (la même source que la jauge du desk) ; le
-         décompte « facteurs risk-on / risk-off » compte les actifs de CETTE réponse dont la variation
-         va dans le sens du risque (variation × sens de l'actif) ;
-       · la force des devises vient de /api/currency-strength, à l'échelle de la courbe du desk
-         (même formule que `computeScale` de charts.js, vérifiée au banc) : le chiffre affiché ici
-         est celui de la pastille du desk.
-     Chaque bloc dit sa source et son heure de mise à jour (traçabilité, priorité de la V2). Le
-     « Voir le détail » ouvre la colonne Marchés du desk, intacte. */
+  /* ══ ÉCRAN MACRO : le briefing du matin sourcé + les publications du desk, en fil de lecture ══════
+     Référence « MacroFeed » : des publications longues, un auteur, une date, un titre, le texte, « Lire
+     la suite ». Chez DTP, ces publications existent : ce sont les récaps et analyses rédigés par le
+     desk (même liste que l'onglet Analystes, filtrée sur la source DTP). Le Briefing du matin se pose
+     tout seul en tête (briefing-ui.js). Rien n'est rédigé ici. */
+  function itemsRapports() { var f = glob('getArlibItems'); try { return typeof f === 'function' ? (f() || []) : []; } catch (e) { return []; } }
+  function titreRapport(it) { var f = glob('standardizeReportTitle'); try { return typeof f === 'function' ? f(it) : (it.headline || it.title || ''); } catch (e) { return it.headline || it.title || ''; } }
+  function estDtp(it) { var f = glob('isPrimerItem'); return it.source === 'DTP' || it._briefing || it._marketWrap || !!it._reportType || (typeof f === 'function' && f(it)); }
+  function ouvrirRapport(it) {
+    var mk = glob('markRead'), rk = glob('_reportReadKey');
+    try { if (typeof mk === 'function' && typeof rk === 'function') mk(rk(it)); } catch (e) {}
+    aller('analyst');
+    try { var r = glob('renderArlibReader'); if (typeof r === 'function') r(it); var s = glob('arlibShowReader'); if (typeof s === 'function') s(); } catch (e) {}
+  }
+  RENDUS.macro = function () {
+    var e = ecrans.macro, zone = e.querySelector('.v2a-macro-liste');
+    if (!zone) { zone = document.createElement('div'); zone.className = 'v2a-macro-liste'; e.appendChild(zone); }
+    var items = itemsRapports().filter(estDtp).sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); }).slice(0, 14);
+    if (!items.length) { zone.innerHTML = '<p class="v2a-vide">Les publications du desk arrivent…</p>'; appel('loadAnalystView'); setTimeout(function () { if (courant === 'macro') RENDUS.macro(); }, 2500); return; }
+    zone.innerHTML = items.map(function (it, i) {
+      var txt = String(it.description || it.summary || '').trim();
+      return '<article class="v2a-post" data-i="' + i + '"><div class="v2a-post-av"><img src="/favicon.svg" alt=""></div><div class="v2a-post-c">'
+        + '<div class="v2a-post-meta"><b>' + esc(it._reportType ? 'Desk DTP · ' + it._reportType : 'Desk DTP') + '</b><span>' + esc(dateHeure(it.timestamp)) + '</span></div>'
+        + '<h2 class="v2a-post-t">' + esc(titreRapport(it)) + '</h2>'
+        + (txt ? '<p class="v2a-post-txt">' + esc(txt) + '</p>' : '')
+        + '<button type="button" class="v2a-lire" data-lire="' + i + '">Lire le rapport ' + svg(I.suite, 14, 2) + '</button></div></article>';
+    }).join('');
+    zone.onclick = function (ev) { var b = ev.target.closest('[data-lire], .v2a-post-t'); if (!b) return; var a = b.closest('.v2a-post'); vibre(); ouvrirRapport(items[+a.dataset.i]); };
+  };
+
+  /* ══ ÉCRAN FIL : le fil en direct, natif ══════════════════════════════════════════════════════════
+     Mêmes éléments que le fil du desk (`getFilteredItems` : filtre Essentiel et sections compris),
+     même titre affiché (`_newsDisplayTitle` : la traduction française quand elle existe), même règle
+     d'importance (`_estNewsRouge`). Il se met à jour quand le desk reçoit une dépêche. */
+  var filMode = 'tout', filLimite = 60, filOuverts = {};
+  function modeEssentiel() { try { return !!glob('newsEssentialMode'); } catch (e) { return false; } }
+  RENDUS.fil = function () {
+    var e = ecrans.fil;
+    if (!e.querySelector('#v2a-puces-fil')) {
+      e.innerHTML = '<div class="v2a-puces" id="v2a-puces-fil"><button type="button" data-mode="tout">Tout</button><button type="button" data-mode="essentiel">Essentiel</button>'
+        + '<button type="button" data-mode="important">Importantes</button></div><div class="v2a-fil" id="v2a-fil"></div>';
+      e.querySelector('#v2a-puces-fil').addEventListener('click', function (ev) {
+        var b = ev.target.closest('button'); if (!b) return; vibre();
+        var m = b.dataset.mode;
+        var veutEss = m === 'essentiel';
+        if (m !== 'important' && veutEss !== modeEssentiel()) appel('_toggleNewsMode');
+        if (m === 'important' && modeEssentiel()) appel('_toggleNewsMode');
+        filMode = m; filLimite = 60; RENDUS.fil();
+      });
+      e.querySelector('#v2a-fil').addEventListener('click', function (ev) {
+        var plus = ev.target.closest('[data-plus]');
+        if (plus) { filLimite += 60; RENDUS.fil(); return; }
+        var art = ev.target.closest('.v2a-news'); if (!art || !art.dataset.ouvrable) return;
+        vibre(); filOuverts[art.dataset.id] = !filOuverts[art.dataset.id]; art.classList.toggle('v2a-ouvert', !!filOuverts[art.dataset.id]);
+      });
+    }
+    var eff = modeEssentiel() && filMode !== 'important' ? 'essentiel' : filMode;
+    e.querySelectorAll('#v2a-puces-fil button').forEach(function (b) { b.classList.toggle('v2a-puce-on', b.dataset.mode === eff); });
+    var src = glob('getFilteredItems'), rouge = glob('_estNewsRouge'), titre = glob('_newsDisplayTitle'), cat = glob('catFr');
+    var items = [];
+    try { items = typeof src === 'function' ? src().slice() : []; } catch (x) {}
+    items.sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+    if (filMode === 'important' && typeof rouge === 'function') items = items.filter(function (it) { try { return rouge(it); } catch (x) { return false; } });
+    var liste = document.getElementById('v2a-fil');
+    if (!items.length) { liste.innerHTML = '<p class="v2a-vide">Le fil est en direct : les dépêches apparaissent dès leur publication.</p>'; return; }
+    var html = '', jour = '';
+    items.slice(0, filLimite).forEach(function (it) {
+      var j = new Date(it.timestamp || 0).toDateString();
+      if (j !== jour) { jour = j; html += '<div class="v2a-jour">' + esc(jourLong(it.timestamp)) + '</div>'; }
+      var imp = false; try { imp = typeof rouge === 'function' && rouge(it); } catch (x) {}
+      var t = ''; try { t = typeof titre === 'function' ? titre(it) : (it._titreFr || it.headline); } catch (x) { t = it.headline; }
+      var desc = String(it._descFr || it.description || '').replace(/<[^>]+>/g, ' ').trim();
+      var c = it.category ? (typeof cat === 'function' ? cat(it.category) : it.category) : '';
+      var tags = (Array.isArray(it.tags) ? it.tags : []).slice(0, 3).filter(function (x) { return x && x !== it.category; });
+      html += '<article class="v2a-news' + (imp ? ' v2a-imp' : '') + (filOuverts[it.id] ? ' v2a-ouvert' : '') + '" data-id="' + esc(it.id) + '"' + (desc ? ' data-ouvrable="1"' : '') + '>'
+        + '<div class="v2a-news-meta">' + (imp ? '<span class="v2a-excl">!</span>' : '') + '<span>' + esc(dateHeure(it.timestamp)) + '</span>' + (c ? '<b>' + esc(c) + '</b>' : '') + '</div>'
+        + '<div class="v2a-news-l">' + (desc ? '<span class="v2a-plus"><i></i></span>' : '') + '<p>' + esc(t) + '</p></div>'
+        + (desc ? '<div class="v2a-news-desc">' + esc(desc) + '</div>' : '')
+        + '<div class="v2a-tags">' + (imp ? '<span>Importante</span>' : '') + (it.urgent ? '<span>Urgente</span>' : '') + tags.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</div></article>';
+    });
+    if (items.length > filLimite) html += '<button type="button" class="v2a-charger" data-plus="1">Charger plus (' + (items.length - filLimite) + ')</button>';
+    liste.innerHTML = html;
+  };
+  // Le desk reçoit une dépêche → il redessine #news-list → l'écran Fil suit (regroupé, 400 ms).
+  var filMaj = null;
+  function brancherFil() {
+    var nl = document.getElementById('news-list');
+    if (!nl || nl._v2a) return; nl._v2a = true;
+    new MutationObserver(function () { if (courant !== 'fil') return; clearTimeout(filMaj); filMaj = setTimeout(RENDUS.fil, 400); }).observe(nl, { childList: true });
+  }
+
+  /* ══ ÉCRAN MARCHÉS : régime de risque + force des devises (référence « Heatmaps ») + outils ════════
+     Rien d'inventé : le régime vient de /api/risk-sentiment (la jauge du desk), la force de
+     /api/currency-strength à l'échelle de la courbe du desk (même formule que `computeScale`). */
   var LIB_RISQUE = { 'STRONG RISK-ON': 'Risk-on marqué', 'RISK-ON': 'Risk-on', 'WEAK RISK-ON': 'Risk-on léger', 'NEUTRAL': 'Neutre',
     'WEAK RISK-OFF': 'Risk-off léger', 'RISK-OFF': 'Risk-off', 'STRONG RISK-OFF': 'Risk-off marqué' };
   var NOMS = { USD: 'Dollar américain', EUR: 'Euro', JPY: 'Yen japonais', GBP: 'Livre sterling', AUD: 'Dollar australien',
     CHF: 'Franc suisse', CAD: 'Dollar canadien', NZD: 'Dollar néo-zélandais' };
   var PAYS = { USD: 'us', EUR: 'eu', JPY: 'jp', GBP: 'gb', AUD: 'au', CHF: 'ch', CAD: 'ca', NZD: 'nz' };
   var UT = [['today', 'TD'], ['week', 'TW'], ['8h', '8H'], ['1d', '1D'], ['7d', '7D'], ['1m', '1M']];
-  var ecran = null, periode = 'today', minuterie = null;
-  var esc = function (x) { return String(x == null ? '' : x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var periode = 'today', minuterie = null;
   var heure = function (iso) { try { return new Date(iso || Date.now()).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } };
-  // Même échelle que la courbe du desk : charts.js › computeScale (banc v2-verif : résultats identiques).
   function echelle(d) {
     var BASE = 100, abs = [];
     (d.currencies || []).forEach(function (c) { (d.series[c] || []).forEach(function (x) { if (x.v != null) abs.push(Math.abs(x.v)); }); });
@@ -232,51 +363,50 @@
     return refMax > CAP ? (BASE * CAP / refMax) : BASE;
   }
   window._v2aEchelle = echelle;
-
-  function ecranMarches(on) {
-    if (!on) { if (ecran) ecran.classList.remove('v2a-visible'); if (minuterie) { clearInterval(minuterie); minuterie = null; } return; }
-    if (!ecran) {
-      ecran = document.createElement('section');
-      ecran.className = 'v2a-ecran';
-      ecran.setAttribute('aria-label', 'Marchés');
-      ecran.innerHTML = '<div class="v2a-carte" id="v2a-risque"><div class="v2a-carte-titre">Régime de risque</div><div class="v2a-attente">Chargement…</div></div>'
-        + '<div class="v2a-carte"><div class="v2a-carte-tete"><div class="v2a-carte-titre">Force des devises</div>'
-        + '<div class="v2a-ut">' + UT.map(function (u) { return '<button type="button" data-ut="' + u[0] + '"' + (u[0] === periode ? ' class="v2a-ut-on"' : '') + '>' + u[1] + '</button>'; }).join('') + '</div></div>'
+  function arreterMarches() { if (minuterie) { clearInterval(minuterie); minuterie = null; } }
+  RENDUS.markets = function () {
+    var e = ecrans.markets;
+    if (!e.querySelector('#v2a-risque')) {
+      e.insertAdjacentHTML('beforeend', '<div class="v2a-carte" id="v2a-risque"><div class="v2a-carte-titre">Sentiment de risque</div><div class="v2a-attente">Chargement…</div></div>'
+        + '<div class="v2a-carte"><div class="v2a-carte-titre">Force des devises</div>'
+        + '<div class="v2a-ut">' + UT.map(function (u) { return '<button type="button" data-ut="' + u[0] + '"' + (u[0] === periode ? ' class="v2a-ut-on"' : '') + '>' + u[1] + '</button>'; }).join('') + '</div>'
         + '<div id="v2a-force"><div class="v2a-attente">Chargement…</div></div></div>'
-        + '<button type="button" class="v2a-lien" id="v2a-detail">Voir le détail : horloges, COT, DMX, saisonnalité ›</button>';
-      document.body.appendChild(ecran);
-      ecran.querySelector('.v2a-ut').addEventListener('click', function (e) {
-        var b = e.target.closest('[data-ut]'); if (!b) return;
+        + '<div class="v2a-carte v2a-outils"><div class="v2a-carte-titre">Outils du desk</div><div class="v2a-grille">'
+        + OUTILS.filter(function (o) { return existe(o.v); }).map(function (o) { return '<button type="button" class="v2a-tuile" data-v2v="' + o.v + '">' + svg(o.ico, 22) + '<span>' + o.t + '</span></button>'; }).join('')
+        + '</div></div><button type="button" class="v2a-lien" id="v2a-detail">Colonne Marchés du desk : horloges, COT, DMX, saisonnalité ' + svg(I.suite, 14, 2) + '</button>');
+      e.querySelector('.v2a-ut').addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-ut]'); if (!b) return;
         vibre(); periode = b.dataset.ut;
-        ecran.querySelectorAll('.v2a-ut button').forEach(function (x) { x.classList.toggle('v2a-ut-on', x === b); });
+        e.querySelectorAll('.v2a-ut button').forEach(function (x) { x.classList.toggle('v2a-ut-on', x === b); });
         chargerForce();
       });
-      document.getElementById('v2a-detail').addEventListener('click', function () { vibre(); window.activateView('markets'); });
+      e.querySelector('.v2a-outils').addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-v2v]'); if (!b) return;
+        if (b.dataset.v2v === 'widgets') window._v2aDeskDemande = true;
+        vibre(); aller(b.dataset.v2v);
+      });
+      document.getElementById('v2a-detail').addEventListener('click', function () { vibre(); montrerEcran(null); pile.push('markets'); window.activateView('markets'); marquer('markets'); H.classList.add('v2a-sous-ecran'); var r = document.getElementById('v2a-retour'); if (r) r.hidden = false; });
     }
-    ecran.classList.add('v2a-visible');
-    ecran.classList.remove('v2a-entre'); void ecran.offsetWidth; ecran.classList.add('v2a-entre');
     chargerRisque(); chargerForce();
-    if (!minuterie) minuterie = setInterval(function () { if (document.visibilityState === 'visible') { chargerRisque(); chargerForce(); } }, 60000);
-  }
-
+    arreterMarches();
+    minuterie = setInterval(function () { if (document.visibilityState === 'visible') { chargerRisque(); chargerForce(); } }, 60000);
+  };
   function chargerRisque() {
     fetch('/api/risk-sentiment').then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
       var el = document.getElementById('v2a-risque'); if (!el) return;
-      if (!d || !d.label) { el.innerHTML = '<div class="v2a-carte-titre">Régime de risque</div><div class="v2a-attente">Donnée momentanément indisponible.</div>'; return; }
+      if (!d || !d.label) { el.innerHTML = '<div class="v2a-carte-titre">Sentiment de risque</div><div class="v2a-attente">Donnée momentanément indisponible.</div>'; return; }
       var on = 0, off = 0;
       (d.assets || []).forEach(function (a) { var s = (+a.chg || 0) * (+a.dir || 0); if (s > 0) on++; else if (s < 0) off++; });
       var ton = /RISK-ON/.test(d.label) ? 'on' : (/RISK-OFF/.test(d.label) ? 'off' : 'neutre');
       var pct = Math.max(-100, Math.min(100, +d.pct || 0));
-      el.innerHTML = '<div class="v2a-carte-titre">Régime de risque</div>'
-        + '<div class="v2a-risque-ligne"><span class="v2a-risque-lib v2a-' + ton + '">' + esc(LIB_RISQUE[d.label] || d.label) + '</span>'
-        + '<span class="v2a-risque-pct">' + (pct > 0 ? '+' : '') + pct.toFixed(1).replace('.', ',') + '%</span></div>'
+      el.innerHTML = '<div class="v2a-carte-titre">Sentiment de risque</div>'
+        + '<div class="v2a-risque-pill v2a-' + ton + '"><span class="v2a-risque-lib">' + esc(LIB_RISQUE[d.label] || d.label) + '</span>' + svg(ton === 'off' ? I.baisse : I.hausse, 20, 1.8) + '</div>'
+        + '<div class="v2a-risque-cpt">Risk-on : <b class="v2a-on">' + on + '</b> · Risk-off : <b class="v2a-off">' + off + '</b> · Score : <b>' + (pct > 0 ? '+' : '') + pct.toFixed(1).replace('.', ',') + '%</b></div>'
         + '<div class="v2a-jauge"><i style="left:' + (50 + pct / 2) + '%"></i></div>'
-        + '<div class="v2a-risque-cpt"><b class="v2a-on">' + on + '</b> facteurs risk-on · <b class="v2a-off">' + off + '</b> risk-off</div>'
         + (d.description ? '<p class="v2a-risque-txt">' + esc(d.description) + '</p>' : '')
         + '<div class="v2a-source">' + (d.assets || []).length + ' actifs suivis · cotations Yahoo Finance · ' + heure(d.updatedAt) + '</div>';
     }).catch(function () {});
   }
-
   function chargerForce() {
     var p = periode;
     fetch('/api/currency-strength?period=' + encodeURIComponent(p)).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
@@ -290,43 +420,166 @@
       }).filter(function (x) { return x.v != null; }).sort(function (a, b) { return b.v - a.v; });
       var max = Math.max.apply(null, lignes.map(function (x) { return Math.abs(x.v); }).concat([1]));
       el.innerHTML = lignes.map(function (x) {
-        var larg = Math.min(50, Math.abs(x.v) / max * 50);
-        var sens = x.v >= 0 ? 'pos' : 'neg';
-        return '<div class="v2a-force-ligne">'
+        var larg = Math.min(50, Math.abs(x.v) / max * 50), sens = x.v >= 0 ? 'pos' : 'neg';
+        return '<div class="v2a-force-ligne"><div class="v2a-force-h">'
           + '<img src="https://flagcdn.com/w40/' + PAYS[x.c] + '.png" alt="" loading="lazy">'
           + '<div class="v2a-force-nom"><b>' + x.c + '</b><span>' + (NOMS[x.c] || '') + '</span></div>'
-          + '<div class="v2a-force-barre"><i class="v2a-' + sens + '" style="width:' + larg.toFixed(1) + '%;' + (sens === 'pos' ? 'left:50%' : 'right:50%') + '"></i></div>'
-          + '<div class="v2a-force-val v2a-' + sens + '">' + (x.v > 0 ? '+' : '') + x.v.toFixed(2).replace('.', ',') + '</div></div>';
+          + '<div class="v2a-force-val v2a-' + sens + '">' + svg(sens === 'pos' ? I.hausse : I.baisse, 16, 1.8) + (x.v > 0 ? '+' : '') + x.v.toFixed(2).replace('.', ',') + '</div></div>'
+          + '<div class="v2a-force-barre"><i class="v2a-' + sens + '" style="width:' + larg.toFixed(1) + '%;' + (sens === 'pos' ? 'left:50%' : 'right:50%') + '"></i><s></s></div></div>';
       }).join('') + '<div class="v2a-source">Même calcul que la courbe du desk · ' + heure(d.updatedAt) + '</div>';
     }).catch(function () {});
   }
 
+  /* ══ ÉCRAN ANALYSTES : la liste des rapports en cartes (référence « Analysts Reports ») ═══════════ */
+  RENDUS.analystes = function () {
+    var e = ecrans.analystes;
+    var items = itemsRapports().slice().sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); }).slice(0, 80);
+    if (!items.length) { e.innerHTML = '<p class="v2a-vide">Chargement des rapports…</p>'; appel('loadAnalystView'); setTimeout(function () { if (courant === 'analystes') RENDUS.analystes(); }, 2500); return; }
+    var lu = glob('isRead'), rk = glob('_reportReadKey');
+    e.innerHTML = '<div class="v2a-liste">' + items.map(function (it, i) {
+      var sujets = (Array.isArray(it.tags) && it.tags.length ? it.tags : (it.keywords || [])).slice(0, 10);
+      var dejaLu = false; try { dejaLu = typeof lu === 'function' && typeof rk === 'function' && lu(rk(it)); } catch (x) {}
+      var ia = estDtp(it);
+      return '<button type="button" class="v2a-rapport' + (dejaLu ? ' v2a-lu' : '') + '" data-i="' + i + '">'
+        + (ia ? '<span class="v2a-badge-ia">' + svg('M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z', 13, 1.6) + 'Rédigé par le desk DTP</span>' : '')
+        + '<span class="v2a-rapport-t">' + esc(titreRapport(it)) + '</span>'
+        + '<span class="v2a-rapport-d">' + esc(dateCourte(it.timestamp)) + '</span>'
+        + (sujets.length ? '<span class="v2a-rapport-s">' + sujets.map(esc).join(' / ') + '</span>' : (it.category ? '<span class="v2a-rapport-s">' + esc(it.category) + '</span>' : ''))
+        + '</button>';
+    }).join('') + '</div>';
+    e.onclick = function (ev) { var b = ev.target.closest('.v2a-rapport'); if (!b) return; vibre(); ouvrirRapport(items[+b.dataset.i]); };
+  };
+
+  /* ══ ÉCRAN BANQUES : les rapports institutionnels en cartes (référence « Bank Reports ») ═══════════ */
+  RENDUS.banques = function () {
+    var e = ecrans.banques;
+    var br = glob('_brArticles'), badgeF = glob('_instBadge'), coul = glob('_instBrandColor'), ok = glob('_brAllowed');
+    var items = (Array.isArray(br) ? br : []).filter(function (it) { try { return typeof ok !== 'function' || ok(it); } catch (x) { return true; } })
+      .slice().sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); }).slice(0, 60);
+    if (!items.length) { e.innerHTML = '<p class="v2a-vide">Chargement des rapports de banques…</p>'; appel('_loadBrArticles', 0); setTimeout(function () { if (courant === 'banques') RENDUS.banques(); }, 2500); return; }
+    e.innerHTML = '<div class="v2a-cartes">' + items.map(function (it, i) {
+      var b = 'DTP'; try { b = typeof badgeF === 'function' ? badgeF(it) : (it.institution || 'Banque'); } catch (x) {}
+      var c = '#e3b23a'; try { if (typeof coul === 'function') c = coul(b); } catch (x) {}
+      var tags = (Array.isArray(it.tags) ? it.tags : []).slice(0, 3);
+      return '<button type="button" class="v2a-banque" data-i="' + i + '"><span class="v2a-banque-h"><span class="v2a-banque-logo" style="background:' + esc(c) + '">' + esc(b.charAt(0)) + '</span>'
+        + '<b style="color:' + esc(c) + '">' + esc(b) + '</b><span class="v2a-banque-d">' + svg(I.cal, 15) + esc(dateCourte(it.timestamp)) + '</span></span>'
+        + '<span class="v2a-banque-t">' + esc(it.title || it.headline || '') + '</span>'
+        + '<span class="v2a-banque-p">' + tags.map(function (x) { return '<i>' + esc(x) + '</i>'; }).join('') + '<em>' + svg(I.suite, 18, 1.8) + '</em></span></button>';
+    }).join('') + '</div>';
+    e.onclick = function (ev) {
+      var b = ev.target.closest('.v2a-banque'); if (!b) return; vibre();
+      var it = items[+b.dataset.i];
+      try { var mk = glob('markBrRead'); if (typeof mk === 'function') mk(it.id); } catch (x) {}
+      aller('institution');
+      try { var r = glob('renderBrReader'); if (typeof r === 'function') r(it); } catch (x) {}
+    };
+  };
+
+  /* ══ ÉCRAN COMPTE (référence « Account ») ══════════════════════════════════════════════════════════ */
+  RENDUS.compte = function () {
+    var u = window._pdUser || {}, e = ecrans.compte;
+    var fuseau = ''; try { fuseau = Intl.DateTimeFormat().resolvedOptions().timeZone.replace('_', ' ').replace('/', ' / '); } catch (x) {}
+    var av = document.getElementById('topbar-avatar');
+    var ech = u.expires_at || u.expiresAt;
+    var ligne = function (ico, txt, act, extra) { return '<button type="button" class="v2a-ligne" data-act="' + act + '">' + svg(ico, 22) + '<span>' + txt + '</span>' + (extra || svg(I.suite, 18, 1.8)) + '</button>'; };
+    e.innerHTML = '<div class="v2a-profil"><div class="v2a-profil-av">' + (av ? av.innerHTML : '') + '</div><b>' + esc(u.name || u.username || 'Mon compte') + '</b><span>' + esc(u.email || '') + '</span></div>'
+      + '<h3 class="v2a-rubrique">Fuseau horaire</h3>' + '<div class="v2a-groupe">' + ligne(I.horloge, esc(fuseau || 'Heure de l’appareil'), 'rien', '') + '</div>'
+      + '<h3 class="v2a-rubrique">Abonnement</h3><div class="v2a-groupe">' + ligne(I.carte, esc((u.plan ? String(u.plan) : 'Accès DTP') + (ech ? ' · jusqu’au ' + new Date(ech).toLocaleDateString('fr-FR') : '')), 'rien', '') + '</div>'
+      + '<h3 class="v2a-rubrique">Préférences</h3><div class="v2a-groupe">'
+      + ligne(I.etoile, 'Aperçu V3 (nouvelle interface)', 'v2', '<i class="v2a-bascule v2a-on-b"></i>')
+      + ligne(I.son, 'Alertes sonores', 'son', '<i class="v2a-bascule' + (glob('_npEnabled') ? ' v2a-on-b' : '') + '"></i>') + '</div>'
+      + '<h3 class="v2a-rubrique">Assistance</h3><div class="v2a-groupe">' + ligne(I.bulle, 'Écrire au support DTP', 'support') + '</div>'
+      + '<button type="button" class="v2a-sortie" data-act="sortie">' + svg(I.sortie, 20) + 'Se déconnecter</button>';
+    e.onclick = function (ev) {
+      var b = ev.target.closest('[data-act]'); if (!b) return; var a = b.dataset.act; if (a === 'rien') return; vibre();
+      if (a === 'support') appel('chatToggle');
+      else if (a === 'son') { appel('npToggleEnabled'); RENDUS.compte(); }
+      else if (a === 'v2') { var s = document.getElementById('v2-interrupteur'); if (s) s.click(); }
+      else if (a === 'sortie') appel('logoutUser');
+    };
+  };
+
+  /* ══ ALERTES : feuille plein écran, 4 filtres (référence « Alerts ») ══════════════════════════════
+     Les éléments sont ceux du panneau d'alertes du desk (`_npItems`, même pré-remplissage : on passe
+     par `npOpen`, refermé dans la même tâche, donc jamais affiché) et leur classement est `_npKind`. */
+  var FILTRES = [['tout', 'Tout'], ['rapports', 'Rapports'], ['actu', 'Actu'], ['calendrier', 'Calendrier']];
+  var filtreAl = 'tout', nonLus = {};
+  function ouvrirAlertes() {
+    if (!alertes) {
+      alertes = document.createElement('div');
+      alertes.className = 'v2a-alertes';
+      alertes.setAttribute('role', 'dialog'); alertes.setAttribute('aria-label', 'Alertes');
+      alertes.innerHTML = '<header><h2>Alertes</h2><button type="button" class="v2a-x" aria-label="Fermer">' + svg(I.x, 24, 2) + '</button></header>'
+        + '<nav class="v2a-seg">' + FILTRES.map(function (f) { return '<button type="button" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</nav>'
+        + '<div class="v2a-al-liste"></div>';
+      document.body.appendChild(alertes);
+      alertes.querySelector('.v2a-x').addEventListener('click', function () { vibre(); fermerAlertes(); });
+      alertes.querySelector('.v2a-seg').addEventListener('click', function (e) { var b = e.target.closest('[data-f]'); if (!b) return; vibre(); filtreAl = b.dataset.f; rendreAlertes(); });
+      alertes.querySelector('.v2a-al-liste').addEventListener('click', function (e) {
+        var more = e.target.closest('[data-suite]');
+        if (more) { more.closest('.v2a-al').classList.toggle('v2a-ouvert'); return; }
+        var a = e.target.closest('.v2a-al'); if (!a) return; vibre();
+        var it = (glob('_npItems') || []).filter(function (x) { return String(x.id) === a.dataset.id; })[0]; if (!it) return;
+        fermerAlertes();
+        if (it._reportNotif === 'institution') aller('banques');
+        else if (it._reportNotif === 'analyst' || estDtp(it)) aller('analystes');
+        else { filOuverts[it.id] = true; aller('fil'); setTimeout(function () { var el = ecrans.fil.querySelector('.v2a-news[data-id="' + (window.CSS && CSS.escape ? CSS.escape(String(it.id)) : it.id) + '"]'); if (el) el.scrollIntoView({ block: 'center' }); }, 60); }
+      });
+    }
+    // Les non-lus sont notés AVANT d'ouvrir le panneau du desk (qui les marque comme lus).
+    nonLus = {}; (glob('_npItems') || []).forEach(function (i) { if (i && i._new) nonLus[i.id] = true; });
+    var np = glob('npOpen'), nc = glob('npClose');
+    try { if (typeof np === 'function') { np(); if (typeof nc === 'function') nc(); } } catch (e) {}
+    rendreAlertes();
+    alertes.classList.add('v2a-ouverte');
+    H.classList.add('v2a-al-ouvert');
+  }
+  function fermerAlertes() { if (alertes) alertes.classList.remove('v2a-ouverte'); H.classList.remove('v2a-al-ouvert'); }
+  function rendreAlertes() {
+    var kind = glob('_npKind'), titre = glob('_newsDisplayTitle'), apercu = glob('_npApercu'), cat = glob('catFr');
+    var limite = Date.now() - 7 * 864e5;
+    var tous = (glob('_npItems') || []).filter(function (i) { return i && (i.timestamp || 0) >= limite; }).slice().sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+    var cle = function (i) { try { return typeof kind === 'function' ? kind(i).key : 'news'; } catch (e) { return 'news'; } };
+    var garde = { tout: function () { return true; }, rapports: function (k) { return k === 'analyst' || k === 'institution' || k === 'dtp'; }, actu: function (k) { return k === 'news'; }, calendrier: function (k) { return k === 'eco'; } }[filtreAl];
+    var items = tous.filter(function (i) { return garde(cle(i)); });
+    var n = Object.keys(nonLus).length;
+    alertes.querySelectorAll('.v2a-seg button').forEach(function (b) { b.classList.toggle('v2a-on', b.dataset.f === filtreAl); });
+    var ICO = { news: I.actu, eco: I.cal, analyst: I.doc, institution: I.banques, dtp: I.doc };
+    var z = alertes.querySelector('.v2a-al-liste');
+    z.innerHTML = (filtreAl === 'tout' ? '<div class="v2a-nonlus">Non lues <b>' + n + '</b></div>' : '')
+      + (items.length ? items.slice(0, 120).map(function (i) {
+        var k = cle(i), t = i.headline || '';
+        try { if (k === 'news' || k === 'eco') t = typeof titre === 'function' ? titre(i) : t; } catch (e) {}
+        var d = String(i._descFr || i.description || '').replace(/<[^>]+>/g, ' ').trim();
+        try { if (d && typeof apercu === 'function') d = apercu(d, 260); } catch (e) {}
+        var risque = /risk[- ]?(on|off)/i.test(t) && /(changed|pass|bascule|detected|détect)/i.test(t + d);
+        return '<div class="v2a-al' + (nonLus[i.id] ? ' v2a-nl' : '') + '" data-id="' + esc(i.id) + '"><span class="v2a-al-ico">' + svg(risque ? I.risque : (ICO[k] || I.actu), 26, 1.5) + '</span>'
+          + '<div class="v2a-al-c"><b>' + esc(t) + '</b>' + (d ? '<p>' + esc(d) + '</p>' + (d.length > 160 ? '<button type="button" class="v2a-suite" data-suite="1">Lire la suite ' + svg(I.bas, 14, 2) + '</button>' : '') : '')
+          + '<span class="v2a-al-t">' + esc(ilYa(i.timestamp)) + (i.category && k !== 'dtp' ? ' · ' + esc(typeof cat === 'function' ? cat(i.category) : i.category) : '') + '</span></div>'
+          + (nonLus[i.id] ? '<i class="v2a-al-pt"></i>' : '') + '</div>';
+      }).join('') : '<p class="v2a-vide">Aucune alerte dans cette catégorie sur les 7 derniers jours.</p>');
+  }
+
+  /* ── Mise en route ─────────────────────────────────────────────────────────────────────────────── */
   function vueCourante() {
-    if (ecran && ecran.classList.contains('v2a-visible')) return 'markets';
-    var ml = document.getElementById('main-layout');
-    if (ml && ml.classList.contains('show-right-mobile')) return 'markets';
     var p = document.querySelector('.view-panel:not(.hidden)');
     return p ? p.id.replace(/^view-/, '') : 'news';
   }
-
   function appliquer() {
     if (MQ.matches) {
       var premiere = !tete;
       construire();
-      pucesFil();
+      brancherFil();
       H.classList.add('dtp-app');
-      // Mon Desk est une composition de GRAND écran : l'app s'ouvre sur le Fil (il reste dans « Plus »).
-      if (premiere && vueCourante() === 'widgets') aller('news'); else marquer(vueCourante());
-      // Les hauteurs du desk dépendent de variables que la feuille V2 vient de changer : on laisse
-      // les graphiques se recaler (même mécanique que la rotation d'un téléphone).
+      if (premiere) aller('macro'); else if (courant) marquer(courant);
       setTimeout(function () { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 60);
     } else {
-      H.classList.remove('dtp-app');
-      ouvrirPlus(false);
-      ecranMarches(false);
+      H.classList.remove('dtp-app', 'v2a-sous-ecran', 'v2a-al-ouvert');
+      ouvrirPlus(false); fermerAlertes(); montrerEcran(null);
       setTimeout(function () { try { window.dispatchEvent(new Event('resize')); } catch (e) {} }, 60);
     }
   }
+  window._v2aOuvrirOutils = function () { ouvrirPlus(true); };
   if (MQ.addEventListener) MQ.addEventListener('change', appliquer); else if (MQ.addListener) MQ.addListener(appliquer);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', appliquer); else appliquer();
 })();
