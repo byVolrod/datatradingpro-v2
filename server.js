@@ -756,6 +756,20 @@ app.get('/.well-known/assetlinks.json', (_req, res) => {
    feuille (`--dtp-coquille`, style.css + index.html) qui redemande une feuille arrivée tronquée, et
    le durcissement du service worker. Banc : `scripts/coquille-verif.js`. */
 
+/* ══ DTP V2 : FICHIERS RÉSERVÉS AUX COMPTES ADMIN (24/09, demande user « uniquement pour les admin,
+   et si je demande de revenir on revient ») ══════════════════════════════════════════════════════
+   Tout le code V2 vit dans public/js/v2/ et public/css/v2/. Cette garde, posée AVANT le service
+   statique, les rend introuvables (404) pour un compte client et pour un visiteur : un client ne
+   peut pas les charger, même en tapant l'adresse. `DTP_V2=0` dans le .env coupe la V2 pour tout le
+   monde, admins compris, sans redéploiement (second niveau de retour arrière ; le premier est
+   l'interrupteur « Aperçu V2 » de chaque admin, le troisième un git revert). Banc : v2-verif.js. */
+function _v2Actif() { return String(process.env.DTP_V2 || '1') !== '0'; }
+app.use(['/js/v2', '/css/v2'], (req, res, next) => {
+  if (!_v2Actif() || req.session?.user?.role !== 'admin') return res.status(404).end();
+  res.setHeader('Cache-Control', 'no-cache');   // admin seulement : toujours la dernière version, pas de jeton à suivre
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   extensions: ['html'],
   // CSS/JS/images : cache navigateur 30 j (gros gain de perf — plus de re-téléchargement de chaque
@@ -1022,7 +1036,7 @@ app.get('/api/auth/me', async (req, res) => {
     // loginAt = ancre ABSOLUE du login (déjà posée pour le couperet 24 h). Exposée au front pour
     // qu'il distingue « nouvelle connexion » de « rechargement de page » — sessionStorage ne sait
     // pas faire la différence. C'est un horodatage, pas un secret.
-    res.json({ loggedIn: true, user, loginAt: req.session.loginAt || 0, feat: _newFeat });
+    res.json({ loggedIn: true, user, loginAt: req.session.loginAt || 0, feat: _newFeat, v2: user.role === 'admin' && _v2Actif() });
   } catch {
     // Fallback si DB inaccessible : utiliser la session
     res.json({ loggedIn: true, user: req.session.user, loginAt: req.session.loginAt || 0, feat: _newFeat });
@@ -3982,6 +3996,7 @@ app.post('/api/strength-tf', async (req, res) => {
    courtes, et le discriminant `src` — leçon du bug du 10/08 : sans lui, le client prend les défauts
    du serveur pour un choix stocké et écrase son propre cache local. */
 const _UIPREF_KEYS = new Set([
+  'v2',          // « Aperçu V2 » (admin) : 'on' = interface V2, '' = desk actuel
   // Périodes des DEUX panneaux Force des Devises de l'onglet FORCE. Elles avaient leur propre
   // endpoint (/api/strength-tf) ; il reste écrit pour compatibilité, mais la LECTURE passe désormais
   // par ici — mesuré sur les comptes réels le 12/08 : `uipref` s'écrivait correctement alors que

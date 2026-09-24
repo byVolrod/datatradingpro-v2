@@ -1,0 +1,183 @@
+/* ═══ DTP V2 · L'APP MOBILE (admin, « Aperçu V2 ») ═══════════════════════════════════════════════
+   Toutes les règles sont préfixées `html.dtp-app` ou `.v2a-` : sans la classe posée par
+   js/v2/app-mobile.js, cette feuille ne touche RIEN du desk. Habillage DTP : fond #0a0a0c, or
+   #e3b23a, titres Fraunces, interface Inter.
+   MÉCANIQUE DES HAUTEURS : le desk calcule sa hauteur utile avec --topbar-h et --navbar-h. On garde
+   ce calcul et on change seulement ce que ces deux variables désignent : l'en-tête d'écran de l'app
+   et la barre d'onglets du bas. Les volets (IA, alertes, profil) se calent déjà sous --topbar-h. */
+
+html.dtp-app {
+  --v2a-or: #e3b23a;
+  --v2a-or-sombre: #b8860b;
+  --v2a-fond: #0a0a0c;
+  --v2a-surface: #121215;
+  --v2a-trait: rgba(255, 255, 255, .07);
+  --v2a-texte-2: #8b8b93;
+  --topbar-h: calc(54px + env(safe-area-inset-top, 0px));
+  --navbar-h: calc(62px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── L'ancienne barre du haut et la rangée d'onglets cèdent la place ── */
+html.dtp-app .topbar,
+html.dtp-app #topbar-nav { display: none !important; }
+/* Sur téléphone, le desk réserve EN HAUT la place de sa barre ET de sa rangée d'onglets (padding du
+   body = --header-h). Dans l'app, la navigation est EN BAS : en haut, seul l'en-tête d'écran compte
+   (mesuré au banc : 62 px vides sous l'en-tête). La hauteur du contenu, elle, retire toujours les deux. */
+html.dtp-app body { padding-top: var(--topbar-h) !important; }
+
+/* ── En-tête d'écran ── */
+.v2a-tete, .v2a-barre, .v2a-feuille, .v2a-voile { display: none; }
+html.dtp-app .v2a-tete {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+  height: var(--topbar-h); padding: env(safe-area-inset-top, 0px) 16px 9px;
+  box-sizing: border-box; background: var(--v2a-fond);
+  border-bottom: 1px solid var(--v2a-trait);
+  /* FIXE, comme la barre du haut du desk sur téléphone : le desk réserve déjà sa place (mesuré au
+     banc : en flux, l'en-tête s'empilait sous cette réserve et poussait le contenu sous la barre). */
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1002;
+}
+.v2a-titre-bloc { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.v2a-titre {
+  margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;
+  letter-spacing: -.01em; color: #f2f2f4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.v2a-direct {
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto;
+  font: 600 10.5px/1 'Inter', sans-serif; letter-spacing: .04em; text-transform: uppercase; color: #00e676;
+}
+.v2a-direct i { width: 6px; height: 6px; border-radius: 50%; background: #00e676; box-shadow: 0 0 0 0 rgba(0,230,118,.6); animation: v2aPouls 2s infinite; }
+@keyframes v2aPouls { 0% { box-shadow: 0 0 0 0 rgba(0,230,118,.55); } 70% { box-shadow: 0 0 0 7px rgba(0,230,118,0); } 100% { box-shadow: 0 0 0 0 rgba(0,230,118,0); } }
+
+.v2a-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.v2a-bt {
+  position: relative; width: 36px; height: 36px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--v2a-surface); border: 1px solid var(--v2a-trait); color: #d6d6db;
+  cursor: pointer; padding: 0; -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease, border-color .2s ease;
+}
+.v2a-bt:active { transform: scale(.92); }
+.v2a-ia-txt { font: 800 12px/1 'Inter Tight', 'Inter', sans-serif; color: var(--v2a-or); letter-spacing: .02em; }
+.v2a-ia { border-color: rgba(227,178,58,.45); background: rgba(227,178,58,.08); }
+.v2a-point { position: absolute; top: 6px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #ff3d00; border: 2px solid var(--v2a-fond); display: none; }
+.v2a-point.v2a-on { display: block; }
+.v2a-compte { overflow: hidden; background: rgba(227,178,58,.14); color: var(--v2a-or); font: 700 13px/1 'Inter', sans-serif; }
+.v2a-compte img { width: 100%; height: 100%; object-fit: cover; }
+.v2a-compte > * { pointer-events: none; }
+
+/* ── Barre d'onglets du bas ── */
+html.dtp-app .v2a-barre {
+  display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 1003;
+  height: var(--navbar-h); padding: 6px 4px env(safe-area-inset-bottom, 0px); box-sizing: border-box;
+  background: rgba(10, 10, 12, .94);
+  -webkit-backdrop-filter: saturate(160%) blur(14px); backdrop-filter: saturate(160%) blur(14px);
+  border-top: 1px solid var(--v2a-trait);
+}
+.v2a-onglet {
+  flex: 1 1 0; min-width: 0; position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px;
+  padding: 4px 0 0; background: none; border: 0; cursor: pointer; color: #6f6f78;
+  font: 600 10.5px/1.1 'Inter', sans-serif; letter-spacing: .01em;
+  -webkit-tap-highlight-color: transparent; transition: color .18s ease;
+}
+.v2a-onglet svg { transition: transform .18s ease; }
+.v2a-onglet:active svg { transform: scale(.88); }
+.v2a-onglet.v2a-actif { color: var(--v2a-or); }
+.v2a-onglet.v2a-actif::before {
+  content: ''; position: absolute; top: -7px; left: 50%; width: 22px; height: 2px; margin-left: -11px;
+  border-radius: 0 0 2px 2px; background: var(--v2a-or); box-shadow: 0 0 10px rgba(227,178,58,.6);
+}
+
+/* ── Feuille « Plus » ── */
+html.dtp-app .v2a-voile {
+  display: block; position: fixed; inset: 0; z-index: 1004; background: rgba(0,0,0,.55);
+  opacity: 0; pointer-events: none; transition: opacity .22s ease;
+}
+html.dtp-app .v2a-voile.v2a-ouverte { opacity: 1; pointer-events: auto; }
+html.dtp-app .v2a-feuille {
+  display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 1005;
+  padding: 8px 16px calc(var(--navbar-h) + 10px);
+  background: #111114; border-top: 1px solid rgba(227,178,58,.25); border-radius: 16px 16px 0 0;
+  transform: translateY(105%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+  box-shadow: 0 -20px 60px rgba(0,0,0,.5);
+}
+html.dtp-app .v2a-feuille.v2a-ouverte { transform: translateY(0); }
+.v2a-poignee { width: 38px; height: 4px; border-radius: 2px; background: #34343b; margin: 2px auto 12px; }
+.v2a-feuille-titre { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 17px; color: #f2f2f4; margin: 0 2px 12px; }
+.v2a-grille { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.v2a-tuile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  min-height: 78px; padding: 10px 4px; border-radius: 12px;
+  background: var(--v2a-surface); border: 1px solid var(--v2a-trait); color: #d6d6db; cursor: pointer;
+  font: 600 11px/1.2 'Inter', sans-serif; text-align: center; -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease, border-color .2s ease;
+}
+.v2a-tuile svg { color: var(--v2a-or); }
+.v2a-tuile:active { transform: scale(.95); border-color: rgba(227,178,58,.5); }
+
+/* ── Transition d'écran ── */
+html.dtp-app .v2a-entre { animation: v2aEntre .24s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes v2aEntre { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html.dtp-app .v2a-entre, .v2a-direct i { animation: none; }
+  html.dtp-app .v2a-feuille { transition: none; }
+}
+
+/* ── Écran « Marchés » : régime de risque + force des devises ── */
+.v2a-ecran { display: none; }
+html.dtp-app .v2a-ecran.v2a-visible {
+  display: block; position: fixed; left: 0; right: 0; top: var(--topbar-h); bottom: var(--navbar-h); z-index: 1001;
+  overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  padding: 12px 12px 20px; background: var(--v2a-fond);
+}
+.v2a-carte {
+  background: var(--v2a-surface); border: 1px solid var(--v2a-trait); border-radius: 12px;
+  padding: 14px 14px 12px; margin-bottom: 12px;
+}
+.v2a-carte-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.v2a-carte-titre { font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 16px; color: #f2f2f4; }
+.v2a-carte > .v2a-carte-titre { margin-bottom: 10px; }
+.v2a-attente { color: var(--v2a-texte-2); font-size: 12px; padding: 8px 0; }
+.v2a-risque-ligne { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.v2a-risque-lib { font: 800 20px/1.1 'Inter Tight', 'Inter', sans-serif; letter-spacing: -.01em; }
+.v2a-risque-pct { font: 600 14px/1 'Inter', sans-serif; color: #d6d6db; font-variant-numeric: tabular-nums; }
+.v2a-on { color: #00e676; }
+.v2a-off { color: #ff3d00; }
+.v2a-neutre { color: var(--v2a-or); }
+.v2a-jauge {
+  position: relative; height: 6px; margin: 12px 0 10px; border-radius: 3px;
+  background: linear-gradient(90deg, #ff3d00 0%, #7a2a14 35%, #3a3a40 50%, #1b5e3f 65%, #00e676 100%);
+}
+.v2a-jauge i {
+  position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
+  background: #f2f2f4; border: 2px solid var(--v2a-fond); box-shadow: 0 0 0 1px rgba(255,255,255,.25);
+}
+.v2a-risque-cpt { font-size: 12px; color: #b9b9c0; }
+.v2a-risque-cpt b { font-weight: 800; }
+.v2a-risque-txt { margin: 8px 0 0; font-size: 12.5px; line-height: 1.5; color: #b9b9c0; }
+.v2a-source { margin-top: 10px; font-size: 10.5px; color: #6f6f78; letter-spacing: .01em; }
+.v2a-ut { display: flex; gap: 2px; background: #0c0c0e; border: 1px solid var(--v2a-trait); border-radius: 8px; padding: 2px; }
+.v2a-ut button {
+  border: 0; background: none; color: #8b8b93; font: 700 10.5px/1 'Inter', sans-serif; padding: 6px 7px; border-radius: 6px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.v2a-ut button.v2a-ut-on { background: rgba(227,178,58,.16); color: var(--v2a-or); }
+.v2a-force-ligne { display: grid; grid-template-columns: 22px 104px 1fr 50px; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,.04); }
+.v2a-force-ligne:first-child { border-top: 0; }
+.v2a-force-ligne img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+.v2a-force-nom { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.v2a-force-nom b { font: 800 13px/1.1 'Inter', sans-serif; color: #f2f2f4; }
+.v2a-force-nom span { font-size: 10.5px; color: #7c7c85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2a-force-barre { position: relative; height: 10px; border-radius: 5px; background: #0c0c0e; }
+.v2a-force-barre::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: #3a3a40; }
+.v2a-force-barre i { position: absolute; top: 0; bottom: 0; }
+.v2a-force-barre i.v2a-pos { background: linear-gradient(90deg, rgba(0,230,118,.45), #00e676); border-radius: 0 5px 5px 0; }
+.v2a-force-barre i.v2a-neg { background: linear-gradient(270deg, rgba(255,61,0,.45), #ff3d00); border-radius: 5px 0 0 5px; }
+.v2a-force-val { text-align: right; font: 700 13px/1 'Inter', sans-serif; font-variant-numeric: tabular-nums; }
+.v2a-force-val.v2a-pos { color: #00e676; }
+.v2a-force-val.v2a-neg { color: #ff3d00; }
+.v2a-lien {
+  display: block; width: 100%; margin: 4px 0 0; padding: 13px 14px; border-radius: 12px; cursor: pointer; text-align: left;
+  background: none; border: 1px dashed rgba(227,178,58,.35); color: var(--v2a-or); font: 600 12.5px/1.2 'Inter', sans-serif;
+}
