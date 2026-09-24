@@ -6354,6 +6354,13 @@ function loadBiasView(force) {
     });
 }
 window.loadBiasView = loadBiasView;
+// NAVIGATION FLUIDE (24/09) : la matrice est chargée pendant les temps morts ; à l'ouverture de
+// l'onglet, loadBiasView la rend depuis la mémoire, sans squelette ni attente.
+window._dtpPrefetchBias = function () {
+  if (_biasData) return;
+  return (window._dtpJSON ? window._dtpJSON('/api/smart-bias') : fetch('/api/smart-bias').then(r => r.json()))
+    .then(d => { if (d && d.currencies && !_biasData) { _biasData = d; _biasView = d; _biasViewTs = d.generatedAt || 0; } });
+};
 // Petit flash de la pastille « Direct » quand une mise à jour vient d'arriver → le trader VOIT que ça bouge.
 function _biasPulse() {
   const el = document.querySelector('#bias-update-badge .bias-live');
@@ -6371,6 +6378,18 @@ setInterval(function () {
 
 // ═══════════════════ SEMAINE À VENIR : aperçu hebdomadaire (timeline + risk amCharts) ═══════════════════
 let _waData = null, _waChartRoot = null, _waPollTimer = null, _waPollCount = 0;
+/* NAVIGATION FLUIDE (24/09, demande user « rendre la navigation agréable et fluide, concernant les
+   chargements ») : `_waLive` garde la semaine COURANTE (jamais une semaine archivée, que `_waData` peut
+   porter après navigation), et `#wa-content[data-wa-sig]` dit ce qui est DÉJÀ dessiné. L'onglet
+   s'ouvre alors depuis la mémoire, et le graphique amCharts n'est redessiné que si la semaine a
+   réellement changé — le redessiner à l'identique à chaque visite coûtait un clignotement. */
+let _waLive = null;
+function _waSig(d) { try { return (d.week || '') + '|' + (d.generatedAt || d.at || '') + '|' + JSON.stringify(d.days).length; } catch (e) { return 'x' + Date.now(); } }
+window._dtpPrefetchWa = function () {
+  if (_waLive) return;
+  return (window._dtpJSON ? window._dtpJSON('/api/week-ahead') : fetch('/api/week-ahead').then(r => r.json()))
+    .then(d => { if (d && Array.isArray(d.days) && d.days.length && !_waLive) _waLive = d; });
+};
 // Navigation par semaine (demande user 27/07, façon calendrier) : 0 = semaine à venir (courante),
 // négatif = N semaines en arrière (borné à -13 ≈ 3 mois, comme le calendrier). Verrou anti-course.
 let _waOffset = 0, _waNavBusy = false;
@@ -6394,7 +6413,13 @@ async function _waShiftWeek(delta) {
   try {
     const url = off < 0 ? ('/api/week-ahead?weekOffset=' + off) : '/api/week-ahead';
     const d = await (window._dtpJSON ? window._dtpJSON(url) : fetch(url).then(r => r.json()));
-    if (d && Array.isArray(d.days) && d.days.length) { _waData = d; _waNavBusy = false; _renderWeekAhead(d); return; }
+    if (d && Array.isArray(d.days) && d.days.length) {
+      _waData = d; _waNavBusy = false; _renderWeekAhead(d);
+      const h = document.getElementById('wa-content');
+      if (off === 0) _waLive = d;
+      if (h) h.dataset.waSig = off < 0 ? 'archive' : _waSig(d);   // une semaine archivée n'est jamais « la courante déjà dessinée »
+      return;
+    }
     _waOffset = prev;                              // semaine sans événement / échec → on ne bascule pas
   } catch { _waOffset = prev; }
   _waNavBusy = false;
@@ -6406,12 +6431,19 @@ async function loadWeekAheadView() {
   if (!host) return;
   const isPoll = !!_waPollTimer;                 // continuation d'un poll ?
   if (_waPollTimer) { clearTimeout(_waPollTimer); _waPollTimer = null; }
-  if (!isPoll) { _waPollCount = 0; _waOffset = 0; if (window._calResetToLive) _calResetToLive(); _waLoadPanels(true); }   // ouverture fraîche → semaine COURANTE (offset 0) + le miroir calendrier repart en LIVE (jamais une vue historique) puis clone News + Calendar + auto-scroll
+  if (!isPoll) { _waPollCount = 0; _waOffset = 0; if (window._calResetToLive) _calResetToLive(); _waLoadPanels(true); }
+  // Ouverture : la semaine courante connue s'affiche TOUT DE SUITE (préchargée, ou vue plus tôt) ;
+  // la requête qui suit ne redessine que si elle apporte du neuf.
+  if (!isPoll && _waLive && host.dataset.waSig !== _waSig(_waLive)) { _waData = _waLive; _renderWeekAhead(_waLive); host.dataset.waSig = _waSig(_waLive); }   // ouverture fraîche → semaine COURANTE (offset 0) + le miroir calendrier repart en LIVE (jamais une vue historique) puis clone News + Calendar + auto-scroll
   try {
     // Fetch RÉSILIENT (même pattern que le Radar de Biais) : _dtpJSON tolère un 502/HTML pendant un
     // redéploiement au lieu de jeter sur le JSON.parse — cause du « indisponible » figé sur l'app desktop.
     const d = await (window._dtpJSON ? window._dtpJSON('/api/week-ahead') : fetch('/api/week-ahead').then(r => r.json()));
-    if (d && Array.isArray(d.days) && d.days.length) { _waData = d; _waPollCount = 0; _renderWeekAhead(d); return; }
+    if (d && Array.isArray(d.days) && d.days.length) {
+      _waData = d; _waLive = d; _waPollCount = 0;
+      if (host.dataset.waSig !== _waSig(d)) { _renderWeekAhead(d); host.dataset.waSig = _waSig(d); }   // identique à l'écran → rien à redessiner
+      return;
+    }
     if (_waData) return;                          // on a déjà des données affichées → on n'écrase pas
     // Pas encore de données → la génération tourne en arrière-plan côté serveur.
     _waPollCount++;
@@ -7743,7 +7775,17 @@ let _bankLiveGuide = null;   // ligne de prix LIVE du chart (déplacée à chaqu
 let _bankTimer     = null;
 
 function loadBankView() {
-  _fetchBankPositions();
+  /* NAVIGATION FLUIDE (24/09) : positions déjà connues (préchargées pendant les temps morts) → le
+     tableau s'affiche tout de suite, et la requête qui suit rafraîchit SANS squelette. */
+  const _dejaRendu = !!document.querySelector('#bank-tbody .bank-row:not(.bank-skel-row)');
+  if (_bankPositions.length && !_dejaRendu) {
+    try {
+      renderBankTable();
+      const cur = _bankActiveId && _bankPositions.find(p => p.id === _bankActiveId);
+      if (!cur) selectBankRow(_bankPositions[0].id); else _highlightBankRow(_bankActiveId);
+    } catch (e) {}
+  }
+  _fetchBankPositions(_bankPositions.length > 0);
   // Rafraîchissement temps réel du prix/statut toutes les 60 s tant que l'onglet est ouvert
   if (_bankTimer) clearInterval(_bankTimer);
   _bankTimer = setInterval(() => {
@@ -7753,6 +7795,18 @@ function loadBankView() {
   }, 60 * 1000);
 }
 window.loadBankView = loadBankView;
+window._dtpPrefetchBank = function () {
+  // Positions (si le démarrage ne les a pas déjà), puis la bibliothèque de graphiques et les bougies de
+  // la position qui s'ouvrira en premier : l'onglet s'affiche alors complet, graphique compris.
+  const suite = () => {
+    const p = _bankPositions[0];
+    if (!p || !p.pair) return;
+    try { _chargerLwc(() => {}); } catch (e) {}
+    return _bankOhlcGet(p.pair, _bankTF).catch(() => {});
+  };
+  if (_bankPositions.length) return suite();
+  return fetch('/api/bank-positions').then(r => r.json()).then(d => { if (!_bankPositions.length && d && Array.isArray(d.positions)) _bankPositions = d.positions; }).then(suite);
+};
 
 const _BANK_SKEL_ROW = '<tr class="bank-row bank-skel-row" aria-hidden="true">' +
   '<td class="bank-exp"><span class="dtp-skel"></span></td>' +
@@ -8003,6 +8057,17 @@ function _bankGripWire() {
   });
 }
 
+/* NAVIGATION FLUIDE (24/09) : les bougies d'une paire, gardées deux minutes. Sans elles, chaque
+   ouverture de l'onglet Banques (et chaque retour sur une position déjà vue) re-téléchargeait le
+   graphique : c'était l'attente restante de l'onglet, mesurée au banc, le tableau étant déjà là. */
+const _bankOhlc = new Map();
+function _bankOhlcGet(pair, tf) {
+  const k = pair + '|' + tf, c = _bankOhlc.get(k);
+  if (c && Date.now() - c.at < 120000) return Promise.resolve(c.d);
+  return dtpFetchBorne('/api/bank-ohlc?pair=' + encodeURIComponent(pair) + '&tf=' + encodeURIComponent(tf))
+    .then(r => r.json())
+    .then(d => { if (d && Array.isArray(d.candles) && d.candles.length) { _bankOhlc.set(k, { at: Date.now(), d }); if (_bankOhlc.size > 24) _bankOhlc.delete(_bankOhlc.keys().next().value); } return d; });
+}
 function buildBankChart(p) {
   _bankGripWire();
   // ── GRAPHIQUE DE L'ONGLET BANQUES (21/08, demande user « ajoute le graphique TradingView ») ──
@@ -8020,8 +8085,7 @@ function buildBankChart(p) {
 
   const echec = m => { el.innerHTML = '<div class="bank-chart-loading">' + m + '</div>'; };
   _chargerLwc(() => {
-    dtpFetchBorne('/api/bank-ohlc?pair=' + encodeURIComponent(p.pair) + '&tf=' + encodeURIComponent(_bankTF))
-      .then(r => r.json())
+    _bankOhlcGet(p.pair, _bankTF)
       .then(d => {
         if (!el.isConnected) return;
         const brut = (d.candles || []).slice().sort((a, b) => a.t - b.t);

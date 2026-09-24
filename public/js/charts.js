@@ -4129,7 +4129,14 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(loadTauxView, 4000);
       }
     }
-  }
+  }  // NAVIGATION FLUIDE (24/09) : les cartes Taux sont du HTML pur (aucun graphique) — on peut donc les
+  // dessiner onglet masqué pendant les temps morts. À l'ouverture, elles sont déjà là.
+  window._dtpTauxPrechauffe = function () {
+    const h = document.getElementById('taux-grid');
+    if (!h || h.querySelector('.rtc:not(.rtc-skel)')) return;
+    return loadTauxView();
+  };
+
 
   // ── Carte « Interest Rate Probability » : clone fidèle, partagée entre l'onglet TAUX et la vue paire ──
   // Terminologie financière EN d'origine (Next Move/Probability/Expected Δ/Current Rate/Meeting Date,
@@ -6193,6 +6200,11 @@ async function buildCalendar() {
   const wrap = document.getElementById('cal-table-wrap');
   if (!wrap) return;
 
+  // Un préchargement en vol (temps morts ou survol de l'onglet) : on le rejoint au lieu de doubler la requête.
+  if (_calEvents.length === 0 && window._dtpPrechEnVol && window._dtpPrechEnVol.calendar) {
+    wrap.innerHTML = _calSkel();
+    try { await window._dtpPrechEnVol.calendar; } catch (e) {}
+  }
   if (_calEvents.length === 0) {
     wrap.innerHTML = _calSkel();   // skeleton (epouse .cal-table) au lieu du loader texte
 
@@ -6847,4 +6859,65 @@ window._retryCalendar = function() {
     if (_cRates) { go(_cRates); return; }
     fetch('/api/rates').then(r => r.json()).then(d => { if (d && d.banks) _cRates = d; go(d); }).catch(() => { hostEl.innerHTML = '<div class="sym-empty">Pricing indisponible.</div>'; });
   }
+})();
+
+/* ══ NAVIGATION FLUIDE : LES ONGLETS SONT PRÊTS AVANT LE CLIC (24/09, demande user : « rends la
+   navigation agréable et fluide pour les utilisateurs du desk, concernant les chargements ») ══════════
+   MESURÉ dans un vrai Chromium, 700 ms de latence par appel (un VPS à distance) : le retour sur un
+   onglet déjà vu est immédiat (chaque vue garde son contenu), mais la PREMIÈRE ouverture de
+   Calendrier, Taux, Biais, Semaine à venir et Banques attendait toujours le réseau — squelette, puis
+   contenu, à chaque session. Pendant ce temps, le desk restait des secondes sur le fil sans rien
+   préparer. On précharge donc, UNE fois, pendant les temps morts :
+   · les DONNÉES seulement — jamais de graphique dessiné dans un onglet masqué (amCharts y mesure 0×0),
+     sauf les cartes Taux, qui sont du HTML pur ;
+   · une requête à la fois, espacées, suspendues si l'onglet du navigateur est caché ou si la
+     connexion est en mode économie (données mobiles) ;
+   · et au SURVOL (ou à l'appui) d'un onglet, son préchargement part aussitôt : les 200 à 300 ms
+     entre le survol et le clic suffisent souvent à tout avoir en main.
+   Le serveur sert ces routes depuis sa mémoire : le coût est de quelques requêtes par session. */
+(function _dtpPrechargement() {
+  const enVol = {};
+  window._dtpPrechEnVol = enVol;
+  const J = url => (window._dtpJSON ? window._dtpJSON(url) : fetch(url).then(r => r.json()));
+  const P = {
+    calendar: () => {
+      if (_calEvents.length || (typeof _calBackMonths !== 'undefined' && _calBackMonths > 0)) return;
+      return J('/api/calendar-events').then(j => {
+        const it = (j && j.items) || [];
+        if (it.length && !_calEvents.length) _calEvents = it.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      });
+    },
+    taux: () => window._dtpTauxPrechauffe && window._dtpTauxPrechauffe(),
+    bias: () => window._dtpPrefetchBias && window._dtpPrefetchBias(),
+    weekahead: () => window._dtpPrefetchWa && window._dtpPrefetchWa(),
+    bank: () => window._dtpPrefetchBank && window._dtpPrefetchBank(),
+  };
+  function prechauffer(v) {
+    const f = P[v];
+    if (!f || enVol[v]) return enVol[v];
+    enVol[v] = Promise.resolve().then(f).catch(() => {}).then(() => { setTimeout(() => { delete enVol[v]; }, 30000); });
+    return enVol[v];
+  }
+  window._dtpPrechauffer = prechauffer;
+  const surOnglet = e => {
+    const t = e.target && e.target.closest && e.target.closest('[data-view]');
+    if (t && t.dataset.view) prechauffer(t.dataset.view);
+  };
+  document.addEventListener('pointerover', surOnglet, { passive: true });
+  document.addEventListener('touchstart', surOnglet, { passive: true });
+  const eco = () => { try { const c = navigator.connection; return !!(c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''))); } catch (e) { return false; } };
+  const auRepos = fn => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(fn, 200));
+  const ORDRE = ['calendar', 'taux', 'bias', 'weekahead', 'bank'];
+  function tournee() {
+    if (eco()) return;
+    let i = 0;
+    const suivant = () => {
+      if (i >= ORDRE.length) return;
+      if (document.hidden) { setTimeout(suivant, 5000); return; }
+      Promise.resolve(prechauffer(ORDRE[i++])).then(() => setTimeout(() => auRepos(suivant), 400));
+    };
+    auRepos(suivant);
+  }
+  const demarrer = () => setTimeout(tournee, 2500);   // après le premier affichage du fil : il reste prioritaire
+  if (document.readyState === 'complete') demarrer(); else window.addEventListener('load', demarrer);
 })();
