@@ -3,7 +3,7 @@
    d'abord, avant de basculer vers la création de l'app ». Référence : les 14 captures du dossier
    Drive (application mobile d'un terminal concurrent), dont on reprend l'ERGONOMIE et l'emplacement
    des boutons, jamais l'habillage :
-     · en-tête : titre d'écran + pastille « En direct » ; à droite IA, cloche (nombre de non-lus), compte ;
+     · en-tête : titre d'écran + point vert « en direct » (le mot est retiré le 25/09 : trop de place) ; à droite IA, cloche (nombre de non-lus), compte ;
      · barre du bas, 5 onglets : Fil · Calendrier · Marchés · Analystes · Banques (Calendrier à la place de Macro le 25/09) ;
      · Alertes : feuille plein écran, 4 filtres (Tout · Rapports · Actu · Calendrier), non-lus comptés ;
      · Compte : écran à sections (fuseau, abonnement, préférences, assistance) et déconnexion.
@@ -138,7 +138,7 @@
     tete = document.createElement('header');
     tete.className = 'v2a-tete';
     tete.innerHTML = '<div class="v2a-titre-bloc"><button type="button" class="v2a-retour" id="v2a-retour" aria-label="Retour" hidden>' + svg(I.retour, 22, 2) + '</button>'
-      + '<h1 class="v2a-titre" id="v2a-titre">Fil en direct</h1><span class="v2a-direct"><i></i>En direct</span></div>'
+      + '<h1 class="v2a-titre" id="v2a-titre">Fil en direct</h1><span class="v2a-direct" role="img" aria-label="En direct" title="En direct"><i></i></span></div>'
       + '<div class="v2a-actions">'
       + '<button type="button" class="v2a-bt v2a-ia" id="v2a-ia" aria-label="Copilote Macro (IA)"><img src="/assets/images/macro-ai-spark.svg" alt=""></button>'
       + '<button type="button" class="v2a-bt" id="v2a-alertes" aria-label="Alertes">' + svg(I.cloche, 25) + '<b class="v2a-compteur" id="v2a-compteur" hidden></b><b class="v2a-point" id="v2a-point"></b></button>'
@@ -720,8 +720,7 @@
         + '<div class="v2a-risque-pill v2a-' + ton + '"><span class="v2a-risque-lib">' + esc(LIB_RISQUE[d.label] || d.label) + '</span>' + svg(ton === 'off' ? I.baisse : I.hausse, 20, 1.8) + '</div>'
         + '<div class="v2a-risque-cpt">Risk-on : <b class="v2a-on">' + on + '</b> · Risk-off : <b class="v2a-off">' + off + '</b> · Score : <b>' + (pct > 0 ? '+' : '') + pct.toFixed(1).replace('.', ',') + '%</b></div>'
         + '<div class="v2a-jauge"><i style="left:' + (50 + pct / 2) + '%"></i></div>'
-        + (d.description ? '<p class="v2a-risque-txt">' + esc(d.description) + '</p>' : '')
-        + '<div class="v2a-source">' + (d.assets || []).length + ' actifs suivis · cotations Yahoo Finance · ' + heure(d.updatedAt) + '</div>';
+        + (d.description ? '<p class="v2a-risque-txt">' + esc(d.description) + '</p>' : '');   // ligne « N actifs suivis · cotations » retirée (25/09)
     }).catch(function () {});
   }
   function chargerForce() {
@@ -887,14 +886,6 @@
       return sub.unsubscribe().then(function () { return wpJson('/api/webpush/desabonner', { endpoint: ep }); });
     }).then(function () { WP.etat = 'inactif'; });
   }
-  function wpTester() {
-    return wpJson('/api/webpush/test', {}).then(function (d) {
-      if (!d.ok) throw new Error(d.error || 'Échec de l’envoi.');
-      var r = d.resultats || [];
-      var bons = r.filter(function (x) { return x.ok; }).length;
-      return 'Envoyée à ' + bons + ' appareil' + (bons > 1 ? 's' : '') + ' (' + r.map(function (x) { return x.service + (x.ok ? ' ✓' : ' ✗ ' + (x.erreur || x.statut)); }).join(', ') + '). Verrouillez le téléphone : elle arrive en quelques secondes.';
-    });
-  }
   /* Ce qui peut sonner (25/09) : les cinq familles du serveur, le son et le vibreur. Le choix vit sur
      le COMPTE (/api/push-prefs) : il vaut pour le desk, le téléphone et l'app native à la fois. */
   var PP = { prefs: null, familles: [], charge: false };
@@ -930,7 +921,6 @@
       h += '<div class="v2a-wp-aide"><b>Notifications bloquées</b>Autorisez-les pour DataTradingPro dans les réglages du téléphone, puis revenez ici.</div>';
     } else {
       h += ligne(I.cloche, 'Recevoir les alertes sur cet appareil', 'wp', '<i class="v2a-bascule' + (WP.etat === 'actif' ? ' v2a-on-b' : '') + '"></i>');
-      if (WP.etat === 'actif') h += ligne(I.son, 'Envoyer une notification test', 'wptest');
       h += ppBloc();   // le choix vaut pour tous les appareils du compte : visible avant même l'abonnement
     }
     if (WP.message) h += '<div class="v2a-wp-msg' + (WP.erreur ? ' v2a-wp-err' : '') + '">' + esc(WP.message) + '</div>';
@@ -1028,11 +1018,10 @@
         RENDUS.compte(true);
       }
       else if (a === 'sortie') appel('logoutUser');
-      else if (a === 'wp' || a === 'wptest') {
-        WP.message = a === 'wptest' ? 'Envoi…' : ''; WP.erreur = false;
-        var suite = a === 'wptest' ? wpTester().then(function (m) { WP.message = m; })
-          : (WP.etat === 'actif' ? wpDesactiver().then(function () { WP.message = 'Notifications coupées sur cet appareil.'; })
-            : wpActiver().then(function () { WP.message = 'Notifications activées. Touchez « Envoyer une notification test » pour vérifier.'; }));
+      else if (a === 'wp') {
+        WP.message = ''; WP.erreur = false;
+        var suite = WP.etat === 'actif' ? wpDesactiver().then(function () { WP.message = 'Notifications coupées sur cet appareil.'; })
+          : wpActiver().then(function () { WP.message = 'Notifications activées sur cet appareil.'; });
         RENDUS.compte(true);
         suite.catch(function (x) { WP.message = (x && x.message) || 'Échec.'; WP.erreur = true; }).then(function () { RENDUS.compte(true); });
       }

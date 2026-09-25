@@ -12849,7 +12849,8 @@ function _npPushCoquilleStop() {
    L'interrupteur « Notifs navigateur » ne montrait des bannières QUE tant que l'onglet du desk était
    ouvert (API Notification). Demande user : « recevoir la notif comme une app installée, jusqu'à
    l'écran verrouillé ». L'interrupteur abonne désormais AUSSI ce navigateur au Web Push (chiffrement
-   et envoi côté serveur : webpush.js), et un bouton « Tester » en donne la preuve immédiate.
+   et envoi côté serveur : webpush.js). Le bouton « Tester » a été retiré le 25/09 (demande user) :
+   la route serveur reste, pour un diagnostic à la main.
    iPhone : il faut ouvrir DTP depuis l'écran d'accueil (iOS 16.4+) ; Safari seul n'expose pas le
    push, et le panneau le dit au lieu de laisser un interrupteur sans effet. */
 const _wpDispo = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -12900,29 +12901,15 @@ async function _wpDesabonner() {
   } catch (e) {}
 }
 function _wpLigne(txt, erreur) {
-  const row = document.getElementById('np-wp-row'), t = document.getElementById('np-wp-txt'), b = document.getElementById('np-wp-test');
+  const row = document.getElementById('np-wp-row'), t = document.getElementById('np-wp-txt');
   if (!row || !t) return;
   const aideIOS = _wpIOS() && !_wpAutonome();
   row.hidden = !(aideIOS || (_npPush && _wpDispo()) || txt);
-  if (b) b.hidden = aideIOS || !_wpDispo() || !_npPush;
   t.classList.toggle('np-wp-err', !!erreur);
   t.textContent = txt || (aideIOS
     ? 'Sur iPhone : touchez Partager puis « Sur l’écran d’accueil », et ouvrez DTP depuis son icône pour recevoir les alertes, écran verrouillé compris.'
     : 'Alertes sur cet appareil, même navigateur fermé et écran verrouillé.');
   try { _ppRendre(); } catch (e) {}
-}
-async function npTesterPush() {
-  _wpLigne('Envoi de la notification test…');
-  try {
-    // L'abonnement de CET appareil est rafraîchi s'il le faut, mais le test part quoi qu'il arrive :
-    // le serveur l'envoie à tous les appareils déjà abonnés sur le compte.
-    const abonne = await _wpAbonner();
-    const r = await fetch('/api/webpush/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: '{}' });
-    const d = await r.json().catch(() => ({}));
-    if (!d.ok) return _wpLigne((d.error || 'La notification n’a pas pu partir.') + (abonne ? '' : ' Cet appareil n’a pas pu s’abonner : vérifiez l’autorisation des notifications.'), true);
-    const bons = (d.resultats || []).filter(x => x.ok).length;
-    _wpLigne('Envoyée à ' + bons + ' appareil' + (bons > 1 ? 's' : '') + '. Verrouillez l’écran : elle arrive en quelques secondes.');
-  } catch (e) { _wpLigne('La notification n’a pas pu partir.', true); }
 }
 /* ══ CHOISIR SES NOTIFICATIONS (25/09, « choisir lesquelles recevoir, avec le son et le vibreur ») ══
    Cinq familles, et seulement celles-là : actualités majeures, chiffres économiques importants,
@@ -12984,7 +12971,7 @@ function npTogglePush() {
         localStorage.setItem('np_push', JSON.stringify(_npPush));
         _npCfgSave();
         _npSyncUI();
-        if (_npPush) { _wpLigne(); _wpAbonner().then(ok => _wpLigne(ok ? '' : 'Cet appareil n’a pas pu s’abonner aux alertes pour le moment : réessayez avec « Tester ».', !ok)); }
+        if (_npPush) { _wpLigne(); _wpAbonner().then(ok => _wpLigne(ok ? '' : 'Cet appareil n’a pas pu s’abonner aux alertes pour le moment : coupez puis rallumez l’interrupteur pour réessayer.', !ok)); }
         else _wpLigne(p === 'denied' ? 'Notifications bloquées : autorisez-les pour ce site dans les réglages du navigateur.' : '', p === 'denied');
       });
     } else _wpLigne();

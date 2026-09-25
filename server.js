@@ -364,6 +364,17 @@ const _sessionEpoch = new Map();
    DTP_SESSION_UNIQUE_STAFF=0 la rétablit, sans redéploiement, si travailler sur deux postes redevient
    nécessaire. */
 const _SESSION_UNIQUE_STAFF = !/^(0|false|non)$/i.test(String(process.env.DTP_SESSION_UNIQUE_STAFF || '1'));
+/* L'ADMINISTRATEUR A DEUX PLACES (25/09, demande user : « l'admin peut se connecter 2 fois en même
+   temps ») : son poste de travail ET son téléphone. La règle d'une session par compte reste entière
+   pour les clients (anti-partage) et pour le support ; pour l'admin, les DEUX dernières connexions
+   restent valides et la troisième évince la plus ancienne. Le registre garde alors les jetons
+   joints par « | », et les deux verrous (jeton, navigateur) lisent une LISTE au lieu d'une valeur :
+   un seul endroit décide combien de places un rôle possède. */
+const _SESSIONS_ADMIN = 2;
+const _placesDe = role => (role === 'admin' ? _SESSIONS_ADMIN : 1);
+const _jetonValide = (ep, t) => String(ep || '').split('|').includes(String(t || ''));
+// Registre après une connexion : le nouveau jeton en tête, puis les plus récents que le rôle garde.
+const _jetonsApres = (prec, neuf, places) => [neuf, ...String(prec || '').split('|').filter(x => x && x !== neuf).slice(0, Math.max(0, places - 1))].join('|');
 /* ── LA CONTRAINTE SURVIT AUX REDÉMARRAGES (15/08/2026) ─────────────────────────────────────────
    Le registre ne vivait qu'en mémoire : chaque redéploiement le vidait, et deux sessions ouvertes
    sur le MÊME compte pouvaient de nouveau cohabiter jusqu'à la prochaine reconnexion. Mesuré le
@@ -384,7 +395,7 @@ function _fermerSockets(uid, garder) {
   try {
     if (typeof wss === 'undefined' || !wss.clients) return;
     wss.clients.forEach((c) => {
-      if (c._uid === uid && (!garder || c._stoken !== garder)) {
+      if (c._uid === uid && (!garder || !_jetonValide(garder, c._stoken))) {
         try { c.close(1008, 'session terminée'); } catch (e) {}
       }
     });
@@ -452,16 +463,20 @@ function _devDeLaRequete(req) {
 
 /* Réclamation : ce navigateur-ci devient le détenteur du compte. Renvoie true si la détention a
    CHANGÉ de main (donc s'il y a lieu de couper ce qui reste de l'ancienne). */
-function _devReclamer(uid, dev) {
+function _devReclamer(uid, dev, places) {
   if (!uid || !dev) return false;
   const av = _sessionDevice.get(uid);
-  _sessionDevice.set(uid, { dev, ts: Date.now() });
+  const n = Math.max(1, places || 1);
+  // `devs` : les navigateurs qui détiennent le compte, le plus récent en tête (un seul pour un client).
+  const devs = [dev, ...((av && av.devs) || (av ? [av.dev] : [])).filter(d => d && d !== dev)].slice(0, n);
+  _sessionDevice.set(uid, { dev, devs, ts: Date.now() });
   if (_sessionDevice.size > _DEV_MAX_COMPTES) {          // purge des plus anciens, borne mémoire
     const tries = [..._sessionDevice.entries()].sort((a, b) => a[1].ts - b[1].ts);
     for (let i = 0; i < tries.length - _DEV_MAX_COMPTES; i++) _sessionDevice.delete(tries[i][0]);
   }
-  return !!(av && av.dev !== dev);
+  return !!(av && ((av.devs || [av.dev]).some(d => !devs.includes(d))));
 }
+const _devConnu = (dv, dev) => !!dv && ((dv.devs || [dv.dev]).includes(dev));
 
 // ── DÉCONNEXION ABSOLUE À 24 H (demande user 23/07, TOUTES plateformes : web, app Electron, PWA mobile —
 //    elles partagent la même session cookie donc le MÊME couperet serveur). Le cookie-session est GLISSANT
@@ -495,12 +510,12 @@ function _sessionMorte(req) {
   if (_forceLogout.has(sid)) return 'deconnectee';
   if (auth.isEmailBlacklisted(req.session.user && req.session.user.email)) return 'blacklistee';
   const ep = _sessionEpoch.get(sid);
-  if (ep && req.session.stoken && ep !== req.session.stoken) return 'supplantee';
+  if (ep && req.session.stoken && !_jetonValide(ep, req.session.stoken)) return 'supplantee';
   /* Second verrou : même session (donc même cookie), mais un AUTRE navigateur l'a réclamée depuis.
      On n'éjecte que si la requête porte un identifiant : sans lui, on ne sait rien, et ne rien
      savoir ne justifie pas de déconnecter quelqu'un. */
   const dv = _sessionDevice.get(sid), mien = _devDeLaRequete(req);
-  if (dv && mien && dv.dev !== mien) return 'autre-appareil';
+  if (dv && mien && !_devConnu(dv, mien)) return 'autre-appareil';
   return null;
 }
 
@@ -510,8 +525,9 @@ function _sessionMorte(req) {
 function _fermerSocketsAppareil(uid, garderDev) {
   try {
     if (typeof wss === 'undefined' || !wss.clients) return;
+    const dv = _sessionDevice.get(uid), garder = (dv && dv.devs) || [garderDev];
     wss.clients.forEach((c) => {
-      if (c._uid === uid && c._dev && c._dev !== garderDev) {
+      if (c._uid === uid && c._dev && !garder.includes(c._dev)) {
         try { c.close(1008, 'session reprise sur un autre appareil'); } catch (e) {}
       }
     });
@@ -879,14 +895,14 @@ app.post('/api/auth/login', async (req, res) => {
     if (_SESSION_UNIQUE_STAFF || (user.role !== 'admin' && user.role !== 'support')) {
       const _stok = require('crypto').randomUUID();
       req.session.stoken = _stok;
-      _sessionEpoch.set(String(user.id), _stok);
+      _sessionEpoch.set(String(user.id), _jetonsApres(_sessionEpoch.get(String(user.id)), _stok, _placesDe(user.role)));
       _sessEpochSauver();   // le registre doit survivre au prochain redeploiement
       /* Le WebSocket vit des heures : sans cette boucle, la session ejectee du desk continuerait de
          recevoir le fil temps reel jusqu a ce que l onglet soit ferme. On coupe les sockets du meme
          compte dont le jeton n est plus le bon. */
       try {
         wss.clients.forEach((c) => {
-          if (c._uid === String(user.id) && c._stoken && c._stoken !== _stok) {
+          if (c._uid === String(user.id) && c._stoken && !_jetonValide(_sessionEpoch.get(String(user.id)), c._stoken)) {
             try { c.close(1008, 'session supplantée'); } catch (e) {}
           }
         });
@@ -999,7 +1015,7 @@ app.get('/api/auth/me', async (req, res) => {
     const _mep = _sessionEpoch.get(String(req.session.userId));
     // Même garde que dans requireAuth : une session sans jeton est ANTÉRIEURE au mécanisme, elle ne
     // doit pas être éjectée par la restauration du registre au démarrage.
-    const _tokenSupplante = !!(_mep && req.session.stoken && _mep !== req.session.stoken);
+    const _tokenSupplante = !!(_mep && req.session.stoken && !_jetonValide(_mep, req.session.stoken));
 
     /* SECOND VERROU : le navigateur. Le desk annonce son identifiant à CHAQUE battement, mais ne
        RÉCLAME le compte qu'au chargement de la page (en-tête `x-dtp-appareil-neuf`). Sans cette
@@ -1008,10 +1024,10 @@ app.get('/api/auth/me', async (req, res) => {
     const _dev = _devDeLaRequete(req), _uidS = String(req.session.userId);
     let _devSupplante = false;
     if (_dev && String(req.headers['x-dtp-appareil-neuf'] || '') === '1') {
-      if (_devReclamer(_uidS, _dev)) _fermerSocketsAppareil(_uidS, _dev);   // reprise : on coupe l'ancien flux
+      if (_devReclamer(_uidS, _dev, _placesDe(fresh.role))) _fermerSocketsAppareil(_uidS, _dev);   // reprise : on coupe l'ancien flux
     } else if (_dev) {
       const _det = _sessionDevice.get(_uidS);
-      _devSupplante = !!(_det && _det.dev !== _dev);
+      _devSupplante = !!(_det && !_devConnu(_det, _dev));
     }
     const _superseded = _tokenSupplante || _devSupplante;
     if (_forceLogout.has(String(req.session.userId)) || auth.isEmailBlacklisted(fresh.email)
@@ -1377,6 +1393,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260925-notifs-politique', ts: Date.UTC(2026, 8, 25, 17, 56), title: 'Notifications : moins nombreuses, mieux choisies', desc: 'Votre téléphone ne sonne plus que pour ce qui compte. Fil d’actualité : seulement les dépêches affichées en rouge dans le fil. Calendrier économique : les chiffres clés qui font bouger le dollar (CPI, Core CPI, PCE, PPI, NFP, taux de chômage, salaire horaire, ADP, JOLTS, PIB, ventes au détail, ISM manufacturier et services, décision du FOMC), tout ce qui est noté « élevé », et désormais les discours, conférences de presse et minutes des banques centrales, au moment où ils commencent. Sentiment de risque : une alerte quand le marché bouge fortement, vers le risk-on, vers le risk-off ou en revenant au neutre, même si le mouvement s’est fait par étapes. Les récaps de séance s’annoncent enfin par un titre simple (« Récap séance de Londres »), sans l’étiquette « Abécédaire » qui s’y glissait. Le bouton « Tester » du panneau Alertes a été retiré.' },
+  { id: 'dtpu-20260925-copilote-repli', ts: Date.UTC(2026, 8, 25, 17, 50), title: 'Copilote Macro : plus de « momentanément saturé »', desc: 'Le Copilote Macro répondait parfois « L’Assistant IA Macro est momentanément saturé », suivi de dépêches en anglais. Dans la plupart des cas, l’analyse était pourtant rédigée : simplement coupée par sa limite de longueur au milieu d’une phrase, elle était jetée en bloc. Elle est désormais gardée jusqu’à sa dernière phrase complète, et le Copilote dispose d’un peu plus de place pour répondre. Si aucune analyse ne peut être rédigée, il répond avec ce que le desk sait déjà, en français : le biais des devises citées dans votre question, les dernières dépêches et les prochains rendez-vous à fort impact.' },
   { id: 'dtpu-20260925-recherche-fil', ts: Date.UTC(2026, 8, 25, 17, 36), title: 'Fil d’actualité : la recherche trouve ce que vous tapez, en français', desc: 'Taper « russe » dans la recherche du fil répondait « Aucun élément ne correspond », alors que plusieurs dépêches parlaient de la Russie. La recherche ne lisait que le titre anglais d’origine, jamais le titre français affiché, et ne tolérait ni les accents, ni les pluriels. Elle lit désormais le titre affiché et celui d’origine, les descriptions, la catégorie, la source et les étiquettes, sans tenir compte des accents ni des majuscules. « Russe » trouve la Russie, « pétrole » trouve aussi les dépêches anglaises sur le brut, le Brent ou l’OPEP, « or » trouve l’or sans remonter chaque « order ». Plusieurs mots affinent la recherche : tous doivent être présents. La recherche du widget Fil d’actualité suit les mêmes règles.' },
   { id: 'dtpu-20260925-icone-site', ts: Date.UTC(2026, 8, 25, 17, 20), title: 'L’icône DataTradingPro, entière et lisible dans Google et vos onglets', desc: 'Dans les résultats Google, l’icône du site ne montrait que « DT », rogné par le cadre rond. Elle a été redessinée pour que « DTP » tienne entier dans le cercle, en or sur toute la surface, et reste net de la petite icône d’onglet jusqu’à l’écran d’accueil du téléphone. Google peut mettre quelques jours à reprendre la nouvelle icône.' },
   { id: 'dtpu-20260925-impact-instantane', ts: Date.UTC(2026, 8, 25, 14, 5), title: 'Fil d’actualité : « Impact marché » et « Analyse » s’affichent d’un coup', desc: 'En ouvrant « Impact marché » sous une dépêche, une ligne restait parfois grisée quelques secondes, comme si elle chargeait. Le texte était pourtant déjà là, en français : une ligne courte comme « Brent : ↓ : prime de risque » était prise pour de l’anglais et partait inutilement à la traduction. La lecture d’impact s’affiche maintenant en entier dès le clic, et les lignes déjà en français ne sont plus retenues dans les autres panneaux non plus.' },
@@ -2378,20 +2396,38 @@ async function _pushExpo(messages) {
       ne sonne trois fois ; une dépêche URGENTE passe toujours ;
    4. le plafond horaire par compte (_pushSousPlafond), inchangé. */
 const PUSH_CATS = {
-  news:      { widget: 'Fil d’actualité', nom: 'Actualités majeures', desc: 'Les dépêches de premier plan du fil : géopolitique, banques centrales, chocs de marché.', un: 'actualité majeure', plusieurs: 'actualités majeures' },
-  eco:       { widget: 'Calendrier économique', nom: 'Chiffres économiques importants', desc: 'Les publications à fort impact du calendrier (CPI, NFP, PIB, décisions de taux), avec le réel et la prévision.', un: 'chiffre économique', plusieurs: 'chiffres économiques' },
-  risque:    { widget: 'Sentiment de risque', nom: 'Bascule risk-on / risk-off', desc: 'Quand le sentiment de marché bascule franchement d’un camp à l’autre.', un: 'bascule du sentiment', plusieurs: 'bascules du sentiment' },
+  news:      { widget: 'Fil d’actualité', nom: 'Actualités majeures', desc: 'Seulement les dépêches en rouge dans le fil : géopolitique, banques centrales, chocs de marché.', un: 'actualité majeure', plusieurs: 'actualités majeures' },
+  eco:       { widget: 'Calendrier économique', nom: 'Calendrier économique', desc: 'Les chiffres clés (inflation, emploi, croissance, décisions de taux) et tout ce qui est noté « élevé », avec le réel et la prévision ; les discours, conférences et minutes des banques centrales quand ils commencent.', un: 'rendez-vous du calendrier', plusieurs: 'rendez-vous du calendrier' },
+  risque:    { widget: 'Sentiment de risque', nom: 'Sentiment de risque', desc: 'Quand le sentiment bouge fortement : bascule en risk-on, en risk-off, ou retour au neutre.', un: 'bascule du sentiment', plusieurs: 'bascules du sentiment' },
   banques:   { widget: 'Banques', nom: 'Rapports de banques', desc: 'Les nouvelles notes de recherche des grandes banques (onglet Banques).', un: 'rapport de banque', plusieurs: 'rapports de banques' },
-  analystes: { widget: 'Analystes', nom: 'Rapports d’analystes', desc: 'Les récaps de séance et les rapports du desk DTP (onglet Analystes).', un: 'rapport d’analyste', plusieurs: 'rapports d’analystes' },
+  analystes: { widget: 'Analystes', nom: 'Récaps et rapports d’analystes', desc: 'Les récaps de séance et les rapports du desk DTP (onglet Analystes).', un: 'rapport d’analyste', plusieurs: 'rapports d’analystes' },
 };
 const _PUSH_CATS_K = Object.keys(PUSH_CATS);
 const PUSH_PAUSE_MS = { news: 5 * 60e3, eco: 0, risque: 0, banques: 30 * 60e3, analystes: 20 * 60e3, fil: 5 * 60e3 };
 const PUSH_PAUSE_URGENT_MS = 2 * 60e3;
+/* RÉGLAGES FINS (25/09, demande user) : pour le fil, le TYPE de dépêche (toutes les importantes,
+   l'économie seule, la géopolitique seule) ; pour les récaps, le RYTHME (tous, les quotidiens, le
+   seul hebdomadaire) ; pour les banques, un CHOIX d'établissements (vide = toutes). Tout vaut pour le
+   compte, donc pour tous ses appareils. Une valeur inconnue retombe sur le réglage le plus large :
+   un client qui envoie n'importe quoi reçoit trop, jamais rien. */
+const _PUSH_FIL = ['tout', 'eco', 'geo'], _PUSH_RECAPS = ['tous', 'quotidien', 'hebdo'];
 const _pushPrefsPropres = b => ({
   cats: Array.isArray(b && b.cats) ? _PUSH_CATS_K.filter(k => b.cats.includes(k)) : _PUSH_CATS_K.slice(),
   son: !(b && b.son === false),
   vibreur: !(b && b.vibreur === false),
+  fil: _PUSH_FIL.includes(b && b.fil) ? b.fil : 'tout',
+  recaps: _PUSH_RECAPS.includes(b && b.recaps) ? b.recaps : 'tous',
+  banques: Array.isArray(b && b.banques) ? [...new Set(b.banques.filter(x => typeof x === 'string').map(x => x.replace(/[<>]/g, '').trim().slice(0, 40)).filter(Boolean))].slice(0, 30) : [],
 });
+// Une notification passe-t-elle les réglages fins du compte ? (Les familles se testent à part.)
+function _pushPrefAccepte(p, e) {
+  if (!p || !e) return true;
+  if (e.pause === 'fil' && p.fil && p.fil !== 'tout' && e.nature && e.nature !== p.fil) return false;
+  if (e.cat === 'analystes' && p.recaps && p.recaps !== 'tous' && e.rythme && e.rythme !== p.recaps) return false;
+  if (e.cat === 'banques' && Array.isArray(p.banques) && p.banques.length && e.banque
+    && !p.banques.some(x => x.toLowerCase() === String(e.banque).toLowerCase())) return false;
+  return true;
+}
 async function _pushPrefs(uid, cfg) {
   let p = null;
   try { p = await auth.aiCacheGet('pushprefs:' + uid, 366 * 86400000); } catch {}
@@ -2399,13 +2435,16 @@ async function _pushPrefs(uid, cfg) {
   // Repli : les catégories coupées au panneau Filtre (clés du panneau → familles du push).
   const off = new Set(Array.isArray(cfg && cfg.catsOff) ? cfg.catsOff : []);
   const coupe = { news: off.has('news'), eco: off.has('eco'), risque: false, banques: off.has('institution'), analystes: off.has('analyst') && off.has('dtp') };
-  return { cats: _PUSH_CATS_K.filter(k => !coupe[k]), son: true, vibreur: true };
+  return _pushPrefsPropres({ cats: _PUSH_CATS_K.filter(k => !coupe[k]) });
 }
 app.get('/api/push-prefs', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
   let cfg = null; try { cfg = await auth.aiCacheGet('notifcfg:' + req.session.userId); } catch {}
   const prefs = await _pushPrefs(req.session.userId, cfg);
-  res.json({ ok: true, prefs, familles: _PUSH_CATS_K.map(k => ({ k, nom: PUSH_CATS[k].nom, desc: PUSH_CATS[k].desc })) });
+  // Les établissements qui publient réellement (onglet Banques), pour le choix « quelles banques ».
+  const banquesDispo = [...new Set((Array.isArray(_brCache) ? _brCache : []).map(b => String((b && (b.institution || b.source)) || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'fr')).slice(0, 40);
+  res.json({ ok: true, prefs, banquesDispo, familles: _PUSH_CATS_K.map(k => ({ k, nom: PUSH_CATS[k].nom, desc: PUSH_CATS[k].desc })) });
 });
 app.post('/api/push-prefs', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
@@ -2546,7 +2585,7 @@ async function _pushRouter(evts) {
     const [uid, prefs] = c;
     const directs = [];
     for (const e of evts) {
-      if (!prefs.cats.includes(e.cat)) continue;
+      if (!prefs.cats.includes(e.cat) || !_pushPrefAccepte(prefs, e)) continue;
       // Une urgence a sa propre pause, courte : elle passe devant, mais une rafale d'urgences ne
       // sonne pas six fois. La suite d'une histoire déjà notifiée (e.suite) n'a pas de passe-droit.
       const urgente = e.urgent && !e.suite;
@@ -2585,7 +2624,7 @@ async function _pushVider() {
 }
 // Un chiffre FORT du calendrier vient de tomber : il part par le guetteur, mieux présenté (réel,
 // prévision, précédent). La dépêche chiffrée qui l'annonce au même moment serait un doublon.
-const _pushCalFrais = () => (Array.isArray(allCalendar) ? allCalendar : []).some(e => e && /^high$/i.test(String(e.impact || ''))
+const _pushCalFrais = () => (Array.isArray(allCalendar) ? allCalendar : []).some(e => e && _pushCalFamille(e) === 'chiffre'
   && e.actual != null && String(e.actual).trim() !== '' && Math.abs(Date.now() - (+e.timestamp || 0)) < 15 * 60e3);
 const _pushEcoDepeches = [];                     // dépêches chiffrées poussées : le calendrier ne les répète pas
 /* EN FRANÇAIS, TOUT DE SUITE (25/09). Le push part à l'arrivée de la dépêche, souvent AVANT que la
@@ -2669,6 +2708,15 @@ function _pushAlertable(it, maintenant) {
   if (maintenant - _pushDemarrage < 3 * 60e3 && t < _pushDemarrage) return false;
   return String(it.headline || '').replace(/\s+/g, ' ').trim().length <= 170;
 }
+/* LE FIL NE SONNE QUE POUR CE QUI EST ROUGE (25/09, « uniquement ceux en important rouge, sinon on va
+   se faire spammer ») : le filtre est `_highImpact === true`, qui est EXACTEMENT l'une des conditions
+   du rouge du desk (`_estDonneeFortImpact`, app.js). Une dépêche qui sonne est donc rouge au fil, par
+   construction ; l'inverse n'est pas vrai (une dépêche seulement « prioritaire » reste muette).
+   Sa NATURE (économie ou géopolitique) sert au réglage fin du compte. */
+const _pushNature = it => {
+  const h = String((it && it.headline) || '');
+  return ((it && it.category) === 'Geopolitical' || GEO_TIER1_RE.test(h) || isGeoDeal(h)) ? 'geo' : 'eco';
+};
 async function _pushEnvoyer(items) {
   const maintenant = Date.now();
   const vus = (items || []).filter(it => it && it._highImpact === true && !_pushDejaVus.has(it.id));
@@ -2689,7 +2737,7 @@ async function _pushEnvoyer(items) {
         if (!_looksFr(fr)) { console.log('[Push] non traduite, non envoyée : ' + String(it.headline).slice(0, 70)); continue; }
         const tx = _pushTexte(it, fr);
         if (cat === 'eco') { _pushEcoDepeches.push({ at: Date.now(), body: tx.body }); if (_pushEcoDepeches.length > 20) _pushEcoDepeches.shift(); }
-        evts.push({ cat, pause: 'fil', id: String(it.id), title: tx.title, body: tx.body, court: fr.length > 70 ? fr.slice(0, 69).replace(/\s+\S*$/, '') + '…' : fr,
+        evts.push({ cat, pause: 'fil', nature: _pushNature(it), id: String(it.id), title: tx.title, body: tx.body, court: fr.length > 70 ? fr.slice(0, 69).replace(/\s+\S*$/, '') + '…' : fr,
           url: _pushLien('fil', it.id), urgent: !!it.urgent, suite: _pushMemeSujet(_pushEntites(it.headline), Date.now()) });
       }
       await _pushRouter(evts);
@@ -2714,11 +2762,21 @@ async function _pushDiffuser(evts) {
   // Titres de rapports (banques, récaps de séance) : en français avant de partir, jamais en anglais.
   // `courtFr` : le libellé court (celui du récapitulatif de fin de pause) est aussi le titre traduit.
   await Promise.all(neufs.filter(e => e.trad).map(async e => {
-    try { e.body = _pushCourt(await _pushFrNotif(e.body, e.cat), 170); } catch { e.body = _PUSH_REPLI_FR[e.cat] || e.body; }
+    try { e.body = _pushCourt(_pushSansAmorce(await _pushFrNotif(e.body, e.cat)), 170); } catch { e.body = _PUSH_REPLI_FR[e.cat] || e.body; }
+    // Un titre qui ne fait que redire le nom du rapport (« Récap de la séance de Londres ») : le nom suffit.
+    if (e.nom && _pushMemeTitre(e.body, e.nom)) e.body = e.nom;
     if (e.courtFr) e.court = _pushCourt(e.body, 60);
-    delete e.trad; delete e.courtFr;
+    delete e.trad; delete e.courtFr; delete e.nom;
   }));
   try { await _pushRouter(neufs); } catch (e) { console.error('[Push]', e.message); }
+}
+// Deux titres disent-ils la même chose ? Mots porteurs, sans accents ; « séance » et « session » se valent.
+function _pushMemeTitre(a, b) {
+  const m = t => new Set(String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\bsession\b/g, 'seance').replace(/\bresume\b/g, 'recap')
+    .split(/[^a-z0-9]+/).filter(x => x.length >= 4 && !/^(dans|pour|avec|des|les)$/.test(x)));
+  const ma = m(a), mb = m(b); if (!ma.size || !mb.size) return false;
+  let c = 0; ma.forEach(x => { if (mb.has(x)) c++; });
+  return ma.size <= mb.size + 1 && c / ma.size >= 0.6;
 }
 const _pushVus = {};
 // Ce qui est nouveau depuis le passage précédent ; rien au premier passage (il apprend l'existant).
@@ -2734,7 +2792,15 @@ function _pushNouveaux(cle, liste, idDe) {
 // notif ») : le desk et l'app lisent ?ouvrir=<type>&id=<élément> et vont directement à l'élément.
 const _pushLien = (type, id) => '/?ouvrir=' + encodeURIComponent(type) + (id != null && id !== '' ? '&id=' + encodeURIComponent(String(id)) : '');
 const _pushCourt = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
-const _PUSH_RAPPORTS_FR = { 'Weekly Market Recap': 'Récap hebdo des marchés', 'FX Daily Recap': 'Récap FX quotidien', 'DTP Daily': 'Point marché', 'Global Economic Weekly': 'Récap éco de la semaine', 'FX Daily': 'FX Daily' };
+const _PUSH_RAPPORTS_FR = { 'Weekly Market Recap': 'Récap hebdo des marchés', 'FX Daily Recap': 'Récap FX quotidien', 'DTP Daily': 'Point marché', 'Global Economic Weekly': 'Récap éco de la semaine', 'FX Daily': 'FX Daily',
+  'Asia Session Recap': 'Récap séance asiatique', 'London Session Recap': 'Récap séance de Londres', 'US Session Recap': 'Récap séance de New York', 'European Market Wrap': 'Point marchés européens' };
+/* « ABÉCÉDAIRE » (25/09, capture user : « Analystes · London Session Recap / ABÉCÉDAIRE : Résumé de la
+   session de Londres… », « pk y'a marqué abécédaire ? met juste le titre »). Le titre d'un rapport
+   porte parfois l'étiquette éditoriale « PRIMER: » ; traduite mot à mot, elle devient « Abécédaire »,
+   qui ne veut rien dire ici. On la retire AVANT et APRÈS traduction (le traducteur peut la rendre sous
+   plusieurs formes), ainsi que le nom du rapport quand le titre ne fait que le répéter. */
+const _PUSH_AMORCE_RX = /^\s*\[?\s*(?:primer|ab[ée]c[ée]daire|amorce|introduction|explainer|preview|aper[çc]u)\s*\]?\s*[:\-–—|]\s*/i;
+const _pushSansAmorce = t => { let x = String(t || ''); for (let i = 0; i < 2; i++) x = x.replace(_PUSH_AMORCE_RX, ''); return x.trim(); };
 // Un nombre lisible dans un chiffre publié (« 3.1% », « 250K », « -0.2 ») ; null sinon.
 const _pushNombre = v => { const m = String(v == null ? '' : v).replace(',', '.').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; };
 function _pushChiffre(e) {
@@ -2747,60 +2813,137 @@ function _pushChiffre(e) {
   return { title: 'Calendrier économique · ' + sigle, court: sigle,
     body: 'Publié ' + fmt(e.actual) + (e.forecast ? ' · attendu ' + fmt(e.forecast) : '') + (e.previous ? ' · précédent ' + fmt(e.previous) : '') + '.' + lecture };
 }
+/* ═══ CALENDRIER : CE QUI SONNE (25/09, demande user avec sa fiche « Learning Economics News ») ══════
+   « Pour le calendrier : les speak, meeting, conférence, ceux de la liste du PDF, plus celles
+   importantes (élevé). » Trois portes, et rien d'autre :
+   1. IMPACT ÉLEVÉ : toute publication notée « élevé », quelle que soit la devise ;
+   2. LA FICHE : les quinze indicateurs qui font bouger le dollar (inflation, emploi, croissance,
+      FOMC). Pour l'USD, quel que soit l'impact annoncé par le fournisseur (JOLTS ou le PPI sont
+      souvent notés « moyen ») ; pour les autres devises, à partir d'un impact moyen : leur CPI ou
+      leur PIB comptent, leur PPI noté « faible » non ;
+   3. LA PAROLE : discours, conférences de presse, minutes, réunions et sommets, à partir d'un
+      impact moyen. Un discours n'a pas de chiffre : il sonne quand il COMMENCE, pas à sa
+      publication. Les interventions notées « faible » (un membre sans droit de vote un vendredi
+      soir) restent au calendrier : c'est la seule borne posée contre la rafale d'une journée à
+      six orateurs de la Fed. */
+const _PUSH_FICHE_RX = [
+  /\bcore\s+cpi\b|\bcpi\b|consumer price index/i,                  // CPI, Core CPI
+  /\bcore\s+pce\b|\bpce\b|personal consumption expenditures/i,     // PCE, Core PCE
+  /\bppi\b|producer price/i,                                       // PPI
+  /non[-\s]?farm|\bnfp\b/i,                                        // NFP
+  /unemployment rate|jobless rate/i,                               // Taux de chômage
+  /average hourly earnings/i,                                      // Salaire horaire moyen
+  /\badp\b/i,                                                      // ADP
+  /\bjolts\b|job openings/i,                                       // JOLTS
+  /\bgdp\b|gross domestic product/i,                               // PIB
+  /retail sales/i,                                                 // Ventes au détail
+  /\bism\b/i,                                                      // ISM manufacturier et services
+  /federal funds rate|fomc statement|rate decision|interest rate decision|policy rate|cash rate|bank rate|\bocr\b|refinancing rate|deposit facility|overnight rate/i,
+];
+const _PUSH_PAROLE_RX = /\bspeaks\b|\bspeech\b|testif|testimony|press conference|conf[ée]rence|meeting minutes|monetary policy meeting accounts|\bminutes\b|\bmeeting\b|summit|symposium|jackson hole|\bg7\b|\bg20\b|\bopec\b|hearing/i;
+const _pushImp = e => { const i = String((e && e.impact) || '').toLowerCase(); return /high|élev|3/.test(i) ? 3 : /medium|moyen|2/.test(i) ? 2 : 1; };
+function _pushCalFamille(e) {
+  if (!e || !e.title) return null;
+  const t = String(e.title), imp = _pushImp(e), usd = String(e.currency || '').toUpperCase() === 'USD';
+  if (_PUSH_PAROLE_RX.test(t) && !_PUSH_FICHE_RX.some(rx => rx.test(t))) return imp >= 2 ? 'parole' : null;
+  if (imp >= 3) return 'chiffre';
+  if (_PUSH_FICHE_RX.some(rx => rx.test(t)) && (usd || imp >= 2)) return 'chiffre';
+  return null;
+}
+/* Le libellé français d'une prise de parole : celui des cartes « Semaine à venir » quand il existe
+   (« Discours de Powell », « Conférence de presse de la Fed », « Minutes de la BCE »), sinon le nom
+   de l'orateur lu dans l'intitulé (« Discours de Waller (Fed) »). */
+function _pushRdv(e) {
+  const t = String((e && e.title) || ''), b = (_WA.BANQUE || {})[String((e && e.currency) || '').toUpperCase()] || '';
+  let lbl = ''; try { const th = _WA.themeJour(e); lbl = (th && th.lbl) || ''; } catch {}
+  if (!/^(Discours|Conférence|Minutes|Jackson|Symposium|Réunion|Sommet|Projections|Décision)/.test(lbl)) {
+    const m = /(?:member|governor|gov|president|chair(?:man|woman)?|vice chair|deputy governor|chief economist|secretary|sec)\.?\s+([A-Z][A-Za-z'’-]+)/i.exec(t);
+    if (m && /speaks|speech|testif/i.test(t)) lbl = 'Discours de ' + m[1] + (b ? ' (' + b + ')' : '');
+    else if (/press conference/i.test(t)) lbl = 'Conférence de presse' + (b ? ' de la ' + b : '');
+    else if (/minutes|accounts/i.test(t)) lbl = 'Minutes' + (b ? ' de la ' + b : '');
+    else if (/speaks|speech|testif/i.test(t)) lbl = 'Discours' + (b ? ' à la ' + b : '');
+    else if (/meeting/i.test(t)) lbl = 'Réunion : ' + t.replace(/\s*meetings?\s*/i, ' ').trim();
+    else lbl = t;
+  }
+  let sigle = ''; try { sigle = _WA.sigleEv(e) || ''; } catch {}
+  const court = sigle && sigle.length <= 18 && !/speaks|member/i.test(sigle) ? sigle : lbl;
+  return { title: 'Calendrier économique · ' + _pushCourt(court, 40), court: _pushCourt(lbl, 60), body: lbl + ' : c’est maintenant.' };
+}
 function _pushGuetter() {
   const ev = [], frais = x => Date.now() - (+(x && x.timestamp) || 0) < 12 * 3600e3;
   _pushNouveaux('sw', Array.isArray(_swCache) ? _swCache : [], x => x && (x.id || x.url || x.link)).filter(frais).slice(0, 2)
-    .forEach(w => ev.push({ cat: 'analystes', id: 'sw:' + (w.id || w.url || w.link), url: _pushLien('analystes', w.id || w.url || w.link), title: 'Analystes · Récap de séance', court: _pushCourt(w.aiTitle || w.title || w.headline, 60), body: _pushCourt(w.aiTitle || w.title || w.headline, 170), trad: true, courtFr: true }));
+    .forEach(w => { const t = _pushSansAmorce(w.aiTitle || w.title || w.headline); ev.push({ cat: 'analystes', rythme: 'quotidien', id: 'sw:' + (w.id || w.url || w.link), url: _pushLien('analystes', w.id || w.url || w.link), title: 'Analystes · Récap de séance', court: _pushCourt(t, 60), body: _pushCourt(t, 170), trad: true, courtFr: true }); });
   _pushNouveaux('dtp', (Array.isArray(allNews) ? allNews : []).filter(i => i && i._briefing && i._reportType), x => x.id).filter(frais).slice(0, 2)
-    .forEach(r => { const nom = _PUSH_RAPPORTS_FR[r._reportType] || r._reportType; ev.push({ cat: 'analystes', id: 'rap:' + r.id, url: _pushLien('analystes', r.id), title: 'Analystes · ' + nom, court: nom, body: _pushCourt(r._titreFr || r.headline, 170), trad: true }); });
+    .forEach(r => {
+      const nom = _PUSH_RAPPORTS_FR[r._reportType] || r._reportType;
+      ev.push({ cat: 'analystes', rythme: /weekly|hebdo/i.test(r._reportType) ? 'hebdo' : 'quotidien', id: 'rap:' + r.id, url: _pushLien('analystes', r.id),
+        title: 'Analystes · ' + nom, court: nom, body: _pushCourt(_pushSansAmorce(r._titreFr || r.headline), 170) || nom, trad: true, nom });
+    });
   _pushNouveaux('br', Array.isArray(_brCache) ? _brCache : [], x => x && (x.id || x.url)).filter(frais).slice(0, 3)
-    .forEach(b => { const inst = _pushCourt(b.institution || b.source || 'Recherche bancaire', 40); ev.push({ cat: 'banques', id: 'br:' + (b.id || b.url), url: _pushLien('banques', b.id || b.url), title: 'Banques · ' + inst, court: inst, body: _pushCourt(b._titreFr || b.title || b.headline, 170), trad: true }); });
-  // Calendrier : un événement à FORT impact dont le chiffre vient de tomber (moins de 3 h). S'il a déjà
-  // été annoncé par une dépêche chiffrée il y a moins de 8 min (même sigle), on ne le répète pas.
-  const pub = (Array.isArray(allCalendar) ? allCalendar : []).filter(e => e && /^high$/i.test(String(e.impact || '')) && e.actual != null && String(e.actual).trim() !== '' && Date.now() - (+e.timestamp || 0) < 3 * 3600e3);
+    .forEach(b => { const inst = _pushCourt(b.institution || b.source || 'Recherche bancaire', 40); ev.push({ cat: 'banques', banque: String(b.institution || b.source || '').trim(), id: 'br:' + (b.id || b.url), url: _pushLien('banques', b.id || b.url), title: 'Banques · ' + inst, court: inst, body: _pushCourt(b._titreFr || b.title || b.headline, 170), trad: true }); });
+  // Calendrier : un chiffre retenu par _pushCalFamille (impact élevé, ou la fiche de l'utilisateur)
+  // vient de tomber (moins de 3 h). S'il a déjà été annoncé par une dépêche chiffrée il y a moins de
+  // 8 min (même sigle), on ne le répète pas.
+  const cal = Array.isArray(allCalendar) ? allCalendar : [], maint = Date.now();
+  const pub = cal.filter(e => e && _pushCalFamille(e) === 'chiffre' && e.actual != null && String(e.actual).trim() !== '' && maint - (+e.timestamp || 0) < 3 * 3600e3);
   const dejaDit = c => { const mots = String(c.court || '').split(/\s+/).filter(m => m.length >= 3 && !/^[A-Z]{3}$/.test(m)); const dep = (typeof _pushEcoDepeches !== 'undefined' ? _pushEcoDepeches : []).filter(d => Date.now() - d.at < 8 * 60e3); return mots.length > 0 && dep.some(d => mots.every(m => d.body.toUpperCase().includes(m.toUpperCase()))); };
   _pushNouveaux('cal', pub, e => _calKeyDated(e.currency, e.title, e.timestamp)).slice(0, 3)
     .forEach(e => { const c = _pushChiffre(e); if (!dejaDit(c)) ev.push(Object.assign({ cat: 'eco', id: 'cal:' + _calKeyDated(e.currency, e.title, e.timestamp), url: _pushLien('calendrier') }, c)); });
+  // La parole (discours, conférence, minutes, réunion) n'a pas de chiffre : elle sonne quand elle
+  // COMMENCE, dans le quart d'heure qui suit son heure. Le premier passage apprend ce qui a déjà commencé.
+  const parole = cal.filter(e => e && _pushCalFamille(e) === 'parole' && maint >= (+e.timestamp || 0) && maint - (+e.timestamp || 0) < 15 * 60e3);
+  _pushNouveaux('parole', parole, e => _calKeyDated(e.currency, e.title, e.timestamp)).slice(0, 2)
+    .forEach(e => ev.push(Object.assign({ cat: 'eco', id: 'rdv:' + _calKeyDated(e.currency, e.title, e.timestamp), url: _pushLien('calendrier') }, _pushRdv(e))));
   return ev;
 }
 // 30 s (25/09, « les notifs doivent être instantanées ») : le guetteur ne lit que la mémoire du desk.
 setInterval(() => { try { const ev = _pushGuetter(); if (ev.length) _pushDiffuser(ev).catch(() => {}); } catch {} }, 30 * 1000);
 setInterval(() => { _pushVider().catch(() => {}); }, 60 * 1000);
 
-/* ── BASCULE DU SENTIMENT DE MARCHÉ (25/09, « bascule risk-on / risk-off fortement ») ──────────────
-   La jauge du desk (fetchRiskSentiment) est déjà lissée (EMA) et à hystérésis de bande : elle ne
-   bascule que sur un vrai franchissement. On ne notifie que le passage FRANC d'un camp à l'autre —
-   d'un état neutre ou opposé vers un risk-on ou un risk-off affirmé (bande 2 ou 3), jamais un
-   glissement dans le même camp ni une bande « légère ». Au plus une alerte toutes les 4 h, jamais le
-   week-end (marchés fermés : la jauge ne mesure alors que le bruit de la clôture du vendredi). */
+/* ── BASCULE DU SENTIMENT DE MARCHÉ (25/09) ──────────────────────────────────────────────────────
+   La jauge du desk (fetchRiskSentiment) est déjà lissée (EMA) et à hystérésis de bande. Demande user :
+   « risk-on, risk-off / neutre : quand ça bouge beaucoup, on reçoit une notif ».
+   ⚠️ L'ÉCART SE MESURE SUR TROIS HEURES, PAS D'UN RELEVÉ À L'AUTRE. Une jauge qui glisse d'un cran
+   toutes les dix minutes (risk-on marqué, risk-on, léger, neutre) ne franchissait jamais deux crans
+   entre deux relevés : le marché basculait sans qu'aucune alerte parte. On compare donc le relevé
+   courant à chacun des relevés des trois dernières heures.
+   « Beaucoup » = deux crans au moins, vers un camp affirmé (bande 2 ou 3) OU vers le neutre (un retour
+   au calme après un risk-off marqué se signale aussi) ; jamais d'un « léger » à l'autre, ni un
+   glissement dans le même camp. Au plus une alerte toutes les 2 h, jamais le week-end (marchés
+   fermés : la jauge ne mesure alors que le bruit de la clôture du vendredi). */
 const _RISK_NIV = { 'STRONG RISK-ON': 3, 'RISK-ON': 2, 'WEAK RISK-ON': 1, 'NEUTRAL': 0, 'WEAK RISK-OFF': -1, 'RISK-OFF': -2, 'STRONG RISK-OFF': -3 };
 const _RISK_NOM = { 'STRONG RISK-ON': 'risk-on marqué', 'RISK-ON': 'risk-on', 'WEAK RISK-ON': 'risk-on léger', 'NEUTRAL': 'neutre', 'WEAK RISK-OFF': 'risk-off léger', 'RISK-OFF': 'risk-off', 'STRONG RISK-OFF': 'risk-off marqué' };
 function _pushBascule(prec, cour, maintenant, dernier) {
   const a = _RISK_NIV[prec], b = _RISK_NIV[cour];
   if (a == null || b == null) return false;
-  const franche = (b >= 2 && a <= 0) || (b <= -2 && a >= 0);
-  return franche && maintenant - (dernier || 0) >= 4 * 3600e3;
+  const fort = Math.abs(b - a) >= 2 && (Math.abs(b) >= 2 || b === 0);
+  return fort && maintenant - (dernier || 0) >= 2 * 3600e3;
 }
 function _pushTexteBascule(prec, d) {
   const moteurs = (Array.isArray(d.assets) ? d.assets : []).filter(x => x && typeof x.chg === 'number')
     .sort((x, y) => Math.abs(y.chg) - Math.abs(x.chg)).slice(0, 3)
     .map(x => x.label + ' ' + (x.chg > 0 ? '+' : '') + String(x.chg).replace('.', ',') + '%');
   const nom = _RISK_NOM[d.label] || d.label;
-  return { title: 'Sentiment de risque · bascule en ' + nom,
+  return { title: 'Sentiment de risque · ' + (d.label === 'NEUTRAL' ? 'retour au neutre' : 'bascule en ' + nom),
     body: 'Le marché passe de ' + (_RISK_NOM[prec] || prec) + ' à ' + nom + '.' + (moteurs.length ? ' Moteurs : ' + moteurs.join(', ') + '.' : '') };
 }
-let _pushRisqueEtat = null, _pushRisqueDernier = 0;
+const _pushRisqueHist = [];      // relevés des trois dernières heures : { at, label }
+let _pushRisqueDernier = 0;
 async function _pushRisqueTic() {
   const j = new Date().getUTCDay(), h = new Date().getUTCHours();
-  if (j === 6 || (j === 0 && h < 22) || (j === 5 && h >= 21)) { _pushRisqueEtat = null; return; }
+  if (j === 6 || (j === 0 && h < 22) || (j === 5 && h >= 21)) { _pushRisqueHist.length = 0; return; }
   const idx = new Set([...(await _pushIndex()), ...(await _wpIndex())]);
   if (!idx.size) return;
   const d = await fetchRiskSentiment();
   if (!d || !d.label) return;
-  const prec = _pushRisqueEtat;
-  _pushRisqueEtat = d.label;
-  if (!prec || !_pushBascule(prec, d.label, Date.now(), _pushRisqueDernier)) return;
-  _pushRisqueDernier = Date.now();
+  const maintenant = Date.now();
+  while (_pushRisqueHist.length && maintenant - _pushRisqueHist[0].at > 3 * 3600e3) _pushRisqueHist.shift();
+  const ref = _pushRisqueHist.find(r => _pushBascule(r.label, d.label, maintenant, _pushRisqueDernier));
+  _pushRisqueHist.push({ at: maintenant, label: d.label });
+  if (!ref) return;
+  const prec = ref.label;
+  _pushRisqueHist.length = 0; _pushRisqueHist.push({ at: maintenant, label: d.label });   // le mouvement annoncé ne se rejoue pas
+  _pushRisqueDernier = maintenant;
   const tx = _pushTexteBascule(prec, d);
   await _pushRouter([{ cat: 'risque', id: 'risk:' + d.label + ':' + Date.now(), title: tx.title, body: tx.body, url: _pushLien('marches') }]);
 }
@@ -5758,15 +5901,50 @@ async function _aiChatDailyIncr(uid, day) {
 // Construit le prompt « Macro AI » (contexte LIVE : Smart Bias + taux + calendrier + news). Partagé
 // par le chat bufferisé (/api/ai/chat) ET le chat en streaming (/api/ai/chat/stream) → zéro divergence.
 // Repli 0-token du chat Macro : aucune génération IA dispo (panne totale) + pas de cache pour cette question.
-// Message pro + mini-résumé factuel des news RÉELLES déjà en mémoire (zéro quota, JAMAIS mis en cache).
-function _aiChatFallback(newsCtx) {
-  const items = (Array.isArray(newsCtx) ? newsCtx : []).slice(0, 4)
-    .map(n => '• ' + _stripMd(String(n.headline || n.title || '').slice(0, 140))).filter(l => l.length > 3);
-  let out = "L'Assistant IA Macro est momentanément saturé (forte demande sur les modèles). ";
-  if (items.length) out += "En attendant, voici les derniers points de marché du desk :\n\n" + items.join('\n')
-    + "\n\nRéessayez dans une minute pour une analyse détaillée.";
-  else out += "Réessayez dans une minute : le service reprend automatiquement.";
-  return out;
+// Réponse du desk rédigée par le code, en français (zéro quota, JAMAIS mise en cache).
+/* Une réponse coupée par la limite de longueur n'est PAS une réponse vide (25/09, capture user :
+   « L'Assistant IA Macro est momentanément saturé… »). La garde anti-troncature jetait en bloc tout
+   texte sans ponctuation finale ; or une réponse de 380 jetons s'arrête le plus souvent AU MILIEU
+   d'une phrase, précisément parce qu'elle a atteint sa limite. On gardait donc le message de panne
+   à la place d'une analyse complète aux trois quarts. On coupe désormais à la dernière phrase
+   terminée, pourvu qu'il en reste assez pour répondre. */
+function _aiChatCouper(t) {
+  t = String(t == null ? '' : t).trim();
+  if (t.length >= 40 && /[.!?…»"”)]$/.test(t)) return t;
+  const m = t.match(/^[\s\S]*[.!?…](?=\s|$)/);
+  const c = m ? m[0].trim() : '';
+  return c.length >= 80 ? c : '';
+}
+/* Repli sans IA : une réponse du DESK, en français, jamais un aveu de panne. */
+function _aiChatFallback(newsCtx, q) {
+  const fr = n => { const t = String((n && (n._titreFr || n._hlFr)) || '').trim(); return t && _looksFr(t) ? t : ''; };
+  const items = (Array.isArray(newsCtx) ? newsCtx : []).map(fr).filter(Boolean).slice(0, 4)
+    .map(t => '• ' + _stripMd(t.slice(0, 160)));
+  const blocs = [];
+  // Le biais de la ou des devises nommées dans la question, lu dans le Radar de Biais.
+  try {
+    const conc = (_smartBias && _smartBias.conclusion) || {};
+    const VAL = { 'Very Bullish': 'nettement haussier', 'Bullish': 'haussier', 'Weak Bullish': 'légèrement haussier', 'Neutral': 'neutre', 'Weak Bearish': 'légèrement baissier', 'Bearish': 'baissier', 'Very Bearish': 'nettement baissier' };
+    // « EURUSD », « EUR/USD » ou « euro dollar » : une paire collée se lit en deux devises ; un mot
+    // français qui en contient une (« cadre ») ne compte pas.
+    const DEV = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'], cites = [];
+    (String(q || '').toUpperCase().match(/[A-Z]{3,6}/g) || []).forEach(m => {
+      const parts = m.length === 6 && DEV.includes(m.slice(0, 3)) && DEV.includes(m.slice(3)) ? [m.slice(0, 3), m.slice(3)] : (m.length === 3 && DEV.includes(m) ? [m] : []);
+      parts.forEach(c => { if (!cites.includes(c)) cites.push(c); });
+    });
+    const lignes = cites.filter(c => conc[c]).map(c => '• ' + c + ' : biais ' + (VAL[conc[c]] || 'neutre') + ' cette semaine');
+    if (lignes.length) blocs.push('**Radar de Biais**\n' + lignes.join('\n'));
+  } catch {}
+  if (items.length) blocs.push('**Dernières dépêches du desk**\n' + items.join('\n'));
+  try {
+    const now = Date.now();
+    const next = (Array.isArray(allCalendar) ? allCalendar : [])
+      .filter(e => e && (e.timestamp || 0) > now && /high/i.test(e.impact || '')).sort((a, b) => a.timestamp - b.timestamp).slice(0, 3)
+      .map(e => { let l = ''; try { l = (_WA.themeJour(e) || {}).lbl || ''; } catch {} return '• ' + new Date(e.timestamp).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) + ' · ' + (l || ((e.currency || '') + ' ' + (e.title || ''))); });
+    if (next.length) blocs.push('**Prochains rendez-vous à fort impact**\n' + next.join('\n'));
+  } catch {}
+  if (!blocs.length) return 'Je prépare votre analyse : reposez la question dans un instant et elle sera rédigée en entier.';
+  return 'Voici l’essentiel du desk sur le sujet en ce moment.\n\n' + blocs.join('\n\n') + '\n\nL’analyse rédigée arrive dans un instant : reposez la question pour l’obtenir en entier.';
 }
 function _aiChatPrompt(q, newsCtx) {
   let biasLine = '';
@@ -5852,11 +6030,11 @@ app.post('/api/ai/chat/stream', async (req, res) => {
   const prompt = _aiChatPrompt(q, newsCtx);
   let full = '', _emitted = false;
   try {
-    full = await ai.generateTextStream(prompt, 380, { priority: 'user' }, (delta) => { _emitted = true; send('chunk', { t: delta }); });   // streaming réel (token-par-token)
+    full = await ai.generateTextStream(prompt, 520, { priority: 'user' }, (delta) => { _emitted = true; send('chunk', { t: delta }); });   // streaming réel (token-par-token)
   } catch (e) {
     if (_emitted) { send('done', { sources }); return res.end(); }   // déjà streamé du texte → on garde, JAMAIS de re-stream (zéro doublon)
     full = '';
-    try { const buf = await aiSmart('chat', prompt, 380, { priority: 'user' }); if (buf && buf.trim()) { full = buf.trim(); streamChunks(full); } } catch {}   // repli bufferisé → streamé en morceaux
+    try { const buf = _aiChatCouper(await aiSmart('chat', prompt, 520, { priority: 'user' })); if (buf) { full = buf; streamChunks(full); } } catch {}   // repli bufferisé → streamé en morceaux
   }
   // Garde anti-troncature : un modèle :free qui coupe le flux après quelques mots renvoie un partiel
   // (ai.js: return full.trim()) qui SINON serait mis en cache et resservi tel quel toute la journée.
@@ -5865,10 +6043,11 @@ app.post('/api/ai/chat/stream', async (req, res) => {
   const _looksComplete = (t) => { t = (t == null ? '' : String(t)).trim(); return t.length >= 40 && /[.!?…»"”)]$/.test(t); };
   if (full && full.trim() && !_looksComplete(full)) {
     if (!_emitted) {   // rien streamé au client → on peut tenter le bufferisé proprement
-      try { const buf = await aiSmart('chat', prompt, 380, { priority: 'user' }); if (buf && buf.trim() && _looksComplete(buf.trim())) { full = buf.trim(); streamChunks(full); } } catch {}
+      // Une réponse coupée par la limite de longueur se garde jusqu'à sa dernière phrase (_aiChatCouper).
+      try { const buf = _aiChatCouper(await aiSmart('chat', prompt, 520, { priority: 'user' })); if (buf) { full = buf; streamChunks(full); } } catch {}
     }
     if (!_looksComplete(full)) {   // toujours tronqué → on N'enregistre PAS le partiel ; repli 0-token gracieux (pas d'échec dur)
-      if (!_emitted) { const fb = _aiChatFallback(newsCtx); streamChunks(fb); }   // rien streamé → on sert le repli ; sinon on garde le partiel
+      if (!_emitted) { const fb = _aiChatFallback(newsCtx, q); streamChunks(fb); }   // rien streamé → on sert le repli ; sinon on garde le partiel
       send('done', { sources }); return res.end();
     }
   }
@@ -5878,7 +6057,7 @@ app.post('/api/ai/chat/stream', async (req, res) => {
     if (Object.keys(_aiChatMem).length > 500) for (const k of Object.keys(_aiChatMem)) delete _aiChatMem[k];
     _aiChatMem[key] = full; auth.aiCacheSet(key, full).catch(() => {});
     send('done', { sources });
-  } else { const fb = _aiChatFallback(newsCtx); streamChunks(fb); send('done', { sources }); }   // repli 0-token streamé (jamais d'échec dur, non mis en cache)
+  } else { const fb = _aiChatFallback(newsCtx, q); streamChunks(fb); send('done', { sources }); }   // repli 0-token streamé (jamais d'échec dur, non mis en cache)
   res.end();
 });
 app.post('/api/ai/chat', async (req, res) => {
@@ -5903,9 +6082,9 @@ app.post('/api/ai/chat', async (req, res) => {
         return res.json({ answer: `Vous avez atteint la limite journalière de **${AI_CHAT_DAILY_LIMIT} requêtes** de l'Assistant IA Macro. Le compteur se réinitialise demain : merci de votre compréhension.`, sources: [] });
     }
     const prompt = _aiChatPrompt(q, newsCtx);
-    try { answer = await aiSmart('chat', prompt, 380, { priority: 'user' }); } catch (e) { answer = null; }   // DANS le budget (part 'chat'), tier user
-    // Rejette un texte tronqué (modèle :free coupé) : sinon il serait mis en cache et resservi tronqué.
-    if (answer && answer.trim() && !(answer.trim().length >= 40 && /[.!?…»"”)]$/.test(answer.trim()))) answer = null;
+    try { answer = await aiSmart('chat', prompt, 520, { priority: 'user' }); } catch (e) { answer = null; }   // DANS le budget (part 'chat'), tier user
+    // Texte tronqué : gardé jusqu'à sa dernière phrase complète, jeté seulement s'il n'en reste presque rien.
+    answer = _aiChatCouper(answer) || null;
     if (answer && answer.trim()) {
       answer = answer.trim();
       if (_limDay) { try { await _aiChatDailyIncr(_uid, _limDay); } catch {} }   // ne décompte la limite/jour QUE sur une génération réussie (panne/échec = non facturé)
@@ -5914,7 +6093,7 @@ app.post('/api/ai/chat', async (req, res) => {
     }
     else answer = null;
   }
-  if (!answer) return res.json({ answer: _aiChatFallback(newsCtx), sources, fallback: true });   // repli 0-token gracieux (panne totale + pas de cache) au lieu d'un 503 dur — NON mis en cache
+  if (!answer) return res.json({ answer: _aiChatFallback(newsCtx, q), sources, fallback: true });   // repli 0-token gracieux (panne totale + pas de cache) au lieu d'un 503 dur — NON mis en cache
   res.json({ answer, sources });
 });
 app.get('/api/news/history', (req, res) => {

@@ -363,7 +363,7 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       v('onglet Marchés → sentiment de risque + force des devises + outils du desk', m.visible && m.titre === 'Marchés' && m.outils >= 6, JSON.stringify(m));
       v('… les 8 devises, de la plus forte à la plus faible', m.ordre === 'GBP,USD,CAD,AUD,EUR,CHF,NZD,JPY', m.ordre);
       v('… le régime de risque traduit, avec le décompte réel des facteurs (3 / 1)', m.lib === 'Risk-on léger' && /Risk-on : 3 · Risk-off : 1/.test(m.cpt), m.lib + ' · ' + m.cpt);
-      v('… et sa source nommée (traçabilité)', /4 actifs suivis · cotations Yahoo Finance/.test(m.source || ''), m.source);
+      v('… sans la ligne « N actifs suivis · cotations Yahoo Finance » (retirée à la demande, 25/09)', !m.source, m.source);
       await capture('marches');
       /* ÉCRAN DÉCALÉ AU DOIGT (25/09, capture : Marchés glissé de 110 px). Un conteneur en
          overflow-y:auto défile AUSSI en X : il suffisait d'un encart de 2 px de trop. */
@@ -486,13 +486,10 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       v('un bouton « Briefing » dans l\'en-tête du Fil', await page.evaluate(() => !!document.querySelector('#view-news .v2a-bf-btn')));
       await page.evaluate(() => document.querySelector('#view-news .v2a-bf-btn').click());
       await new Promise(z => setTimeout(z, 600));
-      const bf = await page.evaluate(() => { const c = document.querySelector('.v2a-bf-corps'); return c ? { t: c.innerText, cites: c.querySelectorAll('.v2a-bf-cite').length, fiche: c.querySelectorAll('.v2a-bf-fiche li').length } : null; });
-      v('la feuille s\'ouvre : titre, points, et une citation cliquable par source utilisée', bf && /Un risk-on prudent/.test(bf.t) && bf.cites === 3 && bf.fiche === 3, JSON.stringify(bf));
-      v('… la sévérité du contrôle est affichée (points écartés)', bf && /2 points écartés à la vérification/.test(bf.t));
-      await page.evaluate(() => document.querySelector('.v2a-bf-cite[data-f="F2"]').click());
-      await new Promise(z => setTimeout(z, 300));
-      const bu = await page.evaluate(() => { const b = document.getElementById('v2a-bf-bulle'); return b ? b.innerText : ''; });
-      v('… un clic sur une citation montre le FAIT exact, sans le nom du fournisseur (25/09, « enlève les sources »)', /GBP \(\+0,30\)/.test(bu) && !/Force des devises \(unité TD\)/.test(bu), bu.replace(/\n/g, ' | '));
+      const bf = await page.evaluate(() => { const c = document.querySelector('.v2a-bf-corps'); return c ? { t: c.innerText, cites: c.querySelectorAll('.v2a-bf-cite').length, fiche: c.querySelectorAll('.v2a-bf-fiche, details').length } : null; });
+      v('la feuille s\'ouvre : titre et points', bf && /Un risk-on prudent/.test(bf.t), JSON.stringify(bf));
+      // 25/09, « enlève les F[X] et la fiche de faits » : le texte seul, la vérification reste au serveur.
+      v('… sans repère F1, F2… ni « Fiche de faits »', bf && bf.cites === 0 && bf.fiche === 0 && !/\bF\d+\b/.test(bf.t) && !/fiche de faits|faits sourcés|écarté/i.test(bf.t), JSON.stringify(bf));
       await page.keyboard.press('Escape');
       v('Échap referme la feuille', await page.evaluate(() => !document.getElementById('v2a-bf')));
 

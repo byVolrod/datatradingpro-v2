@@ -307,5 +307,32 @@ console.log('\n── Le tag « Analyse » d\'une news — le même principe, un
   }
 }
 
+/* ══ COPILOTE MACRO (25/09, capture : « L'Assistant IA Macro est momentanément saturé… » suivi de
+   titres ANGLAIS). Deux défauts dans le même repli : il lisait `headline` (l'original) au lieu de
+   `_titreFr`, et il s'affichait pour une réponse simplement COUPÉE par la limite de longueur, que la
+   garde anti-troncature jetait en bloc. On rejoue les vraies fonctions. */
+console.log('\n── Copilote Macro : réponse coupée gardée, repli en français, jamais « saturé » ──');
+{
+  const a = SRV.indexOf('function _aiChatCouper(t) {'), b = SRV.indexOf('function _aiChatPrompt(q, newsCtx) {');
+  v('les fonctions du repli sont extractibles', a > 0 && b > a);
+  const now = Date.now();
+  const K = new Function('_looksFr', '_stripMd', '_smartBias', 'allCalendar', '_WA', SRV.slice(a, b) + '\nreturn { _aiChatCouper, _aiChatFallback };')(
+    t => /\b(le|la|les|des|du|recule|après)\b/i.test(t), t => String(t), { conclusion: { USD: 'Bearish', EUR: 'Bullish' } },
+    [{ timestamp: now + 3600e3, impact: 'High', currency: 'USD', title: 'Non-Farm Employment Change' }], { themeJour: () => ({ lbl: 'NFP américain' }) });
+  const coupe = 'Le dollar recule. La Fed reste prudente et le marché attend le NFP de vendredi, qui décidera de la suite pour EUR/USD autour de 1,1650. Les rendements américains se détendent et soutiennent les devises à risque comme';
+  v('une réponse coupée par la limite est gardée jusqu\'à sa dernière phrase', K._aiChatCouper(coupe) === coupe.slice(0, coupe.indexOf('1,1650.') + 7), K._aiChatCouper(coupe));
+  v('… une réponse complète passe telle quelle', K._aiChatCouper('Réponse complète et assez longue pour passer la garde du premier coup.') === 'Réponse complète et assez longue pour passer la garde du premier coup.');
+  v('… presque rien de phrasé : jetée (le repli prend le relais)', K._aiChatCouper('Court et coupé sans point') === '' && K._aiChatCouper(null) === '');
+  v('… un nombre décimal n\'est pas une fin de phrase', K._aiChatCouper('Taux à 3.5% puis la Fed monte encore et encore sans jamais finir sa phrase proprement ni poser un point final') === '');
+  const news = [{ headline: 'Dollar slides as Treasury yields fall', _titreFr: 'Le dollar recule avec la détente des rendements' }, { headline: 'Oil jumps on supply fears' }];
+  const fb = K._aiChatFallback(news, 'Biais EURUSD ?');
+  v('le repli ne dit JAMAIS « saturé »', !/satur/i.test(fb), fb);
+  v('… il lit le titre FRANÇAIS affiché, jamais l\'original anglais', /Le dollar recule avec la détente/.test(fb) && !/Oil jumps|Dollar slides/.test(fb), fb);
+  v('… il répond avec le Radar de Biais des devises nommées', /USD : biais baissier/.test(fb) && /EUR : biais haussier/.test(fb), fb);
+  v('… et les prochains rendez-vous à fort impact, en français', /NFP américain/.test(fb), fb);
+  v('toutes les voies du chat passent la question au repli', !/_aiChatFallback\(newsCtx\)/.test(SRV) && /_aiChatFallback\(newsCtx, q\)/.test(SRV));
+  v('… et la réponse bufferisée n\'est plus jetée pour une coupure', /answer = _aiChatCouper\(answer\) \|\| null;/.test(SRV));
+}
+
 console.log(`\n${ko === 0 ? '✅' : '❌'} repli-francais-verif : ${ok} contrôle(s) vert(s), ${ko} échec(s).`);
 process.exit(ko === 0 ? 0 : 1);

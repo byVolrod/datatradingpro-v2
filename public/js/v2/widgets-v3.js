@@ -545,16 +545,17 @@
       // Calque : chevauchements, puis le trait « maintenant » qui traverse les quatre places.
       h += '<div class="v3h-calque">' + croisements(now).map(function (c) {
         var w = c.b - c.a, court = c.cle.replace('Londres × New York', 'Londres × NY');
-        // L'étiquette se tait quand le repère « maintenant » passe dessous : l'en-tête dit alors
-        // déjà « pic de liquidité », et deux pastilles superposées ne se lisent pas.
+        // L'étiquette se tait quand le repère « maintenant » passe dessous : deux pastilles
+        // superposées ne se lisent pas, et la bande dorée du chevauchement suffit à le dire.
         var libre = w >= 2.5 && (nowH < c.a - 1.6 || nowH > c.b + 1.6);
         return '<span class="v3h-croise" style="left:' + pct(c.a) + ';width:' + pct(w) + '" title="' + esc(c.cle) + ' : ' + F.hf(c.a) + ' – ' + F.hf(c.b) + '">' + (libre ? '<span>' + esc(court) + '</span>' : '') + '</span>';
       }).join('')
         + '<span class="v3h-now" style="left:' + pct(nowH) + '"></span>'
         + '<span class="v3h-nowlbl" style="left:' + pct(nowH) + '">' + F.hf(nowH) + '<small>MAINTENANT</small></span></div>';
       grille.innerHTML = h;
-      etat.innerHTML = ouvertes.length ? '<b>' + ouvertes.map(esc).join(' · ') + '</b> ' + (ouvertes.length > 1 ? 'ouvertes' : 'ouverte')
-        + (ouvertes.length > 1 ? ' · pic de liquidité' : suivante ? ' · ' + esc(suivante.nom) + ' dans ' + F.duree(suivante.mins) : '')
+      // Plusieurs places ouvertes : leurs noms suffisent (25/09, « supprime "ouvertes · pic de liquidité" »).
+      etat.innerHTML = ouvertes.length ? '<b>' + ouvertes.map(esc).join(' · ') + '</b>'
+        + (ouvertes.length > 1 ? '' : ' ouverte' + (suivante ? ' · ' + esc(suivante.nom) + ' dans ' + F.duree(suivante.mins) : ''))
         : (suivante ? 'Tout est fermé · ' + esc(suivante.nom) + ' ouvre dans ' + F.duree(suivante.mins) : 'Tout est fermé');
       var live = cadre.querySelector('.v3w-live'); if (live) live.outerHTML = enDirect();
       palier();

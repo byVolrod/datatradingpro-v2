@@ -206,8 +206,15 @@ console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement
   const _PUSH_CATS_K = Object.keys(PUSH_CATS);
   const mPP = /const _pushPrefsPropres = (b => \(\{[\s\S]*?\}\));/.exec(SRV);
   v('_pushPrefsPropres est extractible', !!mPP);
-  const _pushPrefsPropres = new Function('_PUSH_CATS_K', 'return (' + (mPP ? mPP[1] : '() => ({})') + ');')(_PUSH_CATS_K);
-  v('sans réglage, tout est coché, son et vibreur compris', JSON.stringify(_pushPrefsPropres({})) === JSON.stringify({ cats: _PUSH_CATS_K, son: true, vibreur: true }));
+  // Les listes de valeurs admises font partie de la tranche : sans elles, le banc éprouverait une
+  // fonction amputée de ses dépendances (contrat d'extraction, CLAUDE.md du 10/09).
+  const mFil = /const _PUSH_FIL = [^\n]+/.exec(SRV);
+  v('les valeurs admises des réglages fins sont extractibles', !!mFil);
+  const _pushPrefsPropres = new Function('_PUSH_CATS_K', (mFil ? mFil[0] : '') + '\nreturn (' + (mPP ? mPP[1] : '() => ({})') + ');')(_PUSH_CATS_K);
+  v('sans réglage, tout est coché, son et vibreur compris, réglages fins au plus large',
+    JSON.stringify(_pushPrefsPropres({})) === JSON.stringify({ cats: _PUSH_CATS_K, son: true, vibreur: true, fil: 'tout', recaps: 'tous', banques: [] }), JSON.stringify(_pushPrefsPropres({})));
+  v('… un réglage fin inconnu retombe sur le plus large (on reçoit trop, jamais rien)', _pushPrefsPropres({ fil: 'pirate', recaps: 3 }).fil === 'tout' && _pushPrefsPropres({ recaps: 3 }).recaps === 'tous');
+  v('… la liste de banques est nettoyée et bornée', JSON.stringify(_pushPrefsPropres({ banques: ['ING', 'ING', '<b>x</b>', 7, ''] }).banques) === '["ING","bx/b"]', JSON.stringify(_pushPrefsPropres({ banques: ['ING', 'ING', '<b>x</b>', 7, ''] }).banques));
   v('une famille inconnue envoyée par un client est écartée', _pushPrefsPropres({ cats: ['news', 'pirate'] }).cats.join() === 'news');
   v('son et vibreur se coupent', _pushPrefsPropres({ son: false, vibreur: false }).son === false && _pushPrefsPropres({ vibreur: false }).vibreur === false);
 
@@ -259,10 +266,19 @@ console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement
   v('risk-on → risk-off marqué : notifiée', _pushBascule('RISK-ON', 'STRONG RISK-OFF', 10 * H, 0));
   v('neutre → risk-off léger : pas assez franc, tu', !_pushBascule('NEUTRAL', 'WEAK RISK-OFF', 10 * H, 0));
   v('risk-off → risk-off marqué : même camp, tu', !_pushBascule('RISK-OFF', 'STRONG RISK-OFF', 10 * H, 0));
-  v('au plus une bascule toutes les 4 h', !_pushBascule('RISK-ON', 'RISK-OFF', 10 * H, 8 * H) && _pushBascule('RISK-ON', 'RISK-OFF', 10 * H, 5.9 * H));
+  v('au plus une alerte toutes les 2 h', !_pushBascule('RISK-ON', 'RISK-OFF', 10 * H, 8.5 * H) && _pushBascule('RISK-ON', 'RISK-OFF', 10 * H, 7.9 * H));
+  // 25/09, « risk-on / risk-off / neutre, quand ça bouge beaucoup » : le retour au neutre compte aussi.
+  v('risk-on marqué → neutre : gros mouvement, notifié', _pushBascule('STRONG RISK-ON', 'NEUTRAL', 10 * H, 0) && _pushBascule('RISK-OFF', 'NEUTRAL', 10 * H, 0));
+  v('… mais d’un « léger » à l’autre, tu', !_pushBascule('WEAK RISK-ON', 'WEAK RISK-OFF', 10 * H, 0));
+  v('… et un retour d’un cran vers le neutre, tu', !_pushBascule('WEAK RISK-OFF', 'NEUTRAL', 10 * H, 0));
+  const tic = fn(SRV, '_pushRisqueTic') || '';
+  v('l’écart se mesure sur trois heures de relevés, pas d’un relevé à l’autre (glissement cran par cran)',
+    /_pushRisqueHist\.find\(r => _pushBascule\(r\.label, d\.label/.test(tic) && /3 \* 3600e3/.test(tic), tic.slice(0, 160));
   const _RISK_NOM = eval('(' + cstBloc(SRV, '_RISK_NOM') + ')');
   const tb = new Function('_RISK_NOM', 'return (' + fn(SRV, '_pushTexteBascule') + ');')(_RISK_NOM)('NEUTRAL', { label: 'RISK-OFF', assets: [{ label: 'VIX', chg: 12.4 }, { label: 'S&P 500', chg: -2.1 }, { label: 'Or', chg: 0.4 }, { label: 'AUD', chg: -0.2 }] });
   v('la bascule s’intitule en français', tb.title === 'Sentiment de risque · bascule en risk-off', tb.title);
+  const tn = new Function('_RISK_NOM', 'return (' + fn(SRV, '_pushTexteBascule') + ');')(_RISK_NOM)('STRONG RISK-OFF', { label: 'NEUTRAL', assets: [] });
+  v('… et le retour au calme se dit « retour au neutre »', tn.title === 'Sentiment de risque · retour au neutre', tn.title);
   v('… et nomme ses trois premiers moteurs', tb.body === 'Le marché passe de neutre à risk-off. Moteurs : VIX +12,4%, S&P 500 -2,1%, Or +0,4%.', tb.body);
 }
 
@@ -298,6 +314,47 @@ console.log('\n── 4 quater. Rapports de banques et récaps de séance : en f
   const guet = fn(SRV, '_pushGuetter') || '';
   v('les récaps de séance sont marqués « à traduire » (titre et libellé court)', /title: 'Analystes · Récap de séance'[^\n]*trad: true, courtFr: true/.test(guet));
   v('… les notes de banques aussi', /title: 'Banques · ' \+ inst[^\n]*trad: true/.test(guet));
+}
+
+console.log('\n── 4 quinquies. Ce qui sonne (25/09) : calendrier de la fiche, parole, réglages fins, titres ──');
+{
+  // Le VRAI classement du calendrier, extrait tel quel du serveur.
+  const debut = SRV.indexOf('const _PUSH_FICHE_RX = ['), fin = SRV.indexOf('function _pushRdv(e) {');
+  v('le classement du calendrier est extractible', debut > 0 && fin > debut);
+  const C = new Function(SRV.slice(debut, fin) + '\nreturn { _pushCalFamille };')();
+  const f = (c, t, i) => C._pushCalFamille({ currency: c, title: t, impact: i });
+  v('fiche : JOLTS noté « moyen » sonne pour le dollar', f('USD', 'JOLTS Job Openings', 'Medium') === 'chiffre');
+  v('… le PPI américain aussi, même noté « faible »', f('USD', 'PPI m/m', 'Low') === 'chiffre');
+  v('… mais le PPI suisse « faible » reste au calendrier', f('CHF', 'PPI m/m', 'Low') === null);
+  v('… le CPI allemand « moyen » sonne (même famille, autre devise)', f('EUR', 'German Prelim CPI m/m', 'Medium') === 'chiffre');
+  v('impact « élevé » : sonne, hors fiche compris', f('USD', 'Unemployment Claims', 'High') === 'chiffre');
+  v('une donnée ordinaire « faible » ne sonne pas', f('CAD', 'Building Permits m/m', 'Low') === null);
+  v('décision de taux : un chiffre, pas une prise de parole', f('USD', 'Federal Funds Rate', 'High') === 'chiffre' && f('AUD', 'RBA Cash Rate', 'High') === 'chiffre');
+  v('parole : discours de Powell, conférence du FOMC, minutes', f('USD', 'Fed Chair Powell Speaks', 'High') === 'parole' && f('USD', 'FOMC Press Conference', 'High') === 'parole' && f('USD', 'FOMC Meeting Minutes', 'High') === 'parole');
+  v('… un membre noté « moyen » aussi', f('USD', 'FOMC Member Waller Speaks', 'Medium') === 'parole' && f('JPY', 'BOJ Gov Ueda Speaks', 'Medium') === 'parole');
+  v('… mais une intervention notée « faible » reste au calendrier (rafale d’orateurs)', f('USD', 'FOMC Member Bowman Speaks', 'Low') === null);
+  const guet = fn(SRV, '_pushGuetter') || '';
+  v('les chiffres passent par ce classement (plus seulement « high »)', /_pushCalFamille\(e\) === 'chiffre'/.test(guet) && !/\/\^high\$\/i\.test/.test(guet));
+  v('la parole sonne quand elle COMMENCE (quart d’heure qui suit l’heure), apprise au premier passage', /_pushCalFamille\(e\) === 'parole' && maint >= \(\+e\.timestamp \|\| 0\) && maint - \(\+e\.timestamp \|\| 0\) < 15 \* 60e3/.test(guet) && /_pushNouveaux\('parole'/.test(guet));
+  // Réglages fins : la vraie fonction.
+  const A = new Function('return (' + fn(SRV, '_pushPrefAccepte') + ');')();
+  const P = { fil: 'geo', recaps: 'hebdo', banques: ['ING'] };
+  v('fil « géopolitique seule » : une dépêche économique du fil est tue', !A(P, { cat: 'news', pause: 'fil', nature: 'eco' }) && A(P, { cat: 'news', pause: 'fil', nature: 'geo' }));
+  v('… sans toucher au calendrier (qui n’est pas le fil)', A(P, { cat: 'eco', nature: 'eco' }));
+  v('récaps « hebdo seul » : le récap de séance quotidien est tu', !A(P, { cat: 'analystes', rythme: 'quotidien' }) && A(P, { cat: 'analystes', rythme: 'hebdo' }));
+  v('banques choisies : les autres établissements sont tus (casse ignorée)', !A(P, { cat: 'banques', banque: 'Goldman Sachs' }) && A(P, { cat: 'banques', banque: 'ing' }));
+  v('réglages au plus large : tout passe', A({ fil: 'tout', recaps: 'tous', banques: [] }, { cat: 'banques', banque: 'X' }));
+  v('le routeur applique les réglages fins', /prefs\.cats\.includes\(e\.cat\) \|\| !_pushPrefAccepte\(prefs, e\)/.test(fn(SRV, '_pushRouter') || ''));
+  v('le fil porte la nature de chaque dépêche, les récaps leur rythme, les notes leur banque',
+    /nature: _pushNature\(it\)/.test(fn(SRV, '_pushEnvoyer') || '') && /rythme: 'quotidien'/.test(guet) && /banque: String\(b\.institution/.test(guet));
+  // « ABÉCÉDAIRE » (capture du 25/09) : l'étiquette « PRIMER: » ne passe ni avant ni après traduction.
+  const sa = new Function(SRV.match(/const _PUSH_AMORCE_RX = [^\n]+/)[0] + '\n' + SRV.match(/const _pushSansAmorce = [^\n]+/)[0] + '\nreturn _pushSansAmorce;')();
+  v('« ABÉCÉDAIRE : Résumé de la session de Londres » perd son étiquette', sa('ABÉCÉDAIRE : Résumé de la session de Londres') === 'Résumé de la session de Londres');
+  v('… « PRIMER: London Session Recap » aussi', sa('PRIMER: London Session Recap') === 'London Session Recap');
+  v('… un titre ordinaire reste intact', sa('Le dollar recule avant le NFP') === 'Le dollar recule avant le NFP');
+  const R = eval('(' + cstBloc(SRV, '_PUSH_RAPPORTS_FR') + ')');
+  v('les récaps de séance portent un nom français', R['London Session Recap'] === 'Récap séance de Londres' && R['Asia Session Recap'] && R['US Session Recap']);
+  v('le diffuseur retire l’étiquette après traduction', /_pushSansAmorce\(await _pushFrNotif\(e\.body, e\.cat\)\)/.test(fn(SRV, '_pushDiffuser') || ''));
 }
 
 console.log('\n── 4 ter. Le desk ne double plus le serveur ──');

@@ -10377,9 +10377,6 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .np-wp-row[hidden] { display: none; }
 .np-wp-txt { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.4; color: #9ca3af; }
 .np-wp-txt.np-wp-err { color: #ff8a65; }
-.np-wp-test { flex: 0 0 auto; padding: 5px 12px; border: 1px solid rgba(227,178,58,.55); border-radius: 5px; background: transparent; color: #e3b23a; font-size: 11.5px; font-weight: 600; cursor: pointer; }
-.np-wp-test:hover { background: rgba(227,178,58,.1); }
-.np-wp-test[hidden] { display: none; }
 .np-pp { padding: 8px 14px 10px; border-bottom: 1px solid var(--border); }
 .np-pp[hidden] { display: none; }
 .np-pp-titre { font-size: 11px; font-weight: 600; color: #c2c6cd; margin-bottom: 7px; }

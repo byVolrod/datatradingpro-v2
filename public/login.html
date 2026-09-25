@@ -170,9 +170,6 @@
     .lp-dl-btn svg { width: 17px; height: 17px; color: var(--text2); flex: 0 0 auto; }
     .lp-dl-k { display: block; font-size: 10.5px; color: var(--text3); line-height: 1.25; }
     .lp-dl-v { display: block; font-size: 13px; color: var(--text); font-weight: 600; line-height: 1.25; }
-    .lp-dl-intel { margin-top: 9px; text-align: center; font-size: 11px; color: var(--text3); }
-    .lp-dl-intel a { color: var(--gold); text-decoration: none; font-weight: 600; }
-    .lp-dl-intel a:hover { text-decoration: underline; }
 
     /* Note « premier lancement macOS » : carte discrète à étapes numérotées (remplace le paragraphe brut) */
     .lp-machint { margin-top: 12px; padding: 10px 13px 11px; background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; text-align: left; }
@@ -285,10 +282,10 @@
       .lp-input::placeholder { color: rgba(255, 255, 255, 0.38); }
       .lp-input:focus { border-color: var(--gold-bright); box-shadow: 0 0 0 3px rgba(227, 178, 58, 0.18); }
       .lp-input-icon { color: rgba(255, 255, 255, 0.5); }
-      .lp-forgot, .lp-contact a, .lp-dl-intel a { color: var(--gold-bright); }
+      .lp-forgot, .lp-contact a { color: var(--gold-bright); }
       .lp-btn { background: var(--grad-cta); color: #1c1205; border-color: transparent; }
       .lp-btn:hover { background: var(--grad-cta); filter: brightness(1.06); border-color: transparent; }
-      .lp-contact, .lp-dl-intel { color: rgba(255, 255, 255, 0.55); }
+      .lp-contact { color: rgba(255, 255, 255, 0.55); }
       .lp-divider { background: rgba(255, 255, 255, 0.08); }
       .dtpsel-btn { background: rgba(10, 10, 12, 0.72); border-color: rgba(255, 255, 255, 0.12); color: #f3f3f6; }
       .dtpsel-panel { background: #141417; border-color: rgba(255, 255, 255, 0.12); }
@@ -356,7 +353,7 @@
       .lp-left { border-left-color: #1c1c21; }
     }
   </style>
-  <script src="/js/noinspect.js?v=20260925bbg1256"></script>
+  <script src="/js/noinspect.js?v=20260925bbg1257"></script>
 </head>
 <body>
 
@@ -439,7 +436,8 @@
           <span class="lp-dl-txt"><span class="lp-dl-k" data-i18n="dlFor">Télécharger pour</span><span class="lp-dl-v">macOS</span></span>
         </a>
       </div>
-      <div class="lp-dl-intel" data-i18n-html="dlIntel">Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Télécharger la version Intel</a></div>
+      <!-- (Ligne « Mac Intel (avant 2020) ? Télécharger la version Intel » retirée : demande user 25/09.
+           Le fichier reste servi à /downloads/ pour qui a le lien.) -->
       <!-- (Note « premier lancement macOS » retirée : demande user 03/08.) -->
 
       <!-- (Pied de page marque + mention légale retiré : demande user 21/08.) -->
@@ -617,8 +615,6 @@
       pwToggle:'Afficher/masquer', pastePw:'Coller le mot de passe', remember:'Rester connecté', forgot:'Mot de passe oublié ?',
       signin:'Se connecter', signingIn:'Connexion…', langLabel:'Langue :', dlFor:'Télécharger pour',
       loginContact:'Une question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contactez-nous</a>',
-
-      dlIntel:'Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Télécharger la version Intel</a>',
       dlMacTitle:'Premier lancement sur macOS',
       dlMac1:'Si «&nbsp;Apple n\'a pas pu confirmer…&nbsp;» s\'affiche, cliquez <b>Terminé</b> (pas «&nbsp;Placer dans la corbeille&nbsp;»).',
       dlMac2:'Ouvrez <b>Réglages Système → Confidentialité et sécurité</b>.',
@@ -635,8 +631,6 @@
       pwToggle:'Show / hide', pastePw:'Paste password', remember:'Stay signed in', forgot:'Forgot password?',
       signin:'Sign in', signingIn:'Signing in…', langLabel:'Language:', dlFor:'Download for',
       loginContact:'A question&nbsp;? <a href="mailto:contact@datatradingpro.com">Contact us</a>',
-
-      dlIntel:'Mac Intel (before 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Download the Intel version</a>',
       dlMacTitle:'First launch on macOS',
       dlMac1:'If “Apple could not verify…” appears, click <b>Done</b> (not “Move to Trash”).',
       dlMac2:'Open <b>System Settings → Privacy &amp; Security</b>.',

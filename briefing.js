@@ -129,7 +129,8 @@ function _pointValide(texte, faitsParId, motifs) {
   const cites = [];
   let m; _RX_CITE.lastIndex = 0;
   while ((m = _RX_CITE.exec(brut))) if (faitsParId[m[1]] && !cites.includes(m[1])) cites.push(m[1]);
-  const sansCites = brut.replace(/\[F\d{1,3}\]/g, '').replace(/\s+([.,;:!?])/g, '$1').replace(/\s+/g, ' ').trim();
+  // Les repères ne s'affichent plus (25/09) : on retire aussi leurs formes libres, « (F3) », « (F3, F7) ».
+  const sansCites = brut.replace(/\[F\d{1,3}\]/g, '').replace(/\(\s*F\d{1,3}(?:\s*[,;]\s*F\d{1,3})*\s*\)/g, '').replace(/\s+([.,;:!?])/g, '$1').replace(/\s+/g, ' ').trim();
   if (!sansCites || sansCites.length < 12) { motifs.vide++; return null; }
   if (!cites.length) { motifs.sansSource++; return null; }
   if (_RX_CONSIGNE.test(sansCites)) { motifs.consigne++; return null; }
