@@ -1377,6 +1377,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260925-notifs-temps-reel', ts: Date.UTC(2026, 8, 25, 8, 42), title: 'Notifications : à l’instant où la dépêche tombe, et seulement ce qui compte', desc: 'Les notifications d’actualité partent maintenant dès que la dépêche arrive sur le desk, au lieu d’attendre jusqu’à une minute. Elles ne concernent plus que l’important, sans rafale : une dépêche publiée il y a plus d’un quart d’heure n’est plus envoyée, rien n’est renvoyé après une mise à jour du desk, les longues analyses restent dans le fil, et le fil d’actualité ne fait sonner votre téléphone qu’une fois toutes les cinq minutes au plus (deux minutes pour une urgence, la suite arrivant en un seul récapitulatif). L’étiquette « Chiffre » est réservée aux vraies publications de données (CPI, emploi, PIB…), et une dépêche dont la traduction n’est pas prête n’est plus envoyée en anglais. Enfin, une description qui ne fait que redire le titre ne prend plus de place.' },
   { id: 'dtpu-20260925-calendrier-icone-reglages', ts: Date.UTC(2026, 8, 25, 8, 22), title: 'Calendrier : l’icône des réglages reprend le dessin du desk', desc: 'Sur iPhone, l’icône des réglages du calendrier économique s’affichait sous la forme d’un émoji engrenage, étranger au reste du desk. Elle reprend désormais l’icône dessinée de tous les autres réglages : trois curseurs, dans le gris des icônes voisines.' },
   { id: 'dtpu-20260925-notifs-widget', ts: Date.UTC(2026, 8, 25, 8, 0), title: 'Notifications : le widget d’origine en titre, la description en dessous, en français', desc: 'Chaque notification dit maintenant d’où elle vient : « Fil d’actualité · Géopolitique », « Calendrier économique · CPI USD », « Banques · Goldman Sachs », « Analystes · Point marché » ou « Sentiment de risque · bascule en risk-off ». Dessous, la dépêche en français, puis sa description traduite quand elle existe, puis la source. Les titres des rapports de banques publiés en anglais sont traduits avant de partir. Les envois partent aussi plus vite : tous les téléphones sont servis en même temps, et les nouvelles publications sont repérées toutes les 30 secondes au lieu de 90. Enfin, un compte dont l’abonnement a pris fin ne reçoit plus de notifications ; elles reprennent d’elles-mêmes au renouvellement. Sur iPhone, la mention « from » sous le titre porte le nom donné à l’icône lors de son ajout à l’écran d’accueil : pour y lire DataTradingPro, retirez l’icône puis ajoutez-la de nouveau depuis Safari.' },
   { id: 'dtpu-20260925-flash-marche-fr', ts: Date.UTC(2026, 8, 25, 7, 58), title: 'Flash Marché : les dépêches en français, lues par une voix française', desc: 'Le Flash Marché affichait les dépêches en anglais et se présentait comme « Déconnecté » à l’ouverture, ce qui faisait croire à une panne. Il affiche désormais le même titre traduit que le fil d’actualité, et une dépêche dont la traduction arrive quelques secondes après se met à jour d’elle-même. La lecture vocale choisit une voix française pour un texte français. Ouvrir le volet allume le flux en direct (sauf si vous l’avez coupé vous-même), et l’état se lit clairement : « En direct », « En direct · voix » ou « En pause ». L’en-tête ne tronque plus son titre.' },
@@ -2262,7 +2263,13 @@ app.post('/api/webpush/test', async (req, res) => {
 });
 
 // Ce que le push peut porter pour une DÉPÊCHE : deux clés, projetées sur la taxonomie du panneau Filtre.
-const _pushClef = it => (/-?\d/.test(String((it && it.headline) || '')) ? 'eco' : 'news');
+/* « Chiffre » = une vraie PUBLICATION de donnée (25/09, capture : « Or en baisse de 3% » et une analyse
+   de conjoncture étiquetées « Chiffre » parce que leur titre contenait un nombre). */
+const _PUSH_RX_DONNEE = /\b(actual|forecast|previous|consensus|expected|vs\.?|prév|prévu|attendu)\b|\b(CPI|PPI|PCE|GDP|PIB|NFP|payrolls?|PMI|ISM|unemployment rate|taux de chômage|jobless claims|retail sales|ventes au détail|HICP|IPC|trade balance|balance commerciale|industrial production|production industrielle|housing starts|building permits|durable goods|consumer confidence|ZEW|IFO|GfK|employment change|average earnings)\b/i;
+const _pushClef = it => {
+  const h = String((it && it.headline) || '');
+  return (it && (it._calendarResult === true || it.isCalendar === true)) || (/-?\d/.test(h) && _PUSH_RX_DONNEE.test(h)) ? 'eco' : 'news';
+};
 /* Format « notification d'app » (25/09, capture de référence : « URGENT / Alerte pour NZDCHF ») : le
    téléphone affiche déjà le nom de l'app ; le TITRE dit la nature de l'alerte, le corps porte la
    dépêche, en français quand sa traduction est prête.
@@ -2304,7 +2311,10 @@ function _pushTexte(it, fr, descFr) {
   const corps = h.length > 150 ? h.slice(0, 149).replace(/\s+\S*$/, '') + '…' : h;
   let d = String(descFr || (it && it._descFr) || '').replace(/\s+/g, ' ').trim();
   const estFr = typeof _looksFr === 'function' ? _looksFr : () => true;
-  if (d && (!estFr(d) || d.toLowerCase() === h.toLowerCase())) d = '';
+  // Une description qui redit le titre (même sujet, mêmes mots) ne gagne pas sa ligne (capture du 25/09).
+  const mots = t => new Set(String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter(m => m.length >= 4));
+  const mh = mots(h), md = mots(d); let communs = 0; md.forEach(m => { if (mh.has(m)) communs++; });
+  if (d && (!estFr(d) || d.toLowerCase() === h.toLowerCase() || (md.size && communs / md.size >= 0.5))) d = '';
   if (d.length > 110) d = d.slice(0, 109).replace(/\s+\S*$/, '') + '…';
   return { title: titre, body: corps ? corps + (d ? '\n' + d : '') + '\n' + (p.source ? 'Source : ' + p.source : 'Fil d’actualité DTP') : '' };
 }
@@ -2369,7 +2379,7 @@ const PUSH_CATS = {
   analystes: { widget: 'Analystes', nom: 'Rapports d’analystes', desc: 'Les récaps de séance et les rapports du desk DTP (onglet Analystes).', un: 'rapport d’analyste', plusieurs: 'rapports d’analystes' },
 };
 const _PUSH_CATS_K = Object.keys(PUSH_CATS);
-const PUSH_PAUSE_MS = { news: 5 * 60e3, eco: 0, risque: 0, banques: 30 * 60e3, analystes: 20 * 60e3 };
+const PUSH_PAUSE_MS = { news: 5 * 60e3, eco: 0, risque: 0, banques: 30 * 60e3, analystes: 20 * 60e3, fil: 5 * 60e3 };
 const PUSH_PAUSE_URGENT_MS = 2 * 60e3;
 const _pushPrefsPropres = b => ({
   cats: Array.isArray(b && b.cats) ? _PUSH_CATS_K.filter(k => b.cats.includes(k)) : _PUSH_CATS_K.slice(),
@@ -2441,6 +2451,7 @@ function _pushMemeSujet(entites, maintenant) {
 // Plusieurs publications mises de côté pendant une pause → UNE notification qui les nomme.
 function _pushResume(cat, lot) {
   if (lot.length === 1) return lot[0];
+  if (cat === 'fil') cat = lot.every(e => e.cat === 'eco') ? 'eco' : 'news';
   const c = PUSH_CATS[cat] || { plusieurs: 'alertes' };
   const noms = [...new Set(lot.map(e => e.court || String(e.body || '').split('\n')[0]).filter(Boolean))];
   const corps = noms.slice(0, 4).join(' · ') + (noms.length > 4 ? ' · et ' + (noms.length - 4) + ' autre' + (noms.length - 4 > 1 ? 's' : '') : '');
@@ -2533,8 +2544,10 @@ async function _pushRouter(evts) {
       // Une urgence a sa propre pause, courte : elle passe devant, mais une rafale d'urgences ne
       // sonne pas six fois. La suite d'une histoire déjà notifiée (e.suite) n'a pas de passe-droit.
       const urgente = e.urgent && !e.suite;
-      const k = uid + '|' + e.cat, pause = urgente ? PUSH_PAUSE_URGENT_MS : (PUSH_PAUSE_MS[e.cat] || 0);
-      const enPause = pause > 0 && (maintenant - (_pushDerniers.get(k) || 0) < pause || directs.some(d => d.cat === e.cat));
+      // Le FIL (actualités et chiffres qu'il porte) partage UNE pause : deux familles, un seul téléphone.
+      const pk = e.pause || e.cat;
+      const k = uid + '|' + pk, pause = urgente ? PUSH_PAUSE_URGENT_MS : (PUSH_PAUSE_MS[pk] || 0);
+      const enPause = pause > 0 && (maintenant - (_pushDerniers.get(k) || 0) < pause || directs.some(d => (d.pause || d.cat) === pk));
       if (enPause) {
         const f = _pushAttente.get(k) || { prefs, lot: [] };
         f.prefs = prefs; if (f.lot.length < 20) f.lot.push(e);
@@ -2545,7 +2558,7 @@ async function _pushRouter(evts) {
     }
     if (!directs.length) continue;
     const place = _pushSousPlafond(uid, directs.length);
-    for (const e of directs.slice(0, place)) { _pushDerniers.set(uid + '|' + e.cat, maintenant); envois.push([uid, e, prefs]); }
+    for (const e of directs.slice(0, place)) { _pushDerniers.set(uid + '|' + (e.pause || e.cat), maintenant); envois.push([uid, e, prefs]); }
   }
   return _pushExpedier(envois, idxExpo, idxWeb);
 }
@@ -2602,9 +2615,30 @@ async function _pushFr(it) {
 /* FILE D'ATTENTE plutôt que « occupé, on jette » : la traduction prend quelques secondes, et un
    second lot arrivé pendant ce temps était perdu en silence (déjà marqué vu, jamais envoyé). */
 const _pushFile = [];
+/* ⚠️ TEMPS RÉEL ET SANS RAFALE (25/09, capture : quatre notifications « maintenant » d'un coup, dont
+   l'accord États-Unis/Iran annoncé des heures plus tôt, une dépêche en anglais, une analyse de fond).
+   - FRAÎCHEUR : une dépêche publiée il y a plus de 15 min n'est plus une alerte, c'est une archive
+     (les flux RSS ramènent des articles anciens ; un redémarrage vide la mémoire anti-doublon).
+   - DÉMARRAGE : pendant 3 min après un redémarrage, ce qui est antérieur au démarrage est appris,
+     jamais envoyé.
+   - UNE ALERTE, PAS UN ARTICLE : un titre de plus de 170 caractères est une analyse, pas une dépêche.
+   - FRANÇAIS OU RIEN : sans traduction après deux essais, la dépêche ne part pas (le fil l'affiche).
+   Les appelants sont les QUATRE chemins d'arrivée (WebSocket FinancialJuice, boucles rapides FJ et
+   FF-News, cycle complet) : n'en brancher qu'un faisait partir la notification avec jusqu'à une
+   minute de retard, ou jamais. */
+const _pushDemarrage = Date.now();
+const PUSH_FRAICHEUR_MS = 15 * 60e3;
+function _pushAlertable(it, maintenant) {
+  const t = +(it && it.timestamp) || 0;
+  if (!t || maintenant - t > PUSH_FRAICHEUR_MS || t - maintenant > 5 * 60e3) return false;
+  if (maintenant - _pushDemarrage < 3 * 60e3 && t < _pushDemarrage) return false;
+  return String(it.headline || '').replace(/\s+/g, ' ').trim().length <= 170;
+}
 async function _pushEnvoyer(items) {
-  const neufs = (items || []).filter(it => it && it._highImpact === true && !_pushDejaVus.has(it.id));
-  neufs.forEach(it => _pushDejaVus.add(it.id));
+  const maintenant = Date.now();
+  const vus = (items || []).filter(it => it && it._highImpact === true && !_pushDejaVus.has(it.id));
+  vus.forEach(it => _pushDejaVus.add(it.id));
+  const neufs = vus.filter(it => _pushAlertable(it, maintenant));
   if (_pushDejaVus.size > 4000) { for (const id of _pushDejaVus) { _pushDejaVus.delete(id); if (_pushDejaVus.size <= 3000) break; } }
   if (neufs.length) { _pushFile.push(...neufs); if (_pushFile.length > 40) _pushFile.splice(0, _pushFile.length - 40); }
   if (_pushBusy || !_pushFile.length) return;
@@ -2615,10 +2649,12 @@ async function _pushEnvoyer(items) {
       for (const it of lot) {
         const cat = _pushClef(it);
         if (cat === 'eco' && _pushCalFrais()) continue;
-        const fr = await _pushFr(it);
+        let fr = await _pushFr(it);
+        if (!_looksFr(fr)) fr = await _pushFr(it);              // second essai : le relais IA a pu être saturé
+        if (!_looksFr(fr)) { console.log('[Push] non traduite, non envoyée : ' + String(it.headline).slice(0, 70)); continue; }
         const tx = _pushTexte(it, fr);
         if (cat === 'eco') { _pushEcoDepeches.push({ at: Date.now(), body: tx.body }); if (_pushEcoDepeches.length > 20) _pushEcoDepeches.shift(); }
-        evts.push({ cat, id: String(it.id), title: tx.title, body: tx.body, court: fr.length > 70 ? fr.slice(0, 69).replace(/\s+\S*$/, '') + '…' : fr,
+        evts.push({ cat, pause: 'fil', id: String(it.id), title: tx.title, body: tx.body, court: fr.length > 70 ? fr.slice(0, 69).replace(/\s+\S*$/, '') + '…' : fr,
           url: '/', urgent: !!it.urgent, suite: _pushMemeSujet(_pushEntites(it.headline), Date.now()) });
       }
       await _pushRouter(evts);
@@ -25128,6 +25164,7 @@ setOnPushCallback(item => {
   if (added.length > 0) {
     broadcast({ type: 'news_update', items: added, total: allNews.length });   // 'added' = version STOCKEE upgradee -> rouge en LIVE (avant: [item] brut = gris jusqu'au reload)
     console.log(`[FJ LIVE →] ${item.headline.substring(0, 65)}`);
+    _pushEnvoyer(added).catch(() => {});                  // la notification part À L'ARRIVÉE, pas au cycle suivant
   }
 });
 initFinancialJuice().catch(err => console.error('[FJ init]', err.message));
@@ -25736,6 +25773,7 @@ startFFNewsPoll(freshItems => {
   const added = mergeItems(freshItems);
   if (added.length > 0) {
     broadcast({ type: 'news_update', items: added, total: allNews.length });
+    _pushEnvoyer(added).catch(() => {});
   }
 });
 
@@ -25750,6 +25788,7 @@ setInterval(async () => {
     if (added.length > 0) {
       broadcast({ type: 'news_update', items: added, total: allNews.length });
       console.log(`[FJ fast-poll] +${added.length} news diffusées`);
+      _pushEnvoyer(added).catch(() => {});
     }
   } catch {}
 }, 20_000);

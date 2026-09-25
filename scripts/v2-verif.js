@@ -286,8 +286,8 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       const cp = await page.evaluate(() => ({ ecran: ((document.querySelector('.v2a-ecran.v2a-visible') || {}).dataset || {}).ecran, sortie: !!document.querySelector('.v2a-sortie'), mail: /x@y\.z/.test((document.querySelector('.v2a-profil') || {}).innerText || ''), retour: !document.getElementById('v2a-retour').hidden }));
       v('le bouton compte ouvre l\'écran Compte (profil, sections, déconnexion) avec Retour', cp.ecran === 'compte' && cp.sortie && cp.mail && cp.retour, JSON.stringify(cp));
       await capture('compte');
-      const lg = await page.evaluate(() => [...document.querySelectorAll('.v2a-langue')].map(b => b.dataset.lg + (b.classList.contains('v2a-langue-on') ? '*' : '')).join(','));
-      v('Compte propose le choix de la langue (même réglage que le desk)', lg === 'fr*,en,de,es', lg);
+      const lg = await page.evaluate(() => { const c = document.querySelector('.v2a-langue-choix'); return c ? [...c.options].map(o => o.value + (o.selected ? '*' : '')).join(',') + '|' + document.querySelectorAll('.v2a-langue').length : ''; });
+      v('Compte propose la langue en UNE ligne à liste déroulante (même réglage que le desk)', lg === 'fr*,en,de,es|1', lg);
       /* L'ACCUEIL DU DESK NE COUVRE JAMAIS L'APP (25/09, « rien ne s'affiche » dans Banques/Analystes) :
          body.home-mode masque toutes les vues du desk ; l'app doit le lever dès qu'il apparaît. */
       await page.evaluate(() => { document.body.classList.add('home-mode'); const d = document.createElement('div'); d.id = 'dtp-home'; document.body.appendChild(d); });

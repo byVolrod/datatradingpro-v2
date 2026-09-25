@@ -734,8 +734,12 @@ html.dtp-app, html.dtp-app body { overflow-x: hidden; overscroll-behavior-x: non
 
 /* Choix de la langue dans Compte (25/09) : drapeau rond, coche or sur la langue active. */
 html.dtp-app .v2a-langue img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex: 0 0 22px; }
-html.dtp-app .v2a-langue > svg:last-child { margin-left: auto; color: #e3b23a; }
-html.dtp-app .v2a-langue.v2a-langue-on span { color: #f2f2f4; font-weight: 600; }
+html.dtp-app .v2a-langue { cursor: pointer; }
+html.dtp-app .v2a-langue > span { flex: 1 1 auto; }
+/* La langue choisie s'affiche à droite, en or, avec son chevron ; toucher la ligne ouvre la roue d'iOS. */
+html.dtp-app .v2a-langue select.v2a-langue-choix { -webkit-appearance: none !important; appearance: none !important; background: transparent none !important; border: 0 !important; box-shadow: none !important; height: auto !important; min-height: 0 !important; width: auto !important; color: #e3b23a !important; font: 600 16px/1.2 'Inter', system-ui, sans-serif !important; text-align: right; text-align-last: right; padding: 0 4px 0 0 !important; margin-left: auto; cursor: pointer; outline: none; }
+html.dtp-app .v2a-langue-choix option { color: #111; }
+html.dtp-app .v2a-langue > svg:last-child { color: #e3b23a; flex: 0 0 auto; pointer-events: none; }
 
 /* Réglages du Calendrier dans l'app : l'icône dessinée du desk, à la taille du doigt. */
 html.dtp-app .cal-title-icon--svg svg { width: 17px; height: 17px; }

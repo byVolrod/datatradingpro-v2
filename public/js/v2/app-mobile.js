@@ -898,23 +898,25 @@
       + ligne(I.son, 'Alertes sonores', 'son', '<i class="v2a-bascule' + (glob('_npEnabled') ? ' v2a-on-b' : '') + '"></i>') + '</div>'
       /* LANGUE (25/09, « on peut choisir la langue aussi dans l'app ») : le même réglage que le profil
          du desk (`dtp_lang`, appliqué au rechargement par le moteur i18n), donc un seul choix pour les deux. */
-      + '<h3 class="v2a-rubrique">Langue</h3><div class="v2a-groupe">' + LANGUES.map(function (l) {
-          return '<button type="button" class="v2a-ligne v2a-langue' + (l[0] === langue() ? ' v2a-langue-on' : '') + '" data-act="langue" data-lg="' + l[0] + '">'
-            + '<img src="https://flagcdn.com/w40/' + l[2] + '.png" alt="" loading="lazy"><span>' + l[1] + '</span>'
-            + (l[0] === langue() ? svg('M5 12l5 5 9-11', 18, 2.2) : '') + '</button>';
-        }).join('') + '</div>'
+      // Une seule ligne, liste déroulante (25/09, « pour gagner de la place ») : le sélecteur natif
+      // ouvre la roue d'iOS, et le choix recharge l'app dans la langue retenue.
+      + '<h3 class="v2a-rubrique">Langue</h3><div class="v2a-groupe"><label class="v2a-ligne v2a-langue">'
+      + '<img src="https://flagcdn.com/w40/' + (LANGUES.filter(function (l) { return l[0] === langue(); })[0] || LANGUES[0])[2] + '.png" alt="" loading="lazy"><span>Langue</span>'
+      + '<select class="v2a-langue-choix" aria-label="Langue" data-enhanced="1" data-no-enhance="1">' + LANGUES.map(function (l) { return '<option value="' + l[0] + '"' + (l[0] === langue() ? ' selected' : '') + '>' + l[1] + '</option>'; }).join('') + '</select>'
+      + svg(I.bas, 16, 1.8) + '</label></div>'
       + wpBloc()
       // Panneau d'administration DANS l'app (25/09, demande user) : réservé au compte admin, le serveur
       // refuse de toute façon la page à tout autre compte.
       + (window._pdIsAdmin ? '<h3 class="v2a-rubrique">Administration</h3><div class="v2a-groupe">' + ligne('M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z', 'Panneau d’administration', 'admin') + '</div>' : '')
       + '<h3 class="v2a-rubrique">Assistance</h3><div class="v2a-groupe">' + ligne(I.bulle, 'Écrire au support DTP', 'support') + '</div>'
       + '<button type="button" class="v2a-sortie" data-act="sortie">' + svg(I.sortie, 20) + 'Se déconnecter</button>';
+    var choix = e.querySelector('.v2a-langue-choix');
+    if (choix) choix.onchange = function () { var l = LANGUES.filter(function (x) { return x[0] === choix.value; })[0]; if (l && l[0] !== langue()) { vibre(); appel('pdLangPick', l[0], l[1], l[2]); } };
     e.onclick = function (ev) {
       var b = ev.target.closest('[data-act]'); if (!b) return; var a = b.dataset.act; if (a === 'rien') return; vibre();
       if (a === 'support') appel('chatToggle');
       else if (a === 'admin') ouvrirAdmin();
       else if (a === 'son') { appel('npToggleEnabled'); RENDUS.compte(true); }
-      else if (a === 'langue') { var l = LANGUES.filter(function (x) { return x[0] === b.dataset.lg; })[0]; if (l && l[0] !== langue()) appel('pdLangPick', l[0], l[1], l[2]); }
       else if (a === 'v2') { var s = document.getElementById('v2-interrupteur'); if (s) s.click(); }
       else if (a === 'pp' || a === 'ppson' || a === 'ppvib') {
         if (!PP.prefs || b.disabled) return;

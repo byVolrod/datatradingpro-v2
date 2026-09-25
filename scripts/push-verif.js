@@ -69,7 +69,9 @@ if (srcPlafond && srcMax) {
 }
 
 console.log('\n── 3. Le texte et la catégorie ──');
-const srcTexte = fn(SRV, '_pushTexte'), srcClef = cst(SRV, '_pushClef');
+const srcTexte = fn(SRV, '_pushTexte');
+const _mClef = /const _pushClef = (it => \{[\s\S]*?\n\});/.exec(SRV), _mRx = /const _PUSH_RX_DONNEE = (\/.*\/i);/.exec(SRV);
+const srcClef = _mClef && _mRx ? '(() => { const _PUSH_RX_DONNEE = ' + _mRx[1] + '; return ' + _mClef[1] + '; })()' : null;
 v('_pushTexte est extractible', !!srcTexte);
 if (srcTexte) {
   // _pushTexte s'appuie sur _pushClef et la table des thèmes : on les extrait avec lui.
@@ -93,6 +95,8 @@ if (srcTexte) {
   v('… et la provenance reste la dernière ligne', avecDesc.body.split('\n')[2] === 'Fil d’actualité DTP', avecDesc.body);
   const descEn = _pushTexte({ headline: 'Gold falls', _descFr: 'Gold price in India fell on Friday.' }, 'L’or recule', null);
   v('une description anglaise ne part JAMAIS', !/Gold price/.test(descEn.body), descEn.body);
+  const redite = _pushTexte({ headline: 'US and Iran agree', _descFr: 'Les États-Unis et l’Iran ont conclu un accord de paix pour mettre fin à la guerre.' }, 'Les États-Unis et l’Iran s’accordent sur un accord de paix pour mettre fin à la guerre');
+  v('une description qui redit le titre ne prend pas de ligne (capture du 25/09)', redite.body.split('\n').length === 2, redite.body);
   v('le corps porte la dépêche', premiere(court) === 'US CPI 3.2% vs 3.1% expected', court.body);
   /* PROVENANCE (25/09, capture user : six notifications sans source). Un média nommé en suffixe
      quitte le texte et passe sur sa propre ligne ; sans média, la provenance est le fil DTP. */
@@ -119,6 +123,10 @@ if (srcClef) {
   v('le push ne projette que sur « eco » et « news »', [...clefs].every(k => k === 'eco' || k === 'news'), [...clefs].join(','));
   v('une dépêche chiffrée est « eco »', _pushClef({ headline: 'US CPI 3.2%' }) === 'eco');
   v('une dépêche sans chiffre est « news »', _pushClef({ headline: 'Trump parle de l\'Iran' }) === 'news');
+  /* Capture du 25/09 : un nombre ne fait pas une publication de donnée. */
+  v('« Gold slides 3% as Middle East escalation… » n’est PAS un chiffre économique', _pushClef({ headline: 'Gold slides 3% as Middle East escalation fuels inflation, rate-hike concerns' }) === 'news');
+  v('« Convergence mondiale des risques… septembre » non plus', _pushClef({ headline: 'Global market risk convergence in September: Fed, BOJ and ECB decisions the same week' }) === 'news');
+  v('… mais « US Core PCE 2.9% vs expected 2.8% » en est un', _pushClef({ headline: 'US Core PCE 2.9% vs expected 2.8%' }) === 'eco');
 }
 
 console.log('\n── 4. L\'envoi : ce qui part, et ce qui ne part jamais deux fois ──');
@@ -146,6 +154,28 @@ v('l\'appel à Expo porte un délai de garde', /AbortController/.test(fn(SRV, '_
 v('l\'envoi est branché sur le cycle de news', /_pushEnvoyer\(added\)\.catch/.test(SRV));
 v('… hors du chemin de diffusion (il ne retarde pas le fil)', /broadcast\(\{ type: 'news_update', items: added[\s\S]{0,400}?_pushEnvoyer\(added\)\.catch/.test(SRV));
 v('les deux routes d\'abonnement existent', /app\.post\('\/api\/push\/token'/.test(SRV) && /app\.post\('\/api\/push\/stop'/.test(SRV));
+/* TEMPS RÉEL (25/09, « il y a un décalage quand la news sort ») : les dépêches FinancialJuice arrivent
+   par le WebSocket et deux boucles rapides, qui DIFFUSAIENT au desk sans jamais notifier ; seul le
+   cycle de 60 s notifiait, et il ne voyait plus ces dépêches (déjà fusionnées). */
+{
+  const chemins = [/console\.log\(`\[FJ LIVE →\][^\n]*\n\s*_pushEnvoyer\(added\)/, /\[FJ fast-poll\][^\n]*\n\s*_pushEnvoyer\(added\)/, /startFFNewsPoll\([\s\S]{0,260}?_pushEnvoyer\(added\)/, /_pushEnvoyer\(added\)\.catch\(\(\) => \{\}\);\n\n  \/\* ORDRE D'APPEL/];
+  v('les QUATRE chemins d’arrivée notifient (WebSocket FJ, boucle FJ, boucle FF-News, cycle complet)', chemins.every(r => r.test(SRV)), chemins.map(r => r.test(SRV) ? 1 : 0).join(''));
+  const srcA = fn(SRV, '_pushAlertable');
+  v('_pushAlertable est extractible', !!srcA);
+  if (srcA) {
+    const T0 = Date.now();
+    const al = new Function('const PUSH_FRAICHEUR_MS = 15 * 60e3; const _pushDemarrage = ' + (T0 - 3600e3) + '; return (' + srcA + ');')();
+    v('une dépêche de 2 min part', al({ headline: 'Fed hikes rates', timestamp: T0 - 120e3 }, T0));
+    v('une dépêche de 3 h ne part JAMAIS (l’accord États-Unis/Iran « maintenant », capture)', !al({ headline: 'US, Iran reach peace deal', timestamp: T0 - 3 * 3600e3 }, T0));
+    v('… ni une dépêche sans date', !al({ headline: 'x' }, T0));
+    v('… ni une analyse de fond (titre de plus de 170 caractères)', !al({ headline: 'x'.repeat(200), timestamp: T0 - 60e3 }, T0));
+    const alBoot = new Function('const PUSH_FRAICHEUR_MS = 15 * 60e3; const _pushDemarrage = ' + (T0 - 30e3) + '; return (' + srcA + ');')();
+    v('juste après un redémarrage, ce qui précède le démarrage est appris, pas renvoyé', !alBoot({ headline: 'Oil falls', timestamp: T0 - 5 * 60e3 }, T0));
+    v('… mais ce qui arrive après le démarrage part', alBoot({ headline: 'Oil falls', timestamp: T0 - 5e3 }, T0));
+  }
+  const srcE = fn(SRV, '_pushEnvoyer') || '';
+  v('français ou rien : sans traduction après deux essais, la dépêche ne part pas', /if \(!_looksFr\(fr\)\) fr = await _pushFr\(it\)/.test(srcE) && /if \(!_looksFr\(fr\)\) \{[^}]*continue; \}/.test(srcE));
+}
 /* PLUS D'ABONNEMENT = PLUS DE NOTIFICATION (25/09). Même règle que la connexion : actif, échéance
    + 24 h de grâce, l'équipe jamais coupée. On JOUE la vraie fonction, avec ses témoins. */
 {
@@ -201,7 +231,7 @@ console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement
   v('l’app native reçoit le son choisi', outils._pushMessage(e3, { son: false }).expo.sound === null && outils._pushMessage(e3, { son: true }).expo.sound === 'default');
 
   const srcR = fn(SRV, '_pushRouter') || '';
-  v('une pause par famille met de côté au lieu de sonner', /_pushAttente\.set\(k, f\)/.test(srcR) && /PUSH_PAUSE_MS\[e\.cat\]/.test(srcR));
+  v('une pause par famille met de côté au lieu de sonner', /_pushAttente\.set\(k, f\)/.test(srcR) && /PUSH_PAUSE_MS\[pk\]/.test(srcR) && /const pk = e\.pause \|\| e\.cat/.test(srcR));
   v('… une urgence a sa propre pause, courte (une rafale d’urgences ne sonne pas six fois)', /urgente \? PUSH_PAUSE_URGENT_MS/.test(srcR) && +cst(SRV, 'PUSH_PAUSE_URGENT_MS').replace(/\s*\*\s*60e3/, '') * 60e3 <= 3 * 60e3);
   v('… et la suite d’une histoire déjà notifiée perd son passe-droit', /e\.urgent && !e\.suite/.test(srcR));
   const sujet = new Function(fn(SRV, '_pushEntites') + '\nconst _pushHistoires = [];\n' + fn(SRV, '_pushMemeSujet') + '\nreturn { _pushEntites, _pushMemeSujet };')();
@@ -213,6 +243,9 @@ console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement
   v('… et ce qui a été mis de côté part en récapitulatif', /_pushResume\(cat, f\.lot\)/.test(fn(SRV, '_pushVider') || '') && /setInterval\(\(\) => \{ _pushVider\(\)/.test(SRV));
   const PAUSE = eval('(' + cst(SRV, 'PUSH_PAUSE_MS') + ')');
   v('un chiffre du calendrier n’attend jamais (chacun est distinct)', PAUSE.eco === 0);
+  /* LE FIL PARTAGE UNE PAUSE (25/09, capture : quatre notifications « maintenant » d'un coup). */
+  v('le fil (actualités ET chiffres du fil) partage une seule pause de 5 min', PAUSE.fil === 5 * 60e3 && /pause: 'fil'/.test(fn(SRV, '_pushEnvoyer') || ''));
+  v('… et son récapitulatif retrouve sa vraie famille', /cat === 'fil'/.test(fn(SRV, '_pushResume') || ''));
   v('les rapports de banques et d’analystes sont regroupés', PAUSE.banques >= 15 * 60e3 && PAUSE.analystes >= 15 * 60e3);
 
   const _RISK_NIV = eval('(' + cstBloc(SRV, '_RISK_NIV') + ')');
