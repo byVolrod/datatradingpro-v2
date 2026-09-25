@@ -167,6 +167,19 @@ const FORCE = { currencies: CCY, updatedAt: new Date().toISOString(), series: Ob
   v('… et plus jamais lue en nombre depuis le format français (« 14 h » → NaN)', !/\+new Intl\.DateTimeFormat\('fr-FR'/.test(W3));
 }
 
+console.log('\n── 1 ter. Les barres d\'en-tête des écrans du desk dans l\'app : la grammaire des cartes du desk ──');
+{
+  // 25/09, capture user : « même barre que le desk, les icônes du widget ne sont pas les mêmes ».
+  const barre = (IDX.match(/<div class="cal-title-icons">[\s\S]*?<\/div>\s*<\/div>/) || [''])[0];
+  v('calendrier : aide et fermeture DESSINÉES (plus de glyphes « ? » « × »)', !!barre && !/>\?<\/span>|>×<\/span>/.test(barre) && /_calToggleAide\(\)/.test(barre) && /cal-title-icon--fermer/.test(barre));
+  v('… l\'aide ouvre une vraie bulle (plus un glyphe décoratif), refermée au clic ailleurs',
+    /id="cal-aide-pop"/.test(IDX) && /window\._calToggleAide = function/.test(fs.readFileSync(path.join(R, 'public/js/charts.js'), 'utf8')) && /_POPS_REGLAGES = \[[^\]]*'cal-aide-pop'/.test(fs.readFileSync(path.join(R, 'public/js/charts.js'), 'utf8')));
+  v('flèches ‹ › du calendrier et de la Semaine à venir dessinées', ['cal-range-prev', 'cal-range-next', 'wa-week-prev', 'wa-week-next'].every(id => new RegExp('id="' + id + '"[^>]*>\\s*<svg').test(IDX)));
+  v('app : une seule barre (fond de l\'app, filet, titre gris en capitales) pour .panel-header et .chart-header',
+    /html\.dtp-app \.view-panel \.panel-header,\s*html\.dtp-app \.view-panel \.chart-header \{[^}]*background: var\(--v2a-fond\) !important/.test(CSS));
+  v('app : icônes à la même taille, cibles au doigt, croix « Fermer » retirée', /html\.dtp-app \.cal-title-icon \{[^}]*width: 36px; height: 36px/.test(CSS) && /html\.dtp-app \.cal-title-icon--svg svg \{ width: 18px; height: 18px; \}/.test(CSS) && /html\.dtp-app \.cal-title-icon--fermer \{ display: none; \}/.test(CSS));
+}
+
 console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (même échelle) ──');
 {
   const CH = fs.readFileSync(path.join(R, 'public/js/charts.js'), 'utf8');

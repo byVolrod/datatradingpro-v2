@@ -215,8 +215,9 @@ v('_fxlColSet est publié sur window (les interrupteurs du volet l\'appellent en
 
 /* ══ 6. FERMETURE PARTAGÉE, PAS RECOPIÉE ═══════════════════════════════════════════════════════ */
 console.log('\n── Clic ailleurs / Échap : un seul mécanisme pour tous les volets ──');
+// (25/09 : la bulle d'aide du calendrier rejoint la liste — même mécanisme, pas une seconde copie.)
 v('la liste des volets contient le calendrier ET la Liste FX',
-  /_POPS_REGLAGES = \['cal-set-pop', 'fxl-set-pop'\]/.test(CHARTS));
+  /_POPS_REGLAGES = \[[^\]]*'cal-set-pop'[^\]]*'fxl-set-pop'[^\]]*\]/.test(CHARTS));
 v('les écouteurs parcourent la liste (aucun id codé en dur dans le corps)',
   /for \(const id of _POPS_REGLAGES\)/.test(CHARTS)
   && (CHARTS.match(/for \(const id of _POPS_REGLAGES\)/g) || []).length === 2,

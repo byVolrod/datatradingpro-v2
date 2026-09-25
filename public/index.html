@@ -44,7 +44,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260925bbg1259" />
+  <link rel="stylesheet" href="/css/style.css?v=20260925bbg1260" />
 
   <!-- ══ SENTINELLE DE LA FEUILLE DE STYLES — LE DESK NE PEUT PLUS S'AFFICHER NU (09/09) ═════════
        DEUX MEMBRES ONT VU LE DESK EN HTML BRUT À LA CONNEXION. La feuille pèse 1,4 Mo : entre le
@@ -193,7 +193,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260925bbg1259"></script>
+  <script defer src="/js/noinspect.js?v=20260925bbg1260"></script>
 </head>
 <body>
 
@@ -402,9 +402,9 @@
       <div class="panel-header-left"><span class="panel-title" id="wa-view-title">Semaine à Venir</span></div>
       <div class="panel-header-controls">
         <span class="wa-weeknav">
-          <button class="cal-range-arrow" id="wa-week-prev" type="button" title="Semaine précédente" aria-label="Semaine précédente">‹</button>
+          <button class="cal-range-arrow" id="wa-week-prev" type="button" title="Semaine précédente" aria-label="Semaine précédente"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
           <span class="wa-week" id="wa-week-lbl"></span>
-          <button class="cal-range-arrow" id="wa-week-next" type="button" title="Semaine suivante" aria-label="Semaine suivante" disabled>›</button>
+          <button class="cal-range-arrow" id="wa-week-next" type="button" title="Semaine suivante" aria-label="Semaine suivante" disabled><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         </span>
       </div>
     </div>
@@ -599,12 +599,23 @@
           <div class="cal-title-block">
             <span class="cal-title chart-header-title">Calendrier économique</span>
             <span class="cal-title-sep"> | </span>
-            <button class="cal-range-arrow" id="cal-range-prev" type="button" title="Reculer d'un mois (jusqu'à 3 mois d'historique)" aria-label="Mois précédent">‹</button>
+            <button class="cal-range-arrow" id="cal-range-prev" type="button" title="Reculer d'un mois (jusqu'à 3 mois d'historique)" aria-label="Mois précédent"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
             <span class="cal-daterange" id="cal-daterange"></span>
-            <button class="cal-range-arrow" id="cal-range-next" type="button" title="Revenir vers le présent" aria-label="Mois suivant" disabled>›</button>
+            <button class="cal-range-arrow" id="cal-range-next" type="button" title="Revenir vers le présent" aria-label="Mois suivant" disabled><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
           </div>
           <div class="cal-title-icons">
-            <span class="cal-title-icon" title="Aide">?</span>
+            <!-- 25/09 (« les icônes ne sont pas les mêmes que celles du desk ») : les glyphes texte « ? » et
+                 « × » deviennent les icônes DESSINÉES des cartes du desk (widgets.js ICO.aide / ICO.close),
+                 comme l'avaient été les réglages le 02/09. L'aide ouvre désormais une vraie bulle. -->
+            <span class="cal-title-icon cal-title-icon--svg" title="Aide" role="button" tabindex="0"
+                  onclick="_calToggleAide()"
+                  onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_calToggleAide();}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2-2.4 3.6"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/></svg></span>
+            <div class="cal-set-pop cal-aide-pop" id="cal-aide-pop" hidden>
+              <div class="cal-set-t">Lire le calendrier</div>
+              <p>Chaque ligne est une publication ou une prise de parole, à l’heure de votre fuseau.</p>
+              <p>L’impact attendu se lit aux points : trois pour élevé, deux pour moyen, un pour faible.</p>
+              <p>Touchez une ligne pour ouvrir sa fiche. Les flèches remontent jusqu’à trois mois d’historique.</p>
+            </div>
             <!-- Cette icône était purement décorative : aucun gestionnaire dans tout le dépôt. Elle
                  ouvre désormais un petit volet de réglages (colonnes affichées), persisté par compte. -->
             <!-- 25/09 (capture iPhone) : le glyphe « ⚙ » s'affichait en émoji système. Même icône
@@ -613,7 +624,7 @@
                   onclick="_calToggleReglages()"
                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_calToggleReglages();}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 7h4M12 7h8M4 12h10M18 12h2M4 17h6M14 17h6"/><circle cx="10" cy="7" r="1.9"/><circle cx="16" cy="12" r="1.9"/><circle cx="12" cy="17" r="1.9"/></svg></span>
             <div class="cal-set-pop" id="cal-set-pop" hidden></div>
-            <span class="cal-title-icon" title="Fermer">×</span>
+            <span class="cal-title-icon cal-title-icon--svg cal-title-icon--fermer" title="Fermer"><svg viewBox="0 0 24 24" width="12.5" height="12.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
           </div>
         </div>
         <!-- Row 2: Impact filters + Search + LIVE -->
@@ -1113,18 +1124,18 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260925bbg1259"></script>
-<script defer src="/js/app.js?v=20260925bbg1259"></script>
-<script defer src="/js/charts.js?v=20260925bbg1259"></script>
-<script defer src="/js/sessionmap.js?v=20260925bbg1259"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260925bbg1260"></script>
+<script defer src="/js/app.js?v=20260925bbg1260"></script>
+<script defer src="/js/charts.js?v=20260925bbg1260"></script>
+<script defer src="/js/sessionmap.js?v=20260925bbg1260"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260925bbg1259"></script>
-<script defer src="/js/home.js?v=20260925bbg1259"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/perf-beacon.js?v=20260925bbg1259"></script><!-- Instrumentation PASSIVE de la navigation (chrono par vue + API, doublons, tâches longues) → panneau Performance admin. N'interfère jamais. -->
+<script defer src="/js/widgets.js?v=20260925bbg1260"></script>
+<script defer src="/js/home.js?v=20260925bbg1260"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/perf-beacon.js?v=20260925bbg1260"></script><!-- Instrumentation PASSIVE de la navigation (chrono par vue + API, doublons, tâches longues) → panneau Performance admin. N'interfère jamais. -->
 
-<script defer src="/js/i18n-dicts.js?v=20260925bbg1259"></script>
-<script defer src="/js/i18n.js?v=20260925bbg1259"></script>
+<script defer src="/js/i18n-dicts.js?v=20260925bbg1260"></script>
+<script defer src="/js/i18n.js?v=20260925bbg1260"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>

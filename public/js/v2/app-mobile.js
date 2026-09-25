@@ -319,8 +319,8 @@
       return true;
     }
     if (type === 'analystes') {
-      var ra = itemsRapports(), ia = null;
-      for (var k = 0; k < ra.length; k++) if (ra[k] && (String(ra[k].id) === id || ra[k].url === id || ra[k].link === id)) { ia = ra[k]; break; }
+      var ra = itemsRapports(), ia = null, cleDe = glob('_dtpCleRapport');
+      for (var k = 0; k < ra.length; k++) if (ra[k] && (String(ra[k].id) === id || (typeof cleDe === 'function' && cleDe(ra[k]) === id) || ra[k].url === id || ra[k].link === id)) { ia = ra[k]; break; }
       if (!ia) { if (dernier) aller('analystes'); return !!dernier; }
       ouvrirRapport(ia);
       return true;
@@ -1046,7 +1046,8 @@
         + '<i class="v2a-profil-cam">' + svg(I.photo, 13, 2) + '</i></button><button type="button" class="v2a-lien" data-act="photo">Changer la photo</button></div>'
         + '<div class="v2a-groupe v2a-fiche">'
         + kvp('Nom', u.name || u.username || '') + kvp('Adresse e-mail', u.email || '') + kvp('Formule', nomPlan(u))
-        + kvp('Membre depuis le', dateFr(u.createdAt)) + kvp(ech && new Date(ech) >= new Date() ? 'Accès jusqu’au' : 'Échu le', ech ? dateFr(ech) : '')
+        + kvp('Abonné depuis le', dateFr(u.aboDepuis || u.createdAt)) + (u.aboDepuis && dateFr(u.aboDepuis) !== dateFr(u.createdAt) ? kvp('Membre depuis le', dateFr(u.createdAt)) : '')
+        + kvp(ech && new Date(ech) >= new Date() ? 'Accès jusqu’au' : 'Échu le', ech ? dateFr(ech) : '')
         + '</div><div class="v2a-groupe">' + ligne(I.crayon, 'Modifier mes identifiants', 'page:nom') + '</div>';
     } else if (sousCompte === 'nom') {
       h = '<form class="v2a-form" data-form="nomp"><label class="v2a-lbl" for="v2a-nom">Nom affiché</label>'
@@ -1080,7 +1081,9 @@
       h = '<div class="v2a-groupe v2a-fiche">'
         + kv('Formule', nomPlan(u))
         + kv('Statut', statut, u.active ? 'v2a-ok' : 'v2a-ko')
-        + (u.createdAt ? kv('Abonné depuis le', dateFr(u.createdAt)) : '')
+        // Début de l'abonnement EN COURS (une reprise repart à zéro), pas la création du compte.
+        + ((u.aboDepuis || u.createdAt) ? kv('Abonné depuis le', dateFr(u.aboDepuis || u.createdAt)) : '')
+        + (u.aboDepuis && dateFr(u.aboDepuis) !== dateFr(u.createdAt) ? kv('Membre depuis le', dateFr(u.createdAt)) : '')
         + (fin ? kv(jours >= 0 ? 'Prochaine échéance' : 'Échu le', fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })) : '')
         + (jours != null && jours >= 0 ? kv('Jours restants', String(jours)) : '')
         + '</div>'

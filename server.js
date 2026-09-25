@@ -1048,7 +1048,7 @@ app.get('/api/auth/me', async (req, res) => {
     const _tl = fresh.role !== 'client' ? '' : (_isFriend(fresh) ? 'Amis' : (isTrial ? 'Essai gratuit' : 'Professionnel'));
     const _cl = _CAD_LBL[_cadOf(fresh)] || '';
     const planLabel = _tl ? (_cl && _tl !== 'Essai gratuit' ? _tl + ' · ' + _cl : _tl) : 'Professionnel';
-    const user = { id: fresh.id, email: fresh.email, name: fresh.name, role: fresh.role, plan: fresh.plan, active: !!fresh.active, expiresAt, isTrial, planLabel, createdAt: fresh.created_at || null };
+    const user = { id: fresh.id, email: fresh.email, name: fresh.name, role: fresh.role, plan: fresh.plan, active: !!fresh.active, expiresAt, isTrial, planLabel, createdAt: fresh.created_at || null, aboDepuis: _aboDebuts[String(fresh.id)] || null };
     req.session.user = user; // maintenir la session à jour
     // loginAt = ancre ABSOLUE du login (déjà posée pour le couperet 24 h). Exposée au front pour
     // qu'il distingue « nouvelle connexion » de « rechargement de page » — sessionStorage ne sait
@@ -1393,6 +1393,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260925-calendrier-aide', ts: Date.UTC(2026, 8, 25, 22, 41), title: 'Calendrier : une aide qui répond, et des icônes harmonisées', desc: 'Dans la barre du calendrier économique, le point d’interrogation ouvre désormais une courte aide : ce que montre chaque ligne, comment lire l’impact attendu, et jusqu’où remontent les flèches. Les icônes de cette barre et les flèches de navigation reprennent le dessin de celles des cartes de Mon Desk, pour que tout le desk parle le même langage visuel.' },
+  { id: 'dtpu-20260925-notif-recap-quotidien', ts: Date.UTC(2026, 8, 25, 22, 38), title: 'Notifications : le Récap quotidien s’annonce en français et s’ouvre d’un geste', desc: 'Une notification « Daily Market Recap » pouvait arriver en anglais, pour un rapport qui ne figurait pas dans l’onglet Analystes. Les notifications de rapports ne concernent plus que ce que l’onglet Analystes affiche : le Récap quotidien, le récap hebdo des marchés, le récap éco et les récaps de séance, sous leur nom français. Toucher la notification ouvre le rapport lui-même, même s’il a été mis à jour dans la soirée, et le Récap quotidien apparaît dans la liste dès sa parution, sans avoir à recharger la page.' },
   { id: 'dtpu-20260925-theme-clair-survol', ts: Date.UTC(2026, 8, 25, 18, 38), title: 'Thème clair : le fil d’actualité passe enfin au clair, et la couleur de survol fonctionne', desc: 'En thème clair, la liste du fil d’actualité restait noire, avec des titres presque illisibles ; le panneau de droite et le panneau de réglages gardaient aussi des fonds sombres. Leurs réglages clairs existaient mais n’étaient plus appliqués : ils le sont de nouveau. Dans Profil, Apparence, le menu « Survol des cartes » (or, bleu ou vert) change désormais réellement la couleur du liseré qui s’allume au survol des cartes de Mon Desk, et votre choix vous suit d’un appareil à l’autre. Les menus « Nombres », « Date » et « Heure », qui n’avaient aucun effet, ont été retirés.' },
   { id: 'dtpu-20260925-notifs-reglages', ts: Date.UTC(2026, 8, 25, 18, 17), title: 'Notifications : un menu compact et des choix plus fins', desc: 'Dans le panneau Alertes, le réglage des notifications tient désormais sur une ligne, « Notifications », avec son résumé (combien de familles sont actives, son et vibreur). Un clic le déplie. Il vaut pour tous vos appareils à la fois : ordinateur, téléphone et application. Trois choix plus fins arrivent : pour le fil d’actualité, toutes les dépêches importantes ou seulement l’économie, ou seulement la géopolitique ; pour les récaps, tous, les quotidiens seuls ou l’hebdomadaire seul ; pour les banques, celles que vous suivez (aucune cochée : toutes).' },
   { id: 'dtpu-20260925-notifs-politique', ts: Date.UTC(2026, 8, 25, 17, 56), title: 'Notifications : moins nombreuses, mieux choisies', desc: 'Votre téléphone ne sonne plus que pour ce qui compte. Fil d’actualité : seulement les dépêches affichées en rouge dans le fil. Calendrier économique : les chiffres clés qui font bouger le dollar (CPI, Core CPI, PCE, PPI, NFP, taux de chômage, salaire horaire, ADP, JOLTS, PIB, ventes au détail, ISM manufacturier et services, décision du FOMC), tout ce qui est noté « élevé », et désormais les discours, conférences de presse et minutes des banques centrales, au moment où ils commencent. Sentiment de risque : une alerte quand le marché bouge fortement, vers le risk-on, vers le risk-off ou en revenant au neutre, même si le mouvement s’est fait par étapes. Les récaps de séance s’annoncent enfin par un titre simple (« Récap séance de Londres »), sans l’étiquette « Abécédaire » qui s’y glissait. Le bouton « Tester » du panneau Alertes a été retiré.' },
@@ -2765,6 +2767,9 @@ async function _pushDiffuser(evts) {
   // `courtFr` : le libellé court (celui du récapitulatif de fin de pause) est aussi le titre traduit.
   await Promise.all(neufs.filter(e => e.trad).map(async e => {
     try { e.body = _pushCourt(_pushSansAmorce(await _pushFrNotif(e.body, e.cat)), 170); } catch { e.body = _PUSH_REPLI_FR[e.cat] || e.body; }
+    // Traduction introuvable sur un rapport NOMMÉ (Récap quotidien, hebdo) : le repli générique
+    // « Nouveau récap de séance » se trompait de rapport. Il dit son nom, en français.
+    if (e.nom && e.body === _PUSH_REPLI_FR[e.cat]) e.body = e.nom + ' disponible, à lire dans l’onglet Analystes.';
     // Un titre qui ne fait que redire le nom du rapport (« Récap de la séance de Londres ») : le nom suffit.
     if (e.nom && _pushMemeTitre(e.body, e.nom)) e.body = e.nom;
     if (e.courtFr) e.court = _pushCourt(e.body, 60);
@@ -2794,8 +2799,28 @@ function _pushNouveaux(cle, liste, idDe) {
 // notif ») : le desk et l'app lisent ?ouvrir=<type>&id=<élément> et vont directement à l'élément.
 const _pushLien = (type, id) => '/?ouvrir=' + encodeURIComponent(type) + (id != null && id !== '' ? '&id=' + encodeURIComponent(String(id)) : '');
 const _pushCourt = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
-const _PUSH_RAPPORTS_FR = { 'Weekly Market Recap': 'Récap hebdo des marchés', 'FX Daily Recap': 'Récap FX quotidien', 'DTP Daily': 'Point marché', 'Global Economic Weekly': 'Récap éco de la semaine', 'FX Daily': 'FX Daily',
-  'Asia Session Recap': 'Récap séance asiatique', 'London Session Recap': 'Récap séance de Londres', 'US Session Recap': 'Récap séance de New York', 'European Market Wrap': 'Point marchés européens' };
+const _PUSH_RAPPORTS_FR = { 'Weekly Market Recap': 'Récap hebdo des marchés', 'FX Daily Recap': 'Récap quotidien', 'Global Economic Weekly': 'Récap éco des marchés',
+  'Asia Session Recap': 'Récap séance asiatique', 'London Session Recap': 'Récap séance de Londres', 'US Session Recap': 'Récap séance de New York' };
+/* ⚠️ ON NE NOTIFIE QUE CE QUE L'ONGLET ANALYSTES MONTRE (25/09, capture user : « Analystes · Daily
+   Market Recap », « la notif est arrivée mais je vois pas »). Le guetteur prenait TOUT rapport interne
+   du fil (`_briefing`) : le « Daily Market Recap » de 22 h, la « Daily Event Review », les préparations
+   d'ouverture, le « DTP Daily »… Aucun ne figure dans l'onglet Analystes (getArlibItems : récap
+   quotidien, deux hebdos, récaps de séance) ; la notification annonçait donc un rapport introuvable,
+   sous un nom anglais, et son lien ne menait nulle part. La liste ci-dessous EST celle de l'onglet.
+   CLÉ STABLE : le Récap quotidien est réécrit dans la soirée (mise à jour de 22 h 30) sous un NOUVEL
+   identifiant. Suivi par identifiant, il aurait sonné deux fois, et le lien de la première notification
+   aurait visé un rapport disparu. La clé est le JOUR couvert (la SEMAINE pour un hebdo) : la même que
+   celle qui dédoublonne la liste, et que le desk et l'app savent retrouver (_dtpCleRapport, app.js). */
+const _PUSH_RAPPORTS_LISTE = new Set(['FX Daily Recap', 'Weekly Market Recap', 'Global Economic Weekly']);
+function _pushCleRapport(r) {
+  if (!r) return '';
+  if (r._reportType === 'FX Daily Recap' && r._fxr && r._fxr.day) return 'fxr:' + r._fxr.day;
+  if (/^(Weekly Market Recap|Global Economic Weekly)$/.test(r._reportType || '')) {
+    const wk = (r._weekly && (r._weekly.weekEnding || r._weekly.weekRange)) || new Date(r.timestamp || 0).toISOString().slice(0, 10);
+    return 'wk:' + (r._reportType === 'Weekly Market Recap' ? 'wmr' : 'gew') + ':' + wk;
+  }
+  return String(r.id || '');
+}
 /* « ABÉCÉDAIRE » (25/09, capture user : « Analystes · London Session Recap / ABÉCÉDAIRE : Résumé de la
    session de Londres… », « pk y'a marqué abécédaire ? met juste le titre »). Le titre d'un rapport
    porte parfois l'étiquette éditoriale « PRIMER: » ; traduite mot à mot, elle devient « Abécédaire »,
@@ -2875,10 +2900,10 @@ function _pushGuetter() {
   const ev = [], frais = x => Date.now() - (+(x && x.timestamp) || 0) < 12 * 3600e3;
   _pushNouveaux('sw', Array.isArray(_swCache) ? _swCache : [], x => x && (x.id || x.url || x.link)).filter(frais).slice(0, 2)
     .forEach(w => { const t = _pushSansAmorce(w.aiTitle || w.title || w.headline); ev.push({ cat: 'analystes', rythme: 'quotidien', id: 'sw:' + (w.id || w.url || w.link), url: _pushLien('analystes', w.id || w.url || w.link), title: 'Analystes · Récap de séance', court: _pushCourt(t, 60), body: _pushCourt(t, 170), trad: true, courtFr: true }); });
-  _pushNouveaux('dtp', (Array.isArray(allNews) ? allNews : []).filter(i => i && i._briefing && i._reportType), x => x.id).filter(frais).slice(0, 2)
+  _pushNouveaux('dtp', (Array.isArray(allNews) ? allNews : []).filter(i => i && i._briefing && _PUSH_RAPPORTS_LISTE.has(i._reportType)), _pushCleRapport).filter(frais).slice(0, 2)
     .forEach(r => {
-      const nom = _PUSH_RAPPORTS_FR[r._reportType] || r._reportType;
-      ev.push({ cat: 'analystes', rythme: /weekly|hebdo/i.test(r._reportType) ? 'hebdo' : 'quotidien', id: 'rap:' + r.id, url: _pushLien('analystes', r.id),
+      const nom = _PUSH_RAPPORTS_FR[r._reportType] || r._reportType, cle = _pushCleRapport(r);
+      ev.push({ cat: 'analystes', rythme: /weekly|hebdo/i.test(r._reportType) ? 'hebdo' : 'quotidien', id: 'rap:' + cle, url: _pushLien('analystes', cle),
         title: 'Analystes · ' + nom, court: nom, body: _pushCourt(_pushSansAmorce(r._titreFr || r.headline), 170) || nom, trad: true, nom });
     });
   _pushNouveaux('br', Array.isArray(_brCache) ? _brCache : [], x => x && (x.id || x.url)).filter(frais).slice(0, 3)
@@ -3780,6 +3805,36 @@ async function _planCadSet(id, cad) {
   if (cad && _CAD_VALS.includes(cad)) _planCads[k] = cad; else delete _planCads[k];
   try { await auth.aiCacheSet('plancads', _planCads); } catch (e) {}
 }
+/* ═══ DÉBUT DE L'ABONNEMENT EN COURS (25/09, « membre depuis X temps, prendre un abonnement,
+   l'arrêter, puis le reprendre : la date ne sera pas la même ») ═════════════════════════════════
+   Le compte n'avait qu'UNE date, `created_at` : la création du compte. Un abonné parti puis revenu
+   voyait « abonné depuis » sa toute première inscription. Le début de l'abonnement EN COURS vit ici,
+   même idiome que `plancads` (une clé KV `abodebuts`, { userId → ms }), et s'écrit sur trois chemins :
+     · WHOP : la date de création de l'ADHÉSION qui paie (une reprise crée une nouvelle adhésion,
+       donc une nouvelle date). La réconciliation la pose pour les comptes qui n'en ont pas encore ;
+     · REPRISE par Whop d'un compte échu : cette même date, à défaut l'instant de la reprise ;
+     · PANNEAU ADMIN : un compte échu ou suspendu qui redevient actif (abonnés par virement, qui
+       n'ont aucune source externe) → maintenant.
+   On ne réécrit JAMAIS la date d'un abonnement qui continue : un renouvellement de routine n'est
+   pas un nouvel abonnement. */
+let _aboDebuts = {}, _aboDebutsLoaded = false;
+async function _aboDebutsLoad() {
+  try { const v = await auth.aiCacheGet('abodebuts', 3660 * 86400000); if (v && typeof v === 'object') _aboDebuts = Object.assign({}, v, _aboDebuts); } catch (e) {}
+  _aboDebutsLoaded = true;
+}
+setTimeout(() => { _aboDebutsLoad().catch(() => {}); }, 23000);
+async function _aboDebutSet(id, ts, siAbsent) {
+  if (!_aboDebutsLoaded) await _aboDebutsLoad().catch(() => {});
+  const k = String(id), t = Number(ts);
+  if (!k || !Number.isFinite(t) || t <= 0 || t > Date.now() + 86400000) return false;
+  if (siAbsent && _aboDebuts[k]) return false;
+  if (_aboDebuts[k] === t) return false;
+  _aboDebuts[k] = t;
+  try { await auth.aiCacheSet('abodebuts', _aboDebuts); } catch (e) {}
+  return true;
+}
+// Un compte dont l'abonnement est interrompu : suspendu, ou échéance passée.
+const _aboEchu = u => !u || !u.active || (!!u.expires_at && new Date(u.expires_at).getTime() < Date.now());
 // Cadence RÉELLEMENT prise par le client, lue de sa période de facturation Whop (ms) — '' si illisible.
 function _cadFromPeriod(startMs, endMs) {
   if (!startMs || !endMs || endMs <= startMs) return '';
@@ -4285,6 +4340,8 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     }
     await auth.updateUser(id, fields);
     res.json({ ok: true });
+    // Compte échu ou suspendu qui redevient actif par le panneau (virement…) : un NOUVEL abonnement.
+    if (before && _aboEchu(before)) auth.getUserById(id).then(apres => { if (apres && !_aboEchu(apres)) return _aboDebutSet(id, Date.now()); }).catch(() => {});
 
     // Emails selon le changement de statut (non bloquant) — le client est notifié à chaque action admin
     const activeReq = 'active' in req.body
@@ -4942,10 +4999,17 @@ async function _whopRenewOrCreate(mem) {
     /* RATTRAPAGE DU NOM (27/08) : les comptes crees avant ce correctif portent un nom VIDE. On le
        remplit au premier passage Whop — mais UNIQUEMENT s il est vide : un nom saisi a la main dans
        le panneau est un choix de l admin, Whop n a pas a l ecraser a chaque renouvellement. */
+    const _repris = _aboEchu(existing);   // lu AVANT la mise à jour : c'est une reprise, pas un renouvellement
     const _majExist = { active: true, expiresAt: mem.expiresAt };
     const _nomWhop = String((mem && mem.name) || '').trim();
     if (_nomWhop && !String(existing.name || '').trim()) { _majExist.name = _nomWhop; console.log(`[Whop] nom rattrape depuis Whop → ${existing.email} : ${_nomWhop}`); }
     await auth.updateUser(existing.id, _majExist);
+    // Début de l'abonnement : une reprise repart de l'adhésion qui paie (à défaut, de maintenant) ;
+    // un renouvellement ne fait que combler une date manquante.
+    try {
+      if (_repris) await _aboDebutSet(existing.id, mem.createdAt || Date.now());
+      else if (mem.createdAt) await _aboDebutSet(existing.id, mem.createdAt, true);
+    } catch (e) {}
     // CADENCE = LA RÉALITÉ GAGNE TOUJOURS : ce que le client PREND (période de facturation Whop)
     // écrase tout réglage manuel de l'admin. Admin avait mis « annuel » mais le client renouvelle en
     // mensuel → la colonne PLAN passe Mensuel au renouvellement (et inversement). Corrige aussi les
@@ -5008,6 +5072,7 @@ async function _whopRenewOrCreate(mem) {
     const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
     const _nom = String((mem && mem.name) || '').trim();   // nom Whop (demande user) — '' si Whop n en donne pas d exploitable
     const wu = await auth.createUser({ email: _deskEmail, password: pwd, name: _nom, role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
+    try { if (wu && wu.id) await _aboDebutSet(wu.id, mem.createdAt || Date.now()); } catch (e) {}
     // ENVOI FIABLE D'ABORD (await + alerte admin si échec), marqueur SEULEMENT si l'email est VRAIMENT
     // parti. AVANT (bug des 17 clients du 22/06) : le marqueur était posé AVANT un envoi fire-and-forget
     // à erreur avalée → si OVH hoquetait, compte créé mais bienvenue jamais envoyée ET jamais retentée.
@@ -5181,6 +5246,8 @@ async function _whopReconcile() {
     try {
       if (!u) { await _whopRenewOrCreate(mem); created++; }                                          // compte manquant (création ratée) → créé
       else if (u.role !== 'admin') {
+        // Début d'abonnement inconnu (comptes antérieurs au 25/09) : celui de l'adhésion qui paie.
+        if (mem.createdAt && !_aboDebuts[String(u.id)]) await _aboDebutSet(u.id, mem.createdAt, true).catch(() => {});
         // (Audit 28/07) ILLIMITÉ accordé par l'admin (expires_at null) = intouchable : avant,
         // dtpExp=0 le faisait passer pour « en retard » et Whop lui REPOSAIT une échéance.
         if (u.active && !u.expires_at) continue;

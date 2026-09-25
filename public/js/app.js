@@ -1197,6 +1197,8 @@ function handleMessage(msg) {
     try { _chatOnTypingPush(msg); } catch (e) {}
   } else if (msg.type === 'news_update') {
     const isFirstUpdate = allItems.length === 0;
+    // Un rapport de l'onglet Analystes publié en direct : la liste se redessine (après l'ajout au fil).
+    if ((msg.items || []).some(i => i && /^(FX Daily Recap|Weekly Market Recap|Global Economic Weekly)$/.test(i._reportType || ''))) setTimeout(_renderArlibSoon, 0);
     const incoming = (msg.items || []).map(item => isFirstUpdate ? item : { ...item, _new: true });
     const existingIds = new Set(allItems.map(i => i.id));
     const truly_new = incoming.filter(i => !existingIds.has(i.id));
@@ -9442,7 +9444,12 @@ function getArlibItems() {
   // que celui de mercredi était publié (signalement d'un membre le 05/08 : « pourquoi il n'y a plus
   // les récaps fx quotidiens pour le lundi et le mardi »). C'est exactement le défaut déjà corrigé
   // sur les rapports HEBDO par `_bestPerWeek` — le quotidien était resté sur l'ancien schéma.
-  const fxrs = _bestPerDay((_weeklyReports || [])
+  // ⚠️ + LE FLUX TEMPS RÉEL (25/09, « la notif est arrivée mais je vois pas ») : le Récap quotidien
+  // publié dans la soirée arrive par le WebSocket (allItems), pas par /api/weekly-reports, lu une
+  // seule fois à l'ouverture. Sans cette ligne, un desk ou une app ouverts avant 19 h ne le montraient
+  // qu'après un rechargement, alors que la notification annonçait déjà sa parution. Même schéma que
+  // les hebdo ci-dessus ; _bestPerDay garde la meilleure version de chaque jour.
+  const fxrs = _bestPerDay([...(_weeklyReports || []), ...(typeof allItems !== 'undefined' ? allItems : [])]
     .filter(i => i && i._reportType === 'FX Daily Recap' && i._fxr && i.timestamp > cutoff));
   // « DTP Daily US Opening News » : volontairement ABSENT de l'onglet Analyst (demande utilisateur) →
   // il vit UNIQUEMENT dans le flux News (Realtime Headline Ticker), déroulé en rapport complet au clic.
@@ -12761,6 +12768,19 @@ function _dtpOuvrirCible(type, id) {
   };
   essai();
 }
+/* La clé STABLE d'un rapport d'analyste, identique à celle du serveur (_pushCleRapport) : le jour
+   couvert pour le Récap quotidien, la semaine pour un hebdo, sinon l'identifiant. Le Récap quotidien
+   est réécrit dans la soirée sous un nouvel identifiant : sans cette clé, le lien d'une notification
+   visait un rapport qui n'existait plus. */
+function _dtpCleRapport(it) {
+  if (!it) return '';
+  if (it._reportType === 'FX Daily Recap' && it._fxr && it._fxr.day) return 'fxr:' + it._fxr.day;
+  if (/^(Weekly Market Recap|Global Economic Weekly)$/.test(it._reportType || '')) {
+    const wk = (it._weekly && (it._weekly.weekEnding || it._weekly.weekRange)) || new Date(it.timestamp || 0).toISOString().slice(0, 10);
+    return 'wk:' + (it._reportType === 'Weekly Market Recap' ? 'wmr' : 'gew') + ':' + wk;
+  }
+  return String(it.id || '');
+}
 function _dtpOuvrirDesk(type, id, dernier) {
   const vue = { fil: 'news', calendrier: 'calendar', marches: 'news', banques: 'institution', analystes: 'analyst' }[type];
   if (!vue || typeof activateView !== 'function') return true;
@@ -12780,7 +12800,7 @@ function _dtpOuvrirDesk(type, id, dernier) {
     renderBrReader(it); return true;
   }
   if (type === 'analystes') {
-    const it = (typeof getArlibItems === 'function' ? getArlibItems() : []).find(x => x && (String(x.id) === id || x.url === id || x.link === id));
+    const it = (typeof getArlibItems === 'function' ? getArlibItems() : []).find(x => x && (String(x.id) === id || _dtpCleRapport(x) === id || x.url === id || x.link === id));
     if (!it) return dernier;
     try { markRead(_reportReadKey(it)); } catch (e) {}
     renderArlibReader(it); arlibShowReader(); return true;

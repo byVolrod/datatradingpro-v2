@@ -103,7 +103,9 @@ console.log('\n── Guetteur des publications par catégorie (tranche réelle 
   t('premier passage : il apprend l’existant, rien ne part (un redémarrage ne spamme pas)', G.passe().length === 0);
   env._swCache = [{ id: 'w2', aiTitle: 'Wall Street finit en hausse', timestamp: n }, ...env._swCache];
   env._brCache = [{ id: 'b2', title: 'EUR/USD : vers 1,20', institution: 'Goldman Sachs', timestamp: n }, { id: 'b0', title: 'Archive', institution: 'X', timestamp: n - 40 * 3600e3 }, ...env._brCache];
-  env.allNews = [{ id: 'r1', _briefing: true, _reportType: 'DTP Daily', headline: 'Récap du jour', timestamp: n }];
+  // Le Récap quotidien (dans l'onglet Analystes) sonne ; le « Daily Market Recap » (absent de l'onglet) non.
+  env.allNews = [{ id: 'r1', _briefing: true, _reportType: 'FX Daily Recap', _fxr: { day: '2026-09-25' }, headline: 'Le dollar recule', timestamp: n },
+                 { id: 'r2', _briefing: true, _reportType: 'Daily Market Recap', headline: 'PRIMER : Fed holds', timestamp: n }];
   env.allCalendar = [{ currency: 'USD', title: 'CPI m/m', impact: 'High', actual: '0.4%', forecast: '0.3%', timestamp: n - 60000 },
                      { currency: 'EUR', title: 'Low thing', impact: 'Low', actual: '1', timestamp: n - 60000 },
                      { currency: 'GBP', title: 'GDP', impact: 'High', actual: '', timestamp: n + 3600e3 }];
@@ -116,11 +118,15 @@ console.log('\n── Guetteur des publications par catégorie (tranche réelle 
   t('… le chiffre du calendrier porte réel et prévision, à la française', /^Publié 0,4% · attendu 0,3%\./.test(cal.body || ''), cal.body);
   t('… et dit s’il bat le consensus', /Au-dessus du consensus\./.test(cal.body || ''), cal.body);
   t('… sous un titre rédigé', /^Calendrier économique · /.test(cal.title || ''), cal.title);
-  const dtp = ev.find(e => e.id === 'rap:r1') || {};
-  t('… le rapport DTP est nommé en français', dtp.title === 'Analystes · Point marché', dtp.title);
+  const dtp = ev.find(e => e.id === 'rap:fxr:2026-09-25') || {};
+  t('… le Récap quotidien est nommé en français', dtp.title === 'Analystes · Récap quotidien', dtp.title);
+  t('… son lien vise la clé STABLE du jour (le rapport est réécrit à 22 h 30 sous un autre identifiant)', dtp.url === '/?ouvrir=analystes&id=fxr%3A2026-09-25', dtp.url);
+  t('… le « Daily Market Recap », absent de l’onglet Analystes, ne sonne pas', !ev.some(e => /Daily Market|Fed holds/.test((e.title || '') + (e.body || ''))));
   const br = ev.find(e => e.cat === 'banques') || {};
   t('… la note de banque nomme la banque', br.title === 'Banques · Goldman Sachs', br.title);
   t('troisième passage sans rien de neuf : rien ne repart', G.passe().length === 0);
+  env.allNews = [{ id: 'r1-bis', _briefing: true, _reportType: 'FX Daily Recap', _fxr: { day: '2026-09-25' }, headline: 'Le dollar recule (mise à jour)', timestamp: n }];
+  t('le Récap quotidien réécrit le soir (nouvel identifiant, même jour) ne sonne pas une seconde fois', G.passe().length === 0);
 }
 
 console.log('\n── Envoi (service de push simulé) ──');

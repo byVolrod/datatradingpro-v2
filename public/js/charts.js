@@ -5080,14 +5080,23 @@ window._calToggleReglages = function () {
   if (!b) return;
   const ouvert = !b.hasAttribute('hidden');
   if (ouvert) { b.setAttribute('hidden', ''); return; }
+  const a = document.getElementById('cal-aide-pop'); if (a) a.setAttribute('hidden', '');
   _calMajReglages(); b.removeAttribute('hidden');
+};
+// L'aide du calendrier (25/09) : l'icône « ? » était un glyphe décoratif, sans rien derrière.
+window._calToggleAide = function () {
+  const b = document.getElementById('cal-aide-pop');
+  if (!b) return;
+  if (!b.hasAttribute('hidden')) { b.setAttribute('hidden', ''); return; }
+  const r = document.getElementById('cal-set-pop'); if (r) r.setAttribute('hidden', '');
+  b.removeAttribute('hidden');
 };
 // Fermeture au clic AILLEURS et à Échap : sans ça, le volet reste ouvert par-dessus le tableau et
 // il faut retrouver l'icône pour s'en débarrasser. Écouteurs uniques, posés une seule fois, et
 // PARTAGÉS par tous les volets de réglages d'onglet (calendrier, Liste FX). Un second volet avait
 // tout pour se voir recopier ces douze lignes en changeant un id ; deux copies dérivent toujours —
 // celle qu'on corrige et l'autre. Ajouter un volet = ajouter son id à cette liste, rien d'autre.
-const _POPS_REGLAGES = ['cal-set-pop', 'fxl-set-pop'];
+const _POPS_REGLAGES = ['cal-set-pop', 'cal-aide-pop', 'fxl-set-pop'];
 document.addEventListener('click', e => {
   for (const id of _POPS_REGLAGES) {
     const b = document.getElementById(id);

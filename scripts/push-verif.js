@@ -355,6 +355,17 @@ console.log('\n── 4 quinquies. Ce qui sonne (25/09) : calendrier de la fiche
   const R = eval('(' + cstBloc(SRV, '_PUSH_RAPPORTS_FR') + ')');
   v('les récaps de séance portent un nom français', R['London Session Recap'] === 'Récap séance de Londres' && R['Asia Session Recap'] && R['US Session Recap']);
   v('le diffuseur retire l’étiquette après traduction', /_pushSansAmorce\(await _pushFrNotif\(e\.body, e\.cat\)\)/.test(fn(SRV, '_pushDiffuser') || ''));
+  // « Daily Market Recap » (capture du 25/09) : seul ce que l'onglet Analystes montre sonne, sous son nom français.
+  v('le Récap quotidien s’appelle « Récap quotidien », comme dans l’onglet', R['FX Daily Recap'] === 'Récap quotidien' && !R['Daily Market Recap'] && !R['DTP Daily']);
+  const cleS = new Function(fn(SRV, '_pushCleRapport') + '\nreturn _pushCleRapport;')();
+  const cleC = new Function(fn(APP, '_dtpCleRapport') + '\nreturn _dtpCleRapport;')();
+  const ech = [{ id: 'a1', _reportType: 'FX Daily Recap', _fxr: { day: '2026-09-25' } }, { id: 'a2', _reportType: 'Weekly Market Recap', _weekly: { weekEnding: '2026-09-26' } },
+    { id: 'a3', _reportType: 'Global Economic Weekly', timestamp: Date.UTC(2026, 8, 20) }, { id: 'w9', title: 'Récap séance' }];
+  v('la clé d’un rapport est la même au serveur (notification) et au desk/app (ouverture)', ech.every(x => cleS(x) === cleC(x)) && cleS(ech[0]) === 'fxr:2026-09-25', ech.map(cleS).join(' | '));
+  v('le desk et l’app retrouvent un rapport par cette clé', /_dtpCleRapport\(x\) === id/.test(fn(APP, '_dtpOuvrirDesk') || '')
+    && /cleDe\(ra\[k\]\) === id/.test(fs.readFileSync(path.join(RACINE, 'public/js/v2/app-mobile.js'), 'utf8')));
+  v('la liste Analystes lit aussi le Récap quotidien arrivé en direct (sinon « la notif est arrivée mais je vois pas »)', /_bestPerDay\(\[\.\.\.\(_weeklyReports \|\| \[\]\), \.\.\.\(typeof allItems/.test(fn(APP, 'getArlibItems') || ''));
+  v('un rapport nommé dont la traduction échoue dit son nom, pas « Nouveau récap de séance »', /e\.nom \+ ' disponible, à lire dans l’onglet Analystes\.'/.test(fn(SRV, '_pushDiffuser') || ''));
 }
 
 console.log('\n── 4 sexies. Le panneau Alertes du desk : un menu déroulant « Notifications » ──');

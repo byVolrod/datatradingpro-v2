@@ -18670,6 +18670,12 @@ html[data-theme="light"] .news-grp-cpt {
   padding: 10px 12px; box-shadow: 0 10px 28px rgba(0, 0, 0, .55);
 }
 .cal-set-pop[hidden], .fxl-set-pop[hidden] { display: none; }
+/* Bulle d'aide du calendrier (25/09) : même volet, du texte au lieu d'interrupteurs. */
+.cal-aide-pop { width: 260px; }
+.cal-aide-pop p { margin: 0 0 7px; color: var(--text2, #c9c9cf); font-size: 12px; line-height: 1.5; }
+.cal-aide-pop p:last-child { margin-bottom: 0; }
+/* Flèches ‹ › dessinées (25/09) : même or, même survol ; le SVG hérite de la couleur. */
+.cal-range-arrow svg { display: block; }
 /* Le volet de la Liste FX porte DOUZE interrupteurs, contre deux au calendrier : sans plafond il
    descendait plus bas que la fenetre et les dernieres colonnes devenaient inatteignables. */
 .fxl-set-pop { max-height: 60vh; overflow-y: auto; min-width: 208px; }

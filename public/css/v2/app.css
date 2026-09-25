@@ -729,9 +729,42 @@ html.dtp-app .v2a-langue select.v2a-langue-choix { -webkit-appearance: none !imp
 html.dtp-app .v2a-langue-choix option { color: #111; }
 html.dtp-app .v2a-langue > svg:last-child { color: #e3b23a; flex: 0 0 auto; pointer-events: none; }
 
-/* Réglages du Calendrier dans l'app : l'icône dessinée du desk, à la taille du doigt. */
-html.dtp-app .cal-title-icon--svg svg { width: 17px; height: 17px; }
-html.dtp-app .cal-title-icon--svg { color: #8e8e98; }
+/* ══ BARRES D'EN-TÊTE DES ÉCRANS DU DESK DANS L'APP (25/09, « même barre que le desk, les icônes ne
+   sont pas les mêmes ») ═══════════════════════════════════════════════════════════════════════════
+   Chaque écran repris du desk gardait SA barre : fond gris plus clair que l'app, hauteurs de 38 à
+   65 px, flèches en caractères « ‹ › », aide et fermeture en glyphes de 11 px à côté d'un réglage
+   dessiné de 17 px. Une seule grammaire désormais, celle des cartes du desk : fond de l'app, filet
+   fin, titre en petites capitales grises, icônes DESSINÉES grises à la même taille, cibles au doigt,
+   flèches or dans une pastille comme le bouton Retour. La croix « Fermer » n'a pas de sens dans
+   l'app (le Retour de l'en-tête fait ce travail) : elle disparaît. */
+html.dtp-app .view-panel .panel-header,
+html.dtp-app .view-panel .chart-header {
+  display: flex; align-items: center; min-height: 48px; height: auto; padding: 6px 10px 6px 16px;
+  background: var(--v2a-fond) !important; border: 0; border-bottom: 1px solid var(--v2a-trait); box-shadow: none;
+}
+html.dtp-app .view-panel .panel-title,
+html.dtp-app .view-panel .chart-header-title {
+  color: #8e8e98 !important; font: 600 11.5px/1.2 'Inter', sans-serif !important; letter-spacing: .08em !important; text-transform: uppercase !important;
+}
+html.dtp-app .cal-title-icons, html.dtp-app .fxl-title-icons { gap: 4px; }
+html.dtp-app .cal-title-icon {
+  width: 36px; height: 36px; border-radius: 10px; color: #8e8e98; background: none; -webkit-tap-highlight-color: transparent;
+}
+html.dtp-app .cal-title-icon:active { background: var(--v2a-surface); color: var(--v2a-or); }
+html.dtp-app .cal-title-icon--svg svg { width: 18px; height: 18px; }
+html.dtp-app .cal-title-icon--fermer { display: none; }
+html.dtp-app .cal-range-arrow {
+  display: inline-flex; align-items: center; justify-content: center; width: 34px; min-width: 34px; height: 34px; min-height: 34px; padding: 0;
+  border-radius: 10px; background: var(--v2a-surface); border: 1px solid var(--v2a-trait); color: var(--v2a-or); opacity: 1; transform: none !important;
+}
+html.dtp-app .cal-range-arrow svg { width: 15px; height: 15px; }
+html.dtp-app .cal-range-arrow:disabled { opacity: .35; }
+html.dtp-app .cal-title-block, html.dtp-app .wa-weeknav { display: flex; align-items: center; gap: 10px; }
+html.dtp-app #cal-daterange, html.dtp-app .wa-week {
+  color: #e6e6ea; font: 600 13.5px/1 'Inter', sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0;
+}
+html.dtp-app .cal-set-pop, html.dtp-app .fxl-set-pop { border-radius: 12px; border-color: var(--v2a-trait); background: #111114; }
+html.dtp-app .cal-aide-pop { width: min(300px, calc(100vw - 32px)); }
 
 /* Compte en pages (25/09) : la valeur d'une ligne à droite, en gris ; fiche d'abonnement en paires
    libellé / valeur ; liste de choix avec une coche d'or. */
