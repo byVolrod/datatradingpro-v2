@@ -213,7 +213,11 @@ async function _dtpTranslateQuotes(container, sel) {
   // frontières explicites ci-dessous.
   const _motsDe = t => (t.match(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’-]*/g) || []);
   const _rxEn = new RegExp('(^|[^' + "A-Za-zÀ-ÿ'’" + '])(' + "the|and|of|in|to|with|for|from|have|has|had|is|are|was|were|will|would|that|this|their|its|on|at|by|as|been|says|said|we|they|but|not|about|over|after|before|than|can|could|should|may|might|does|did|there|what|which|who|when|while|into|our|your|his|her|also|only|very|much|many|some|such|other" + ')(?![' + "A-Za-zÀ-ÿ'’" + '])', 'gi');
-  const _rxFr = new RegExp('(^|[^' + "A-Za-zÀ-ÿ'’" + '])(' + "le|la|les|des|du|une|un|et|ou|est|sont|aux|dans|pour|avec|sans|selon|après|avant|cette|ces|nous|vous|leur|leurs|pas|qui|que|dont|son|sa|ses|plus|moins|entre|chez|vers|depuis|encore|déjà|toujours|jamais|au|sur|ont|été" + ')(?![' + "A-Za-zÀ-ÿ'’" + '])', 'gi');
+  /* « de » manquait (25/09, capture user « chargement trop lent ») : « - Brent : ↓ : prime de risque »
+     ne portait AUCUN marqueur français connu, passait pour de la prose anglaise, et restait masquée
+     sous un squelette le temps d'un aller-retour de traduction. Le trait d'union est exclu de la
+     frontière de droite : « de-escalation », mot anglais, ne compte pas comme du français. */
+  const _rxFr = new RegExp('(^|[^' + "A-Za-zÀ-ÿ'’" + '])(' + "le|la|les|de|des|du|une|un|et|ou|est|sont|aux|dans|pour|avec|sans|selon|après|avant|cette|ces|nous|vous|leur|leurs|pas|qui|que|dont|son|sa|ses|plus|moins|entre|chez|vers|depuis|encore|déjà|toujours|jamais|au|sur|ont|été" + ')(?![' + "A-Za-zÀ-ÿ'’-" + '])', 'gi');
   const _aTraduire = t => {
     const m = _motsDe(t);
     if (m.length < 2) return false;                                   // sigle, chiffre isolé
@@ -4500,7 +4504,13 @@ function buildNewsItem(item) {
       // v11 : l'impact est MULTILIGNE (verdict gras, mécanisme, actifs fléchés) : une puce par ligne.
       expandEl.innerHTML = _nrxQuand('Impact marché', item._impAt || item._anaAt || item.timestamp)
         + _renderInfoBullets(['Impact marché :', ...String(item._impact || '').split('\n').filter(Boolean)]);
-      _dtpTranslateQuotes(expandEl);
+      /* ⚠️ PAS DE TRADUCTION À LA VOLÉE ICI (25/09, capture user « chargement trop lent » : une barre
+         grise sous le mécanisme, au milieu du panneau). La lecture d'impact est RÉDIGÉE EN FRANÇAIS
+         par le serveur (consigne « EN FRANÇAIS » de l'économiste en chef). La repasser au traducteur
+         ne pouvait rien gagner, et coûtait : une ligne d'actif portant un peu de jargon de salle
+         (« risk premium unwind ») ressemble à de l'anglais pour `_dtpTranslateQuotes`, qui la MASQUE
+         sous un squelette le temps d'un aller-retour IA (2,5 s au moins) — pour un contenu qui
+         était déjà là, complet, au moment du clic. */
       expandEl.classList.add('visible'); _fondPleineLargeur(expandEl); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (impactTagEl) impactTagEl.classList.add('tag--active');
       return;

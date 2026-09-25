@@ -539,16 +539,21 @@ function phaseLogique() {
         headline: "Chinese executives may join Xi's US trip, as trade truce extension 'almost certain'",
         description: '', category: 'Geopolitics', tags: [], timestamp: Date.now(),
         priority: 'high', _highImpact: true,
-        _impact: 'Détente commerciale : le canal est la prime de risque, pas la politique monétaire.\nUne trêve prolongée soutient les actifs cycliques et allège la demande de refuge.\nBrent ↑ · Or ↓ · AUD/USD ↑' };
+        _impact: 'Détente commerciale : le canal est la prime de risque, pas la politique monétaire.\nUne trêve prolongée soutient les actifs cycliques et allège la demande de refuge.\nBrent ↑ · Or ↓ · AUD/USD ↑\n- Brent : ↓ : prime de risque\n- WTI : ↓ : risk premium unwind' };
       const el = window.buildNewsItem(it);
       document.body.appendChild(el);
       const boutons = [...el.querySelectorAll('.news-tags .tag')].map(t => t.textContent.trim());
       const b = [...el.querySelectorAll('.news-tags .tag')].find(t => /Impact marché/.test(t.textContent));
       let leve = null;
       if (b) { try { b.click(); } catch (e) { leve = String(e && e.message || e); } }
+      // Mesuré DANS LE MÊME INSTANT que le clic : le masque de traduction est posé de façon
+      // synchrone, et le banc répond si vite à /api/translate qu'il aurait disparu 80 ms plus tard.
+      const pInstant = el.querySelector('.news-description');
+      const masquees = pInstant ? pInstant.querySelectorAll('.dtp-tr-wait').length : -1;
       await new Promise(r => setTimeout(r, 80));
       const p = el.querySelector('.news-description');
       const r = { boutons, leve,
+        masquees,
         panneauExiste: !!p,
         visible: !!(p && p.classList.contains('visible')),
         txt: p ? (p.textContent || '').replace(/\s+/g, ' ').trim() : '' };
@@ -578,6 +583,10 @@ function phaseLogique() {
       seul.panneauExiste ? 'le panneau existe mais reste fermé' : 'AUCUN panneau n\'a été créé pour cet item');
     verif('… qui contient bien la lecture d\'impact', /prime de risque/.test(seul.txt), seul.txt.slice(0, 120));
     verif('… et ses actifs exposés', /Brent/.test(seul.txt) && /Or/.test(seul.txt), seul.txt.slice(0, 160));
+    /* 25/09 (« chargement trop lent ») : la lecture d'impact est déjà en français et déjà là. Aucune
+       de ses lignes ne doit passer sous le squelette de traduction, pas même une ligne d'actif en
+       jargon de salle (« risk premium unwind »), que le détecteur de langue prend pour de l'anglais. */
+    verif('… affichée d\'un coup : aucune ligne masquée en attente de traduction', seul.masquees === 0, 'lignes masquées : ' + seul.masquees);
     /* LE SECOND CHEMIN : le chevron. Il apparaît maintenant sur ces news — il doit donc mener
        quelque part, et à la bonne chose. */
     verif('le chevron est là lui aussi', seul.chevronExiste);

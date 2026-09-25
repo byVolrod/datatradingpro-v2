@@ -561,5 +561,22 @@ console.log('\n── 5. Une traduction en retard repeint quand même la ligne �
       v('… et plus aucune ligne ne reste en anglais', !lignes.some(l => /\b(the|that|everyone)\b/i.test(l.textContent)),
         JSON.stringify(lignes.map(l => l.textContent)));
     }).catch(e => { v('le scénario de course s\'exécute', false, e.message); });
+
+    /* ── CE QUI PART À LA TRADUCTION (25/09, capture user « chargement trop lent ») ────────────────
+       Une ligne française sans accent ni petit mot connu (« - Brent : ↓ : prime de risque ») passait
+       pour de l'anglais : elle était MASQUÉE sous un squelette le temps d'un aller-retour IA, alors
+       qu'il n'y avait rien à traduire. On rejoue le vrai code et on lit ce qu'il ENVOIE. */
+    const envoyes = [];
+    const lignes2 = [noeud('- Brent : ↓ : prime de risque'), noeud('- Or : ↓ : reflux refuge'),
+      noeud('Iran de-escalation talks stall over sanctions relief')];
+    const f2 = new Function('_TR_ATTENTE_MS', '_trClient', 'fetch', 'async ' + src + '\nreturn _dtpTranslateQuotes;')(20, new Map(),
+      (url, init) => { try { envoyes.push(...JSON.parse(init.body).texts); } catch (e) {} return Promise.resolve({ json: () => Promise.resolve({ translations: [] }) }); });
+    const p2 = f2({ querySelectorAll: () => lignes2 });
+    const masquees2 = lignes2.filter(l => l.classList.contains('dtp-tr-wait')).map(l => l._t);
+    v('une ligne française courte (« prime de risque ») n\'est ni masquée ni envoyée à la traduction', !masquees2.some(t => /Brent|Or :/.test(t)), JSON.stringify(masquees2));
+    _attenteAsync = Promise.all([_attenteAsync, p2.then(() => {
+      v('… seule la vraie phrase anglaise part (« de-escalation » ne passe pas pour du français)',
+        envoyes.length === 1 && /de-escalation/.test(envoyes[0]), JSON.stringify(envoyes));
+    })]);
   }
 }
