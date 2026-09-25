@@ -684,23 +684,50 @@
   }
 
   /* ══ ÉCRAN ANALYSTES : la liste des rapports en cartes (référence « Analysts Reports ») ═══════════ */
+  /* ══ ANALYSTES, ALIGNÉ SUR LE DESK (25/09, « idem pour l'onglet Analystes ») ═══════════════════════
+     La liste affichait sous chaque titre les tags BRUTS du rapport (« USD / JPY », « boj »), que le
+     desk n'affiche nulle part : sa liste porte la date, le titre standardisé, le logo DTP et un filtre
+     par TYPE de fichier. On reprend exactement ce vocabulaire (arlibItemType + les libellés du
+     sélecteur #arlib-type), en puces : seuls les types présents dans la liste sont proposés.
+     ⚠️ La liste ne se dessinait qu'UNE fois : les rapports qui arrivent après les récaps de séance
+     (hebdo, récap quotidien, lus sur trois routes différentes) n'apparaissaient qu'en quittant puis en
+     rouvrant l'onglet. Elle suit désormais le rendu du desk (#arlib-list), comme le Fil suit #news-list. */
+  var TYPES_RAPPORT = [['all', 'Tous'], ['fxdaily', 'Récap FX quotidien'], ['recap', 'Récap de session'], ['weekly', 'Récap hebdomadaire'], ['briefing', 'Briefing quotidien']];
+  var typeRapport = 'all', anMaj = null;
+  function libelleType(k) { for (var i = 0; i < TYPES_RAPPORT.length; i++) if (TYPES_RAPPORT[i][0] === k) return TYPES_RAPPORT[i][1]; return ''; }
+  function brancherAnalystes() {
+    var l = document.getElementById('arlib-list');
+    if (!l || l._v2a) return; l._v2a = true;
+    new MutationObserver(function () { if (courant !== 'analystes') return; clearTimeout(anMaj); anMaj = setTimeout(RENDUS.analystes, 400); }).observe(l, { childList: true });
+  }
   RENDUS.analystes = function () {
     var e = ecrans.analystes;
-    var items = itemsRapports().slice().sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); }).slice(0, 80);
-    if (!items.length) { e.innerHTML = '<p class="v2a-vide">Chargement des rapports…</p>'; appel('loadAnalystView'); setTimeout(function () { if (courant === 'analystes') RENDUS.analystes(); }, 2500); return; }
+    brancherAnalystes();
+    var tf = glob('arlibItemType');
+    var typeDe = function (it) { try { return typeof tf === 'function' ? tf(it) : ''; } catch (x) { return ''; } };
+    var tous = itemsRapports().slice();   // l'ordre du desk (getArlibItems), pas un tri refait ici
+    if (!tous.length) { e.innerHTML = '<p class="v2a-vide">Chargement des rapports…</p>'; appel('loadAnalystView'); setTimeout(function () { if (courant === 'analystes') RENDUS.analystes(); }, 2500); return; }
+    var presents = {}; tous.forEach(function (it) { presents[typeDe(it)] = true; });
+    if (typeRapport !== 'all' && !presents[typeRapport]) typeRapport = 'all';
+    var items = (typeRapport === 'all' ? tous : tous.filter(function (it) { return typeDe(it) === typeRapport; })).slice(0, 80);
     var lu = glob('isRead'), rk = glob('_reportReadKey');
-    e.innerHTML = '<div class="v2a-liste">' + items.map(function (it, i) {
-      var sujets = (Array.isArray(it.tags) && it.tags.length ? it.tags : (it.keywords || [])).slice(0, 10);
+    var puces = TYPES_RAPPORT.filter(function (t) { return t[0] === 'all' || presents[t[0]]; });
+    e.innerHTML = (puces.length > 2 ? '<div class="v2a-puces v2a-puces-an">' + puces.map(function (t) { return '<button type="button" data-type="' + t[0] + '"' + (t[0] === typeRapport ? ' class="v2a-puce-on"' : '') + '>' + esc(t[1]) + '</button>'; }).join('') + '</div>' : '')
+      + '<div class="v2a-liste">' + items.map(function (it, i) {
       var dejaLu = false; try { dejaLu = typeof lu === 'function' && typeof rk === 'function' && lu(rk(it)); } catch (x) {}
-      var ia = estDtp(it);
+      var ia = estDtp(it), lib = libelleType(typeDe(it));
       return '<button type="button" class="v2a-rapport' + (dejaLu ? ' v2a-lu' : '') + '" data-i="' + i + '">'
         + (ia ? '<span class="v2a-badge-ia">' + svg('M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z', 13, 1.6) + 'Rédigé par le desk DTP</span>' : '')
         + '<span class="v2a-rapport-t">' + esc(titreRapport(it)) + '</span>'
         + '<span class="v2a-rapport-d">' + esc(dateCourte(it.timestamp)) + '</span>'
-        + (sujets.length ? '<span class="v2a-rapport-s">' + sujets.map(esc).join(' / ') + '</span>' : (it.category ? '<span class="v2a-rapport-s">' + esc(it.category) + '</span>' : ''))
+        + (lib ? '<span class="v2a-rapport-s">' + esc(lib) + '</span>' : '')
         + '</button>';
-    }).join('') + '</div>';
-    e.onclick = function (ev) { var b = ev.target.closest('.v2a-rapport'); if (!b) return; vibre(); ouvrirRapport(items[+b.dataset.i]); };
+    }).join('') + (items.length ? '' : '<p class="v2a-vide">Aucun rapport de ce type pour le moment.</p>') + '</div>';
+    e.onclick = function (ev) {
+      var t = ev.target.closest('[data-type]');
+      if (t) { vibre(); typeRapport = t.dataset.type; RENDUS.analystes(); return; }
+      var b = ev.target.closest('.v2a-rapport'); if (!b) return; vibre(); ouvrirRapport(items[+b.dataset.i]);
+    };
   };
 
   /* ══ ÉCRAN BANQUES : les rapports institutionnels en cartes (référence « Bank Reports ») ═══════════ */
@@ -804,11 +831,35 @@
       return 'Envoyée à ' + bons + ' appareil' + (bons > 1 ? 's' : '') + ' (' + r.map(function (x) { return x.service + (x.ok ? ' ✓' : ' ✗ ' + (x.erreur || x.statut)); }).join(', ') + '). Verrouillez le téléphone : elle arrive en quelques secondes.';
     });
   }
+  /* Ce qui peut sonner (25/09) : les cinq familles du serveur, le son et le vibreur. Le choix vit sur
+     le COMPTE (/api/push-prefs) : il vaut pour le desk, le téléphone et l'app native à la fois. */
+  var PP = { prefs: null, familles: [], charge: false };
+  function ppCharger() {
+    if (PP.charge) return; PP.charge = true;
+    wpJson('/api/push-prefs').then(function (d) {
+      if (d && d.ok) { PP.prefs = d.prefs; PP.familles = d.familles || []; if (courant === 'compte') RENDUS.compte(true); }
+      else PP.charge = false;
+    }).catch(function () { PP.charge = false; });
+  }
+  function ppBloc() {
+    if (!PP.prefs) { ppCharger(); return ''; }
+    var bascule = function (on, dis) { return '<i class="v2a-bascule' + (on ? ' v2a-on-b' : '') + (dis ? ' v2a-bascule-off' : '') + '"></i>'; };
+    var ligneP = function (act, k, nom, desc, on, dis) { return '<button type="button" class="v2a-ligne v2a-choix" data-act="' + act + '"' + (k ? ' data-k="' + k + '"' : '') + (dis ? ' disabled' : '') + '><span class="v2a-choix-t"><b>' + esc(nom) + '</b>' + (desc ? '<small>' + esc(desc) + '</small>' : '') + '</span>' + bascule(on, dis) + '</button>'; };
+    var h = '</div><h3 class="v2a-rubrique">Ce qui peut sonner</h3><div class="v2a-groupe">';
+    PP.familles.forEach(function (f) { h += ligneP('pp', f.k, f.nom, f.desc, PP.prefs.cats.indexOf(f.k) >= 0); });
+    h += ligneP('ppson', '', 'Son', '', PP.prefs.son);
+    h += ligneP('ppvib', '', 'Vibreur', PP.prefs.son ? '' : 'Sans le son, le téléphone ne vibre pas non plus.', PP.prefs.son && PP.prefs.vibreur, !PP.prefs.son);
+    h += '<div class="v2a-wp-aide">Seul l’important part : une pause par famille regroupe le reste en une seule notification, et une dépêche urgente passe toujours. Sur iPhone, le son et la vibration suivent aussi les réglages de notifications de l’iPhone.</div>';
+    return h;
+  }
   function wpBloc() {
     var ligne = function (ico, txt, act, extra) { return '<button type="button" class="v2a-ligne" data-act="' + act + '">' + svg(ico, 22) + '<span>' + txt + '</span>' + (extra || svg(I.suite, 18, 1.8)) + '</button>'; };
     var h = '<h3 class="v2a-rubrique">Notifications du téléphone</h3><div class="v2a-groupe">';
     if (WP.etat === 'ecran') {
       h += '<div class="v2a-wp-aide"><b>Sur iPhone, une étape d’abord</b>Dans Safari, touchez <b>Partager</b> puis <b>Sur l’écran d’accueil</b>, et rouvrez DTP depuis son icône. Les notifications arrivent alors comme celles d’une application, écran verrouillé compris (iOS 16.4 ou plus).</div>';
+    } else if (WP.etat === 'impossible' && window.ReactNativeWebView) {
+      // Dans l'app native, les notifications passent par l'app elle-même : il ne reste qu'à choisir.
+      h += '<div class="v2a-wp-aide">Les alertes arrivent par l’application DataTradingPro. Choisissez ci-dessous ce qui peut sonner.</div>' + ppBloc();
     } else if (WP.etat === 'impossible') {
       h += '<div class="v2a-wp-aide">Ce navigateur ne prend pas en charge les notifications. Utilisez Chrome sur Android, ou DTP ajouté à l’écran d’accueil sur iPhone.</div>';
     } else if (WP.etat === 'refuse') {
@@ -816,6 +867,7 @@
     } else {
       h += ligne(I.cloche, 'Recevoir les alertes sur cet appareil', 'wp', '<i class="v2a-bascule' + (WP.etat === 'actif' ? ' v2a-on-b' : '') + '"></i>');
       if (WP.etat === 'actif') h += ligne(I.son, 'Envoyer une notification test', 'wptest');
+      h += ppBloc();   // le choix vaut pour tous les appareils du compte : visible avant même l'abonnement
     }
     if (WP.message) h += '<div class="v2a-wp-msg' + (WP.erreur ? ' v2a-wp-err' : '') + '">' + esc(WP.message) + '</div>';
     return h + '</div>';
@@ -846,6 +898,14 @@
       else if (a === 'admin') ouvrirAdmin();
       else if (a === 'son') { appel('npToggleEnabled'); RENDUS.compte(true); }
       else if (a === 'v2') { var s = document.getElementById('v2-interrupteur'); if (s) s.click(); }
+      else if (a === 'pp' || a === 'ppson' || a === 'ppvib') {
+        if (!PP.prefs || b.disabled) return;
+        if (a === 'pp') { var k = b.dataset.k, i = PP.prefs.cats.indexOf(k); if (i >= 0) PP.prefs.cats.splice(i, 1); else PP.prefs.cats.push(k); }
+        else if (a === 'ppson') PP.prefs.son = !PP.prefs.son;
+        else PP.prefs.vibreur = !PP.prefs.vibreur;
+        wpJson('/api/push-prefs', PP.prefs);
+        RENDUS.compte(true);
+      }
       else if (a === 'sortie') appel('logoutUser');
       else if (a === 'wp' || a === 'wptest') {
         WP.message = a === 'wptest' ? 'Envoi…' : ''; WP.erreur = false;

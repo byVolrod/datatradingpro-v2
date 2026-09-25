@@ -22,6 +22,8 @@ let ok = 0, ko = 0;
 const v = (n, c, d) => { if (c) { ok++; console.log('  ✓ ' + n); } else { ko++; console.log('  ✗ ' + n + (d ? '\n      → ' + String(d).slice(0, 300) : '')); } };
 const fn = (src, nom) => { const m = new RegExp('function ' + nom + '\\([\\s\\S]*?\\n\\}').exec(src); return m ? m[0] : null; };
 const cst = (src, nom) => { const m = new RegExp('const ' + nom + ' = ([^;\\n]+);').exec(src); return m ? m[1] : null; };
+// Une constante qui s'étend sur plusieurs lignes (objet littéral) : jusqu'au « }; » qui la ferme.
+const cstBloc = (src, nom) => { const m = new RegExp('const ' + nom + ' = (\\{[\\s\\S]*?\\});').exec(src); return m ? m[1] : null; };
 
 console.log('\n── 1. Le jeton : ce qu\'on accepte de stocker ──');
 const srcRx = cst(SRV, '_PUSH_RX_JETON');
@@ -70,14 +72,18 @@ console.log('\n── 3. Le texte et la catégorie ──');
 const srcTexte = fn(SRV, '_pushTexte'), srcClef = cst(SRV, '_pushClef');
 v('_pushTexte est extractible', !!srcTexte);
 if (srcTexte) {
-  // _pushTexte s'appuie sur _pushClef pour nommer la nature de l'alerte : on l'extrait avec lui.
-  const _pushTexte = new Function('const _pushClef = ' + (srcClef || '() => "news"') + '; return (' + srcTexte + ');')();
+  // _pushTexte s'appuie sur _pushClef et la table des thèmes : on les extrait avec lui.
+  const _pushTexte = new Function('const _pushClef = ' + (srcClef || '() => "news"') + '; const _PUSH_THEME = ' + (cstBloc(SRV, '_PUSH_THEME') || '{}') + '; return (' + srcTexte + ');')();
   const court = _pushTexte({ headline: 'US CPI 3.2% vs 3.1% expected' });
   /* Format « notification d'app » (25/09, capture de référence « URGENT / Alerte pour NZDCHF ») : le
-     téléphone affiche déjà le nom de l'app, le titre dit la NATURE de l'alerte en un mot. */
-  v('une donnée chiffrée s’intitule « Donnée macro »', court.title === 'Donnée macro', court.title);
+     téléphone affiche déjà le nom de l'app, le titre dit la NATURE de l'alerte, puis son thème quand
+     il renseigne (« rédige bien le nom des notifs »). */
+  v('une donnée chiffrée s’intitule « Chiffre économique »', court.title === 'Chiffre économique', court.title);
   v('une dépêche urgente s’intitule « URGENT »', _pushTexte({ headline: 'Iran closes Hormuz', urgent: true }).title === 'URGENT');
+  v('… avec son thème quand il renseigne (« URGENT · Géopolitique »)', _pushTexte({ headline: 'Iran closes Hormuz', urgent: true, category: 'Geopolitical' }).title === 'URGENT · Géopolitique');
   v('une autre dépêche majeure s’intitule « Actualité majeure »', _pushTexte({ headline: 'Trump parle de l’Iran' }).title === 'Actualité majeure');
+  v('… « Actualité majeure · Énergie » pour une dépêche énergie', _pushTexte({ headline: 'Opec cuts output', category: 'Energy & Power' }).title === 'Actualité majeure · Énergie');
+  v('une catégorie générique n’ajoute rien au titre', _pushTexte({ headline: 'Trump parle', category: 'Global News' }).title === 'Actualité majeure');
   v('le corps porte la dépêche', court.body === 'US CPI 3.2% vs 3.1% expected', court.body);
   v('… en français quand la traduction est prête', _pushTexte({ headline: 'Oil jumps', _titreFr: 'Le pétrole bondit' }).body === 'Le pétrole bondit');
   /* iOS tronque une notification longue SANS prévenir : mieux vaut couper nous-mêmes et le dire
@@ -106,19 +112,78 @@ v('seul le tier-1 déclenche un push', /_highImpact === true/.test(srcEnvoi), sr
    verrou, la même publication réveillerait le téléphone trois fois dans l'heure. */
 v('un item n\'est poussé qu\'une fois', /_pushDejaVus\.has\(it\.id\)/.test(srcEnvoi) && /_pushDejaVus\.add\(it\.id\)/.test(srcEnvoi));
 v('… et l\'ensemble des vus est borné', /_pushDejaVus\.size > \d+/.test(srcEnvoi));
-v('le réglage du compte est respecté', /cfg\.enabled === false \|\| cfg\.push === false/.test(srcEnvoi));
-v('… y compris les catégories coupées au panneau Filtre', /coupees\.has\(_pushClef\(it\)\)/.test(srcEnvoi));
-v('un jeton mort est retiré du compte', /DeviceNotRegistered/.test(SRV) && /morts/.test(srcEnvoi));
-/* ⚠️ ANTI-EGRESS, la leçon de l'audit de parrainage : balayer l'annuaire à chaque cycle de news
-   est exactement ce qui coupe le service sur cet hébergement. */
-v('l\'annuaire n\'est JAMAIS énuméré à l\'envoi', !/getAllUsers/.test(srcEnvoi), srcEnvoi);
-v('… c\'est un index dédié qui est lu', /_pushIndex\(\)/.test(srcEnvoi) && /pushusers/.test(SRV));
+/* Depuis le 25/09, les dépêches et les publications passent par UN routeur commun (_pushRouter) :
+   réglages du compte, familles choisies, pauses, plafond. On l'éprouve ici. */
+const srcRouteur = fn(SRV, '_pushRouter') || '';
+v('_pushEnvoyer confie l’envoi au routeur commun', /_pushRouter\(evts\)/.test(srcEnvoi));
+v('le réglage du compte est respecté', /cfg\.enabled === false \|\| cfg\.push === false/.test(srcRouteur));
+v('… et les familles cochées par le client', /prefs\.cats\.includes\(e\.cat\)/.test(srcRouteur));
+v('… sans préférence, les catégories coupées au panneau Filtre valent toujours', /catsOff/.test(fn(SRV, '_pushPrefs') || ''));
+v('le plafond horaire s’applique après le tri', /_pushSousPlafond\(uid, directs\.length\)/.test(srcRouteur));
+v('un jeton mort est retiré du compte', /DeviceNotRegistered/.test(SRV) && /morts/.test(fn(SRV, '_pushExpedier') || ''));
+v('l\'annuaire n\'est JAMAIS énuméré à l\'envoi', !/getAllUsers/.test(srcEnvoi + srcRouteur), srcRouteur.slice(0, 200));
+v('… c\'est un index dédié qui est lu', /_pushIndex\(\)/.test(srcRouteur) && /pushusers/.test(SRV));
+v('un chiffre du calendrier frais n’est pas doublé par sa dépêche', /cat === 'eco' && _pushCalFrais\(\)/.test(srcEnvoi));
 v('un verrou de réentrance protège le cycle', /_pushBusy/.test(srcEnvoi));
 v('l\'appel à Expo porte un délai de garde', /AbortController/.test(fn(SRV, '_pushExpo') || ''));
 v('l\'envoi est branché sur le cycle de news', /_pushEnvoyer\(added\)\.catch/.test(SRV));
 v('… hors du chemin de diffusion (il ne retarde pas le fil)', /broadcast\(\{ type: 'news_update', items: added[\s\S]{0,400}?_pushEnvoyer\(added\)\.catch/.test(SRV));
 v('les deux routes d\'abonnement existent', /app\.post\('\/api\/push\/token'/.test(SRV) && /app\.post\('\/api\/push\/stop'/.test(SRV));
 v('… et exigent une session', (SRV.match(/app\.post\('\/api\/push\/(?:token|stop)'[\s\S]{0,160}?req\.session\?\.userId/g) || []).length === 2);
+
+console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement, son et vibreur ──');
+{
+  const PUSH_CATS = eval('(' + cstBloc(SRV, 'PUSH_CATS') + ')');
+  v('cinq familles, et seulement celles demandées', Object.keys(PUSH_CATS).join(',') === 'news,eco,risque,banques,analystes', Object.keys(PUSH_CATS).join(','));
+  const _PUSH_CATS_K = Object.keys(PUSH_CATS);
+  const mPP = /const _pushPrefsPropres = (b => \(\{[\s\S]*?\}\));/.exec(SRV);
+  v('_pushPrefsPropres est extractible', !!mPP);
+  const _pushPrefsPropres = new Function('_PUSH_CATS_K', 'return (' + (mPP ? mPP[1] : '() => ({})') + ');')(_PUSH_CATS_K);
+  v('sans réglage, tout est coché, son et vibreur compris', JSON.stringify(_pushPrefsPropres({})) === JSON.stringify({ cats: _PUSH_CATS_K, son: true, vibreur: true }));
+  v('une famille inconnue envoyée par un client est écartée', _pushPrefsPropres({ cats: ['news', 'pirate'] }).cats.join() === 'news');
+  v('son et vibreur se coupent', _pushPrefsPropres({ son: false, vibreur: false }).son === false && _pushPrefsPropres({ vibreur: false }).vibreur === false);
+
+  const outils = new Function(fn(SRV, '_pushMots') + '\nconst _pushRecents = [];\n' + fn(SRV, '_pushDoublon') + '\nconst PUSH_CATS = ' + cstBloc(SRV, 'PUSH_CATS') + ';\n' + fn(SRV, '_pushResume') + '\n' + fn(SRV, '_pushMessage') + '\nreturn { _pushDoublon, _pushResume, _pushMessage };')();
+  const t0 = Date.now();
+  const e1 = { cat: 'news', id: 'a', body: 'Iran and United States resume talks over Strait of Hormuz shipping deal' };
+  const e2 = { cat: 'news', id: 'b', body: 'United States and Iran resume talks over Hormuz shipping deal, sources say' };
+  const e3 = { cat: 'news', id: 'c', body: 'Bank of Japan keeps policy rate unchanged at 0.75 percent' };
+  v('une première dépêche passe', !outils._pushDoublon(e1, t0));
+  v('la même nouvelle, reformulée par une autre source, ne sonne pas deux fois', outils._pushDoublon(e2, t0 + 60e3));
+  v('un autre sujet passe', !outils._pushDoublon(e3, t0 + 90e3));
+  v('une dépêche URGENTE passe toujours', !outils._pushDoublon(Object.assign({}, e2, { urgent: true }), t0 + 120e3));
+  v('trois heures plus tard, le sujet peut revenir', !outils._pushDoublon(Object.assign({}, e2, { id: 'd' }), t0 + 4 * 3600e3));
+  const lot = outils._pushResume('banques', [{ id: '1', court: 'Goldman Sachs', body: 'EUR/USD' }, { id: '2', court: 'ING', body: 'GBP' }, { id: '3', court: 'Nomura', body: 'JPY' }]);
+  v('trois rapports de banques pendant la pause → une seule notification', lot.title === '3 rapports de banques', lot.title);
+  v('… qui les nomme', lot.body === 'Goldman Sachs · ING · Nomura', lot.body);
+  v('… et une seule publication reste elle-même', outils._pushResume('banques', [e3]) === e3);
+  const avec = outils._pushMessage(e3, { son: true, vibreur: true }).web, sans = outils._pushMessage(e3, { son: false, vibreur: true }).web, muet = outils._pushMessage(e3, { son: true, vibreur: false }).web;
+  v('son + vibreur : le navigateur vibre', avec.silent === false && Array.isArray(avec.vibrate) && avec.vibrate.length > 0);
+  v('son coupé : notification silencieuse, et JAMAIS « silent » avec « vibrate » (Chrome la refuserait)', sans.silent === true && !('vibrate' in sans));
+  v('vibreur coupé : aucune vibration', muet.silent === false && Array.isArray(muet.vibrate) && muet.vibrate.length === 0);
+  v('l’app native reçoit le son choisi', outils._pushMessage(e3, { son: false }).expo.sound === null && outils._pushMessage(e3, { son: true }).expo.sound === 'default');
+
+  const srcR = fn(SRV, '_pushRouter') || '';
+  v('une pause par famille met de côté au lieu de sonner', /_pushAttente\.set\(k, f\)/.test(srcR) && /PUSH_PAUSE_MS\[e\.cat\]/.test(srcR));
+  v('… une dépêche urgente passe malgré la pause', /enPause && !e\.urgent/.test(srcR));
+  v('… et ce qui a été mis de côté part en récapitulatif', /_pushResume\(cat, f\.lot\)/.test(fn(SRV, '_pushVider') || '') && /setInterval\(\(\) => \{ _pushVider\(\)/.test(SRV));
+  const PAUSE = eval('(' + cst(SRV, 'PUSH_PAUSE_MS') + ')');
+  v('un chiffre du calendrier n’attend jamais (chacun est distinct)', PAUSE.eco === 0);
+  v('les rapports de banques et d’analystes sont regroupés', PAUSE.banques >= 15 * 60e3 && PAUSE.analystes >= 15 * 60e3);
+
+  const _RISK_NIV = eval('(' + cstBloc(SRV, '_RISK_NIV') + ')');
+  const _pushBascule = new Function('_RISK_NIV', 'return (' + fn(SRV, '_pushBascule') + ');')(_RISK_NIV);
+  const H = 3600e3;
+  v('neutre → risk-off : bascule franche, notifiée', _pushBascule('NEUTRAL', 'RISK-OFF', 10 * H, 0));
+  v('risk-on → risk-off marqué : notifiée', _pushBascule('RISK-ON', 'STRONG RISK-OFF', 10 * H, 0));
+  v('neutre → risk-off léger : pas assez franc, tu', !_pushBascule('NEUTRAL', 'WEAK RISK-OFF', 10 * H, 0));
+  v('risk-off → risk-off marqué : même camp, tu', !_pushBascule('RISK-OFF', 'STRONG RISK-OFF', 10 * H, 0));
+  v('au plus une bascule toutes les 4 h', !_pushBascule('RISK-ON', 'RISK-OFF', 10 * H, 8 * H) && _pushBascule('RISK-ON', 'RISK-OFF', 10 * H, 5.9 * H));
+  const _RISK_NOM = eval('(' + cstBloc(SRV, '_RISK_NOM') + ')');
+  const tb = new Function('_RISK_NOM', 'return (' + fn(SRV, '_pushTexteBascule') + ');')(_RISK_NOM)('NEUTRAL', { label: 'RISK-OFF', assets: [{ label: 'VIX', chg: 12.4 }, { label: 'S&P 500', chg: -2.1 }, { label: 'Or', chg: 0.4 }, { label: 'AUD', chg: -0.2 }] });
+  v('la bascule s’intitule en français', tb.title === 'Sentiment de marché · bascule en risk-off', tb.title);
+  v('… et nomme ses trois premiers moteurs', tb.body === 'Le marché passe de neutre à risk-off. Moteurs : VIX +12,4%, S&P 500 -2,1%, Or +0,4%.', tb.body);
+}
 
 console.log('\n── 5. Le desk et la coquille se parlent vraiment ──');
 v('le desk détecte la coquille', /window\.ReactNativeWebView/.test(APP));

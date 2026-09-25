@@ -1378,6 +1378,8 @@ function _npCleanCfg(b) {
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
   { id: 'dtpu-20260925-notifs-appareil', ts: Date.UTC(2026, 8, 25, 4, 55), title: 'Alertes sur votre téléphone et votre ordinateur, même écran verrouillé', desc: 'L’interrupteur « Notifs navigateur » du panneau Alertes ne montrait des bannières que tant que l’onglet du desk restait ouvert. Il abonne désormais votre appareil pour de bon : les alertes arrivent comme celles d’une application, navigateur fermé et écran verrouillé compris, sur ordinateur, sur Android, et sur iPhone quand DTP est ajouté à l’écran d’accueil (Partager, puis « Sur l’écran d’accueil »). Un bouton « Tester » vous envoie une notification pour vérifier en quelques secondes. Chaque alerte dit sa nature en un mot (URGENT, Donnée macro, Calendrier, Institutions…) suivie de la dépêche, en français dès que sa traduction est prête.' },
+  { id: 'dtpu-20260925-notifs-au-choix', ts: Date.UTC(2026, 8, 25, 5, 56), title: 'Notifications : vous choisissez ce qui sonne, et seul l’important part', desc: 'Dans le panneau Alertes du desk et dans l’écran Compte de l’application, vous choisissez désormais ce qui peut sonner sur votre téléphone : actualités majeures, chiffres économiques importants, bascule risk-on / risk-off, rapports de banques, rapports d’analystes. Le son et le vibreur se règlent à part. Pour ne jamais être submergé, une même nouvelle reprise par plusieurs sources ne sonne qu’une fois, et plusieurs rapports publiés à la suite arrivent en une seule notification qui les nomme ; une dépêche urgente passe toujours. Les titres disent enfin clairement de quoi il s’agit, par exemple « Chiffre économique · CPI USD » avec le réel, la prévision et la lecture face au consensus, ou « Sentiment de marché · bascule en risk-off » avec les marchés qui l’ont provoquée.' },
+  { id: 'dtpu-20260925-analystes-mobile', ts: Date.UTC(2026, 8, 25, 5, 55), title: 'Application : l’onglet Analystes comme sur le desk', desc: 'Dans l’application, l’onglet Analystes reprend la présentation du desk : même ordre des rapports, type de fichier affiché sous chaque titre (Récap FX quotidien, Récap de session, Récap hebdomadaire, Briefing quotidien) et des filtres par type en haut de la liste. Un rapport publié pendant que vous êtes sur l’onglet apparaît tout seul, sans avoir à le quitter.' },
   { id: 'dtpu-20260925-fil-mobile-comme-desk', ts: Date.UTC(2026, 8, 25, 5, 17), title: 'App mobile : le fil parle comme le desk', desc: 'Dans l’application, les étiquettes des actualités arrivaient brutes et en anglais, par exemple « GEOPOLITICAL » ou « OIL ». Elles sont désormais exactement celles du desk : « Géopolitique », « Pétrole », le marché exposé comme XAUUSD, l’indicateur avec son drapeau. Une actualité se déplie aussi comme sur le desk, avec ses boutons Info, Analyse et Impact marché et le même texte. Sur le desk, les étiquettes « Oil », « Gold », « Metals » et « Risk » s’affichent aussi en français.' },
   { id: 'dtpu-20260925-rapports-banques-mobile', ts: Date.UTC(2026, 8, 25, 5, 5), title: 'Rapports des banques : ouverture fiable sur téléphone', desc: 'Sur un réseau mobile lent, un rapport PDF ouvert juste après l’arrivée sur le desk pouvait afficher « affichage indisponible » : l’outil qui dessine les pages n’avait pas encore fini de charger. Il est désormais chargé à la demande avant de conclure, et le rapport s’affiche page après page.' },
   { id: 'dtpu-20260924-notifs-categories', ts: Date.UTC(2026, 8, 24, 22, 20), title: 'Notifications sur téléphone : récaps, institutions et calendrier', desc: 'Jusqu’ici, votre téléphone ne recevait une notification que pour les actualités majeures. Il est désormais prévenu aussi quand un récap de séance arrive dans l’onglet Analystes, quand une banque publie une nouvelle note dans Institutions, quand un récap DTP sort, et dès qu’un chiffre à fort impact du calendrier économique tombe, avec le réel et la prévision. Les catégories que vous avez coupées dans le filtre des Alertes restent coupées, et le nombre de notifications par heure reste plafonné pour ne jamais vous submerger.' },
@@ -2243,20 +2245,30 @@ app.post('/api/webpush/test', async (req, res) => {
   if (Date.now() - avant < 15000) return res.status(429).json({ ok: false, error: 'Patientez quelques secondes avant un nouveau test.' });
   _wpTestDernier.set(String(uid), Date.now());
   try {
-    const r = await _wpEnvoyerA(uid, { title: 'Notification test', body: 'Vos alertes DataTradingPro arrivent bien sur cet appareil, même écran verrouillé.', url: '/', tag: 'dtp-test' });
+    let cfg = null; try { cfg = await auth.aiCacheGet('notifcfg:' + uid); } catch {}
+    const m = _pushMessage({ cat: 'test', id: 'test', title: 'Notification test', body: 'Vos alertes DataTradingPro arrivent bien sur cet appareil, même écran verrouillé.', url: '/' }, await _pushPrefs(uid, cfg));
+    const r = await _wpEnvoyerA(uid, Object.assign(m.web, { tag: 'dtp-test' }));
     if (!r.length) return res.json({ ok: false, error: 'Aucun appareil abonné sur ce compte : activez d’abord les notifications sur le téléphone.' });
     res.json({ ok: r.some(x => x.ok), resultats: r.map(x => ({ service: x.service, plat: x.plat, ok: x.ok, statut: x.statut, erreur: x.erreur || null })) });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
-// Ce que le push peut porter : deux clés seulement, projetées sur la taxonomie du panneau Filtre.
+// Ce que le push peut porter pour une DÉPÊCHE : deux clés, projetées sur la taxonomie du panneau Filtre.
 const _pushClef = it => (/-?\d/.test(String((it && it.headline) || '')) ? 'eco' : 'news');
 /* Format « notification d'app » (25/09, capture de référence : « URGENT / Alerte pour NZDCHF ») : le
-   téléphone affiche déjà le nom de l'app ; le TITRE dit la nature de l'alerte en un mot, le corps
-   porte la dépêche, en français quand sa traduction est prête. */
+   téléphone affiche déjà le nom de l'app ; le TITRE dit la nature de l'alerte, le corps porte la
+   dépêche, en français quand sa traduction est prête.
+   Titres RÉDIGÉS (25/09, « rédige bien le nom des notifs ») : la nature, puis le thème quand il
+   renseigne vraiment (« URGENT · Géopolitique », « Actualité majeure · Énergie ») ; une catégorie
+   générique (« Global News ») n'ajoute rien, elle est tue. */
+const _PUSH_THEME = { Geopolitical: 'Géopolitique', 'Energy & Power': 'Énergie', Metals: 'Métaux', Crypto: 'Crypto', Equities: 'Actions',
+  Fed: 'Fed', ECB: 'BCE', BoE: 'BoE', BoJ: 'BoJ', SNB: 'BNS', BoC: 'BoC', RBA: 'RBA', RBNZ: 'RBNZ', Tariffs: 'Commerce', 'Fixed Income': 'Taux' };
 function _pushTexte(it) {
   const h = String((it && (it._titreFr || it.headline)) || '').replace(/\s+/g, ' ').trim();
-  const titre = it && it.urgent ? 'URGENT' : (_pushClef(it) === 'eco' ? 'Donnée macro' : 'Actualité majeure');
+  const eco = _pushClef(it) === 'eco';
+  const theme = (it && _PUSH_THEME[it.category]) || '';
+  const titre = it && it.urgent ? 'URGENT' + (theme ? ' · ' + theme : '')
+    : (eco ? 'Chiffre économique' : 'Actualité majeure' + (theme ? ' · ' + theme : ''));
   return { title: titre, body: h.length > 178 ? h.slice(0, 177) + '…' : h };
 }
 // Fenêtre glissante d'une heure, purgée à la lecture : pas de minuteur, pas de croissance.
@@ -2296,6 +2308,174 @@ async function _pushExpo(messages) {
   }
   return morts;
 }
+/* ═══ CE QUI RÉVEILLE UN TÉLÉPHONE : CINQ FAMILLES, CHOISIES PAR LE CLIENT (25/09) ══════════════════
+   Demande user : « choisir lesquelles recevoir, avec le son et le vibreur » et « ne pas être inondé :
+   uniquement l'important — news économiques importantes, bascule risk-on / risk-off forte, rapports de
+   banques, rapports d'analystes, news importantes du fil ». Ces cinq familles sont les SEULES qu'un
+   push peut porter ; le client coche celles qu'il veut (`pushprefs:<compte>`, clé à part : le panneau
+   Alertes réécrit `notifcfg` en entier à chaque réglage et effacerait un champ qu'il ne connaît pas).
+   Sans préférence enregistrée, on retombe sur les catégories coupées du panneau Filtre, comme avant.
+   ⚠️ QUATRE FILTRES CONTRE L'INONDATION, dans cet ordre :
+   1. le tri à la source : seul le tier-1 du fil, le chiffre FORT du calendrier, une bascule franche
+      du sentiment, une publication neuve ;
+   2. l'anti-doublon de SUJET : deux dépêches sur le même fait à quelques minutes (sources différentes,
+      titres voisins) ne réveillent le téléphone qu'une fois ;
+   3. une PAUSE par famille et par compte : pendant la pause, ce qui arrive est mis de côté puis envoyé
+      en UNE notification récapitulative (« 3 nouveaux rapports de banques ») — rien n'est perdu, rien
+      ne sonne trois fois ; une dépêche URGENTE passe toujours ;
+   4. le plafond horaire par compte (_pushSousPlafond), inchangé. */
+const PUSH_CATS = {
+  news:      { nom: 'Actualités majeures', desc: 'Les dépêches de premier plan du fil : géopolitique, banques centrales, chocs de marché.', un: 'actualité majeure', plusieurs: 'actualités majeures' },
+  eco:       { nom: 'Chiffres économiques importants', desc: 'Les publications à fort impact du calendrier (CPI, NFP, PIB, décisions de taux), avec le réel et la prévision.', un: 'chiffre économique', plusieurs: 'chiffres économiques' },
+  risque:    { nom: 'Bascule risk-on / risk-off', desc: 'Quand le sentiment de marché bascule franchement d’un camp à l’autre.', un: 'bascule du sentiment', plusieurs: 'bascules du sentiment' },
+  banques:   { nom: 'Rapports de banques', desc: 'Les nouvelles notes de recherche des grandes banques (onglet Banques).', un: 'rapport de banque', plusieurs: 'rapports de banques' },
+  analystes: { nom: 'Rapports d’analystes', desc: 'Les récaps de séance et les rapports du desk DTP (onglet Analystes).', un: 'rapport d’analyste', plusieurs: 'rapports d’analystes' },
+};
+const _PUSH_CATS_K = Object.keys(PUSH_CATS);
+const PUSH_PAUSE_MS = { news: 5 * 60e3, eco: 0, risque: 0, banques: 30 * 60e3, analystes: 20 * 60e3 };
+const _pushPrefsPropres = b => ({
+  cats: Array.isArray(b && b.cats) ? _PUSH_CATS_K.filter(k => b.cats.includes(k)) : _PUSH_CATS_K.slice(),
+  son: !(b && b.son === false),
+  vibreur: !(b && b.vibreur === false),
+});
+async function _pushPrefs(uid, cfg) {
+  let p = null;
+  try { p = await auth.aiCacheGet('pushprefs:' + uid, 366 * 86400000); } catch {}
+  if (p && Array.isArray(p.cats)) return _pushPrefsPropres(p);
+  // Repli : les catégories coupées au panneau Filtre (clés du panneau → familles du push).
+  const off = new Set(Array.isArray(cfg && cfg.catsOff) ? cfg.catsOff : []);
+  const coupe = { news: off.has('news'), eco: off.has('eco'), risque: false, banques: off.has('institution'), analystes: off.has('analyst') && off.has('dtp') };
+  return { cats: _PUSH_CATS_K.filter(k => !coupe[k]), son: true, vibreur: true };
+}
+app.get('/api/push-prefs', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  let cfg = null; try { cfg = await auth.aiCacheGet('notifcfg:' + req.session.userId); } catch {}
+  const prefs = await _pushPrefs(req.session.userId, cfg);
+  res.json({ ok: true, prefs, familles: _PUSH_CATS_K.map(k => ({ k, nom: PUSH_CATS[k].nom, desc: PUSH_CATS[k].desc })) });
+});
+app.post('/api/push-prefs', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try {
+    const prefs = _pushPrefsPropres(req.body || {});
+    await auth.aiCacheSet('pushprefs:' + req.session.userId, prefs);
+    res.json({ ok: true, prefs });
+  } catch { res.status(500).json({ ok: false }); }
+});
+
+// Anti-doublon de SUJET : mots porteurs (4 lettres et plus, sans accents), comparés sur 3 h.
+const _pushRecents = [];
+function _pushMots(s) {
+  return new Set(String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .split(/[^a-z0-9]+/).filter(m => m.length >= 4 && !/^(avec|dans|pour|sans|sous|leur|leurs|plus|apres|avant|selon|entre|that|with|from|this|will|have|says|said|after|over)$/.test(m)));
+}
+function _pushDoublon(e, maintenant) {
+  if (!e || (e.cat !== 'news' && e.cat !== 'eco') || e.urgent) return false;
+  while (_pushRecents.length && maintenant - _pushRecents[0].at > 3 * 3600e3) _pushRecents.shift();
+  const m = _pushMots(e.body);
+  if (m.size < 3) return false;
+  for (const r of _pushRecents) {
+    let communs = 0; for (const x of m) if (r.m.has(x)) communs++;
+    if (communs / (m.size + r.m.size - communs) >= 0.5) return true;
+  }
+  _pushRecents.push({ m, at: maintenant });
+  if (_pushRecents.length > 80) _pushRecents.shift();
+  return false;
+}
+// Plusieurs publications mises de côté pendant une pause → UNE notification qui les nomme.
+function _pushResume(cat, lot) {
+  if (lot.length === 1) return lot[0];
+  const c = PUSH_CATS[cat] || { plusieurs: 'alertes' };
+  const noms = [...new Set(lot.map(e => e.court || e.body).filter(Boolean))];
+  const corps = noms.slice(0, 4).join(' · ') + (noms.length > 4 ? ' · et ' + (noms.length - 4) + ' autre' + (noms.length - 4 > 1 ? 's' : '') : '');
+  const titre = lot.length + ' ' + c.plusieurs;
+  return { cat, id: 'lot:' + cat + ':' + lot.map(e => e.id).join(',').slice(0, 60), title: titre.charAt(0).toUpperCase() + titre.slice(1),
+    body: corps.length > 178 ? corps.slice(0, 177) + '…' : corps, url: lot[0].url || '/' };
+}
+// Son et vibreur : deux réglages du compte, portés par chaque message.
+// ⚠️ Sur le web, `silent` coupe AUSSI la vibration (et Chrome refuse les deux ensemble) : couper le
+// son l'emporte donc sur le vibreur. Sur iPhone, les deux suivent les réglages de l'iPhone.
+function _pushMessage(e, prefs) {
+  const son = !(prefs && prefs.son === false), vib = !(prefs && prefs.vibreur === false);
+  const web = { title: e.title, body: e.body, url: e.url || '/', tag: 'dtp-' + String(e.id).slice(0, 40), silent: !son };
+  if (son) web.vibrate = vib ? [180, 80, 180] : [];
+  return { web, expo: { title: e.title, body: e.body, sound: son ? 'default' : null, priority: 'high', channelId: 'alertes', data: { id: String(e.id), cat: e.cat } } };
+}
+const _pushDerniers = new Map();                 // compte|famille → dernier envoi
+const _pushAttente = new Map();                  // compte|famille → { prefs, lot } mis de côté pendant la pause
+async function _pushExpedier(envois, idxExpo, idxWeb) {
+  if (!envois.length) return 0;
+  const expo = [], parJeton = new Map();         // jeton → userId, pour retirer un appareil mort
+  for (const [uid, e, prefs] of envois) {
+    const m = _pushMessage(e, prefs);
+    if (idxWeb.has(String(uid))) { try { await _wpEnvoyerA(uid, m.web); } catch {} }
+    if (!idxExpo.has(String(uid))) continue;
+    const jetons = await _pushJetons(uid);
+    if (!jetons.length) { await _pushIndexRetirer(uid); continue; }
+    for (const j of jetons) { parJeton.set(j.t, uid); expo.push(Object.assign({ to: j.t }, m.expo)); }
+  }
+  if (expo.length) {
+    const morts = await _pushExpo(expo);
+    for (const jeton of morts) {
+      const uid = parJeton.get(jeton);
+      if (!uid) continue;
+      await _pushPoserJetons(uid, (await _pushJetons(uid)).filter(j => j.t !== jeton));
+      console.log('[Push] appareil désinstallé, jeton retiré du compte ' + uid);
+    }
+  }
+  console.log('[Push] ' + envois.length + ' notification(s) : ' + envois.map(x => x[1].cat).join(', '));
+  return envois.length;
+}
+async function _pushRouter(evts) {
+  const maintenant = Date.now();
+  evts = (evts || []).filter(e => e && PUSH_CATS[e.cat] && !_pushDoublon(e, maintenant));
+  if (!evts.length) return 0;
+  const idxExpo = await _pushIndex(), idxWeb = await _wpIndex();
+  const idx = new Set([...idxExpo, ...idxWeb]);   // l'INDEX des comptes équipés, jamais l'annuaire
+  const envois = [];
+  for (const uid of idx) {
+    let cfg = null;
+    try { cfg = await auth.aiCacheGet('notifcfg:' + uid); } catch {}
+    if (cfg && (cfg.enabled === false || cfg.push === false)) continue;
+    const prefs = await _pushPrefs(uid, cfg);
+    const directs = [];
+    for (const e of evts) {
+      if (!prefs.cats.includes(e.cat)) continue;
+      const k = uid + '|' + e.cat, pause = PUSH_PAUSE_MS[e.cat] || 0;
+      const enPause = pause > 0 && (maintenant - (_pushDerniers.get(k) || 0) < pause || directs.some(d => d.cat === e.cat));
+      if (enPause && !e.urgent) {
+        const f = _pushAttente.get(k) || { prefs, lot: [] };
+        f.prefs = prefs; if (f.lot.length < 20) f.lot.push(e);
+        _pushAttente.set(k, f);
+        continue;
+      }
+      directs.push(e);
+    }
+    if (!directs.length) continue;
+    const place = _pushSousPlafond(uid, directs.length);
+    for (const e of directs.slice(0, place)) { _pushDerniers.set(uid + '|' + e.cat, maintenant); envois.push([uid, e, prefs]); }
+  }
+  return _pushExpedier(envois, idxExpo, idxWeb);
+}
+// Fin de pause : ce qui a été mis de côté part en une notification récapitulative.
+async function _pushVider() {
+  if (!_pushAttente.size) return 0;
+  const maintenant = Date.now(), envois = [];
+  for (const [k, f] of [..._pushAttente]) {
+    const i = k.lastIndexOf('|'), uid = k.slice(0, i), cat = k.slice(i + 1);
+    if (maintenant - (_pushDerniers.get(k) || 0) < (PUSH_PAUSE_MS[cat] || 0)) continue;
+    _pushAttente.delete(k);
+    if (!f.lot.length || !_pushSousPlafond(uid, 1)) continue;
+    _pushDerniers.set(k, maintenant);
+    envois.push([uid, _pushResume(cat, f.lot), f.prefs]);
+  }
+  if (!envois.length) return 0;
+  return _pushExpedier(envois, await _pushIndex(), await _wpIndex());
+}
+// Un chiffre FORT du calendrier vient de tomber : il part par le guetteur, mieux présenté (réel,
+// prévision, précédent). La dépêche chiffrée qui l'annonce au même moment serait un doublon.
+const _pushCalFrais = () => (Array.isArray(allCalendar) ? allCalendar : []).some(e => e && /^high$/i.test(String(e.impact || ''))
+  && e.actual != null && String(e.actual).trim() !== '' && Math.abs(Date.now() - (+e.timestamp || 0)) < 15 * 60e3);
+const _pushEcoDepeches = [];                     // dépêches chiffrées poussées : le calendrier ne les répète pas
 async function _pushEnvoyer(items) {
   if (_pushBusy) return;
   const neufs = (items || []).filter(it => it && it._highImpact === true && !_pushDejaVus.has(it.id));
@@ -2304,45 +2484,15 @@ async function _pushEnvoyer(items) {
   if (_pushDejaVus.size > 4000) { for (const id of _pushDejaVus) { _pushDejaVus.delete(id); if (_pushDejaVus.size <= 3000) break; } }
   _pushBusy = true;
   try {
-    const idxExpo = await _pushIndex();
-    const idxWeb = await _wpIndex();
-    const idx = new Set([...idxExpo, ...idxWeb]);
-    if (!idx.size) return;
-    const messages = [];
-    const web = [];                                                // [uid, message] Web Push
-    const parJeton = new Map();                                    // jeton → userId, pour retirer un appareil mort
-    for (const uid of idx) {
-      let cfg = null;
-      try { cfg = await auth.aiCacheGet('notifcfg:' + uid); } catch {}
-      if (cfg && (cfg.enabled === false || cfg.push === false)) continue;
-      const coupees = new Set(Array.isArray(cfg && cfg.catsOff) ? cfg.catsOff : []);
-      const pourLui = neufs.filter(it => !coupees.has(_pushClef(it)));
-      if (!pourLui.length) continue;
-      const place = _pushSousPlafond(uid, pourLui.length);
-      if (!place) continue;
-      if (idxWeb.has(String(uid))) for (const it of pourLui.slice(0, place)) { const tx = _pushTexte(it); web.push([uid, { title: tx.title, body: tx.body, url: '/', tag: 'dtp-' + String(it.id).slice(0, 40) }]); }
-      if (!idxExpo.has(String(uid))) continue;
-      const jetons = await _pushJetons(uid);
-      if (!jetons.length) { await _pushIndexRetirer(uid); continue; }
-      for (const it of pourLui.slice(0, place)) {
-        const { title, body } = _pushTexte(it);
-        for (const j of jetons) {
-          parJeton.set(j.t, uid);
-          messages.push({ to: j.t, title, body, sound: 'default', priority: 'high', channelId: 'alertes', data: { id: String(it.id) } });
-        }
-      }
+    const evts = [];
+    for (const it of neufs) {
+      const cat = _pushClef(it);
+      if (cat === 'eco' && _pushCalFrais()) continue;
+      const tx = _pushTexte(it);
+      if (cat === 'eco') { _pushEcoDepeches.push({ at: Date.now(), body: tx.body }); if (_pushEcoDepeches.length > 20) _pushEcoDepeches.shift(); }
+      evts.push({ cat, id: String(it.id), title: tx.title, body: tx.body, url: '/', urgent: !!it.urgent });
     }
-    for (const [uid, m] of web) { try { await _wpEnvoyerA(uid, m); } catch {} }
-    if (web.length) console.log('[WebPush] ' + web.length + ' notification(s) envoyée(s)');
-    if (!messages.length) return;
-    const morts = await _pushExpo(messages);
-    for (const jeton of morts) {
-      const uid = parJeton.get(jeton);
-      if (!uid) continue;
-      await _pushPoserJetons(uid, (await _pushJetons(uid)).filter(j => j.t !== jeton));
-      console.log('[Push] appareil désinstallé, jeton retiré du compte ' + uid);
-    }
-    console.log('[Push] ' + messages.length + ' notification(s) envoyée(s) pour ' + neufs.length + ' publication(s) tier-1');
+    await _pushRouter(evts);
   } catch (e) { console.error('[Push]', e.message); }
   finally { _pushBusy = false; }
 }
@@ -2360,29 +2510,7 @@ async function _pushDiffuser(evts) {
   const neufs = (evts || []).filter(e => e && e.id && !_pushDejaVus.has(e.id));
   if (!neufs.length) return;
   neufs.forEach(e => _pushDejaVus.add(e.id));
-  try {
-    const idxExpo = await _pushIndex(), idxWeb = await _wpIndex();
-    const idx = new Set([...idxExpo, ...idxWeb]);
-    const expo = [];
-    for (const uid of idx) {
-      let cfg = null;
-      try { cfg = await auth.aiCacheGet('notifcfg:' + uid); } catch {}
-      if (cfg && (cfg.enabled === false || cfg.push === false)) continue;
-      const coupees = new Set(Array.isArray(cfg && cfg.catsOff) ? cfg.catsOff : []);
-      const pourLui = neufs.filter(e => !coupees.has(e.cle));
-      if (!pourLui.length) continue;
-      const place = _pushSousPlafond(uid, pourLui.length);
-      if (!place) continue;
-      const lot = pourLui.slice(0, place);
-      if (idxWeb.has(String(uid))) for (const e of lot) { try { await _wpEnvoyerA(uid, { title: e.title, body: e.body, url: e.url || '/', tag: 'dtp-' + String(e.id).slice(0, 40) }); } catch {} }
-      if (idxExpo.has(String(uid))) {
-        const jetons = await _pushJetons(uid);
-        for (const e of lot) for (const j of jetons) expo.push({ to: j.t, title: e.title, body: e.body, sound: 'default', priority: 'high', channelId: 'alertes', data: { id: String(e.id) } });
-      }
-    }
-    if (expo.length) await _pushExpo(expo);
-    console.log('[Push] ' + neufs.length + ' publication(s) par catégorie : ' + neufs.map(e => e.cle).join(', '));
-  } catch (e) { console.error('[Push]', e.message); }
+  try { await _pushRouter(neufs); } catch (e) { console.error('[Push]', e.message); }
 }
 const _pushVus = {};
 // Ce qui est nouveau depuis le passage précédent ; rien au premier passage (il apprend l'existant).
@@ -2395,23 +2523,76 @@ function _pushNouveaux(cle, liste, idDe) {
   return liste.filter(x => { const i = idDe(x); return i && !prec.has(i); });
 }
 const _pushCourt = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
-const _PUSH_RAPPORTS_FR = { 'Weekly Market Recap': 'Récap hebdo', 'FX Daily Recap': 'Récap FX', 'DTP Daily': 'Récap quotidien', 'Global Economic Weekly': 'Économie mondiale', 'FX Daily': 'FX Daily' };
+const _PUSH_RAPPORTS_FR = { 'Weekly Market Recap': 'Récap hebdo des marchés', 'FX Daily Recap': 'Récap FX quotidien', 'DTP Daily': 'Point marché', 'Global Economic Weekly': 'Récap éco de la semaine', 'FX Daily': 'FX Daily' };
+// Un nombre lisible dans un chiffre publié (« 3.1% », « 250K », « -0.2 ») ; null sinon.
+const _pushNombre = v => { const m = String(v == null ? '' : v).replace(',', '.').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; };
+function _pushChiffre(e) {
+  let sigle = '';
+  try { sigle = typeof _WA !== 'undefined' && _WA.sigleEv ? _WA.sigleEv(e) : ''; } catch {}
+  sigle = sigle || ((e.currency ? e.currency + ' ' : '') + _pushCourt(e.title, 50));
+  const fmt = v => String(v).replace(/(\d)\.(\d)/g, '$1,$2');
+  const r = _pushNombre(e.actual), p = _pushNombre(e.forecast);
+  const lecture = r != null && p != null && r !== p ? (r > p ? ' Au-dessus du consensus.' : ' En dessous du consensus.') : (r != null && p != null ? ' Conforme au consensus.' : '');
+  return { title: 'Chiffre économique · ' + sigle, court: sigle,
+    body: 'Publié ' + fmt(e.actual) + (e.forecast ? ' · attendu ' + fmt(e.forecast) : '') + (e.previous ? ' · précédent ' + fmt(e.previous) : '') + '.' + lecture };
+}
 function _pushGuetter() {
   const ev = [], frais = x => Date.now() - (+(x && x.timestamp) || 0) < 12 * 3600e3;
   _pushNouveaux('sw', Array.isArray(_swCache) ? _swCache : [], x => x && (x.id || x.url || x.link)).filter(frais).slice(0, 2)
-    .forEach(w => ev.push({ cle: 'analyst', id: 'sw:' + (w.id || w.url || w.link), title: 'Analystes · récap de séance', body: _pushCourt(w.aiTitle || w.title || w.headline, 170) }));
+    .forEach(w => ev.push({ cat: 'analystes', id: 'sw:' + (w.id || w.url || w.link), title: 'Rapport d’analyste · Récap de séance', court: _pushCourt(w.aiTitle || w.title || w.headline, 60), body: _pushCourt(w.aiTitle || w.title || w.headline, 170) }));
   _pushNouveaux('dtp', (Array.isArray(allNews) ? allNews : []).filter(i => i && i._briefing && i._reportType), x => x.id).filter(frais).slice(0, 2)
-    .forEach(r => ev.push({ cle: 'dtp', id: 'rap:' + r.id, title: 'DataTradingPro · ' + (_PUSH_RAPPORTS_FR[r._reportType] || r._reportType), body: _pushCourt(r._titreFr || r.headline, 170) }));
+    .forEach(r => { const nom = _PUSH_RAPPORTS_FR[r._reportType] || r._reportType; ev.push({ cat: 'analystes', id: 'rap:' + r.id, title: 'Rapport d’analyste · ' + nom, court: nom, body: _pushCourt(r._titreFr || r.headline, 170) }); });
   _pushNouveaux('br', Array.isArray(_brCache) ? _brCache : [], x => x && (x.id || x.url)).filter(frais).slice(0, 3)
-    .forEach(b => ev.push({ cle: 'institution', id: 'br:' + (b.id || b.url), title: 'Institutions · ' + _pushCourt(b.institution || b.source || 'nouveau rapport', 40), body: _pushCourt(b.title || b.headline, 170) }));
-  // Calendrier : un événement à FORT impact dont le chiffre vient de tomber (moins de 3 h).
+    .forEach(b => { const inst = _pushCourt(b.institution || b.source || 'Recherche bancaire', 40); ev.push({ cat: 'banques', id: 'br:' + (b.id || b.url), title: 'Rapport de banque · ' + inst, court: inst, body: _pushCourt(b.title || b.headline, 170) }); });
+  // Calendrier : un événement à FORT impact dont le chiffre vient de tomber (moins de 3 h). S'il a déjà
+  // été annoncé par une dépêche chiffrée il y a moins de 8 min (même sigle), on ne le répète pas.
   const pub = (Array.isArray(allCalendar) ? allCalendar : []).filter(e => e && /^high$/i.test(String(e.impact || '')) && e.actual != null && String(e.actual).trim() !== '' && Date.now() - (+e.timestamp || 0) < 3 * 3600e3);
+  const dejaDit = c => { const mots = String(c.court || '').split(/\s+/).filter(m => m.length >= 3 && !/^[A-Z]{3}$/.test(m)); const dep = (typeof _pushEcoDepeches !== 'undefined' ? _pushEcoDepeches : []).filter(d => Date.now() - d.at < 8 * 60e3); return mots.length > 0 && dep.some(d => mots.every(m => d.body.toUpperCase().includes(m.toUpperCase()))); };
   _pushNouveaux('cal', pub, e => _calKeyDated(e.currency, e.title, e.timestamp)).slice(0, 3)
-    .forEach(e => ev.push({ cle: 'eco', id: 'cal:' + _calKeyDated(e.currency, e.title, e.timestamp), title: 'Calendrier · ' + (e.currency || '') + ' ' + _pushCourt(e.title, 60),
-      body: 'Publié : ' + e.actual + (e.forecast ? ' · prévision ' + e.forecast : '') + (e.previous ? ' · précédent ' + e.previous : '') }));
+    .forEach(e => { const c = _pushChiffre(e); if (!dejaDit(c)) ev.push(Object.assign({ cat: 'eco', id: 'cal:' + _calKeyDated(e.currency, e.title, e.timestamp) }, c)); });
   return ev;
 }
 setInterval(() => { try { const ev = _pushGuetter(); if (ev.length) _pushDiffuser(ev).catch(() => {}); } catch {} }, 90 * 1000);
+setInterval(() => { _pushVider().catch(() => {}); }, 60 * 1000);
+
+/* ── BASCULE DU SENTIMENT DE MARCHÉ (25/09, « bascule risk-on / risk-off fortement ») ──────────────
+   La jauge du desk (fetchRiskSentiment) est déjà lissée (EMA) et à hystérésis de bande : elle ne
+   bascule que sur un vrai franchissement. On ne notifie que le passage FRANC d'un camp à l'autre —
+   d'un état neutre ou opposé vers un risk-on ou un risk-off affirmé (bande 2 ou 3), jamais un
+   glissement dans le même camp ni une bande « légère ». Au plus une alerte toutes les 4 h, jamais le
+   week-end (marchés fermés : la jauge ne mesure alors que le bruit de la clôture du vendredi). */
+const _RISK_NIV = { 'STRONG RISK-ON': 3, 'RISK-ON': 2, 'WEAK RISK-ON': 1, 'NEUTRAL': 0, 'WEAK RISK-OFF': -1, 'RISK-OFF': -2, 'STRONG RISK-OFF': -3 };
+const _RISK_NOM = { 'STRONG RISK-ON': 'risk-on marqué', 'RISK-ON': 'risk-on', 'WEAK RISK-ON': 'risk-on léger', 'NEUTRAL': 'neutre', 'WEAK RISK-OFF': 'risk-off léger', 'RISK-OFF': 'risk-off', 'STRONG RISK-OFF': 'risk-off marqué' };
+function _pushBascule(prec, cour, maintenant, dernier) {
+  const a = _RISK_NIV[prec], b = _RISK_NIV[cour];
+  if (a == null || b == null) return false;
+  const franche = (b >= 2 && a <= 0) || (b <= -2 && a >= 0);
+  return franche && maintenant - (dernier || 0) >= 4 * 3600e3;
+}
+function _pushTexteBascule(prec, d) {
+  const moteurs = (Array.isArray(d.assets) ? d.assets : []).filter(x => x && typeof x.chg === 'number')
+    .sort((x, y) => Math.abs(y.chg) - Math.abs(x.chg)).slice(0, 3)
+    .map(x => x.label + ' ' + (x.chg > 0 ? '+' : '') + String(x.chg).replace('.', ',') + '%');
+  const nom = _RISK_NOM[d.label] || d.label;
+  return { title: 'Sentiment de marché · bascule en ' + nom,
+    body: 'Le marché passe de ' + (_RISK_NOM[prec] || prec) + ' à ' + nom + '.' + (moteurs.length ? ' Moteurs : ' + moteurs.join(', ') + '.' : '') };
+}
+let _pushRisqueEtat = null, _pushRisqueDernier = 0;
+async function _pushRisqueTic() {
+  const j = new Date().getUTCDay(), h = new Date().getUTCHours();
+  if (j === 6 || (j === 0 && h < 22) || (j === 5 && h >= 21)) { _pushRisqueEtat = null; return; }
+  const idx = new Set([...(await _pushIndex()), ...(await _wpIndex())]);
+  if (!idx.size) return;
+  const d = await fetchRiskSentiment();
+  if (!d || !d.label) return;
+  const prec = _pushRisqueEtat;
+  _pushRisqueEtat = d.label;
+  if (!prec || !_pushBascule(prec, d.label, Date.now(), _pushRisqueDernier)) return;
+  _pushRisqueDernier = Date.now();
+  const tx = _pushTexteBascule(prec, d);
+  await _pushRouter([{ cat: 'risque', id: 'risk:' + d.label + ':' + Date.now(), title: tx.title, body: tx.body, url: '/' }]);
+}
+setInterval(() => { _pushRisqueTic().catch(() => {}); }, 10 * 60 * 1000);
 
 // ── Badge « NEW » du journal de trading — annonce vue UNE SEULE FOIS par compte (KV durable, modèle
 //    symrecent → suit la reconnexion / le changement d'appareil ; dual-write KV = survit au blackout egress).

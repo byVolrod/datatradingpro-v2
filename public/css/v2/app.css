@@ -688,3 +688,16 @@ html.dtp-app .v2a-admin-cadre { flex: 1 1 auto; width: 100%; border: 0; backgrou
 /* ── Liste des banques qui ne répond pas : reprise ── */
 html.dtp-app .v2a-reessai { margin-top: 14px; padding: 10px 18px; border: 1px solid rgba(227,178,58,.55); border-radius: 10px; background: transparent; color: #e3b23a; font: 600 14px/1 'Inter Tight', system-ui, sans-serif; }
 html.dtp-app .v2a-banque.v2a-lu { opacity: .62; }
+
+/* Analystes : puces de type de fichier (mêmes libellés que le filtre du desk), défilables. */
+html.dtp-app .v2a-puces.v2a-puces-an { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html.dtp-app .v2a-puces.v2a-puces-an::-webkit-scrollbar { display: none; }
+html.dtp-app .v2a-puces.v2a-puces-an button { flex: 0 0 auto; white-space: nowrap; }
+
+/* Compte · ce qui peut sonner : nom de la famille + une ligne d'explication, bascule à droite. */
+html.dtp-app .v2a-ligne.v2a-choix { align-items: center; }
+html.dtp-app .v2a-choix-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+html.dtp-app .v2a-choix-t b { font: 500 15px/1.3 'Inter Tight', system-ui, sans-serif; color: #ececf0; }
+html.dtp-app .v2a-choix-t small { font: 12.5px/1.4 'Inter Tight', system-ui, sans-serif; color: #7c7c86; }
+html.dtp-app .v2a-ligne.v2a-choix:disabled { cursor: default; }
+html.dtp-app .v2a-bascule.v2a-bascule-off { opacity: .4; }

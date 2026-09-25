@@ -108,14 +108,18 @@ console.log('\n── Guetteur des publications par catégorie (tranche réelle 
                      { currency: 'EUR', title: 'Low thing', impact: 'Low', actual: '1', timestamp: n - 60000 },
                      { currency: 'GBP', title: 'GDP', impact: 'High', actual: '', timestamp: n + 3600e3 }];
   const ev = G.passe();
-  const cles = ev.map(e => e.cle).sort().join(',');
-  t('second passage : un récap analyste, un rapport DTP, une note d’institution, un chiffre du calendrier', cles === 'analyst,dtp,eco,institution', cles);
+  const cles = ev.map(e => e.cat).sort().join(',');
+  t('second passage : un récap analyste, un rapport DTP, une note de banque, un chiffre du calendrier', cles === 'analystes,analystes,banques,eco', cles);
   t('… l’archive de 40 h n’est pas notifiée (seul le frais part)', !ev.some(e => /Archive/.test(e.body)));
-  t('… impact faible et chiffre pas encore publié : écartés', ev.filter(e => e.cle === 'eco').length === 1);
-  const cal = ev.find(e => e.cle === 'eco') || {};
-  t('… le chiffre du calendrier porte réel et prévision', /Publié : 0\.4% · prévision 0\.3%/.test(cal.body || ''), cal.body);
-  const dtp = ev.find(e => e.cle === 'dtp') || {};
-  t('… le rapport DTP est nommé en français', /Récap quotidien/.test(dtp.title || ''), dtp.title);
+  t('… impact faible et chiffre pas encore publié : écartés', ev.filter(e => e.cat === 'eco').length === 1);
+  const cal = ev.find(e => e.cat === 'eco') || {};
+  t('… le chiffre du calendrier porte réel et prévision, à la française', /^Publié 0,4% · attendu 0,3%\./.test(cal.body || ''), cal.body);
+  t('… et dit s’il bat le consensus', /Au-dessus du consensus\./.test(cal.body || ''), cal.body);
+  t('… sous un titre rédigé', /^Chiffre économique · /.test(cal.title || ''), cal.title);
+  const dtp = ev.find(e => e.id === 'rap:r1') || {};
+  t('… le rapport DTP est nommé en français', dtp.title === 'Rapport d’analyste · Point marché', dtp.title);
+  const br = ev.find(e => e.cat === 'banques') || {};
+  t('… la note de banque nomme la banque', br.title === 'Rapport de banque · Goldman Sachs', br.title);
   t('troisième passage sans rien de neuf : rien ne repart', G.passe().length === 0);
 }
 

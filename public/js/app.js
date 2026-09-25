@@ -12768,6 +12768,7 @@ function _wpLigne(txt, erreur) {
   t.textContent = txt || (aideIOS
     ? 'Sur iPhone : touchez Partager puis « Sur l’écran d’accueil », et ouvrez DTP depuis son icône pour recevoir les alertes, écran verrouillé compris.'
     : 'Alertes sur cet appareil, même navigateur fermé et écran verrouillé.');
+  try { _ppRendre(); } catch (e) {}
 }
 async function npTesterPush() {
   _wpLigne('Envoi de la notification test…');
@@ -12781,6 +12782,44 @@ async function npTesterPush() {
     const bons = (d.resultats || []).filter(x => x.ok).length;
     _wpLigne('Envoyée à ' + bons + ' appareil' + (bons > 1 ? 's' : '') + '. Verrouillez l’écran : elle arrive en quelques secondes.');
   } catch (e) { _wpLigne('La notification n’a pas pu partir.', true); }
+}
+/* ══ CHOISIR SES NOTIFICATIONS (25/09, « choisir lesquelles recevoir, avec le son et le vibreur ») ══
+   Cinq familles, et seulement celles-là : actualités majeures, chiffres économiques importants,
+   bascule risk-on / risk-off, rapports de banques, rapports d'analystes. Le choix vit sur le compte
+   (/api/push-prefs), donc il vaut pour tous les appareils : desk, téléphone, app. Le serveur décide
+   de ce qui part (tri, pauses, regroupement) : ici, on ne fait que cocher. */
+let _pp = null, _ppFamilles = [], _ppCharge = null;
+function _ppCharger() {
+  if (_ppCharge) return _ppCharge;
+  _ppCharge = fetch('/api/push-prefs', { credentials: 'same-origin' }).then(r => (r.ok ? r.json() : null))
+    .then(d => { if (d && d.ok) { _pp = d.prefs; _ppFamilles = d.familles || []; } else _ppCharge = null; return _pp; })
+    .catch(() => { _ppCharge = null; return null; });
+  return _ppCharge;
+}
+function _ppRendre() {
+  const box = document.getElementById('np-pp');
+  if (!box) return;
+  let dispo = false; try { dispo = _npPush && (_wpDispo() || _npCoquille()); } catch (e) {}
+  box.hidden = !dispo;
+  if (!dispo) return;
+  if (!_pp) { _ppCharger().then(p => { if (p) _ppRendre(); }); return; }
+  const esc = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const liste = document.getElementById('np-pp-liste');
+  if (liste) liste.innerHTML = _ppFamilles.map(f => '<button type="button" class="np-pp-f' + (_pp.cats.includes(f.k) ? ' on' : '') + '" data-k="' + esc(f.k) + '" aria-pressed="' + _pp.cats.includes(f.k) + '" title="' + esc(f.desc) + '">' + esc(f.nom) + '</button>').join('');
+  const son = document.getElementById('np-pp-son'), vib = document.getElementById('np-pp-vib');
+  if (son) { son.classList.toggle('on', _pp.son); son.setAttribute('aria-pressed', String(_pp.son)); }
+  if (vib) { vib.classList.toggle('on', _pp.vibreur && _pp.son); vib.disabled = !_pp.son; vib.title = _pp.son ? '' : 'Sans le son, le téléphone ne vibre pas non plus.'; }
+}
+function npPpClic(ev) {
+  const b = ev.target.closest('[data-k],[data-o]');
+  if (!b || !_pp || b.disabled) return;
+  if (b.dataset.k) {
+    const k = b.dataset.k, i = _pp.cats.indexOf(k);
+    if (i >= 0) _pp.cats.splice(i, 1); else _pp.cats.push(k);
+  } else if (b.dataset.o === 'son') _pp.son = !_pp.son;
+  else if (b.dataset.o === 'vibreur') _pp.vibreur = !_pp.vibreur;
+  _ppRendre();
+  fetch('/api/push-prefs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(_pp) }).catch(() => {});
 }
 // Au chargement : un navigateur déjà autorisé se réabonne en silence (clé changée, abonnement perdu).
 if (typeof window !== 'undefined') {

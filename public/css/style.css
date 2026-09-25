@@ -10380,6 +10380,16 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .np-wp-test { flex: 0 0 auto; padding: 5px 12px; border: 1px solid rgba(227,178,58,.55); border-radius: 5px; background: transparent; color: #e3b23a; font-size: 11.5px; font-weight: 600; cursor: pointer; }
 .np-wp-test:hover { background: rgba(227,178,58,.1); }
 .np-wp-test[hidden] { display: none; }
+.np-pp { padding: 8px 14px 10px; border-bottom: 1px solid var(--border); }
+.np-pp[hidden] { display: none; }
+.np-pp-titre { font-size: 11px; font-weight: 600; color: #c2c6cd; margin-bottom: 7px; }
+.np-pp-liste, .np-pp-opts { display: flex; flex-wrap: wrap; gap: 5px; }
+.np-pp-opts { margin-top: 7px; align-items: center; }
+.np-pp-f, .np-pp-o { padding: 4px 9px; border: 1px solid var(--border2); border-radius: 4px; background: transparent; color: #8b8b95; font-size: 11px; font-weight: 500; cursor: pointer; }
+.np-pp-f:hover, .np-pp-o:hover { color: #e6e6ea; }
+.np-pp-f.on, .np-pp-o.on { border-color: rgba(227,178,58,.55); background: rgba(227,178,58,.1); color: #e3b23a; }
+.np-pp-o:disabled { opacity: .45; cursor: default; }
+.np-pp-note { flex: 1 1 100%; font-size: 10.5px; line-height: 1.4; color: #6f6f78; margin-top: 2px; }
 .sqwk-live-note.hidden { display: none; }
 /* ── REFONTE DU SQUAWK (24/09, capture de référence) : bandeau vert « flux connecté », bouton rouge
    quand la voix est en direct, dernière annonce mise en avant, bascule ON / OFF lisible. ── */

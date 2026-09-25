@@ -37,7 +37,7 @@
        téléphone du client, indéfiniment.
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'dtp-sw-20260925bbg1242';
+const VERSION = 'dtp-sw-20260925bbg1243';
 const CACHE_COQUILLE = VERSION + '-coquille';
 
 /* La coquille minimale : de quoi afficher QUELQUE CHOSE de DTP sans réseau. Volontairement courte —
@@ -181,6 +181,10 @@ self.addEventListener('push', (e) => {
   const titre = d.title || 'DataTradingPro';
   const opts = { body: d.body || '', icon: '/icon-192.png', badge: '/icon-192.png', data: { url: d.url || '/' } };
   if (d.tag) { opts.tag = d.tag; opts.renotify = true; }
+  // Son et vibreur choisis par le client (25/09). Chrome refuse `silent` ET `vibrate` ensemble :
+  // le serveur n'envoie la vibration que quand le son est permis.
+  if (d.silent === true) opts.silent = true;
+  else if (Array.isArray(d.vibrate)) opts.vibrate = d.vibrate;
   e.waitUntil(self.registration.showNotification(titre, opts));
 });
 
