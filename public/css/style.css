@@ -11882,23 +11882,30 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 @keyframes navUnderlineIn{from{transform:scaleX(0);opacity:.35;}to{transform:scaleX(1);opacity:1;}}
 @media (prefers-reduced-motion: reduce){.nav-item--active:not(.nav-item--symbol)::after,.nav-item.active:not(.nav-item--symbol)::after{animation:none;}}
 
+/* ⚠️ TROIS BLOCS « MODE CLAIR » REBRANCHÉS (25/09, « le thème clair pas très bien développé »). Ils
+   visaient `body.theme-light`, une classe que plus AUCUN code ne pose depuis l'audit thème du 18/08
+   (la vérité est html[data-theme], posé par le script du <head> et dtpSetTheme). Écrits pour le design
+   actuel, ils étaient morts : en thème clair, le fil d'actualité restait noir, le panneau droit et les
+   réglages aussi. Ils visent désormais html[data-theme="light"]. Les autres règles `body.theme-light`
+   (plus anciennes, antérieures à la refonte) restent inertes à dessein : leurs jetons de couleur
+   contrediraient ceux du thème clair actuel. */
 /* === Mode clair FULL WHITE — panneau droit (horloge, onglets, conteneurs graphiques) === */
-body.theme-light .right-tab-panel,
-body.theme-light .clocks-bar,
-body.theme-light .amchart-container,
-body.theme-light .strength-charts-row,
-body.theme-light .right-panel-tabs,
-body.theme-light .right-content,
-body.theme-light .chart-header { background: var(--bg1) !important; }
-body.theme-light .clock-item { background: #ffffff !important; }
-body.theme-light .clock-time,
-body.theme-light .clock-date,
-body.theme-light .clock-city,
-body.theme-light .clock-country,
-body.theme-light .clock-meta,
-body.theme-light .clock-tz,
-body.theme-light .chart-header-title { color: var(--text) !important; }
-body.theme-light .clock-gmt { color: var(--text2) !important; }
+html[data-theme="light"] .right-tab-panel,
+html[data-theme="light"] .clocks-bar,
+html[data-theme="light"] .amchart-container,
+html[data-theme="light"] .strength-charts-row,
+html[data-theme="light"] .right-panel-tabs,
+html[data-theme="light"] .right-content,
+html[data-theme="light"] .chart-header { background: var(--bg1) !important; }
+html[data-theme="light"] .clock-item { background: #ffffff !important; }
+html[data-theme="light"] .clock-time,
+html[data-theme="light"] .clock-date,
+html[data-theme="light"] .clock-city,
+html[data-theme="light"] .clock-country,
+html[data-theme="light"] .clock-meta,
+html[data-theme="light"] .clock-tz,
+html[data-theme="light"] .chart-header-title { color: var(--text) !important; }
+html[data-theme="light"] .clock-gmt { color: var(--text2) !important; }
 
 /* === (1) Onglet droit actif -> DORE (coherent avec la nav principale) === */
 .right-tab--active{color:var(--orange,#e3b23a) !important;background:transparent !important;}
@@ -11989,63 +11996,63 @@ body.theme-light .panel,body.theme-light .right-tab-panel,body.theme-light .sym-
 .news-item:hover { box-shadow: none !important; }
 
 /* === Mode clair : panneau reglages (profil / Apparence / Abonnement…) FULL WHITE === */
-body.theme-light .pd-drawer,
-body.theme-light .pd-body,
-body.theme-light .pd-section,
-body.theme-light .pd-section-trigger,
-body.theme-light .pd-section-inner { background: #ffffff !important; }
-body.theme-light .pd-section-content { background: #f7f8fa !important; }
-body.theme-light .pd-input,
-body.theme-light .pd-pw-wrap { background: #ffffff !important; border-color: #e2e5ea !important; }
-body.theme-light .pd-section-icon-wrap { background: #f0f1f4 !important; border-color: #e2e5ea !important; color: #565c64 !important; }
-body.theme-light .pd-section-trigger,
-body.theme-light .pd-section-label,
-body.theme-light .pd-label,
-body.theme-light .pd-input { color: #181b20 !important; }
-body.theme-light .pd-section { border-bottom-color: #e8eaef !important; }
-body.theme-light .pd-section-trigger:hover,
-body.theme-light .pd-section-trigger.pd-open { background: #f5f6f8 !important; }
+html[data-theme="light"] .pd-drawer,
+html[data-theme="light"] .pd-body,
+html[data-theme="light"] .pd-section,
+html[data-theme="light"] .pd-section-trigger,
+html[data-theme="light"] .pd-section-inner { background: #ffffff !important; }
+html[data-theme="light"] .pd-section-content { background: #f7f8fa !important; }
+html[data-theme="light"] .pd-input,
+html[data-theme="light"] .pd-pw-wrap { background: #ffffff !important; border-color: #e2e5ea !important; }
+html[data-theme="light"] .pd-section-icon-wrap { background: #f0f1f4 !important; border-color: #e2e5ea !important; color: #565c64 !important; }
+html[data-theme="light"] .pd-section-trigger,
+html[data-theme="light"] .pd-section-label,
+html[data-theme="light"] .pd-label,
+html[data-theme="light"] .pd-input { color: #181b20 !important; }
+html[data-theme="light"] .pd-section { border-bottom-color: #e8eaef !important; }
+html[data-theme="light"] .pd-section-trigger:hover,
+html[data-theme="light"] .pd-section-trigger.pd-open { background: #f5f6f8 !important; }
 
 /* ═══════════ MODE CLAIR — surcharges du NOUVEAU design (refonte) : surfaces sombres en dur ═══════════
    Les semantiques marche (BUY #00e676 / SELL #ff3d00 / NEUTRAL #ffb300, heatmap Smart Bias coloree,
    carte Leaflet sombre voulue) restent INCHANGEES. On ne corrige que les fonds/filets/textes NEUTRES. */
 /* — Fil d'actualite (surface la + visible ; les regles dark sont en !important -> on re-surcharge en !important) — */
-body.theme-light .news-item{background:#ffffff !important;border-bottom:1px solid rgba(0,0,0,0.07) !important;}
-body.theme-light .news-item:hover{background:#f4f1ea !important;}
-body.theme-light .news-item:has(.news-description.visible){background:#faf8f2 !important;border-top-color:rgba(0,0,0,0.10) !important;border-bottom-color:rgba(0,0,0,0.10) !important;}
-body.theme-light .news-description.visible{color:#5c5347;}
-body.theme-light .news-item .news-headline{color:#241f17;}
-body.theme-light .news-item:hover .news-headline{color:#000;}
-body.theme-light .news-time,body.theme-light .news-category-text{color:#8a8170 !important;}
-body.theme-light .news-item--high .news-time,body.theme-light .news-item--high .news-category-text{color:#5c5347 !important;}
-body.theme-light .news-item--urgent,body.theme-light .news-item--breaking{background:rgba(255,61,0,0.07) !important;}
-body.theme-light .news-item--high{background:rgba(220,38,38,0.07) !important;}
+html[data-theme="light"] .news-item{background:#ffffff !important;border-bottom:1px solid rgba(0,0,0,0.07) !important;}
+html[data-theme="light"] .news-item:hover{background:#f4f1ea !important;}
+html[data-theme="light"] .news-item:has(.news-description.visible){background:#faf8f2 !important;border-top-color:rgba(0,0,0,0.10) !important;border-bottom-color:rgba(0,0,0,0.10) !important;}
+html[data-theme="light"] .news-description.visible{color:#5c5347;}
+html[data-theme="light"] .news-item .news-headline{color:#241f17;}
+html[data-theme="light"] .news-item:hover .news-headline{color:#000;}
+html[data-theme="light"] .news-time,html[data-theme="light"] .news-category-text{color:#8a8170 !important;}
+html[data-theme="light"] .news-item--high .news-time,html[data-theme="light"] .news-item--high .news-category-text{color:#5c5347 !important;}
+html[data-theme="light"] .news-item--urgent,html[data-theme="light"] .news-item--breaking{background:rgba(255,61,0,0.07) !important;}
+html[data-theme="light"] .news-item--high{background:rgba(220,38,38,0.07) !important;}
 /* Tags neutres : texte sombre (le #c2c6cd du mode sombre serait clair-sur-clair) */
-body.theme-light .tag--default,body.theme-light .tag--neutral,body.theme-light .tag--orange,body.theme-light .tag--blue,body.theme-light .tag[data-cat="UK"]{color:#3a3428 !important;}
+html[data-theme="light"] .tag--default,html[data-theme="light"] .tag--neutral,html[data-theme="light"] .tag--orange,html[data-theme="light"] .tag--blue,html[data-theme="light"] .tag[data-cat="UK"]{color:#3a3428 !important;}
 /* — Smart Bias : sous-indicateurs / N/A en quasi-noir (cellules semantiques colorees conservees) — */
-body.theme-light .sbm-grid td.sbm-ind.sbm-sub{background:#f4f1ea;color:#241f17;}
-body.theme-light .sbm-na{background:#efeae0;color:#8a8170;}
-body.theme-light .sbm-overall .sbm-ind{background:#f4f1ea;color:#241f17;}
-body.theme-light .sbm-ind-acc:hover{background:#efeae0;}
+html[data-theme="light"] .sbm-grid td.sbm-ind.sbm-sub{background:#f4f1ea;color:#241f17;}
+html[data-theme="light"] .sbm-na{background:#efeae0;color:#8a8170;}
+html[data-theme="light"] .sbm-overall .sbm-ind{background:#f4f1ea;color:#241f17;}
+html[data-theme="light"] .sbm-ind-acc:hover{background:#efeae0;}
 /* — Barometre / Currency Strength : track + filets de briques (vert/rouge actifs conserves) — */
-body.theme-light .meter-half{background:rgba(0,0,0,0.06);}
-body.theme-light .meter-brick{border-bottom-color:rgba(0,0,0,0.10);}
-body.theme-light .meter-brick--off{background:rgba(0,0,0,0.05);}
-body.theme-light .meter-tooltip{background:#ffffff;border-color:#dad3c0;box-shadow:0 4px 16px rgba(60,45,15,0.18);}
-body.theme-light .meter-tip-name{color:#241f17;}
+html[data-theme="light"] .meter-half{background:rgba(0,0,0,0.06);}
+html[data-theme="light"] .meter-brick{border-bottom-color:rgba(0,0,0,0.10);}
+html[data-theme="light"] .meter-brick--off{background:rgba(0,0,0,0.05);}
+html[data-theme="light"] .meter-tooltip{background:#ffffff;border-color:#dad3c0;box-shadow:0 4px 16px rgba(60,45,15,0.18);}
+html[data-theme="light"] .meter-tip-name{color:#241f17;}
 /* — Volet Biais (sbs) : en-tete + dropdowns sombres — */
-body.theme-light .sbs-head{background:#f4f1ea !important;}
-body.theme-light .sbs-head-title{color:#241f17;}
-body.theme-light .sbs-dd,body.theme-light .sbs-cdd{background:#ffffff !important;color:#241f17;border-color:#dad3c0;}
-body.theme-light .sbs-cdd-caret,body.theme-light .sbs-close{color:#8a8170;}
+html[data-theme="light"] .sbs-head{background:#f4f1ea !important;}
+html[data-theme="light"] .sbs-head-title{color:#241f17;}
+html[data-theme="light"] .sbs-dd,html[data-theme="light"] .sbs-cdd{background:#ffffff !important;color:#241f17;border-color:#dad3c0;}
+html[data-theme="light"] .sbs-cdd-caret,html[data-theme="light"] .sbs-close{color:#8a8170;}
 /* — Cartes/inputs sombres en dur eparses — */
-body.theme-light .season-th,body.theme-light .season-month,body.theme-light .gew-key,body.theme-light .cdv,body.theme-light .br-ext-card,body.theme-light .chat-input,body.theme-light #chat-search-input{background:#faf8f2 !important;color:#241f17 !important;}
-body.theme-light .rtc-tbl th{background:#f4f1ea;color:#241f17;}
-body.theme-light .bank-detail-row td{background:#f7efe6 !important;}
+html[data-theme="light"] .season-th,html[data-theme="light"] .season-month,html[data-theme="light"] .gew-key,html[data-theme="light"] .cdv,html[data-theme="light"] .br-ext-card,html[data-theme="light"] .chat-input,html[data-theme="light"] #chat-search-input{background:#faf8f2 !important;color:#241f17 !important;}
+html[data-theme="light"] .rtc-tbl th{background:#f4f1ea;color:#241f17;}
+html[data-theme="light"] .bank-detail-row td{background:#f7efe6 !important;}
 /* — Bibliotheque Analyst : cartes lues + bordures sombres — */
-body.theme-light .arlib-card--read{background:#efeae0 !important;border-color:#e7e1d3;}
-body.theme-light .arlib-card--read:hover{background:#e8e2d4 !important;}
-body.theme-light .arlib-back-btn:hover{background:#efeae0;color:#241f17;}
+html[data-theme="light"] .arlib-card--read{background:#efeae0 !important;border-color:#e7e1d3;}
+html[data-theme="light"] .arlib-card--read:hover{background:#e8e2d4 !important;}
+html[data-theme="light"] .arlib-back-btn:hover{background:#efeae0;color:#241f17;}
 
 /* ═══ Indicateurs "live"/"Direct" : le POINT (.live-dot) est REACTIVE (juil. 2026, demande user)
    avec un pulse discret opacite seule (cf. keyframes pulse-green adoucis). Les libelles/badges texte
@@ -12462,7 +12469,7 @@ html[data-theme="light"] {
   transition: border-color .16s, box-shadow .16s, transform .12s;
   animation: wdgCardIn .22s var(--ease, ease) both;           /* apparition légère */
 }
-.wdg-card:hover { border-color: rgba(227,178,58,.38); box-shadow: 0 4px 18px rgba(0,0,0,.35); }
+.wdg-card:hover { border-color: rgba(var(--survol-rgb, 227,178,58), .38); box-shadow: 0 4px 18px rgba(0,0,0,.35); }
 .wdg-card.wdg-card--locked { border-color: rgba(227,178,58,.28); }
 @keyframes wdgCardIn { from { opacity: 0; transform: translateY(6px) scale(.995); } to { opacity: 1; transform: none; } }
 @keyframes wdgRefresh { 0% { box-shadow: 0 0 0 0 rgba(227,178,58,.5); } 100% { box-shadow: 0 0 0 3px rgba(227,178,58,0); } }
@@ -12760,7 +12767,7 @@ html[data-theme="light"] .wdg-set-chip.on { color: #fff; }
   border: 1px dashed rgba(227,178,58,.42); background: rgba(227,178,58,.03);
   align-items: center; justify-content: center;
 }
-.wdg-card--slot:hover { border-color: rgba(227,178,58,.7); box-shadow: none; }
+.wdg-card--slot:hover { border-color: rgba(var(--survol-rgb, 227,178,58), .7); box-shadow: none; }
 .wdg-slot-add {
   display: flex; flex-direction: column; align-items: center; gap: 4px; margin: auto;
   background: none; border: none; cursor: pointer; color: #b8935a;
@@ -16415,11 +16422,11 @@ body.home-mode .view-panel { visibility: hidden; }
    le cadre doré des cartes verrouillées et les pointillés or des emplacements vides avaient
    disparu. On rétablit chacun à la MÊME spécificité. */
 #view-widgets .wdg-card:hover, #view-widgets .wdg-card:focus-within {
-  border-color: rgba(227, 178, 58, .45); box-shadow: 0 4px 18px rgba(0, 0, 0, .35);
+  border-color: rgba(var(--survol-rgb, 227, 178, 58), .45); box-shadow: 0 4px 18px rgba(0, 0, 0, .35);
 }
 #view-widgets .wdg-card.wdg-card--locked { border-color: rgba(227, 178, 58, .28); }
 #view-widgets .wdg-card.wdg-card--slot { border-color: rgba(227, 178, 58, .42); }
-#view-widgets .wdg-card.wdg-card--slot:hover { border-color: rgba(227, 178, 58, .7); }
+#view-widgets .wdg-card.wdg-card--slot:hover { border-color: rgba(var(--survol-rgb, 227, 178, 58), .7); }
 /* La carte en cours de déplacement garde aussi son repère. */
 #view-widgets .wdg-card.wdg-dragging { border-color: rgba(227, 178, 58, .6); }
 
@@ -21099,6 +21106,10 @@ body.dtp-premium .nav {
   color: #eef2f7;
   letter-spacing: -.002em;
 }
+/* Thème clair (25/09) : ce sélecteur à identifiant gagnait sur la règle claire du titre, et le fil
+   s'affichait en texte presque blanc sur fond blanc. Même force, encre sombre. */
+html[data-theme="light"] #view-news .news-item .news-headline { color: #241f17; }
+html[data-theme="light"] #view-news .news-item:hover .news-headline { color: #000; }
 /* La description, elle, reste en retrait mais lisible : la hiérarchie titre > description guide la
    lecture. Interligne un rien plus ample = respiration entre deux dépêches denses. */
 #view-news .news-description { line-height: 1.58; }

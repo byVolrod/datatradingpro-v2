@@ -558,6 +558,24 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       await page.keyboard.press('Escape');
       v('… et Échap la referme', await page.evaluate(() => !document.getElementById('v3a-fiche')));
 
+      console.log('\n── 7 ter. V3 · thème clair (25/09, « pas très bien développé ») ──');
+      // Mesuré à l'écran : la couche V3 posait ses fonds en dur, sombres, sur un desk passé au blanc.
+      const th = await page.evaluate(async () => {
+        // Un fond transparent n'est pas noir : il laisse voir la carte (alpha 0 → pas de mesure propre).
+        const L = c => { const m = String(c).match(/[\d.]+/g) || []; if (m.length >= 4 && +m[3] === 0) return null; return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255; };
+        const mesure = () => { const c = document.querySelector('#wdg-grid .wdg-card'), t = c && c.querySelector('.wdg-title, .wdgt-tab.on'), h = c && c.querySelector('.wdg-head');
+          return c ? { carte: L(getComputedStyle(c).backgroundColor), tete: h ? L(getComputedStyle(h).backgroundColor) : null, titre: t ? L(getComputedStyle(t).color) : null } : null; };
+        const avant = document.documentElement.dataset.theme;
+        const sombre = mesure();
+        document.documentElement.dataset.theme = 'light'; await new Promise(r => setTimeout(r, 120));
+        const clair = mesure();
+        document.documentElement.dataset.theme = avant || 'dark'; await new Promise(r => setTimeout(r, 60));
+        return { sombre, clair };
+      });
+      v('en sombre, les cartes V3 restent sombres (rien n\'a bougé)', th.sombre && th.sombre.carte < 0.1, JSON.stringify(th.sombre));
+      v('en clair, les cartes et leurs en-têtes passent au clair', th.clair && th.clair.carte > 0.85 && (th.clair.tete === null || th.clair.tete > 0.85), JSON.stringify(th.clair));
+      v('… et leur titre en encre sombre, lisible', th.clair && th.clair.titre !== null && th.clair.titre < 0.35, JSON.stringify(th.clair));
+
       console.log('\n── 8. V3 · widgets de marché en direct (admin, V2 activée) ──');
       const w3 = await page.evaluate(async () => {
         const ids = ['hauts-bas', 'courbe-taux-us', 'vol-horaire', 'distribution-variations'], out = {}, hotes = [];

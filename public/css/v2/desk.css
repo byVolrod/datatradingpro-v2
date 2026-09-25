@@ -11,10 +11,10 @@
    comportement : seulement l'apparence. */
 @media (min-width: 821px), not all and (pointer: coarse) {
   /* ── Fond : un halo d'or très bas, la matière du desk ── */
-  html.dtp-v2 body { background: radial-gradient(1100px 380px at 12% -140px, rgba(227,178,58,.07), transparent 70%), #08080a; }
+  html.dtp-v2 body { background: radial-gradient(1100px 380px at 12% -140px, rgba(227,178,58,.07), transparent 70%), var(--v3-fond, #08080a); }
 
   /* ── Barre du haut ── */
-  html.dtp-v2 .topbar { background: linear-gradient(180deg, #0f0f12, #0b0b0d); border-bottom: 1px solid #1a1a1f; }
+  html.dtp-v2 .topbar { background: linear-gradient(180deg, var(--v3-tete, #0f0f12), var(--v3-carte, #0b0b0d)); border-bottom: 1px solid var(--v3-trait, #1a1a1f); }
   /* `relative` (ancrage du liseré ::after) SEULEMENT au-delà de 768 px : en dessous, style.css ÉPINGLE
      la barre (`position: fixed`) et réserve sa hauteur en haut de page. L'écraser laissait une bande
      vide de 40 px au-dessus de la barre (25/09, fenêtre rétrécie sur PC). Une barre fixe ancre déjà
@@ -26,38 +26,38 @@
   @keyframes v3Filet { from { background-position: 100% 0; } to { background-position: -100% 0; } }
   html.dtp-v2 .topbar .logo-text { background: linear-gradient(100deg, #f6d77b 0%, #e3b23a 45%, #b8860b 100%); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: .02em; }
   html.dtp-v2 .v3-puce { display: inline-flex; align-items: center; height: 16px; margin-left: 8px; padding: 0 6px; border-radius: 3px; border: 1px solid rgba(227,178,58,.55);
-    color: #e3b23a; font: 700 9.5px/1 'Inter Tight', system-ui, sans-serif; letter-spacing: .08em; background: rgba(227,178,58,.08); }
+    color: var(--v3-or-texte, #e3b23a); font: 700 9.5px/1 'Inter Tight', system-ui, sans-serif; letter-spacing: .08em; background: rgba(227,178,58,.08); }
   html.dtp-v2 .topbar-icon { transition: color .15s, background .15s, transform .12s; }
   html.dtp-v2 .topbar-icon:active { transform: scale(.94); }
-  html.dtp-v2 .topbar-symbol-search { border-color: #22222a; background: #0e0e11; transition: border-color .15s, box-shadow .15s; }
+  html.dtp-v2 .topbar-symbol-search { border-color: var(--v3-bord, #22222a); background: var(--v3-tete, #0e0e11); transition: border-color .15s, box-shadow .15s; }
   html.dtp-v2 .topbar-symbol-search:focus-within { border-color: rgba(227,178,58,.55); box-shadow: 0 0 0 3px rgba(227,178,58,.08); }
 
   /* ── Cartes : collées, un trait de 1 px, un liseré d'or qui s'allume ── */
-  html.dtp-v2 .wdg-grid { background: #16161a; }
-  html.dtp-v2 .wdg-card { background: #0c0c0e; border-color: #17171b; border-radius: 0;
+  html.dtp-v2 .wdg-grid { background: var(--v3-ligne, #16161a); }
+  html.dtp-v2 .wdg-card { background: var(--v3-carte, #0c0c0e); border-color: var(--v3-ligne, #17171b); border-radius: 0;
     animation: v3Carte .42s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--v3i, 0) * 45ms); }
   html.dtp-v2 .wdg-card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; z-index: 3; pointer-events: none;
-    background: linear-gradient(90deg, transparent, #e3b23a 30%, #f6d77b 50%, #e3b23a 70%, transparent); transform: scaleX(0); transform-origin: 50% 0; opacity: 0;
+    background: linear-gradient(90deg, transparent, var(--survol, #e3b23a) 30%, var(--survol-clair, #f6d77b) 50%, var(--survol, #e3b23a) 70%, transparent); transform: scaleX(0); transform-origin: 50% 0; opacity: 0;
     transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .2s; }
-  html.dtp-v2 .wdg-card:hover { border-color: #22222a; box-shadow: none; }
+  html.dtp-v2 .wdg-card:hover { border-color: var(--v3-bord, #22222a); box-shadow: none; }
   html.dtp-v2 .wdg-card:hover::before { transform: scaleX(1); opacity: 1; }
   @keyframes v3Carte { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
   /* En-tête : compact, casse normale (la référence), le titre porte la hiérarchie par sa graisse. */
-  html.dtp-v2 .wdg-head { min-height: 32px; padding: 0 6px 0 10px; background: #0e0e11; border-bottom: 1px solid #17171b; }
-  html.dtp-v2 .wdg-title { text-transform: none; letter-spacing: 0; font: 600 13px/1 'Inter Tight', system-ui, sans-serif; color: #f0f0f3; }
+  html.dtp-v2 .wdg-head { min-height: 32px; padding: 0 6px 0 10px; background: var(--v3-tete, #0e0e11); border-bottom: 1px solid var(--v3-ligne, #17171b); }
+  html.dtp-v2 .wdg-title { text-transform: none; letter-spacing: 0; font: 600 13px/1 'Inter Tight', system-ui, sans-serif; color: var(--v3-titre, #f0f0f3); }
   html.dtp-v2 .wdg-ctx { font-size: 11.5px; letter-spacing: 0; }
-  html.dtp-v2 .wdg-ico { color: #75757f; border-radius: 4px; }
-  html.dtp-v2 .wdg-ico:hover { color: #e3b23a; background: rgba(227,178,58,.1); }
+  html.dtp-v2 .wdg-ico { color: var(--v3-pale, #75757f); border-radius: 4px; }
+  html.dtp-v2 .wdg-ico:hover { color: var(--v3-or-texte, #e3b23a); background: rgba(227,178,58,.1); }
 
   /* Onglets de carte : casse normale, soulignement d'or qui glisse. */
-  html.dtp-v2 .wdgt-bar { min-height: 32px; background: #0e0e11; border-bottom-color: #17171b; }
-  html.dtp-v2 .wdgt-tab { padding: 0 12px; text-transform: none; letter-spacing: 0; font: 500 12.5px/1 'Inter Tight', system-ui, sans-serif; color: #8e8e98; box-shadow: none; transition: color .15s; }
-  html.dtp-v2 .wdgt-tab:hover { color: #e6e6ea; }
+  html.dtp-v2 .wdgt-bar { min-height: 32px; background: var(--v3-tete, #0e0e11); border-bottom-color: var(--v3-ligne, #17171b); }
+  html.dtp-v2 .wdgt-tab { padding: 0 12px; text-transform: none; letter-spacing: 0; font: 500 12.5px/1 'Inter Tight', system-ui, sans-serif; color: var(--v3-doux, #8e8e98); box-shadow: none; transition: color .15s; }
+  html.dtp-v2 .wdgt-tab:hover { color: var(--v3-titre, #e6e6ea); }
   html.dtp-v2 .wdgt-tab .wdgt-chv { display: none; }
   html.dtp-v2 .wdgt-tab::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; border-radius: 2px 2px 0 0; background: #e3b23a;
     transform: scaleX(0); transition: transform .25s cubic-bezier(.2,.8,.2,1); }
-  html.dtp-v2 .wdgt-tab.on { color: #f4f4f6; font-weight: 600; box-shadow: none; }
+  html.dtp-v2 .wdgt-tab.on { color: var(--v3-titre, #f4f4f6); font-weight: 600; box-shadow: none; }
   html.dtp-v2 .wdgt-tab.on::after { transform: scaleX(1); }
   /* UNE ICÔNE PAR ONGLET (25/09, référence PMT « fais la même en mieux ») : widgets.js pose l'icône du
      widget quand le lecteur n'en a pas choisi. Même gabarit pour toutes (les dessins du catalogue
@@ -66,10 +66,10 @@
   /* 25/09 (« je dois plisser les yeux pour voir les icônes ») : 14 px en gris #5f5f69 sur fond
      presque noir, c'était un contraste de 3 pour 1 à peine. 17 px et le gris des libellés : l'icône
      se lit au premier coup d'œil, sans devenir plus voyante que le nom de l'onglet actif. */
-  html.dtp-v2 .wdgt-tico { margin: 0; color: #a8a8b2; transition: color .15s; }
+  html.dtp-v2 .wdgt-tico { margin: 0; color: var(--v3-doux, #a8a8b2); transition: color .15s; }
   html.dtp-v2 .wdgt-tico svg { width: 17px; height: 17px; }
-  html.dtp-v2 .wdgt-tab:hover .wdgt-tico { color: #ececf0; }
-  html.dtp-v2 .wdgt-tab.on .wdgt-tico { color: #e3b23a; }
+  html.dtp-v2 .wdgt-tab:hover .wdgt-tico { color: var(--v3-titre, #ececf0); }
+  html.dtp-v2 .wdgt-tab.on .wdgt-tico { color: var(--v3-or-texte, #e3b23a); }
   /* LA RANGÉE D'ONGLETS NE GLISSE PAS, ET TIENT SUR UNE LIGNE (25/09, deux demandes du même jour).
      1. « La barre panneau à onglet on peut décaler, fixe-la comme celle du panel admin » : elle a
         d'abord été rendue à la ligne quand les onglets ne tenaient pas.
@@ -89,7 +89,7 @@
   html.dtp-v2 .wdgt-bar.v3-defile { overflow-x: auto; scrollbar-width: none; }
   html.dtp-v2 .wdgt-bar.v3-defile::-webkit-scrollbar { display: none; }
   html.dtp-v2 .wdg-card--tabs .wdgt-tab, html.dtp-v2 .wdg-card--tabs .wdgt-add { min-height: 32px; }
-  html.dtp-v2 .wdgt-subname { height: 28px; text-transform: none; letter-spacing: 0; font: 600 12px/1 'Inter Tight', system-ui, sans-serif; color: #b9b9c0; background: #0c0c0e; border-bottom-color: #141417; }
+  html.dtp-v2 .wdgt-subname { height: 28px; text-transform: none; letter-spacing: 0; font: 600 12px/1 'Inter Tight', system-ui, sans-serif; color: var(--v3-texte, #b9b9c0); background: var(--v3-carte, #0c0c0e); border-bottom-color: var(--v3-ligne, #141417); }
   html.dtp-v2 .wdgt-body { animation: v3Fondu .25s ease both; }
   @keyframes v3Fondu { from { opacity: 0; } to { opacity: 1; } }
 
@@ -97,23 +97,23 @@
   html.dtp-v2 .wdg-grid { gap: 1px !important; padding: 0 !important; }
 
   /* Les autres vues du desk (Calendrier, Analystes, Taux…) : mêmes en-têtes que les cartes. */
-  html.dtp-v2 .panel-header { min-height: 32px; background: #0e0e11; border-bottom-color: #17171b; }
-  html.dtp-v2 .panel-title { text-transform: none; letter-spacing: 0; font: 600 13px/1 'Inter Tight', system-ui, sans-serif; color: #f0f0f3; }
-  html.dtp-v2 .panel { background: #0c0c0e; }
+  html.dtp-v2 .panel-header { min-height: 32px; background: var(--v3-tete, #0e0e11); border-bottom-color: var(--v3-ligne, #17171b); }
+  html.dtp-v2 .panel-title { text-transform: none; letter-spacing: 0; font: 600 13px/1 'Inter Tight', system-ui, sans-serif; color: var(--v3-titre, #f0f0f3); }
+  html.dtp-v2 .panel { background: var(--v3-carte, #0c0c0e); }
 
   /* Navigation principale et onglets de la colonne droite : même grammaire que les onglets de carte. */
-  html.dtp-v2 #topbar-nav { background: #0b0b0d; border-bottom: 1px solid #17171b; }
+  html.dtp-v2 #topbar-nav { background: var(--v3-carte, #0b0b0d); border-bottom: 1px solid var(--v3-ligne, #17171b); }
   html.dtp-v2 #topbar-nav .nav-item, html.dtp-v2 .wdg-bar .nav-item, html.dtp-v2 .right-panel-tabs .right-tab {
-    position: relative; text-transform: none; letter-spacing: 0; font: 500 12.5px/1 'Inter Tight', system-ui, sans-serif; color: #8e8e98; background: none; box-shadow: none; transition: color .15s; }
-  html.dtp-v2 #topbar-nav .nav-item:hover, html.dtp-v2 .wdg-bar .nav-item:hover, html.dtp-v2 .right-panel-tabs .right-tab:hover { color: #e6e6ea; }
+    position: relative; text-transform: none; letter-spacing: 0; font: 500 12.5px/1 'Inter Tight', system-ui, sans-serif; color: var(--v3-doux, #8e8e98); background: none; box-shadow: none; transition: color .15s; }
+  html.dtp-v2 #topbar-nav .nav-item:hover, html.dtp-v2 .wdg-bar .nav-item:hover, html.dtp-v2 .right-panel-tabs .right-tab:hover { color: var(--v3-titre, #e6e6ea); }
   html.dtp-v2 #topbar-nav .nav-item::after, html.dtp-v2 .wdg-bar .nav-item::after, html.dtp-v2 .right-panel-tabs .right-tab::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px;
     border-radius: 2px 2px 0 0; background: #e3b23a; transform: scaleX(0); transition: transform .25s cubic-bezier(.2,.8,.2,1); display: block; }
-  html.dtp-v2 #topbar-nav .nav-item.nav-item--active, html.dtp-v2 .wdg-bar .nav-item.nav-item--active, html.dtp-v2 .right-panel-tabs .right-tab.right-tab--active { color: #f4f4f6; font-weight: 600; background: none; }
+  html.dtp-v2 #topbar-nav .nav-item.nav-item--active, html.dtp-v2 .wdg-bar .nav-item.nav-item--active, html.dtp-v2 .right-panel-tabs .right-tab.right-tab--active { color: var(--v3-titre, #f4f4f6); font-weight: 600; background: none; }
   html.dtp-v2 #topbar-nav .nav-item.nav-item--active::after, html.dtp-v2 .wdg-bar .nav-item.nav-item--active::after, html.dtp-v2 .right-panel-tabs .right-tab.right-tab--active::after { transform: scaleX(1); }
-  html.dtp-v2 .right-panel-tabs { background: #0e0e11; border-bottom-color: #17171b; }
+  html.dtp-v2 .right-panel-tabs { background: var(--v3-tete, #0e0e11); border-bottom-color: var(--v3-ligne, #17171b); }
   /* Titres de panneaux du desk (Calendrier, Sessions, Taux…) : casse normale, compacts. */
-  html.dtp-v2 .chart-header-title { text-transform: none; letter-spacing: 0; font: 600 13px/1 'Inter Tight', system-ui, sans-serif; color: #f0f0f3; }
-  html.dtp-v2 .chart-header { background: #0e0e11; border-bottom-color: #17171b; }
+  html.dtp-v2 .chart-header-title { text-transform: none; letter-spacing: 0; font: 600 13px/1 'Inter Tight', system-ui, sans-serif; color: var(--v3-titre, #f0f0f3); }
+  html.dtp-v2 .chart-header { background: var(--v3-tete, #0e0e11); border-bottom-color: var(--v3-ligne, #17171b); }
 
   /* La règle canonique des titres du desk impose capitales et chasse large en !important : la V3 la
      surclasse avec la même force, et SEULEMENT sous html.dtp-v2 (le desk des clients reste identique). */
@@ -141,16 +141,16 @@
   /* Paires ouvertes en onglets (desk.js) : drapeau, nom, croix discrète. */
   html.dtp-v2 #topbar-nav .v3-paire { display: inline-flex; align-items: center; gap: 6px; }
   html.dtp-v2 #topbar-nav .v3-paire .sym-tab-flag { width: 16px; height: 12px; border-radius: 2px; }
-  html.dtp-v2 #topbar-nav .v3-paire-x { margin-left: 2px; width: 16px; height: 16px; display: inline-grid; place-items: center; border-radius: 3px; color: #6f6f78; font-size: 14px; opacity: 0; transition: opacity .15s, color .15s, background .15s; }
+  html.dtp-v2 #topbar-nav .v3-paire-x { margin-left: 2px; width: 16px; height: 16px; display: inline-grid; place-items: center; border-radius: 3px; color: var(--v3-pale, #6f6f78); font-size: 14px; opacity: 0; transition: opacity .15s, color .15s, background .15s; }
   html.dtp-v2 #topbar-nav .v3-paire:hover .v3-paire-x { opacity: 1; }
   html.dtp-v2 #topbar-nav .v3-paire-x:hover { color: #ff3d00; background: rgba(255,61,0,.1); }
 
   /* Barre de dispositions de Mon Desk : même grammaire que les onglets. */
-  html.dtp-v2 .wdg-bar { background: #0b0b0d; border-bottom: 1px solid #17171b; }
+  html.dtp-v2 .wdg-bar { background: var(--v3-carte, #0b0b0d); border-bottom: 1px solid var(--v3-ligne, #17171b); }
 
   /* Défilement fin et discret, or au survol. */
   html.dtp-v2 .custom-scrollbar::-webkit-scrollbar, html.dtp-v2 .wdg-body ::-webkit-scrollbar { width: 6px; height: 6px; }
-  html.dtp-v2 .custom-scrollbar::-webkit-scrollbar-thumb, html.dtp-v2 .wdg-body ::-webkit-scrollbar-thumb { background: #26262c; border-radius: 3px; }
+  html.dtp-v2 .custom-scrollbar::-webkit-scrollbar-thumb, html.dtp-v2 .wdg-body ::-webkit-scrollbar-thumb { background: var(--v3-bord, #26262c); border-radius: 3px; }
   html.dtp-v2 .custom-scrollbar::-webkit-scrollbar-thumb:hover, html.dtp-v2 .wdg-body ::-webkit-scrollbar-thumb:hover { background: #b8860b; }
 
   /* Carte à onglets : une seule ligne d'en-tête. Le bandeau du widget d'onglet (nom + commandes)
@@ -159,7 +159,7 @@
   html.dtp-v2 .wdgt-body > .wdgt-subname.v3-fondu { display: none; }
   html.dtp-v2 .wdg-card.v3-fusion > .wdg-head .wdg-actions > .wdg-ico:not(:first-child):not(.wdg-ico--x) { display: none; }
   html.dtp-v2 .wdg-card.v3-fusion > .wdg-head .wdg-actions > .wdgt-subacts { display: inline-flex; align-items: center; gap: 3px; margin: 0 3px; padding: 0 3px;
-    border-left: 1px solid #22222a; border-right: 1px solid #22222a; }
+    border-left: 1px solid var(--v3-bord, #22222a); border-right: 1px solid var(--v3-bord, #22222a); }
   html.dtp-v2 .wdg-card.v3-fusion > .wdg-head .wdg-actions > .wdgt-subacts .wdg-ico[title="Retirer"] { display: none; }
 
   /* ══ FINITION DE L'INTÉRIEUR DES WIDGETS (25/09, « améliore tous les widgets pour la V3 ») ══════
@@ -168,14 +168,14 @@
      dans la teinte de la maison, états vides posés, et un chiffre qui bouge qui s'allume. */
   html.dtp-v2 .wdg-body { font-variant-numeric: tabular-nums; }
   html.dtp-v2 .wdg-body table { border-collapse: collapse; }
-  html.dtp-v2 .wdg-body thead th { background: #0e0e11; color: #7c7c86; font-weight: 600; text-transform: none; letter-spacing: 0; border-bottom: 1px solid #1a1a1f; }
+  html.dtp-v2 .wdg-body thead th { background: var(--v3-tete, #0e0e11); color: var(--v3-doux, #7c7c86); font-weight: 600; text-transform: none; letter-spacing: 0; border-bottom: 1px solid var(--v3-trait, #1a1a1f); }
   html.dtp-v2 .wdg-body tbody tr { transition: background .12s; }
   html.dtp-v2 .wdg-body tbody tr:hover > td { background: rgba(227,178,58,.045); }
-  html.dtp-v2 .wdg-body tbody td { border-color: #141417; }
-  html.dtp-v2 .wdg-skel-l { background: linear-gradient(90deg, #121215 25%, rgba(227,178,58,.07) 50%, #121215 75%) !important; background-size: 220% 100% !important; border-radius: 3px; }
-  html.dtp-v2 .wdg-empty, html.dtp-v2 .wdg-load { color: #6f6f78; font: 500 12px/1.5 'Inter Tight', system-ui, sans-serif; letter-spacing: 0; text-transform: none; }
+  html.dtp-v2 .wdg-body tbody td { border-color: var(--v3-ligne, #141417); }
+  html.dtp-v2 .wdg-skel-l { background: linear-gradient(90deg, var(--v3-tete, #121215) 25%, rgba(227,178,58,.07) 50%, var(--v3-tete, #121215) 75%) !important; background-size: 220% 100% !important; border-radius: 3px; }
+  html.dtp-v2 .wdg-empty, html.dtp-v2 .wdg-load { color: var(--v3-pale, #6f6f78); font: 500 12px/1.5 'Inter Tight', system-ui, sans-serif; letter-spacing: 0; text-transform: none; }
   html.dtp-v2 .wdg-body button:focus-visible, html.dtp-v2 .wdg-body select:focus-visible, html.dtp-v2 .wdg-body input:focus-visible, html.dtp-v2 .wdg-ico:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(227,178,58,.45); border-radius: 3px; }
-  html.dtp-v2 .wdg-body input:not([type="checkbox"]):not([type="radio"]), html.dtp-v2 .wdg-body select { background-color: #0e0e11; border-color: #22222a; transition: border-color .15s, box-shadow .15s; }
+  html.dtp-v2 .wdg-body input:not([type="checkbox"]):not([type="radio"]), html.dtp-v2 .wdg-body select { background-color: var(--v3-tete, #0e0e11); border-color: var(--v3-bord, #22222a); transition: border-color .15s, box-shadow .15s; }
   html.dtp-v2 .wdg-body input:not([type="checkbox"]):not([type="radio"]):focus, html.dtp-v2 .wdg-body select:focus { border-color: rgba(227,178,58,.55); }
   /* Un chiffre qui change en place s'allume (js/v2/desk.js) : vert en hausse, rouge en baisse. */
   html.dtp-v2 .v3-maj-h, html.dtp-v2 .v3-maj-b { border-radius: 2px; }
@@ -184,7 +184,7 @@
   @keyframes v3MajH { from { background-color: rgba(0,230,118,.28); } to { background-color: transparent; } }
   @keyframes v3MajB { from { background-color: rgba(255,61,0,.28); } to { background-color: transparent; } }
   /* Infobulles des widgets : même plaque que le reste de la V3. */
-  html.dtp-v2 .wdg-tip, html.dtp-v2 .wdg-tooltip { background: #101013; border: 1px solid #2a2a31; border-radius: 4px; box-shadow: 0 14px 30px -12px rgba(0,0,0,.8); color: #d6d6dc; }
+  html.dtp-v2 .wdg-tip, html.dtp-v2 .wdg-tooltip { background: var(--v3-tete, #101013); border: 1px solid var(--v3-bord, #2a2a31); border-radius: 4px; box-shadow: 0 14px 30px -12px rgba(0,0,0,.8); color: var(--v3-texte, #d6d6dc); }
 
   @media (prefers-reduced-motion: reduce) {
     html.dtp-v2 .topbar::after, html.dtp-v2 .wdg-card, html.dtp-v2 .wdgt-body, html.dtp-v2 .v3-maj-h, html.dtp-v2 .v3-maj-b { animation: none; }
@@ -220,7 +220,29 @@
   html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-sub-row,
   html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-gmt { display: none; }
   html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-time { display: flex; flex-direction: column; align-items: flex-start; font-size: 14px; margin: 0; line-height: 1.2; }
-  html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-code { display: inline; font-size: 10px; font-weight: 700; color: #e3b23a; letter-spacing: .06em; }
+  html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-code { display: inline; font-size: 10px; font-weight: 700; color: var(--v3-or-texte, #e3b23a); letter-spacing: .06em; }
   html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-dn-mini { display: none; }
   html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-city-label { display: block; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+}
+
+/* ══ THÈME CLAIR DE LA V3 (25/09, « le thème clair pas très bien développé », capture) ══════════════
+   La couche V3 posait ses fonds et ses textes en dur, tous SOMBRES : en thème clair, le desk passait
+   au blanc pendant que les cartes V3 restaient noires, avec un texte devenu foncé dessus. Chaque
+   couleur de la couche V3 lit désormais une variable, avec la couleur d'origine en repli : SANS thème
+   clair, aucune variable n'existe et le rendu sombre est identique au pixel. En thème clair, elles
+   sont définies ici — desk seulement : l'app mobile garde son habillage sombre. L'or des TEXTES
+   fonce (l'or vif sur blanc ne se lit pas) ; les liserés et soulignements gardent l'or vif. */
+@media (min-width: 821px), not all and (pointer: coarse) {
+  html.dtp-v2[data-theme="light"]:not(.dtp-app) {
+    --v3-fond: #eef0f3; --v3-carte: #ffffff; --v3-tete: #f7f8fa; --v3-ligne: #e6e8ec; --v3-trait: #dfe2e7; --v3-bord: #d3d7dd;
+    --v3-titre: #15181d; --v3-texte: #2f343c; --v3-doux: #5b616b; --v3-pale: #868c95; --v3-or-texte: #a8780a;
+  }
+  html.dtp-v2[data-theme="light"]:not(.dtp-app) body { background: radial-gradient(1100px 380px at 12% -140px, rgba(184,134,11,.06), transparent 70%), #eef0f3; }
+  html.dtp-v2[data-theme="light"]:not(.dtp-app) .topbar { background: #ffffff; border-bottom-color: #e2e5ea; }
+  html.dtp-v2[data-theme="light"]:not(.dtp-app) .topbar .logo-text { background: linear-gradient(100deg, #c9971f 0%, #b8860b 55%, #8a6408 100%); -webkit-background-clip: text; background-clip: text; }
+  html.dtp-v2[data-theme="light"]:not(.dtp-app) .wdg-card:hover { box-shadow: 0 8px 22px -14px rgba(20, 24, 32, .35); }
+  html.dtp-v2[data-theme="light"]:not(.dtp-app) .wdg-body tbody tr:hover > td { background: rgba(184, 134, 11, .06); }
+  html.dtp-v2[data-theme="light"]:not(.dtp-app) .wdg-skel-l { background: linear-gradient(90deg, #eef0f3 25%, rgba(184,134,11,.10) 50%, #eef0f3 75%) !important; background-size: 220% 100% !important; }
+  html.dtp-v2[data-theme="light"]:not(.dtp-app) .wdg-tip, html.dtp-v2[data-theme="light"]:not(.dtp-app) .wdg-tooltip { box-shadow: 0 14px 30px -14px rgba(20, 24, 32, .35); }
+  html.dtp-v2[data-theme="light"]:not(.dtp-app) .custom-scrollbar::-webkit-scrollbar-thumb, html.dtp-v2[data-theme="light"]:not(.dtp-app) .wdg-body ::-webkit-scrollbar-thumb { background: #cfd3da; }
 }

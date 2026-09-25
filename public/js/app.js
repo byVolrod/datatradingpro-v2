@@ -11215,6 +11215,23 @@ function dtpZoomStep(d) {
   const i = DTP_ZOOMS.indexOf(cur);
   dtpSetZoom(DTP_ZOOMS[Math.max(0, Math.min(DTP_ZOOMS.length - 1, i + d))]);
 }
+/* SURVOL DES CARTES (25/09, « marche pas les couleurs, j'ai changé ») : le menu Orange / Bleu / Vert
+   existait depuis des semaines, AUCUN code ne le lisait. Il pose désormais la couleur du liseré de
+   survol des cartes de Mon Desk (desk actuel et V3), par une variable CSS, et suit le compte. */
+const _DTP_SURVOLS = { or: ['227,178,58', '#e3b23a', '#f6d77b'], bleu: ['96,165,250', '#60a5fa', '#bfdbfe'], vert: ['34,197,94', '#22c55e', '#86efac'] };
+function _dtpSurvolApply(v) {
+  const k = { orange: 'or', blue: 'bleu', green: 'vert' }[v] || v;
+  const c = _DTP_SURVOLS[k] ? k : 'or', t = _DTP_SURVOLS[c], st = document.documentElement.style;
+  st.setProperty('--survol-rgb', t[0]); st.setProperty('--survol', t[1]); st.setProperty('--survol-clair', t[2]);
+  document.documentElement.dataset.survol = c;
+  const sel = document.getElementById('pd-grid-hover'); if (sel) sel.value = c;
+  return c;
+}
+function dtpSetSurvol(v) {
+  const c = _dtpSurvolApply(v);
+  try { if (window.DTPPref) DTPPref.set('survol', c); } catch (e) {}
+}
+try { _dtpSurvolApply(window.DTPPref ? DTPPref.get('survol', 'or') : 'or'); } catch (e) {}
 function dtpSetTheme(mode) {
   if (!['dark', 'light', 'system'].includes(mode)) mode = 'dark';
   _dtpThemeApply(mode);
@@ -11234,6 +11251,8 @@ setTimeout(() => {
   }).catch(() => { _dtpThemeApply(document.documentElement.dataset.thememode || 'dark'); });
   // Zoom : même patron — le choix du COMPTE prime sur le cache local, donc il suit l'utilisateur d'un
   // appareil à l'autre (desk, app desktop, mobile).
+  // Survol : le réglage du COMPTE est arrivé avec les autres préférences d'affichage.
+  try { _dtpSurvolApply(window.DTPPref ? DTPPref.get('survol', 'or') : 'or'); } catch (e) {}
   fetch('/api/zoom').then(r => r.json()).then(d => _dtpZoomApply(d && d.zoom))
     .catch(() => { try { _dtpZoomApply(localStorage.getItem('dtp_zoom')); } catch (e) { _dtpZoomApply(DTP_ZOOM_DEFAUT); } });
 }, 800);

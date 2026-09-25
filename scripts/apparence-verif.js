@@ -62,10 +62,19 @@ let ko = 0;
 const v = (t, c, d) => { if (c) console.log('  ✓ ' + t); else { ko++; console.log('  ✗ ' + t + (d ? '\n      → ' + d : '')); } };
 
 // Luminance perçue d'un « rgb(r, g, b) » — suffit à dire « clair » ou « sombre ».
-function lum(css) {
+function lum(css, dessous) {
   const m = String(css).match(/(\d+(?:\.\d+)?)/g);
   if (!m || m.length < 3) return null;
-  const [r, g, b] = m.map(Number);
+  let [r, g, b] = m.slice(0, 3).map(Number);
+  /* ⚠️ UNE TEINTE TRANSLUCIDE N'EST PAS UNE COULEUR PLEINE (25/09). Le bouton actif porte l'or à 7 %
+     d'opacité : lu sans son alpha, il passait pour un aplat or foncé posé sur un panneau blanc, et le
+     contrôle criait au fond sombre sur ce qui est, à l'écran, un voile presque blanc. On compose donc
+     la couleur sur ce qu'il y a dessous, comme l'écran le fait. */
+  const a = m.length >= 4 ? Number(m[3]) : 1;
+  if (a < 1 && dessous) {
+    const d = String(dessous).match(/(\d+(?:\.\d+)?)/g);
+    if (d && d.length >= 3) { const [R, G, B] = d.slice(0, 3).map(Number); r = r * a + R * (1 - a); g = g * a + G * (1 - a); b = b * a + B * (1 - a); }
+  }
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
 
@@ -83,6 +92,19 @@ function lum(css) {
   v('le sélecteur de couleur de bougies a quitté la page', html.indexOf('pd-candle-color') < 0);
   v('… et ses styles ont quitté la feuille', !/\.pd-candle-(?:select-wrap|preview)\s*[,{]/.test(css));
   v('… et plus aucune option de bougie ne traîne', html.indexOf('Vert / 🔴 Rouge') < 0);
+  /* ── LES FORMATS MORTS ET LE SURVOL (25/09, « marche pas les couleurs, j'ai changé ») ──────────
+     « Nombres », « Date », « Heure » et « Survol de la grille » n'étaient lus par AUCUN code : même
+     défaut que les bougies. Les trois formats partent ; le survol, lui, est branché et suit le
+     compte. On le prouve par ses effets, pas par sa présence. */
+  const _app = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
+  v('les trois formats morts ont quitté la page', !/pd-(?:num|date|time)-format/.test(html));
+  v('le survol appelle un vrai réglage', /id="pd-grid-hover" onchange="dtpSetSurvol\(this\.value\)"/.test(html) && /function dtpSetSurvol\(/.test(_app));
+  v('… enregistré sur le compte (clé autorisée par le serveur)', /'survol',\s+\/\/ Apparence/.test(fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8')) && /DTPPref\.set\('survol'/.test(_app));
+  v('… et les liserés de survol des cartes lisent sa couleur', /\.wdg-card:hover \{ border-color: rgba\(var\(--survol-rgb, 227,178,58\)/.test(css)
+    && /#view-widgets \.wdg-card:hover, #view-widgets \.wdg-card:focus-within \{\s*border-color: rgba\(var\(--survol-rgb/.test(css));
+  /* ── LE THÈME CLAIR DU FIL (25/09) : trois blocs « mode clair » visaient une classe morte. ── */
+  v('le fil d\'actualité a son fond clair en thème clair', /html\[data-theme="light"\] \.news-item\{background:#ffffff !important/.test(css));
+  v('… et ses titres une encre sombre, même sous le sélecteur à identifiant', /html\[data-theme="light"\] #view-news \.news-item \.news-headline \{ color: #241f17; \}/.test(css));
 
   /* ── LA BARRE DU LECTEUR DE RAPPORT SUIT LA GRAMMAIRE DES BANDEAUX (02/09) ───────────────────
      Capture utilisateur sur l'onglet Institutions : « quand j'ouvre un rapport c'est pas pro du
@@ -389,6 +411,11 @@ function lum(css) {
         const sous = [...(inner ? inner.querySelectorAll('.pd-subhead') : [])];
         const btns = [...document.querySelectorAll('.pd-theme-btn')];
         const grille = inner && inner.querySelector('.pd-grid-2');
+        const survolSel = document.getElementById('pd-grid-hover');
+        const survolChamp = survolSel && survolSel.closest('.pd-field');
+        const survolVu = !!survolChamp && [...survolChamp.querySelectorAll('.dtpsel, .pd-select')].some((e) => getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 40);
+        let survolEffet = null;
+        try { dtpSetSurvol('bleu'); survolEffet = { rgb: getComputedStyle(document.documentElement).getPropertyValue('--survol-rgb').trim(), cle: document.documentElement.dataset.survol }; dtpSetSurvol('or'); } catch (e) { survolEffet = String(e); }
         const champs = grille ? [...grille.querySelectorAll('.pd-field')] : [];
         const r = (e) => { const b = e.getBoundingClientRect(); return { t: b.top, b: b.bottom, l: b.left, r: b.right }; };
         /* Rythme de la grille : écart entre les deux RANGÉES vs écart entre les deux COLONNES.
@@ -436,7 +463,8 @@ function lum(css) {
           boutons: btns.map((e) => e.textContent.trim()),
           ecartRangees, ecartColonnes,
           fondPanneau: inner ? fond(inner) : null,
-          fondCommandes: [...btns, ...document.querySelectorAll('.pd-zoom-btn, .pd-zoom-reset, .pd-grid-2 .dtpsel-btn')]
+          survolVu, survolEffet,
+          fondCommandes: [...btns, ...document.querySelectorAll('.pd-zoom-btn, .pd-zoom-reset'), ...(survolChamp ? survolChamp.querySelectorAll('.dtpsel-btn') : [])]
             .map((e) => ({ q: (e.id || e.className).toString().slice(0, 24), f: fond(e) })),
           mort: !!document.getElementById('pd-candle-color'),
         };
@@ -445,7 +473,7 @@ function lum(css) {
       console.log('\n  ── thème ' + theme + ' ──');
       v('le réglage mort n\'est pas revenu à l\'écran', m.mort === false);
       v('le panneau est structuré en deux blocs nommés',
-        m.sousTitres.length === 2 && /lisibilité/i.test(m.sousTitres[0]) && /formats/i.test(m.sousTitres[1]),
+        m.sousTitres.length === 2 && /lisibilité/i.test(m.sousTitres[0]) && /repères/i.test(m.sousTitres[1]),
         JSON.stringify(m.sousTitres));
       v('un filet sépare les deux blocs', parseFloat(m.filetSecond) >= 1, String(m.filetSecond));
       v('… et le premier n\'en porte pas (il doublerait celui de la section)',
@@ -459,13 +487,13 @@ function lum(css) {
       v('« Système » porte un écran', /🖥/.test(systeme || ''), systeme);
       /* RYTHME : les rangées ne doivent pas être deux fois plus espacées que les colonnes. Le seuil
          est large (1,8×) : on cherche le défaut de rythme, pas le pixel près. */
-      v('la grille des formats a un rythme vertical régulier',
-        m.ecartRangees !== null && m.ecartRangees < m.ecartColonnes * 1.5,
-        'rangées ' + m.ecartRangees + ' px · colonnes ' + m.ecartColonnes + ' px');
+      /* La grille de quatre formats n'existe plus (trois étaient morts) : on éprouve le survol. */
+      v('le menu « Survol des cartes » est à l\'écran', m.survolVu === true, JSON.stringify(m.survolVu));
+      v('… et choisir « Bleu » change réellement la couleur de survol', m.survolEffet && m.survolEffet.rgb === '96,165,250' && m.survolEffet.cle === 'bleu', JSON.stringify(m.survolEffet));
 
       if (theme === 'light') {
         const lp = lum(m.fondPanneau);
-        const sombres = m.fondCommandes.filter((c) => { const l = lum(c.f); return l !== null && lp !== null && l < lp - 0.25; });
+        const sombres = m.fondCommandes.filter((c) => { const l = lum(c.f, m.fondPanneau); return l !== null && lp !== null && l < lp - 0.25; });
         v('en mode clair, aucune commande ne reste sur un fond sombre',
           sombres.length === 0,
           sombres.map((c) => c.q + ' → ' + c.f).join(' | ') + ' (panneau ' + m.fondPanneau + ')');

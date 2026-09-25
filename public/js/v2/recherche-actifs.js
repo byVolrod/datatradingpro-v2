@@ -198,11 +198,11 @@
 
   // Habillage : injecté ici pour que le module reste d'un seul tenant (même idiome que multi.js).
   var CSS = ''
-    + 'html.dtp-v2 .sym-dd-puces{display:flex;flex-wrap:nowrap;gap:4px;padding:8px 10px 7px;border-bottom:1px solid #16161a;position:sticky;top:0;z-index:2;background:inherit;overflow-x:auto;scrollbar-width:none}'
+    + 'html.dtp-v2 .sym-dd-puces{display:flex;flex-wrap:nowrap;gap:4px;padding:8px 10px 7px;border-bottom:1px solid var(--v3-ligne, #16161a);position:sticky;top:0;z-index:2;background:inherit;overflow-x:auto;scrollbar-width:none}'
     + 'html.dtp-v2 .sym-dd-puces::-webkit-scrollbar{display:none}html.dtp-v2 .sym-dd-puce{flex:0 0 auto}'
-    + 'html.dtp-v2 .sym-dd-puce{border:1px solid #24242a;background:transparent;color:#8e8e98;font:500 11px/1 "Inter Tight",system-ui,sans-serif;padding:5px 9px;border-radius:12px;cursor:pointer}'
-    + 'html.dtp-v2 .sym-dd-puce:hover{color:#ececf0}html.dtp-v2 .sym-dd-puce.on{color:#e3b23a;border-color:rgba(227,178,58,.55);background:rgba(227,178,58,.08)}'
-    + 'html.dtp-v2 .sym-dd-row--actif{align-items:center}html.dtp-v2 .sym-dd-cl{margin-left:auto;font:500 10.5px/1 "Inter Tight",system-ui,sans-serif;color:#6f6f78;padding-left:8px}'
+    + 'html.dtp-v2 .sym-dd-puce{border:1px solid var(--v3-bord, #24242a);background:transparent;color:var(--v3-doux, #8e8e98);font:500 11px/1 "Inter Tight",system-ui,sans-serif;padding:5px 9px;border-radius:12px;cursor:pointer}'
+    + 'html.dtp-v2 .sym-dd-puce:hover{color:var(--v3-titre, #ececf0)}html.dtp-v2 .sym-dd-puce.on{color:var(--v3-or-texte, #e3b23a);border-color:rgba(227,178,58,.55);background:rgba(227,178,58,.08)}'
+    + 'html.dtp-v2 .sym-dd-row--actif{align-items:center}html.dtp-v2 .sym-dd-cl{margin-left:auto;font:500 10.5px/1 "Inter Tight",system-ui,sans-serif;color:var(--v3-pale, #6f6f78);padding-left:8px}'
     + 'html.dtp-v2 .sym-dd-flag--cl{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font:700 8.5px/1 "Inter Tight",system-ui,sans-serif;letter-spacing:.02em;color:#0c0c0e}'
     + 'html.dtp-v2 .sym-dd-flag--indices{background:#8fb3ff}html.dtp-v2 .sym-dd-flag--actions{background:#b9a4ff}html.dtp-v2 .sym-dd-flag--metaux{background:#e3b23a}'
     + 'html.dtp-v2 .sym-dd-flag--energie{background:#ff9f5a}html.dtp-v2 .sym-dd-flag--crypto{background:#f7c46c}'
