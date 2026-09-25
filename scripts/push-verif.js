@@ -19,6 +19,7 @@ const SRV = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
 const APP = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
 const NAT = fs.readFileSync(path.join(RACINE, 'mobile/App.js'), 'utf8');
 let ok = 0, ko = 0;
+const _attentes = [];
 const v = (n, c, d) => { if (c) { ok++; console.log('  ✓ ' + n); } else { ko++; console.log('  ✗ ' + n + (d ? '\n      → ' + String(d).slice(0, 300) : '')); } };
 const fn = (src, nom) => { const m = new RegExp('function ' + nom + '\\([\\s\\S]*?\\n\\}').exec(src); return m ? m[0] : null; };
 const cst = (src, nom) => { const m = new RegExp('const ' + nom + ' = ([^;\\n]+);').exec(src); return m ? m[1] : null; };
@@ -265,6 +266,40 @@ console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement
   v('… et nomme ses trois premiers moteurs', tb.body === 'Le marché passe de neutre à risk-off. Moteurs : VIX +12,4%, S&P 500 -2,1%, Or +0,4%.', tb.body);
 }
 
+console.log('\n── 4 quater. Rapports de banques et récaps de séance : en français, jamais en anglais ──');
+{
+  /* Capture user du 25/09 : « Asia FX Weekly », « CNB Minutes: Inflationary risks… » et un récap de
+     séance arrivés en anglais. On rejoue la VRAIE fonction avec un traducteur simulé. */
+  const src = fn(SRV, '_pushFrNotif');
+  const mTv = /const _traductionFrValide = (t => \{[^\n]*\});/.exec(SRV);
+  v('_pushFrNotif, _looksFr, _RX_NON_FR et _traductionFrValide sont extractibles', !!src && !!cst(SRV, '_looksFr') && !!cst(SRV, '_RX_NON_FR') && !!mTv);
+  const repli = cstBloc(SRV, '_PUSH_REPLI_FR');
+  const fabrique = traducteur => new Function('traducteur', 'const _looksFr = ' + cst(SRV, '_looksFr') + ';\nconst _RX_NON_FR = ' + cst(SRV, '_RX_NON_FR')
+    + ';\nconst _traductionFrValide = ' + mTv[1] + ';\nconst _PUSH_REPLI_FR = ' + repli
+    + ';\nconst _pushFrLot = async (t, ok) => { let r = null; try { r = await traducteur(t[0]); } catch (e) {} return [r && r !== t[0] && ok(r) ? r : t[0]]; };\nasync ' + src + '\nreturn _pushFrNotif;')(traducteur);
+  _attentes.push((async () => {
+    let appels = 0;
+    const ident = fabrique(async t => { appels++; return t; });
+    const fr0 = await ident('Semaine à venir en ECE et CCA : données d’inflation en Pologne', 'banques');
+    v('un titre déjà français part tel quel, sans appel au traducteur', fr0 === 'Semaine à venir en ECE et CCA : données d’inflation en Pologne' && appels === 0, fr0 + ' · ' + appels);
+    const court = await fabrique(async () => 'Hebdo FX Asie')('Asia FX Weekly', 'banques');
+    v('une traduction COURTE sans accent ni article est acceptée (« Hebdo FX Asie »)', court === 'Hebdo FX Asie', court);
+    const longue = await fabrique(async () => 'Compte rendu de la CNB : les risques inflationnistes commencent à se matérialiser')('CNB Minutes: Inflationary risks are starting to materialise', 'banques');
+    v('un titre long est traduit', /^Compte rendu de la CNB/.test(longue), longue);
+    appels = 0;
+    const rate = await ident('Asia FX Weekly', 'banques');
+    v('traducteur muet (renvoie l’anglais) : deux essais, puis une phrase française, jamais l’anglais', rate === 'Nouvelle note de recherche, à lire dans l’onglet Banques.' && appels === 2, rate + ' · ' + appels);
+    const ita = await fabrique(async () => 'Le esportazioni della Corea sono in aumento')('Korea exports rise', 'analystes');
+    v('une traduction dans une AUTRE langue est refusée', ita === 'Nouveau récap de séance, à lire dans l’onglet Analystes.', ita);
+    const panne = await fabrique(async () => { throw new Error('quota'); })('USD/JPY falls below 158.00 as Takaichi says Trump flagged weak yen', 'analystes');
+    v('traducteur en panne : phrase française aussi', panne === 'Nouveau récap de séance, à lire dans l’onglet Analystes.', panne);
+  })().catch(e => v('4 quater se termine', false, e.message)));
+  v('le diffuseur passe TOUT ce qui est marqué « à traduire » par _pushFrNotif', /_pushFrNotif\(e\.body, e\.cat\)/.test(fn(SRV, '_pushDiffuser') || ''));
+  const guet = fn(SRV, '_pushGuetter') || '';
+  v('les récaps de séance sont marqués « à traduire » (titre et libellé court)', /title: 'Analystes · Récap de séance'[^\n]*trad: true, courtFr: true/.test(guet));
+  v('… les notes de banques aussi', /title: 'Banques · ' \+ inst[^\n]*trad: true/.test(guet));
+}
+
 console.log('\n── 4 ter. Le desk ne double plus le serveur ──');
 {
   const i = APP.indexOf('function npPush('), bloc = i >= 0 ? APP.slice(i, APP.indexOf('\n}\n', i)) : '';
@@ -298,5 +333,8 @@ v('le canal Android du serveur est celui que la coquille crée', !!canalNat && c
 v('… et il est créé en importance HIGH', /AndroidImportance\.HIGH/.test(NAT));
 v('le serveur envoie en priorité haute', /priority: 'high'/.test(SRV));
 
-console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec' : '✓ ' + ok + ' contrôles au vert'));
-process.exit(ko ? 1 : 0);
+// Les contrôles asynchrones (traducteur simulé) sont ATTENDUS : sortir avant eux les rendait muets.
+Promise.all(_attentes).then(() => {
+  console.log('\n' + (ko ? '✗ ' + ko + ' contrôle(s) en échec' : '✓ ' + ok + ' contrôles au vert'));
+  process.exit(ko ? 1 : 0);
+});

@@ -1377,6 +1377,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260925-notifs-rapports-fr', ts: Date.UTC(2026, 8, 25, 13, 40), title: 'Notifications des rapports et des récaps : en français', desc: 'Certaines notifications de l’onglet Banques et de l’onglet Analystes arrivaient encore en anglais, comme « Asia FX Weekly » ou un récap de séance sur l’USD/JPY. Le titre d’un rapport de banque et celui d’un récap de séance sont désormais traduits avant de partir, avec une seconde tentative si la première échoue. Les titres courts, souvent refusés jusqu’ici, sont acceptés une fois traduits. Si la traduction reste impossible, la notification vous prévient en français qu’une nouvelle note ou un nouveau récap est paru, au lieu d’afficher le texte anglais.' },
   { id: 'dtpu-20260925-notif-ouvre', ts: Date.UTC(2026, 8, 25, 13, 12), title: 'Notifications : un toucher vous emmène droit à ce qu’elles annoncent', desc: 'Toucher une notification ouvre désormais l’élément qu’elle annonce : la dépêche dans le fil d’actualité, dépliée et mise en évidence, le rapport de banque ou la note d’analyste directement dans son lecteur, ou le calendrier économique pour une publication de données. Jusqu’ici, elle ouvrait simplement le desk, et il fallait retrouver l’élément soi-même.' },
   { id: 'dtpu-20260925-paires-ordre', ts: Date.UTC(2026, 8, 25, 13, 10), title: 'Choix de la paire : les 28 croisements dans leur cotation habituelle, par ordre alphabétique', desc: 'Dans les widgets qui se règlent sur une paire (Hauts / bas, Volatilité par heure, Variations quotidiennes…), la liste proposait certains croisements à l’envers, comme « USD/GBP » ou « JPY/CHF », dans un ordre difficile à parcourir. Elle présente désormais les 28 croisements des huit grandes devises dans leur cotation habituelle (GBP/USD, EUR/GBP, CHF/JPY…), rangés par ordre alphabétique. Un widget déjà réglé sur une paire inversée passe de lui-même à la cotation habituelle.' },
   { id: 'dtpu-20260925-notifs-temps-reel', ts: Date.UTC(2026, 8, 25, 8, 42), title: 'Notifications : à l’instant où la dépêche tombe, et seulement ce qui compte', desc: 'Les notifications d’actualité partent maintenant dès que la dépêche arrive sur le desk, au lieu d’attendre jusqu’à une minute. Elles ne concernent plus que l’important, sans rafale : une dépêche publiée il y a plus d’un quart d’heure n’est plus envoyée, rien n’est renvoyé après une mise à jour du desk, les longues analyses restent dans le fil, et le fil d’actualité ne fait sonner votre téléphone qu’une fois toutes les cinq minutes au plus (deux minutes pour une urgence, la suite arrivant en un seul récapitulatif). L’étiquette « Chiffre » est réservée aux vraies publications de données (CPI, emploi, PIB…), et une dépêche dont la traduction n’est pas prête n’est plus envoyée en anglais. Enfin, une description qui ne fait que redire le titre ne prend plus de place.' },
@@ -2590,16 +2591,45 @@ const _pushEcoDepeches = [];                     // dépêches chiffrées pouss�
    (`_titreFr`), donc rien n'est payé deux fois. Échec ou délai dépassé : le texte d'origine part. */
 // Traduit un petit lot de textes pour une notification, avec délai de garde ; un texte déjà français,
 // vide, ou dont la traduction échoue revient tel quel (jamais de trou dans la notification).
-async function _pushFrLot(textes) {
+async function _pushFrLot(textes, valide) {
+  const ok = typeof valide === 'function' ? valide : _traductionFrValide;
   const a = (textes || []).map(t => String(t || ''));
   const idx = a.map((t, i) => (t && !_looksFr(t) ? i : -1)).filter(i => i >= 0);
   if (!idx.length) return a;
   try {
     const r = await Promise.race([_traduireLot(idx.map(i => a[i]), { priority: 'user' }), new Promise(ok => setTimeout(() => ok(null), 8000))]);
     const tr = r && Array.isArray(r.translations) ? r.translations : [];
-    idx.forEach((i, k) => { const fr = tr[k]; if (fr && fr !== a[i] && _traductionFrValide(fr)) a[i] = fr; });
+    idx.forEach((i, k) => { const fr = tr[k]; if (fr && fr !== a[i] && ok(fr)) a[i] = fr; });
   } catch {}
   return a;
+}
+/* LES NOTIFICATIONS DE RAPPORTS EN FRANÇAIS, SANS EXCEPTION (25/09, capture user : « Asia FX Weekly »,
+   « CNB Minutes: Inflationary risks are starting to materialise », un récap de séance « USD/JPY falls
+   below 158.00… », tous arrivés EN ANGLAIS sur l'écran verrouillé). Trois trous distincts :
+   1. les récaps de séance ne passaient PAS par la traduction : leur titre français (`aiTitle`) est
+      fabriqué en tâche de fond, souvent APRÈS que le guetteur a repéré le récap ;
+   2. un titre de banque dont la traduction échouait ou dépassait 8 s partait tel quel ;
+   3. le contrôle « ressemble à du français » veut un accent ou un petit mot (le, la, des…) : une
+      bonne traduction COURTE (« Hebdo FX Asie ») était rejetée, et c'est l'anglais qui partait.
+   Ici : deux essais ; un titre court est accepté dès qu'il a réellement changé et ne porte aucune
+   marque d'une autre langue ; sans traduction, la notification dit EN FRANÇAIS ce qui est paru.
+   C'est la règle des dépêches (« français ou rien »), adaptée : un rapport paru mérite d'être
+   signalé même sans son titre, une dépêche non. */
+const _PUSH_REPLI_FR = { banques: 'Nouvelle note de recherche, à lire dans l’onglet Banques.', analystes: 'Nouveau récap de séance, à lire dans l’onglet Analystes.' };
+async function _pushFrNotif(texte, cat) {
+  const src = String(texte || '').replace(/\s+/g, ' ').trim();
+  if (!src) return _PUSH_REPLI_FR[cat] || '';
+  if (_traductionFrValide(src)) return src;
+  const valide = t => {
+    const x = String(t || '').replace(/\s+/g, ' ').trim();
+    if (!x || x.toLowerCase() === src.toLowerCase() || _RX_NON_FR.test(x)) return false;
+    return _looksFr(x) || x.length <= 60;
+  };
+  for (let essai = 0; essai < 2; essai++) {
+    const [fr] = await _pushFrLot([src], valide);
+    if (valide(fr)) return fr;
+  }
+  return _PUSH_REPLI_FR[cat] || src;
 }
 // La description d'une dépêche, nettoyée, quand elle vaut la peine d'être lue sur un écran verrouillé.
 const _pushDescBrute = it => { const d = String((it && it.description) || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); return d.length >= 20 && d.length <= 600 ? d : ''; };
@@ -2678,12 +2708,13 @@ async function _pushDiffuser(evts) {
   const neufs = (evts || []).filter(e => e && e.id && !_pushDejaVus.has(e.id));
   if (!neufs.length) return;
   neufs.forEach(e => _pushDejaVus.add(e.id));
-  // Titres de rapports publiés en anglais par les banques : traduits avant de partir.
-  const aTraduire = neufs.filter(e => e.trad);
-  if (aTraduire.length) {
-    const fr = await _pushFrLot(aTraduire.map(e => e.body));
-    aTraduire.forEach((e, k) => { e.body = fr[k]; delete e.trad; });
-  }
+  // Titres de rapports (banques, récaps de séance) : en français avant de partir, jamais en anglais.
+  // `courtFr` : le libellé court (celui du récapitulatif de fin de pause) est aussi le titre traduit.
+  await Promise.all(neufs.filter(e => e.trad).map(async e => {
+    try { e.body = _pushCourt(await _pushFrNotif(e.body, e.cat), 170); } catch { e.body = _PUSH_REPLI_FR[e.cat] || e.body; }
+    if (e.courtFr) e.court = _pushCourt(e.body, 60);
+    delete e.trad; delete e.courtFr;
+  }));
   try { await _pushRouter(neufs); } catch (e) { console.error('[Push]', e.message); }
 }
 const _pushVus = {};
@@ -2716,9 +2747,9 @@ function _pushChiffre(e) {
 function _pushGuetter() {
   const ev = [], frais = x => Date.now() - (+(x && x.timestamp) || 0) < 12 * 3600e3;
   _pushNouveaux('sw', Array.isArray(_swCache) ? _swCache : [], x => x && (x.id || x.url || x.link)).filter(frais).slice(0, 2)
-    .forEach(w => ev.push({ cat: 'analystes', id: 'sw:' + (w.id || w.url || w.link), url: _pushLien('analystes', w.id || w.url || w.link), title: 'Analystes · Récap de séance', court: _pushCourt(w.aiTitle || w.title || w.headline, 60), body: _pushCourt(w.aiTitle || w.title || w.headline, 170) }));
+    .forEach(w => ev.push({ cat: 'analystes', id: 'sw:' + (w.id || w.url || w.link), url: _pushLien('analystes', w.id || w.url || w.link), title: 'Analystes · Récap de séance', court: _pushCourt(w.aiTitle || w.title || w.headline, 60), body: _pushCourt(w.aiTitle || w.title || w.headline, 170), trad: true, courtFr: true }));
   _pushNouveaux('dtp', (Array.isArray(allNews) ? allNews : []).filter(i => i && i._briefing && i._reportType), x => x.id).filter(frais).slice(0, 2)
-    .forEach(r => { const nom = _PUSH_RAPPORTS_FR[r._reportType] || r._reportType; ev.push({ cat: 'analystes', id: 'rap:' + r.id, url: _pushLien('analystes', r.id), title: 'Analystes · ' + nom, court: nom, body: _pushCourt(r._titreFr || r.headline, 170) }); });
+    .forEach(r => { const nom = _PUSH_RAPPORTS_FR[r._reportType] || r._reportType; ev.push({ cat: 'analystes', id: 'rap:' + r.id, url: _pushLien('analystes', r.id), title: 'Analystes · ' + nom, court: nom, body: _pushCourt(r._titreFr || r.headline, 170), trad: true }); });
   _pushNouveaux('br', Array.isArray(_brCache) ? _brCache : [], x => x && (x.id || x.url)).filter(frais).slice(0, 3)
     .forEach(b => { const inst = _pushCourt(b.institution || b.source || 'Recherche bancaire', 40); ev.push({ cat: 'banques', id: 'br:' + (b.id || b.url), url: _pushLien('banques', b.id || b.url), title: 'Banques · ' + inst, court: inst, body: _pushCourt(b._titreFr || b.title || b.headline, 170), trad: true }); });
   // Calendrier : un événement à FORT impact dont le chiffre vient de tomber (moins de 3 h). S'il a déjà
