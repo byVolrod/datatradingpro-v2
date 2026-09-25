@@ -588,6 +588,16 @@
     try { items = typeof src === 'function' ? src().slice() : []; } catch (x) {}
     items.sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
     if (filMode === 'important' && typeof rouge === 'function') items = items.filter(function (it) { try { return rouge(it); } catch (x) { return false; } });
+    /* LES PROPOS D'UN MÊME ORATEUR, REGROUPÉS COMME AU DESK (25/09, capture user : « je tape sur le
+       tag Info, il s'affiche pas », sous « Fed's Schmid: … »). Le desk rassemble les déclarations
+       d'une même intervention sous la première (`_groupSpeakerQuotes`), et c'est ce regroupement qui
+       porte le tag Info : il ouvre la liste des propos. L'app affichait la liste BRUTE (trois lignes
+       « Fed's Schmid » séparées), prenait les tags de la ligne regroupée du desk… puis reconstruisait
+       la ligne hors écran depuis l'élément BRUT, qui n'a pas de propos rattachés, donc pas de tag
+       Info : le toucher ne trouvait rien à ouvrir. On regroupe ici avec la fonction du desk (jamais
+       une copie de ses règles) : même liste, même carte, même Info. */
+    var grouper = glob('_groupSpeakerQuotes');
+    if (typeof grouper === 'function') { try { items = grouper(items); } catch (x) {} }
     var liste = document.getElementById('v2a-fil');
     if (!items.length) { liste.innerHTML = '<p class="v2a-vide">Le fil est en direct : les dépêches apparaissent dès leur publication.</p>'; return; }
     var html = '', jour = '';

@@ -63,9 +63,12 @@
      widget quand le lecteur n'en a pas choisi. Même gabarit pour toutes (les dessins du catalogue
      n'ont pas tous la même taille), estompée au repos, or sur l'onglet actif. */
   html.dtp-v2 .wdgt-tab { display: inline-flex; align-items: center; gap: 6px; }
-  html.dtp-v2 .wdgt-tico { margin: 0; color: #5f5f69; transition: color .15s; }
-  html.dtp-v2 .wdgt-tico svg { width: 14px; height: 14px; }
-  html.dtp-v2 .wdgt-tab:hover .wdgt-tico { color: #a1a1aa; }
+  /* 25/09 (« je dois plisser les yeux pour voir les icônes ») : 14 px en gris #5f5f69 sur fond
+     presque noir, c'était un contraste de 3 pour 1 à peine. 17 px et le gris des libellés : l'icône
+     se lit au premier coup d'œil, sans devenir plus voyante que le nom de l'onglet actif. */
+  html.dtp-v2 .wdgt-tico { margin: 0; color: #a8a8b2; transition: color .15s; }
+  html.dtp-v2 .wdgt-tico svg { width: 17px; height: 17px; }
+  html.dtp-v2 .wdgt-tab:hover .wdgt-tico { color: #ececf0; }
   html.dtp-v2 .wdgt-tab.on .wdgt-tico { color: #e3b23a; }
   /* LA RANGÉE D'ONGLETS NE GLISSE PAS, ET TIENT SUR UNE LIGNE (25/09, deux demandes du même jour).
      1. « La barre panneau à onglet on peut décaler, fixe-la comme celle du panel admin » : elle a
@@ -79,8 +82,10 @@
   html.dtp-v2 .wdg-card--tabs .wdgt-bar { flex-wrap: nowrap; overflow: hidden; scroll-snap-type: none; }
   html.dtp-v2 .wdg-card--tabs .wdgt-bar::before, html.dtp-v2 .wdg-card--tabs .wdgt-bar::after { display: none; }
   html.dtp-v2 .wdgt-bar.v3-serre .wdgt-tab:not(.on):has(.wdgt-tico) .wdgt-nm { display: none; }
-  html.dtp-v2 .wdgt-bar.v3-serre .wdgt-tab:not(.on):has(.wdgt-tico) { padding: 0 9px; }
+  html.dtp-v2 .wdgt-bar.v3-serre .wdgt-tab:not(.on):has(.wdgt-tico) { padding: 0 11px; }
+  html.dtp-v2 .wdg-set-noms { display: flex; gap: 6px; flex-wrap: wrap; }
   html.dtp-v2 .wdg-card--tabs.v3-2lignes .wdgt-bar { width: 100%; margin-top: var(--wdgt-head-h, 34px); padding-left: 4px; }
+  html.dtp-v2 .wdgt-bar.v3-retour { flex-wrap: wrap; }
   html.dtp-v2 .wdgt-bar.v3-defile { overflow-x: auto; scrollbar-width: none; }
   html.dtp-v2 .wdgt-bar.v3-defile::-webkit-scrollbar { display: none; }
   html.dtp-v2 .wdg-card--tabs .wdgt-tab, html.dtp-v2 .wdg-card--tabs .wdgt-add { min-height: 32px; }

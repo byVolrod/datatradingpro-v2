@@ -219,7 +219,18 @@
       var tl = Array.isArray(it.tabs) ? it.tabs : [];
       var lb = Array.isArray(it.tabLabels) ? it.tabLabels : [];
       var ic = Array.isArray(it.tabIcons) ? it.tabIcons : [];   // icone par onglet (slug)
-      onglets = '<div class="wdg-set-sep"></div><div class="wdg-set-tabs-t">Onglets · renommer ou retirer</div>'
+      /* NOMS DES ONGLETS (25/09, V3 : « affiche le nom des widgets, et dans le réglage du panneau à
+         onglets, mets de quoi n'afficher que celui de l'onglet ouvert »). Chaque onglet V3 porte une
+         icône : le lecteur choisit de garder tous les noms, ou seulement celui de l'onglet ouvert
+         (les autres en icône, leur nom au survol). Hors V3 les onglets n'ont pas d'icône : le choix
+         n'y aurait pas de sens et n'est pas proposé. Enregistré dans it.cfg (chaîne), avec la disposition. */
+      var _nomsActif = !!(it.cfg && it.cfg.tabnoms === 'actif');
+      var _choixNoms = document.documentElement.classList.contains('dtp-v2')
+        ? '<div class="wdg-set-sep"></div><div class="wdg-set-tabs-t">Noms des onglets</div><div class="wdg-set-noms">'
+          + '<button type="button" class="wdg-set-act' + (_nomsActif ? '' : ' on') + '" onclick="DTPWidgets.setTabNoms(' + idx + ',\'tous\')">Tous les onglets</button>'
+          + '<button type="button" class="wdg-set-act' + (_nomsActif ? ' on' : '') + '" onclick="DTPWidgets.setTabNoms(' + idx + ',\'actif\')">Onglet ouvert seulement</button></div>'
+        : '';
+      onglets = _choixNoms + '<div class="wdg-set-sep"></div><div class="wdg-set-tabs-t">Onglets · renommer ou retirer</div>'
         + tl.map(function (id2, j) {
             // Onglet VIDE (sentinel 'vide') : il apparaît AUSSI ici — renommable, retirable.
             var estVide = (id2 === 'vide');
@@ -7747,7 +7758,11 @@
           var tout = items.filter(function (i) {
             if (!i) return false;
             if (i.category && off[i.category]) return false;
-            return !ql || String(i.headline || '').toLowerCase().indexOf(ql) !== -1;
+            if (!ql) return true;
+            // MÊME recherche que le fil du desk (25/09, « russe » ne trouvait rien) : titre français
+            // affiché compris, sans accents, variantes et équivalents anglais (app.js).
+            if (typeof window._rechercheCorrespond === 'function') { try { return window._rechercheCorrespond(i, ql); } catch (e) {} }
+            return String(i._titreFr || '').toLowerCase().indexOf(ql) !== -1 || String(i.headline || '').toLowerCase().indexOf(ql) !== -1;
           });
           var cap = 25 + plus;                               // fenêtre de départ ; « Charger plus » l'étend
           var rows = tout.slice(0, cap);
@@ -8674,6 +8689,7 @@
         function renderTabs() {
           // Libellé = TAG court du desk quand il existe (› MONDE › RISQUE › FORCE…, demande user 26/07
           // « exactement comme le desk ») ; le nom complet reste dans le title (infobulle).
+          bar.dataset.noms = (it.cfg && it.cfg.tabnoms === 'actif') ? 'actif' : 'tous';
           bar.innerHTML = tabs.map(function (id, i) {
             var estG = _estGrille(it, i);
             var w = !estG && id !== 'vide' && id !== 'grille' && byId(id);
@@ -10816,6 +10832,15 @@ function _spansAffiches(lay) {
     // RÉGLAGES DÉCLARATIFS — écrit la valeur puis re-rend (le widget se re-monte et lit sa nouvelle
     // valeur par opt()). _reopen garde le panneau de réglages ouvert : on enchaîne plusieurs réglages
     // sans avoir à le rouvrir à chaque clic.
+    // Noms des onglets d'un panneau à onglets (V3) : 'tous' (défaut, rien de stocké) ou 'actif'.
+    setTabNoms: function (i, v) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var it = l.items[i];
+      if (!it.cfg) it.cfg = {};
+      if (v === 'actif') it.cfg.tabnoms = 'actif'; else delete it.cfg.tabnoms;
+      if (!Object.keys(it.cfg).length) delete it.cfg;
+      save(); _syncPanel(i); API.refresh(i);
+    },
     setOpt: function (i, k, v) {
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var it = l.items[i], w = byId(it.w), d = optDef(w, k); if (!d) return;

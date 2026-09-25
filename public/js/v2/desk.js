@@ -101,16 +101,23 @@
      pleine largeur, sous eux (même principe que `wdg-card--tabs-2lignes` de widgets.js, qui ne
      regarde que le plus large onglet) ; elle ne défile qu'en tout dernier recours. Mesuré à chaque
      rendu d'onglets et à chaque changement de taille de la grille — jamais figé à l'arrivée. */
+  /* ⚠️ LES NOMS RESTENT (25/09, seconde demande du jour : « affiche le nom des widgets »). La barre ne
+     passe plus d'elle-même en icônes seules : c'est désormais un CHOIX du lecteur, dans les réglages du
+     panneau (« Noms des onglets : tous / onglet ouvert seulement », `data-noms` posé par widgets.js).
+       · tous (défaut) : la barre garde les noms ; s'ils ne tiennent pas à côté des boutons, elle prend
+         sa propre ligne, et s'ils ne tiennent toujours pas, elle passe à la ligne (jamais d'icône seule) ;
+       · onglet ouvert seulement : icônes pour les autres, puis sa propre ligne, puis défilement. */
   function barres() {
     var g = document.getElementById('wdg-grid'); if (!g) return;
     g.querySelectorAll('.wdg-card--tabs .wdgt-bar').forEach(function (b) {
       var carte = b.closest('.wdg-card'), tient = function () { return b.scrollWidth <= b.clientWidth + 1; };
-      b.classList.remove('v3-serre', 'v3-defile'); if (carte) carte.classList.remove('v3-2lignes');
-      if (!MQ_DESK.matches || tient()) return;
-      b.classList.add('v3-serre');
+      var actifSeul = b.dataset.noms === 'actif';
+      b.classList.remove('v3-serre', 'v3-defile', 'v3-retour'); if (carte) carte.classList.remove('v3-2lignes');
+      if (!MQ_DESK.matches) return;
+      if (actifSeul) b.classList.add('v3-serre');
       if (tient()) return;
       if (carte && !carte.classList.contains('wdg-card--tabs-2lignes')) { carte.classList.add('v3-2lignes'); if (tient()) return; }
-      b.classList.add('v3-defile');
+      b.classList.add(actifSeul ? 'v3-defile' : 'v3-retour');
     });
   }
   /* ── CASSE DES ONGLETS (25/09, capture user : « des fois tout est en majuscule et d'autres fois

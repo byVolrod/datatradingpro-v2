@@ -24,6 +24,38 @@ const PUB = path.join(RACINE, 'public');
 let ok = 0, ko = 0;
 const v = (nom, cond, detail) => { if (cond) { ok++; console.log('  ✓ ' + nom); } else { ko++; console.log('  ✗ ' + nom + (detail ? '\n      → ' + detail : '')); } };
 
+/* ══ LA RECHERCHE DU FIL PAR MOTS-CLÉS (25/09) ════════════════════════════════════════════════════
+   Capture user : « russe » → « Aucun élément ne correspond », alors que le fil portait des dépêches
+   sur la Russie. On rejoue le VRAI `_rechercheCorrespond` d'app.js (tranche extraite, pas une copie)
+   sur des dépêches du fil telles que le serveur les livre : titre d'origine anglais, titre français
+   d'affichage, parfois sans source. Chaque contrôle est un cas que l'ancien filtre ratait. */
+console.log('\n── Recherche du fil par mots-clés (vrai code d\'app.js) ──');
+{
+  const src = fs.readFileSync(path.join(PUB, 'js/app.js'), 'utf8');
+  const a = src.indexOf('const _RECH_SYN = {'), b = src.indexOf('window._rechercheCorrespond = _rechercheCorrespond;');
+  v('la tranche de recherche est trouvée dans app.js', a > 0 && b > a, a + ' → ' + b);
+  let corr = null;
+  try { corr = new Function('catFr', src.slice(a, b) + '\nreturn _rechercheCorrespond;')(c => ({ geopolitics: 'Géopolitique' })[c] || c); } catch (e) { v('la tranche s\'évalue', false, e.message); }
+  if (corr) {
+    const d = (h, x) => Object.assign({ headline: h, source: 'FinancialJuice', category: 'forex', tags: [] }, x || {});
+    const russie = d('Russia says talks with Ukraine are stalled', { _titreFr: 'La Russie juge les pourparlers avec l\'Ukraine au point mort', category: 'geopolitics' });
+    const ordres = d('US Durable Goods Orders rise 0.4% for August');
+    const petrole = d('Crude oil extends losses as OPEC+ weighs output hike');
+    const sansSource = d('BoJ Ueda: will keep policy accommodative', { source: undefined });
+    const fed = d('Réserve fédérale : Powell prudent', { _titreFr: 'Réserve fédérale : Powell prudent' });
+    v('« russe » trouve une dépêche sur la Russie (gentilé → pays, les deux langues)', corr(russie, 'russe'));
+    v('… « Russie » aussi, sans casse ni accent', corr(russie, 'RUSSIE') && corr(russie, 'ukraine'));
+    v('… la catégorie s\'interroge par son nom FRANÇAIS affiché', corr(russie, 'géopolitique'));
+    v('« or » ne trouve PAS « Orders » ni « for » (mot court = mot entier)', !corr(ordres, 'or'));
+    v('« pétrole » trouve « Crude oil » (équivalent anglais du marché)', corr(petrole, 'pétrole') && corr(petrole, 'petrole'));
+    v('plusieurs mots : TOUS requis', corr(petrole, 'pétrole opep') && !corr(petrole, 'pétrole russie'));
+    v('« reserve federale » trouve « Réserve fédérale » (accents ignorés)', corr(fed, 'reserve federale'));
+    let leve = null; try { v('une dépêche SANS source ne fait pas planter le filtre (et se trouve)', corr(sansSource, 'ueda') === true); } catch (e) { leve = e; }
+    if (leve) v('une dépêche SANS source ne fait pas planter le filtre', false, leve.message);
+    v('requête vide : tout passe', corr(ordres, '   '));
+  }
+}
+
 function trouverNavigateur() {
   const c = [process.env.CHROME_PATH, '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome'];
   for (const b of ['/opt/pw-browsers', process.env.PLAYWRIGHT_BROWSERS_PATH].filter(Boolean)) {
@@ -36,8 +68,8 @@ try { pp = require(path.join(RACINE, 'node_modules/puppeteer-core')); } catch {}
 const NAV = trouverNavigateur();
 if (!pp || !NAV) {
   /* Même règle que desk-verif : sans navigateur on s'abstient, on ne bloque pas une livraison. */
-  console.log('\n[recherche-verif] aucun navigateur disponible → contrôle ABSTENU (code 0)\n');
-  process.exit(0);
+  console.log('\n[recherche-verif] aucun navigateur disponible → contrôle de la loupe ABSTENU\n');
+  process.exit(ko ? 1 : 0);
 }
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon', '.jpg': 'image/jpeg' };

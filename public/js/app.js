@@ -1632,15 +1632,65 @@ function getFilteredItems() {
     if (key) seen.add(key);
 
     if (!searchQuery) return true;
-    return (
-      item.headline.toLowerCase().includes(searchQuery) ||
-      (item.description || '').toLowerCase().includes(searchQuery) ||
-      item.category.toLowerCase().includes(searchQuery) ||
-      item.source.toLowerCase().includes(searchQuery) ||
-      (item.tags || []).some(t => t.toLowerCase().includes(searchQuery))
-    );
+    return _rechercheCorrespond(item, searchQuery);
   });
 }
+
+/* ══ LA RECHERCHE DU FIL (25/09, capture user : « russe » → « Aucun élément ne correspond ») ══════════
+   Trois défauts s'additionnaient :
+   1. elle ne lisait que le titre ANGLAIS d'origine, jamais le titre français AFFICHÉ (`_titreFr`) : on
+      cherchait donc dans une langue que le lecteur ne voit pas ;
+   2. aucune tolérance : accents (« Réserve fédérale » / « reserve »), pluriels et gentilés (« russe »
+      ne trouve ni « Russie » ni « Russia ») ;
+   3. `item.source.toLowerCase()` levait une exception sur une dépêche SANS source — et une exception
+      dans le filtre vide TOUTE la liste : le lecteur lisait « aucun élément » là où il y en avait des
+      dizaines.
+   Désormais : titre affiché ET d'origine, descriptions, catégorie (et son nom français), source et
+   tags, sans accents ni casse ; plusieurs mots = tous requis ; un mot de 5 lettres ou plus trouve aussi
+   sa racine (« russe » → « russ… ») ; et les mots FRANÇAIS courants du marché trouvent leur équivalent
+   anglais (« pétrole » → oil, crude, brent, wti…), puisque la moitié du fil est rédigée en anglais. */
+const _RECH_SYN = {
+  russe: ['russ'], russie: ['russ'], chinois: ['chin'], chine: ['chin'], americain: ['us', 'usa', 'united states', 'etats-unis', 'america'],
+  'etats-unis': ['us', 'usa', 'united states', 'america'], japonais: ['japan', 'japon', 'jpy'], japon: ['japan', 'jpy'],
+  allemand: ['germany', 'german', 'allemagne'], allemagne: ['germany', 'german'], britannique: ['uk', 'britain', 'british', 'royaume-uni'],
+  'royaume-uni': ['uk', 'britain', 'british'], francais: ['france', 'french'], iranien: ['iran'], israelien: ['israel'],
+  ukrainien: ['ukrain'], ukraine: ['ukrain'], canadien: ['canad'], australien: ['austral'], suisse: ['swiss', 'switzerland', 'snb'],
+  europeen: ['europe', 'euro', 'ecb', 'bce'], europe: ['euro', 'ecb', 'eu '], petrole: ['oil', 'crude', 'brent', 'wti', 'opec', 'opep'],
+  opep: ['opec'], or: ['gold', 'xau'], argent: ['silver', 'xag'], gaz: ['gas', 'lng'], ble: ['wheat'], cuivre: ['copper'],
+  inflation: ['cpi', 'pce', 'inflation'], emploi: ['jobs', 'payrolls', 'nfp', 'employment', 'unemployment', 'jobless'],
+  chomage: ['unemployment', 'jobless'], taux: ['rate', 'yield'], banque: ['bank'], douane: ['tariff'], droits: ['tariff'],
+  guerre: ['war', 'strike', 'attack'], sanctions: ['sanction'], accord: ['deal', 'agreement', 'truce'], croissance: ['gdp', 'growth', 'pib'],
+  pib: ['gdp'], dette: ['debt'], budget: ['budget', 'fiscal'], election: ['election', 'vote'], dollar: ['usd', 'dollar'],
+  yen: ['jpy', 'yen'], livre: ['gbp', 'sterling', 'pound'], fed: ['fed', 'fomc', 'powell'], bce: ['ecb', 'lagarde'],
+};
+const _rechNorm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’']/g, ' ');
+const _rechCache = new WeakMap();
+function _rechercheTexte(item) {
+  const c = _rechCache.get(item);
+  const sig = (item._titreFr || '') + '|' + (item._descFr || '').length;
+  if (c && c.sig === sig) return c.txt;
+  let catFrTxt = '';
+  try { catFrTxt = typeof catFr === 'function' && item.category ? catFr(item.category) : ''; } catch (e) {}
+  const txt = ' ' + _rechNorm([item._titreFr, item.headline, item._hlFr, item._descFr, item.description, item.category, catFrTxt, item.source,
+    ...(Array.isArray(item.tags) ? item.tags : [])].filter(Boolean).join(' ')).replace(/<[^>]*>/g, ' ') + ' ';
+  _rechCache.set(item, { sig, txt });
+  return txt;
+}
+function _rechercheCorrespond(item, requete) {
+  if (!item) return false;
+  const mots = _rechNorm(requete).split(/\s+/).filter(Boolean);
+  if (!mots.length) return true;
+  const txt = _rechercheTexte(item);
+  return mots.every(m => {
+    // « or » tout court ne doit pas trouver chaque « order » ou « for » : un mot de moins de
+    // 3 lettres ne compte qu'ENTIER.
+    if (m.length < 3) { if (new RegExp('[^a-z0-9]' + m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[^a-z0-9]').test(txt)) return true; }
+    else if (txt.includes(m)) return true;
+    else if (m.length >= 5 && txt.includes(m.replace(/(es|e|s)$/, ''))) return true;
+    return (_RECH_SYN[m] || []).some(eq => eq.length < 3 ? new RegExp('[^a-z0-9]' + eq + '[^a-z0-9]').test(txt) : txt.includes(eq));
+  });
+}
+window._rechercheCorrespond = _rechercheCorrespond;
 
 // ── Speaker quote grouping ────────────────────────────────────────────────────
 // When 2+ items from the same speaker arrive within 30 min with no opener,

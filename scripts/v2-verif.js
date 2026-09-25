@@ -186,6 +186,10 @@ const NEWS = [
   { id: 'n1', headline: 'Fed\'s Waller: another hike is on the table', _titreFr: 'Waller (Fed) : une nouvelle hausse reste sur la table', category: 'Central Banks', timestamp: MAINT - 5 * 6e4, priority: 'high', description: 'Waller said inflation remains too high.' },
   { id: 'n2', headline: 'German Ifo business climate rises to 88.9', category: 'Economic Data', timestamp: MAINT - 12 * 6e4, priority: 'low' },
   { id: 'n3', headline: 'Oil extends gains as supply worries persist', category: 'Commodities', timestamp: MAINT - 40 * 6e4, priority: 'low' },
+  // Trois propos d'un même orateur (capture du 25/09 : le tag Info ne s'ouvrait pas dans l'app).
+  { id: 'sp1', headline: "Fed's Schmid: Question is whether AI ecosystem becomes too big to fail", _titreFr: "Fed's Schmid: La question est de savoir si l'écosystème de l'IA devient trop grand pour échouer.", category: 'Fed', tags: ['US'], timestamp: MAINT - 50 * 6e4, priority: 'low' },
+  { id: 'sp2', headline: "Fed's Schmid: Fed still hasn't solved inflation problem", category: 'Fed', tags: ['US'], timestamp: MAINT - 56 * 6e4, priority: 'low' },
+  { id: 'sp3', headline: "Fed's Schmid: US debt looks extreme", category: 'Fed', tags: ['US'], timestamp: MAINT - 56 * 6e4 - 1000, priority: 'low' },
 ];
 const WRAPS = [{ id: 'w1', source: 'DTP', title: 'London Opening Preparation : le dollar reprend la main', headline: 'London Opening Preparation : le dollar reprend la main', description: 'Le dollar se raffermit avant le PCE.', timestamp: MAINT - 3600e3, tags: ['USD', 'Fed', 'PCE'] }];
 // Bougies et rendements de synthèse (marche déterministe), pour les widgets en direct (§ 8).
@@ -298,12 +302,12 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       await page.evaluate(items => { try { handleMessage({ type: 'initial', items, total: items.length }); } catch (e) {} }, NEWS);
       await aller('.v2a-onglet[data-v2v="fil"]');
       const f = await page.evaluate(() => ({ puces: document.querySelectorAll('#v2a-puces-fil button').length, lignes: document.querySelectorAll('#v2a-fil .v2a-news').length,
-        desk: (() => { try { return getFilteredItems().length; } catch (e) { return -1; } })(), fr: [...document.querySelectorAll('#v2a-fil .v2a-news p')].some(p => /Waller \(Fed\) : une nouvelle hausse/.test(p.textContent)),
+        desk: (() => { try { return _groupSpeakerQuotes(getFilteredItems().slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))).length; } catch (e) { return -1; } })(), fr: [...document.querySelectorAll('#v2a-fil .v2a-news p')].some(p => /Waller \(Fed\) : une nouvelle hausse/.test(p.textContent)),
         imp: !!document.querySelector('#v2a-fil .v2a-news.v2a-imp'), titre: document.getElementById('v2a-titre').textContent,
         ids: (() => { try { return getFilteredItems().slice(0, 4).map(i => i.id + ':' + (i._titreFr ? 'fr' : '') + ':' + i.priority); } catch (e) { return String(e); } })() }));
-      v('Fil : natif, les MÊMES dépêches que le fil du desk (getFilteredItems)', f.lignes > 0 && f.lignes === Math.min(60, f.desk) && f.titre === 'Fil en direct', JSON.stringify(f));
+      v('Fil : natif, les MÊMES dépêches que le fil du desk (getFilteredItems, propos regroupés comme au desk)', f.lignes > 0 && f.lignes === Math.min(60, f.desk) && f.titre === 'Fil en direct', JSON.stringify(f));
       const acc = await page.evaluate(() => { try {
-        const it = getFilteredItems().slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 30);
+        const it = _groupSpeakerQuotes(getFilteredItems().slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))).slice(0, 30);
         const dom = [...document.querySelectorAll('#v2a-fil .v2a-news')];
         return { n: it.length, titres: it.every((x, i) => dom[i] && dom[i].dataset.id === String(x.id) && dom[i].querySelector('p').textContent === _newsDisplayTitle(x)),
                  imp: it.every((x, i) => dom[i] && dom[i].classList.contains('v2a-imp') === !!_estNewsRouge(x)) };
@@ -323,6 +327,29 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
         const c = n && (n.querySelector('.v2a-news-corps') || n.querySelector('.v2a-news-desc'));
         return !!(c && n.classList.contains('v2a-ouvert') && getComputedStyle(c).display !== 'none' && c.textContent.trim().length > 10);
       }));
+      /* PROPOS D'UN ORATEUR (25/09, « je tape sur le tag Info, il s'affiche pas ») : regroupés sous une
+         seule carte comme au desk, et leur tag Info OUVRE la liste des propos. */
+      const sp = await page.evaluate(async () => {
+        const c = document.querySelector('#v2a-fil .v2a-news[data-id="sp1"]');
+        const r = { carte: !!c, seuls: !document.querySelector('#v2a-fil .v2a-news[data-id="sp2"]') && !document.querySelector('#v2a-fil .v2a-news[data-id="sp3"]') };
+        const b = c && c.querySelector('[data-onglet="info"]');
+        r.info = !!b;
+        // Un contrôle précédent a pu déjà ouvrir cette carte : on part d'une carte FERMÉE, sans quoi
+        // le toucher la refermerait et le contrôle mesurerait l'inverse de ce qu'il croit.
+        if (b && c.classList.contains('v2a-ouvert')) { b.click(); await new Promise(z => setTimeout(z, 300)); }
+        const b2 = document.querySelector('#v2a-fil .v2a-news[data-id="sp1"] [data-onglet="info"]');
+        r.fermeAvant = !document.querySelector('#v2a-fil .v2a-news[data-id="sp1"]').classList.contains('v2a-ouvert');
+        if (b2) { b2.click(); await new Promise(z => setTimeout(z, 700)); }
+        // L'écran se redessine quand le desk bouge : on relit la carte COURANTE, pas celle d'avant le clic.
+        const c2 = document.querySelector('#v2a-fil .v2a-news[data-id="sp1"]');
+        const corps = c2 && c2.querySelector('.v2a-news-corps');
+        r.ouvert = !!(c2 && c2.classList.contains('v2a-ouvert'));
+        r.propos = corps ? corps.querySelectorAll('li').length : 0;
+        r.visible = corps ? getComputedStyle(corps).display : null;
+        return r;
+      });
+      v('… les propos d\'un même orateur forment UNE carte, comme au desk', sp.carte && sp.seuls, JSON.stringify(sp));
+      v('… et leur tag Info s\'ouvre sur la liste des propos', sp.info && sp.fermeAvant && sp.ouvert && sp.propos === 3 && sp.visible !== 'none', JSON.stringify(sp));
       v('… tags du desk en français, jamais le tag brut du serveur', await page.evaluate(() => {
         const t = [...document.querySelectorAll('#v2a-fil .v2a-tags .tag')].map(x => x.textContent.trim());
         return t.length > 0 && !t.some(x => /^(Geopolitical|Oil|Energy|Data|Rates|Metals|Gold|Risk)$/.test(x));
@@ -403,14 +430,24 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
         const barres = [...document.querySelectorAll('.wdg-card--tabs .wdgt-bar')];
         const t = document.querySelector('.topbar');
         return { app: document.documentElement.classList.contains('dtp-app'), grille: !!g && cs.display === 'grid', defile: cs && cs.overflowY,
-          lignes: barres.map(b => { const tabs = [...b.querySelectorAll('.wdgt-tab')].map(x => Math.round(x.getBoundingClientRect().top)); return new Set(tabs).size; }),
+          lignes: barres.map(b => { const tabs = [...b.querySelectorAll('.wdgt-tab')].map(x => Math.round(x.getBoundingClientRect().top)); return { n: new Set(tabs).size, retour: b.classList.contains('v3-retour') }; }),
           cachees: barres.map(b => b.scrollWidth > b.clientWidth + 1 && !b.classList.contains('v3-defile')).filter(Boolean).length,
+          rognes: barres.map(b => { const c = b.closest('.wdg-card').getBoundingClientRect(); return [...b.querySelectorAll('.wdgt-tab')].filter(x => { const q = x.getBoundingClientRect(); return q.bottom > c.bottom + 1 || q.right > c.right + 1; }).length; }).reduce((a, n) => a + n, 0),
           rangee: [...document.querySelectorAll('#wdg-grid > .wdg-card')].map(c => getComputedStyle(c).gridRowStart),
           barreHaut: t ? Math.round(t.getBoundingClientRect().top) : null };
       });
       v('pas d\'app sur un PC étroit : Mon Desk reste affiché', !r.app && r.grille, JSON.stringify(r));
       v('… le modèle garde ses rangées (aucune carte réduite à sa hauteur de contenu), sans défilement de page', r.rangee.length > 0 && r.rangee.every(x => /span/.test(x)) && r.defile === 'hidden', JSON.stringify(r.rangee) + ' · ' + r.defile);
-      v('… chaque barre d\'onglets tient sur UNE ligne, sans onglet caché', r.lignes.length > 0 && r.lignes.every(n => n === 1) && r.cachees === 0, JSON.stringify(r));
+      v('… chaque barre d\'onglets tient sur UNE ligne, sauf quand elle passe les noms à la ligne, et sans onglet caché ni rogné', r.lignes.length > 0 && r.lignes.every(l => l.n === 1 || l.retour) && r.cachees === 0 && r.rognes === 0, JSON.stringify(r));
+      // Réglage « Noms des onglets » : seul l'onglet ouvert garde son nom, les autres restent en icône.
+      const nm = await page.evaluate(() => {
+        const carte = document.querySelector('#wdg-grid > .wdg-card--tabs'); if (!carte || !window.DTPWidgets || !DTPWidgets.setTabNoms) return { absent: true };
+        const idx = [...document.querySelectorAll('#wdg-grid > .wdg-card')].indexOf(carte);
+        const noms = () => { const b = document.querySelectorAll('#wdg-grid > .wdg-card')[idx].querySelector('.wdgt-bar'); return [...b.querySelectorAll('.wdgt-tab')].map(t => { const l = t.querySelector('.wdgt-nm'); return { actif: t.classList.contains('on'), vu: !!l && l.getBoundingClientRect().width > 0 }; }); };
+        const avant = noms(); DTPWidgets.setTabNoms(idx, 'actif');
+        return new Promise(z => setTimeout(() => { const apres = noms(); DTPWidgets.setTabNoms(idx, 'tous'); z({ avant, apres }); }, 400));
+      });
+      v('… réglage « Noms des onglets » : seul l\'onglet ouvert garde son nom', !nm.absent && nm.apres.length > 1 && nm.apres.filter(t => t.vu).length === 1 && nm.apres.find(t => t.actif && t.vu) && nm.avant.filter(t => t.vu).length > 1, JSON.stringify(nm));
       v('… et la barre du haut reste collée en haut de page', r.barreHaut === 0, String(r.barreHaut));
       v('… aucune erreur de page', !erreurs.length, erreurs.slice(0, 2).join(' | '));
       await ctx.close();
