@@ -56,11 +56,21 @@ v('index.html ne charge le chargeur V2 que si admin ET annoncé par le serveur',
   // L'habillage V3 du desk grand écran : chaque règle commence par html.dtp-v2 (sans la classe, rien).
   const DESK = fs.readFileSync(path.join(R, 'public/css/v2/desk.css'), 'utf8');
   const rd = DESK.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@keyframes[^{]+\{(?:[^{}]*\{[^}]*\})*\s*\}/g, '')
-    .replace(/@media[^{]+\{/g, '').split('}').map(b => b.split('{')[0].trim()).filter(Boolean);
+    .replace(/@(media|container)[^{]+\{/g, '').split('}').map(b => b.split('{')[0].trim()).filter(Boolean);
   const horsD = [];
   rd.forEach(sel => sel.split(',').map(x => x.trim()).filter(Boolean).forEach(x => { if (!/^html\.dtp-v2\b/.test(x)) horsD.push(x); }));
   v('chaque sélecteur de l\'habillage V3 du desk est borné (html.dtp-v2)', rd.length > 20 && horsD.length === 0, horsD.slice(0, 5).join(' | '));
-  v('… et vit dans un @media grand écran (l\'app mobile garde sa propre feuille)', /^\s*@media \(min-width: 821px\) \{/m.test(DESK.replace(/\/\*[\s\S]*?\*\//g, '')));
+  /* 25/09 (« fenêtre rétrécie sur PC, j'ai pas compris pourquoi c'est différent ») : l'habillage vit
+     dans un @media « desk » — grand écran OU pointeur non tactile. Un PC étroit reste un desk ; seul
+     un écran TACTILE de téléphone passe à l'app, qui garde sa propre feuille. Les trois endroits qui
+     en décident doivent dire la même chose, sinon l'un habille ce que l'autre a déjà remplacé. */
+  const DJS = fs.readFileSync(path.join(R, 'public/js/v2/desk.js'), 'utf8');
+  const APPJ = fs.readFileSync(path.join(R, 'public/js/v2/app-mobile.js'), 'utf8');
+  v('… et vit dans un @media « desk » : grand écran OU pointeur non tactile', /^\s*@media \(min-width: 821px\), not all and \(pointer: coarse\) \{/m.test(DESK.replace(/\/\*[\s\S]*?\*\//g, '')));
+  v('… desk.js suit la même condition que la feuille', /matchMedia\('\(min-width: 821px\), not all and \(pointer: coarse\)'\)/.test(DJS));
+  v('l\'app mobile ne s\'ouvre que sur un écran TACTILE étroit (jamais un PC à fenêtre étroite)', /var MQ = window\.matchMedia\('\(max-width: 820px\) and \(pointer: coarse\)'\);/.test(APPJ)
+    && /innerWidth <= 820 && matchMedia\('\(pointer: coarse\)'\)\.matches/.test(fs.readFileSync(path.join(R, 'public/js/v2/boot.js'), 'utf8'))
+    && /window\.innerWidth<=820&&matchMedia\('\(pointer: coarse\)'\)\.matches/.test(IDX));
   // L'habillage V3 du panneau admin : borné à html.dtp-v3-admin, posé par admin.html, et servi sous
   // /css/v2 (donc refusé à tout compte non admin par la même garde).
   const ADM = fs.readFileSync(path.join(R, 'public/css/v2/admin.css'), 'utf8');
@@ -113,6 +123,50 @@ const FORCE = { currencies: CCY, updatedAt: new Date().toISOString(), series: Ob
   }
 }
 
+/* WIDGETS DE MARCHÉ EN DIRECT (25/09, « on dirait un truc figé ; je veux du temps réel, comme PMT »).
+   Hauts / bas, Taux US, Vol. horaire, Variations reçoivent une présentation V3 par le crochet
+   `DTPWidgets.v3Montage`. Ce qu'on garde ici : le crochet ne peut rien changer pour un client, et
+   l'heure de Paris est lue juste — la première version lisait « 14 h » en nombre (NaN) et
+   rangeait toute la journée dans une seule case de l'histogramme horaire. */
+{
+  const WJS = fs.readFileSync(path.join(R, 'public/js/widgets.js'), 'utf8');
+  const W3 = fs.readFileSync(path.join(R, 'public/js/v2/widgets-v3.js'), 'utf8');
+  const BOOT = fs.readFileSync(path.join(R, 'public/js/v2/boot.js'), 'utf8');
+  v('boot.js charge le module des widgets en direct', /\/js\/v2\/widgets-v3\.js/.test(BOOT));
+  const h = (/v3Montage: function \(id, fn\) \{[\s\S]*?\n    \},/.exec(WJS) || [''])[0];
+  v('widgets.js expose le crochet v3Montage', !!h);
+  v('… hors html.dtp-v2, c\'est le montage d\'ORIGINE qui s\'exécute', /if \(!document\.documentElement\.classList\.contains\('dtp-v2'\)\) return orig\.call\(w, host, it\)/.test(h));
+  v('… une exception au montage V3 retombe sur l\'origine', /catch \(e\) \{[^}]*\} repli\(\); \}/.test(h) || /\} repli\(\);/.test(h));
+  v('… et le nettoyage rend AUSSI celui du repli (aucun minuteur orphelin)', /if \(unOrig\) unOrig\(\)/.test(h));
+  const ids = ((/var MONTAGES = \{([^}]*)\}/.exec(W3) || [])[1] || '').match(/'([a-z-]+)'/g) || [];
+  const absents = ids.map(x => x.replace(/'/g, '')).filter(id => !new RegExp("id: '" + id + "'").test(WJS));
+  v('les widgets surchargés (dont les Horaires des marchés) existent au catalogue', ids.length >= 5 && /'?sessions'?/.test(ids.join(' ')) && !absents.length, ids.join(' ') + (absents.length ? ' · absents : ' + absents : ''));
+  /* UNE ICÔNE PAR ONGLET, en V3 seulement : la barre des clients garde son chevron. */
+  const ti = (/function _tabIconV3\(w, estGrille\) \{[\s\S]*?\n  \}/.exec(WJS) || [''])[0];
+  v('onglets : icône par défaut réservée à html.dtp-v2, jamais enregistrée', /if \(!document\.documentElement\.classList\.contains\('dtp-v2'\)\) return '';/.test(ti) && !/tabIcons/.test(ti));
+  /* NEURO-ONDES : 48 pistes, trois familles, et chaque fréquence dans la plage de sa famille. */
+  const NE = fs.readFileSync(path.join(R, 'public/js/v2/neuro.js'), 'utf8');
+  v('boot.js charge Neuro-ondes', /\/js\/v2\/neuro\.js/.test(BOOT));
+  const fams = [...NE.matchAll(/\{ k: '(conc|crea|rel)', nom: '([^']+)', hz: \[([^\]]+)\][\s\S]*?noms: \[([\s\S]*?)\] \}/g)]
+    .map(m => ({ k: m[1], hz: m[3].split(',').map(Number), noms: (m[4].match(/'[^']+'/g) || []) }));
+  const plage = { conc: [13, 41], crea: [8, 12], rel: [4, 7] };
+  v('Neuro-ondes : trois familles de seize pistes', fams.length === 3 && fams.every(f => f.noms.length === 16), fams.map(f => f.k + ':' + f.noms.length).join(' '));
+  const tous = fams.reduce((a, f) => a.concat(f.noms), []);
+  v('… 48 noms tous différents', new Set(tous).size === 48 && tous.length === 48);
+  v('… chaque fréquence dans la plage de sa famille (bêta/gamma, alpha, thêta)', fams.every(f => f.hz.every(h => h >= plage[f.k][0] && h <= plage[f.k][1])), JSON.stringify(fams.map(f => [f.k, f.hz])));
+  /* requestAnimationFrame passe un horodatage : appelée directement, la fonction de dessin le prenait
+     pour « figer », et le visualiseur restait plat (trouvé au rendu le 25/09). */
+  v('… le visualiseur passe par un relais sans argument', !/requestAnimationFrame\(dessinerOnde\)/.test(NE) && /function boucle\(\) \{ dessinerOnde\(false\); \}/.test(NE));
+  const hp = /  var _fmtH = null;\n  var heureParis = function \(t\) \{[\s\S]*?\n  \};/.exec(W3);
+  v('l\'heure de Paris est extractible', !!hp);
+  if (hp) {
+    const heureParis = new Function(hp[0] + ' return heureParis;')();
+    const ete = heureParis(Date.UTC(2026, 8, 25, 12, 30)), hiver = heureParis(Date.UTC(2026, 11, 1, 12, 30)), minuit = heureParis(Date.UTC(2026, 8, 25, 22, 10));
+    v('… 12 h 30 UTC = 14 h l\'été, 13 h l\'hiver, et 22 h 10 UTC = 0 h (jamais NaN, jamais 24)', ete === 14 && hiver === 13 && minuit === 0, ete + ' / ' + hiver + ' / ' + minuit);
+  }
+  v('… et plus jamais lue en nombre depuis le format français (« 14 h » → NaN)', !/\+new Intl\.DateTimeFormat\('fr-FR'/.test(W3));
+}
+
 console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (même échelle) ──');
 {
   const CH = fs.readFileSync(path.join(R, 'public/js/charts.js'), 'utf8');
@@ -134,6 +188,16 @@ const NEWS = [
   { id: 'n3', headline: 'Oil extends gains as supply worries persist', category: 'Commodities', timestamp: MAINT - 40 * 6e4, priority: 'low' },
 ];
 const WRAPS = [{ id: 'w1', source: 'DTP', title: 'London Opening Preparation : le dollar reprend la main', headline: 'London Opening Preparation : le dollar reprend la main', description: 'Le dollar se raffermit avant le PCE.', timestamp: MAINT - 3600e3, tags: ['USD', 'Fed', 'PCE'] }];
+// Bougies et rendements de synthèse (marche déterministe), pour les widgets en direct (§ 8).
+const BOUGIES = (tf) => {
+  const pas = { M15: 9e5, H1: 36e5, D1: 864e5, W1: 6048e5 }[tf] || 864e5, n = { M15: 480, H1: 1500, D1: 400, W1: 120 }[tf] || 100;
+  const vol = { M15: 0.0006, H1: 0.0012, D1: 0.016, W1: 0.03 }[tf] || 0.01;
+  let x = 1.17, s = 7, out = []; const t0 = Math.floor(MAINT / pas) * pas - (n - 1) * pas;
+  const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647 - 0.5; };
+  for (let i = 0; i < n; i++) { const t = t0 + i * pas, o = x, c = x + rnd() * vol; out.push({ t, o, h: Math.max(o, c) + Math.abs(rnd()) * vol * .5, l: Math.min(o, c) - Math.abs(rnd()) * vol * .5, c }); x = c; }
+  const dx = 1.1712 - out[out.length - 1].c; return out.map(b => ({ t: b.t, o: b.o + dx, h: b.h + dx, l: b.l + dx, c: b.c + dx }));
+};
+const TAUX = (() => { const s = {}; for (const [k, b] of [['m3', 4.05], ['y5', 3.72], ['y10', 4.12], ['y30', 4.71]]) { const h = []; let v = b; for (let i = 0; i < 90; i++) { v += Math.sin(i / 7) * 0.01; h.push({ t: MAINT - (89 - i) * 864e5, v: +v.toFixed(3) }); } s[k] = { lbl: k, last: h[89].v, hist: h }; } return { ok: true, series: s }; })();
 const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering risks', institution: 'MUFG', timestamp: MAINT - 7200e3, tags: ['EUR/USD', 'USD/JPY'] }];
 
 (async () => {
@@ -158,17 +222,20 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
     if (u === '/api/news') return j({ items: NEWS, total: NEWS.length });
     if (u === '/api/session-wraps') return j(WRAPS);
     if (u === '/api/bank-research') return j(BANQUES);
+    if (u === '/api/bank-ohlc') { const tf = new URL('http://x' + rq.url).searchParams.get('tf'); return j({ candles: BOUGIES(tf) }); }
+    if (u === '/api/us-yields') return j(TAUX);
     base.emit('request', rq, rs);
   });
   await new Promise(r => srv.listen(4873, r));
   const nav = await pp.launch({ executablePath: exe, headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-  const ouvrir = async (sc, w, h) => {
+  const ouvrir = async (sc, w, h, tactile) => {
+    if (tactile === undefined) tactile = w < 800;
     SC = sc; vus.length = 0;
     const ctx = await nav.createBrowserContext();
     const page = await ctx.newPage();
     const erreurs = [];
     page.on('pageerror', e => erreurs.push(e.message));
-    await page.setViewport({ width: w, height: h, isMobile: w < 800, hasTouch: w < 800, deviceScaleFactor: 1 });
+    await page.setViewport({ width: w, height: h, isMobile: tactile, hasTouch: tactile, deviceScaleFactor: 1 });
     await page.goto('http://localhost:4873/index.html', { waitUntil: 'domcontentloaded', timeout: 45000 });
     await new Promise(r => setTimeout(r, 3500));
     return { page, ctx, erreurs };
@@ -326,6 +393,29 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       v('aucune erreur JavaScript', erreurs.length === 0, erreurs.slice(0, 3).join(' | '));
       await ctx.close();
     }
+    console.log('\n── 4 bis. Admin, V2 activée, PC à fenêtre ÉTROITE (souris, 700 px) : le desk reste le desk ──');
+    {
+      const { page, ctx, erreurs } = await ouvrir({ role: 'admin', v2: 'on' }, 700, 900, false);
+      try { await page.evaluate(() => { if (window.activateView) activateView('widgets'); }); } catch (e) {}
+      await new Promise(z => setTimeout(z, 1500));
+      const r = await page.evaluate(() => {
+        const g = document.getElementById('wdg-grid'), cs = g && getComputedStyle(g);
+        const barres = [...document.querySelectorAll('.wdg-card--tabs .wdgt-bar')];
+        const t = document.querySelector('.topbar');
+        return { app: document.documentElement.classList.contains('dtp-app'), grille: !!g && cs.display === 'grid', defile: cs && cs.overflowY,
+          lignes: barres.map(b => { const tabs = [...b.querySelectorAll('.wdgt-tab')].map(x => Math.round(x.getBoundingClientRect().top)); return new Set(tabs).size; }),
+          cachees: barres.map(b => b.scrollWidth > b.clientWidth + 1 && !b.classList.contains('v3-defile')).filter(Boolean).length,
+          rangee: [...document.querySelectorAll('#wdg-grid > .wdg-card')].map(c => getComputedStyle(c).gridRowStart),
+          barreHaut: t ? Math.round(t.getBoundingClientRect().top) : null };
+      });
+      v('pas d\'app sur un PC étroit : Mon Desk reste affiché', !r.app && r.grille, JSON.stringify(r));
+      v('… le modèle garde ses rangées (aucune carte réduite à sa hauteur de contenu), sans défilement de page', r.rangee.length > 0 && r.rangee.every(x => /span/.test(x)) && r.defile === 'hidden', JSON.stringify(r.rangee) + ' · ' + r.defile);
+      v('… chaque barre d\'onglets tient sur UNE ligne, sans onglet caché', r.lignes.length > 0 && r.lignes.every(n => n === 1) && r.cachees === 0, JSON.stringify(r));
+      v('… et la barre du haut reste collée en haut de page', r.barreHaut === 0, String(r.barreHaut));
+      v('… aucune erreur de page', !erreurs.length, erreurs.slice(0, 2).join(' | '));
+      await ctx.close();
+    }
+
     console.log('\n── 5. Admin, V2 activée, grand écran : l\'app s\'efface ──');
     {
       const { page, ctx } = await ouvrir({ role: 'admin', v2: 'on' }, 1400, 900);
@@ -365,9 +455,42 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       await page.evaluate(() => document.querySelector('.v2a-bf-cite[data-f="F2"]').click());
       await new Promise(z => setTimeout(z, 300));
       const bu = await page.evaluate(() => { const b = document.getElementById('v2a-bf-bulle'); return b ? b.innerText : ''; });
-      v('… un clic sur une citation montre le FAIT exact, sa source et son heure', /GBP \(\+0,30\)/.test(bu) && /Force des devises \(unité TD\)/.test(bu), bu.replace(/\n/g, ' | '));
+      v('… un clic sur une citation montre le FAIT exact, sans le nom du fournisseur (25/09, « enlève les sources »)', /GBP \(\+0,30\)/.test(bu) && !/Force des devises \(unité TD\)/.test(bu), bu.replace(/\n/g, ' | '));
       await page.keyboard.press('Escape');
       v('Échap referme la feuille', await page.evaluate(() => !document.getElementById('v2a-bf')));
+
+      console.log('\n── 8. V3 · widgets de marché en direct (admin, V2 activée) ──');
+      const w3 = await page.evaluate(async () => {
+        const ids = ['hauts-bas', 'courbe-taux-us', 'vol-horaire', 'distribution-variations'], out = {}, hotes = [];
+        const z = document.createElement('div'); z.style.cssText = 'position:fixed;left:0;top:0;width:1200px;z-index:99999;display:grid;grid-template-columns:1fr 1fr;gap:8px';
+        document.body.appendChild(z);
+        ids.forEach(id => { const h = document.createElement('div'); h.style.cssText = 'height:320px;position:relative;overflow:hidden'; z.appendChild(h); hotes.push([id, h, DTPWidgets.mountInto(id, h, { paire: 'EUR/USD' })]); });
+        await new Promise(r => setTimeout(r, 2500));
+        hotes.forEach(([id, h]) => { out[id] = { v3: !!h.querySelector('.v3w'), svg: h.querySelectorAll('svg').length, direct: !!h.querySelector('.v3w-live'), nan: /NaN|undefined/.test(h.textContent), deborde: h.scrollWidth > h.clientWidth + 1 }; });
+        hotes.forEach(([, , un]) => { try { un && un(); } catch (e) {} }); z.remove();
+        return out;
+      });
+      const tous = Object.values(w3);
+      v('les 4 widgets prennent leur présentation V3 (vrais graphiques SVG)', tous.length === 4 && tous.every(x => x.v3 && x.svg >= 1), JSON.stringify(w3));
+      v('… chacun dit s\'il est EN DIRECT', tous.every(x => x.direct));
+      v('… aucun « NaN » ni « undefined » affiché, rien ne déborde', tous.every(x => !x.nan && !x.deborde), JSON.stringify(w3));
+      const hs = await page.evaluate(async () => {
+        const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:700px;height:320px;z-index:99999';
+        document.body.appendChild(h);
+        const un = DTPWidgets.mountInto('sessions', h, { vue: 'frise' });
+        await new Promise(r => setTimeout(r, 300));
+        const o = { v3: !!h.querySelector('.v3h'), pistes: h.querySelectorAll('.v3h-piste').length, pastilles: h.querySelectorAll('.v3h-pil').length, maintenant: !!h.querySelector('.v3h-now'), nan: /NaN|undefined/.test(h.textContent) };
+        un && un(); h.remove();
+        const n = document.createElement('div'); n.style.cssText = h.style.cssText; document.body.appendChild(n);
+        const un2 = DTPWidgets.mountInto('v3-neuro', n);
+        await new Promise(r => setTimeout(r, 200));
+        o.neuro = n.querySelectorAll('.v3n-ligne').length; o.neuroCmd = n.querySelectorAll('.v3n-cmd button').length;
+        un2 && un2(); n.remove();
+        o.icones = document.querySelectorAll('.wdgt-tab .wdgt-tico--auto').length; o.chevrons = document.querySelectorAll('.wdgt-tab .wdgt-chv').length;
+        return o;
+      });
+      v('Horaires des marchés : 4 places, pastilles d\'état, trait « maintenant »', hs.v3 && hs.pistes === 4 && hs.pastilles === 4 && hs.maintenant && !hs.nan, JSON.stringify(hs));
+      v('Neuro-ondes : 48 pistes et les trois commandes', hs.neuro === 48 && hs.neuroCmd === 3, JSON.stringify(hs));
       await ctx.close();
     }
   } catch (e) { v('le banc se termine', false, e.message); }

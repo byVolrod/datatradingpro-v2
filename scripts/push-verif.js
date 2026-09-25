@@ -210,7 +210,9 @@ console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement
   v('une famille inconnue envoyée par un client est écartée', _pushPrefsPropres({ cats: ['news', 'pirate'] }).cats.join() === 'news');
   v('son et vibreur se coupent', _pushPrefsPropres({ son: false, vibreur: false }).son === false && _pushPrefsPropres({ vibreur: false }).vibreur === false);
 
-  const outils = new Function(fn(SRV, '_pushMots') + '\nconst _pushRecents = [];\n' + fn(SRV, '_pushDoublon') + '\nconst PUSH_CATS = ' + cstBloc(SRV, 'PUSH_CATS') + ';\n' + fn(SRV, '_pushResume') + '\n' + fn(SRV, '_pushMessage') + '\nreturn { _pushDoublon, _pushResume, _pushMessage };')();
+  /* `_pushLien` (25/09 : un toucher sur la notification ouvre l'élément) est appelé par `_pushResume` :
+     il doit entrer dans l'assemblage, sans quoi le banc éprouve une fonction amputée de sa dépendance. */
+  const outils = new Function(fn(SRV, '_pushMots') + '\nconst _pushRecents = [];\n' + fn(SRV, '_pushDoublon') + '\nconst PUSH_CATS = ' + cstBloc(SRV, 'PUSH_CATS') + ';\nconst _pushLien = ' + cst(SRV, '_pushLien') + ';\n' + fn(SRV, '_pushResume') + '\n' + fn(SRV, '_pushMessage') + '\nreturn { _pushDoublon, _pushResume, _pushMessage };')();
   const t0 = Date.now();
   const e1 = { cat: 'news', id: 'a', body: 'Iran and United States resume talks over Strait of Hormuz shipping deal' };
   const e2 = { cat: 'news', id: 'b', body: 'United States and Iran resume talks over Hormuz shipping deal, sources say' };
@@ -223,6 +225,7 @@ console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement
   const lot = outils._pushResume('banques', [{ id: '1', court: 'Goldman Sachs', body: 'EUR/USD' }, { id: '2', court: 'ING', body: 'GBP' }, { id: '3', court: 'Nomura', body: 'JPY' }]);
   v('trois rapports de banques pendant la pause → une seule notification', lot.title === 'Banques · 3 rapports de banques', lot.title);
   v('… qui les nomme', lot.body === 'Goldman Sachs · ING · Nomura', lot.body);
+  v('… et qui ouvre la bonne rubrique au toucher', lot.url === '/?ouvrir=banques', String(lot.url));
   v('… et une seule publication reste elle-même', outils._pushResume('banques', [e3]) === e3);
   const avec = outils._pushMessage(e3, { son: true, vibreur: true }).web, sans = outils._pushMessage(e3, { son: false, vibreur: true }).web, muet = outils._pushMessage(e3, { son: true, vibreur: false }).web;
   v('son + vibreur : le navigateur vibre', avec.silent === false && Array.isArray(avec.vibrate) && avec.vibrate.length > 0);

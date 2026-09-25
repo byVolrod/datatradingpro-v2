@@ -37,7 +37,7 @@
        téléphone du client, indéfiniment.
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
 
-const VERSION = 'dtp-sw-20260925bbg1251';
+const VERSION = 'dtp-sw-20260925bbg1252';
 const CACHE_COQUILLE = VERSION + '-coquille';
 
 /* La coquille minimale : de quoi afficher QUELQUE CHOSE de DTP sans réseau. Volontairement courte —
@@ -191,14 +191,21 @@ self.addEventListener('push', (e) => {
 /* NOTIFICATION CLIQUÉE : on ramène l'onglet DTP déjà ouvert au premier plan plutôt que d'en ouvrir
    un second. Sur mobile, deux instances du desk c'est deux flux temps réel et deux fois la batterie
    — et le client se retrouve avec un desk qui n'est pas celui qu'il lisait. */
+/* ⚠️ UN CLIC MÈNE À L'ÉLÉMENT (25/09, « quand on clique sur une notif, ça doit mener à la notif »).
+   Avant, une fenêtre déjà ouverte était seulement mise au premier plan, sur l'écran où on l'avait
+   laissée. Elle reçoit désormais l'adresse de l'élément (message « dtp:ouvrir ») ; sans fenêtre
+   ouverte, on ouvre directement cette adresse. */
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
+  const cible = (e.notification.data && e.notification.data.url) || '/';
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((liste) => {
       for (const c of liste) {
-        if (c.url.indexOf(self.location.origin) === 0 && 'focus' in c) return c.focus();
+        if (c.url.indexOf(self.location.origin) === 0 && 'focus' in c) {
+          try { c.postMessage({ type: 'dtp:ouvrir', url: cible }); } catch (err) {}
+          return c.focus();
+        }
       }
-      const cible = (e.notification.data && e.notification.data.url) || '/';
       return self.clients.openWindow ? self.clients.openWindow(cible) : null;
     })
   );

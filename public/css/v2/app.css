@@ -758,3 +758,9 @@ html.dtp-app .v2a-kv { display: flex; justify-content: space-between; align-item
 html.dtp-app .v2a-kv b { color: #f2f2f4; font-weight: 600; text-align: right; }
 html.dtp-app .v2a-kv b.v2a-ok { color: #00e676; }
 html.dtp-app .v2a-kv b.v2a-ko { color: #ff3d00; }
+
+/* Un écran natif affiché : la vue du desk dessous est masquée (elle transparaissait pendant le fondu). */
+html.dtp-app.v2a-natif #main-layout { visibility: hidden; }
+/* Dépêche ouverte depuis une notification : un liseré or qui s'éteint. */
+html.dtp-app .v2a-news.v2a-cible { box-shadow: inset 3px 0 0 #e3b23a; animation: v2aCible 2.6s ease-out; }
+@keyframes v2aCible { from { background-color: rgba(227,178,58,.14); } }

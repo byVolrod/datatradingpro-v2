@@ -69,7 +69,9 @@
      déjà porté par l'onglet ; les commandes du widget rejoignent la plaque de la carte, à côté des
      commandes du panneau. Les widgets en case d'un onglet composite gardent leur bandeau : là, il
      est le seul à les nommer. Grand écran seulement, comme le reste de cet habillage. */
-  var MQ_DESK = window.matchMedia ? window.matchMedia('(min-width: 821px)') : { matches: true };
+  // Le desk, c'est tout ce qui n'est pas l'app : grand écran, OU tout écran sans pointeur tactile
+  // (un PC à fenêtre étroite reste un desk — voir app-mobile.js).
+  var MQ_DESK = window.matchMedia ? window.matchMedia('(min-width: 821px), not all and (pointer: coarse)') : { matches: true };
   function fusion(carte) {
     var plaque = carte.querySelector(':scope > .wdg-head .wdg-actions');
     if (!plaque || !carte.querySelector('.wdgt-bar')) return;
@@ -91,7 +93,26 @@
   }
   function fusions() { document.querySelectorAll('#wdg-grid .wdg-card').forEach(function (c) { try { fusion(c); } catch (e) {} }); }
   var fusionPrevue = 0;
-  function planifierFusions() { if (fusionPrevue) return; fusionPrevue = requestAnimationFrame(function () { fusionPrevue = 0; fusions(); }); }
+  function planifierFusions() { if (fusionPrevue) return; fusionPrevue = requestAnimationFrame(function () { fusionPrevue = 0; fusions(); barres(); }); }
+  /* ── BARRE D'ONGLETS SUR UNE LIGNE (25/09, « le responsive doit être mieux », fenêtre rétrécie sur
+     PC : la barre s'empilait sur trois à cinq rangées). On MESURE chaque barre, libellés visibles :
+     s'ils ne tiennent pas, la barre passe « serrée » (onglets inactifs en icône seule, desk.css) ; si
+     même les icônes ne tiennent pas À CÔTÉ des boutons de la carte, la barre prend SA PROPRE LIGNE,
+     pleine largeur, sous eux (même principe que `wdg-card--tabs-2lignes` de widgets.js, qui ne
+     regarde que le plus large onglet) ; elle ne défile qu'en tout dernier recours. Mesuré à chaque
+     rendu d'onglets et à chaque changement de taille de la grille — jamais figé à l'arrivée. */
+  function barres() {
+    var g = document.getElementById('wdg-grid'); if (!g) return;
+    g.querySelectorAll('.wdg-card--tabs .wdgt-bar').forEach(function (b) {
+      var carte = b.closest('.wdg-card'), tient = function () { return b.scrollWidth <= b.clientWidth + 1; };
+      b.classList.remove('v3-serre', 'v3-defile'); if (carte) carte.classList.remove('v3-2lignes');
+      if (!MQ_DESK.matches || tient()) return;
+      b.classList.add('v3-serre');
+      if (tient()) return;
+      if (carte && !carte.classList.contains('wdg-card--tabs-2lignes')) { carte.classList.add('v3-2lignes'); if (tient()) return; }
+      b.classList.add('v3-defile');
+    });
+  }
   /* ── CASSE DES ONGLETS (25/09, capture user : « des fois tout est en majuscule et d'autres fois
      non ») ─────────────────────────────────────────────────────────────────────────────────────
      La V3 retire la mise en capitales des onglets (desk.css, `text-transform: none`). Les libellés
@@ -176,7 +197,20 @@
     var g = document.getElementById('wdg-grid');
     rangs(g);
     if (g && window.MutationObserver) new MutationObserver(function () { rangs(g); }).observe(g, { childList: true });
-    if (g && window.MutationObserver) new MutationObserver(planifierFusions).observe(g, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class'] });
+    // ⚠️ `barres()` retire puis repose la classe de la barre pour la mesurer : ces mutations-là ne
+    // doivent pas relancer le cycle, sinon il tournerait à chaque image, indéfiniment.
+    var siMesure = function (r) {
+      if (r.type !== 'attributes' || !r.target.classList) return false;
+      if (r.target.classList.contains('wdgt-bar')) return true;
+      // Sur la carte, seule la bascule « deux lignes » posée par barres() est ignorée.
+      var avant = String(r.oldValue || '').split(/\s+/).filter(Boolean), apres = [].slice.call(r.target.classList);
+      var diff = avant.filter(function (c) { return apres.indexOf(c) < 0; }).concat(apres.filter(function (c) { return avant.indexOf(c) < 0; }));
+      return diff.length > 0 && diff.every(function (c) { return c === 'v3-2lignes'; });
+    };
+    if (g && window.MutationObserver) new MutationObserver(function (m) { if (m.every(siMesure)) return; planifierFusions(); }).observe(g, { childList: true, subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['hidden', 'class'] });
+    // La largeur d'une carte change sans mutation (fenêtre redimensionnée, colonne masquée) : la
+    // barre d'onglets se re-mesure alors aussi.
+    if (g && window.ResizeObserver) { var tR = 0; new ResizeObserver(function () { cancelAnimationFrame(tR); tR = requestAnimationFrame(barres); }).observe(g); }
     if (g && window.MutationObserver) new MutationObserver(vivre).observe(g, { childList: true, subtree: true, characterData: true });
     if (MQ_DESK.addEventListener) MQ_DESK.addEventListener('change', planifierFusions);
     planifierFusions();

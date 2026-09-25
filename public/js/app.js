@@ -12661,6 +12661,72 @@ if (typeof window !== 'undefined') {
     }).catch(() => {});
   });
 }
+/* ═══ OUVRIR CE QU'UNE NOTIFICATION ANNONCE (25/09) ════════════════════════════════════════════════
+   « Quand on clique sur une notif, ça doit mener à la notif. » Le serveur donne à chaque notification
+   une adresse /?ouvrir=<type>&id=<élément> ; le service worker la transmet à la fenêtre ouverte
+   (message « dtp:ouvrir ») ou ouvre l'adresse. Types : fil (une dépêche), calendrier, marches,
+   banques (un rapport), analystes (un rapport). Dans l'application, c'est l'app qui navigue
+   (window._v2aOuvrirCible) ; sur le desk, la vue concernée s'ouvre sur l'élément. Les listes arrivent
+   parfois après la page : on réessaie quelques secondes, puis on reste sur la bonne vue. */
+function _dtpOuvrirCible(type, id) {
+  if (!type) return;
+  let n = 0;
+  const essai = () => {
+    n++;
+    try {
+      if (document.documentElement.classList.contains('dtp-app') && typeof window._v2aOuvrirCible === 'function') {
+        if (window._v2aOuvrirCible(type, id, n >= 16)) return;
+      } else if (_dtpOuvrirDesk(type, id, n >= 16)) return;
+    } catch (e) {}
+    if (n < 16) setTimeout(essai, 500);
+  };
+  essai();
+}
+function _dtpOuvrirDesk(type, id, dernier) {
+  const vue = { fil: 'news', calendrier: 'calendar', marches: 'news', banques: 'institution', analystes: 'analyst' }[type];
+  if (!vue || typeof activateView !== 'function') return true;
+  if (!_dtpOuvrirDesk._vu) { _dtpOuvrirDesk._vu = true; activateView(vue); }
+  if (!id) return true;
+  if (type === 'fil') {
+    const el = document.querySelector('.news-item[data-id="' + ((window.CSS && CSS.escape) ? CSS.escape(id) : id) + '"]');
+    if (!el) return dernier;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.classList.add('news-item--cible'); setTimeout(() => el.classList.remove('news-item--cible'), 2600);
+    return true;
+  }
+  if (type === 'banques') {
+    const it = (typeof _brArticles !== 'undefined' ? _brArticles : []).find(x => x && (String(x.id) === id || x.url === id));
+    if (!it) return dernier;
+    try { markBrRead(it.id); } catch (e) {}
+    renderBrReader(it); return true;
+  }
+  if (type === 'analystes') {
+    const it = (typeof getArlibItems === 'function' ? getArlibItems() : []).find(x => x && (String(x.id) === id || x.url === id || x.link === id));
+    if (!it) return dernier;
+    try { markRead(_reportReadKey(it)); } catch (e) {}
+    renderArlibReader(it); arlibShowReader(); return true;
+  }
+  return true;
+}
+(function () {
+  try {
+    const q = new URLSearchParams(location.search), t = q.get('ouvrir');
+    if (t) {
+      const id = q.get('id') || '';
+      // L'adresse est consommée : un rechargement ne rouvre pas l'élément.
+      try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+      setTimeout(() => _dtpOuvrirCible(t, id), 900);
+    }
+  } catch (e) {}
+  try {
+    if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', (e) => {
+      const d = e.data || {};
+      if (d.type !== 'dtp:ouvrir' || !d.url) return;
+      try { const u = new URL(d.url, location.origin); _dtpOuvrirDesk._vu = false; _dtpOuvrirCible(u.searchParams.get('ouvrir'), u.searchParams.get('id') || ''); } catch (err) {}
+    });
+  } catch (e) {}
+})();
+
 function _npPushCoquilleDemander() { return _npOrdreCoquille({ type: 'dtp:push' }); }
 
 /* ══ VERROU BIOMÉTRIQUE DE L'APP MOBILE (09/09) ═════════════════════════════════════════════════

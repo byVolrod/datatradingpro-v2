@@ -36,7 +36,7 @@
       + ((d.synthese || []).length ? '<ul class="v2a-bf-synth">' + d.synthese.map(point).join('') + '</ul>' : '')
       + (d.sections || []).map(function (s) { return '<section><h3>' + esc(s.titre) + '</h3><ul>' + s.points.map(point).join('') + '</ul></section>'; }).join('')
       + '<details class="v2a-bf-fiche"><summary>Fiche de faits (' + ((d.faits || []).length) + ')</summary><ol>'
-      + (d.faits || []).map(function (f) { return '<li id="v2a-bf-' + esc(f.id) + '"><b>' + esc(f.id) + '</b> ' + esc(f.txt) + '<span>' + esc(f.source) + (f.at ? ' · ' + esc(heure(f.at)) : '') + '</span></li>'; }).join('')
+      + (d.faits || []).map(function (f) { return '<li id="v2a-bf-' + esc(f.id) + '"><b>' + esc(f.id) + '</b> ' + esc(f.txt) + '</li>'; }).join('')
       + '</ol></details>';
   }
   function bulle(btn) {
@@ -44,7 +44,9 @@
     var f = faitDe(btn.dataset.f); if (!f) return;
     var b = document.createElement('div');
     b.id = 'v2a-bf-bulle'; b.className = 'v2a-bf-bulle';
-    b.innerHTML = '<b>' + esc(f.id) + '</b> ' + esc(f.txt) + '<span>' + esc(f.source) + (f.at ? ' · ' + esc(heure(f.at)) : '') + '</span>';
+    // Le FAIT seul (25/09, « enlève les sources ») : le nom du fournisseur n'a pas sa place sous les yeux
+    // du lecteur ; la vérification, elle, reste faite côté serveur (fiche de faits).
+    b.innerHTML = '<b>' + esc(f.id) + '</b> ' + esc(f.txt);
     document.body.appendChild(b);
     var r = btn.getBoundingClientRect();
     b.style.top = Math.round(Math.min(window.innerHeight - b.offsetHeight - 8, r.bottom + 6)) + 'px';

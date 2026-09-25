@@ -1377,6 +1377,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260925-notif-ouvre', ts: Date.UTC(2026, 8, 25, 13, 12), title: 'Notifications : un toucher vous emmène droit à ce qu’elles annoncent', desc: 'Toucher une notification ouvre désormais l’élément qu’elle annonce : la dépêche dans le fil d’actualité, dépliée et mise en évidence, le rapport de banque ou la note d’analyste directement dans son lecteur, ou le calendrier économique pour une publication de données. Jusqu’ici, elle ouvrait simplement le desk, et il fallait retrouver l’élément soi-même.' },
+  { id: 'dtpu-20260925-paires-ordre', ts: Date.UTC(2026, 8, 25, 13, 10), title: 'Choix de la paire : les 28 croisements dans leur cotation habituelle, par ordre alphabétique', desc: 'Dans les widgets qui se règlent sur une paire (Hauts / bas, Volatilité par heure, Variations quotidiennes…), la liste proposait certains croisements à l’envers, comme « USD/GBP » ou « JPY/CHF », dans un ordre difficile à parcourir. Elle présente désormais les 28 croisements des huit grandes devises dans leur cotation habituelle (GBP/USD, EUR/GBP, CHF/JPY…), rangés par ordre alphabétique. Un widget déjà réglé sur une paire inversée passe de lui-même à la cotation habituelle.' },
   { id: 'dtpu-20260925-notifs-temps-reel', ts: Date.UTC(2026, 8, 25, 8, 42), title: 'Notifications : à l’instant où la dépêche tombe, et seulement ce qui compte', desc: 'Les notifications d’actualité partent maintenant dès que la dépêche arrive sur le desk, au lieu d’attendre jusqu’à une minute. Elles ne concernent plus que l’important, sans rafale : une dépêche publiée il y a plus d’un quart d’heure n’est plus envoyée, rien n’est renvoyé après une mise à jour du desk, les longues analyses restent dans le fil, et le fil d’actualité ne fait sonner votre téléphone qu’une fois toutes les cinq minutes au plus (deux minutes pour une urgence, la suite arrivant en un seul récapitulatif). L’étiquette « Chiffre » est réservée aux vraies publications de données (CPI, emploi, PIB…), et une dépêche dont la traduction n’est pas prête n’est plus envoyée en anglais. Enfin, une description qui ne fait que redire le titre ne prend plus de place.' },
   { id: 'dtpu-20260925-calendrier-icone-reglages', ts: Date.UTC(2026, 8, 25, 8, 22), title: 'Calendrier : l’icône des réglages reprend le dessin du desk', desc: 'Sur iPhone, l’icône des réglages du calendrier économique s’affichait sous la forme d’un émoji engrenage, étranger au reste du desk. Elle reprend désormais l’icône dessinée de tous les autres réglages : trois curseurs, dans le gris des icônes voisines.' },
   { id: 'dtpu-20260925-notifs-widget', ts: Date.UTC(2026, 8, 25, 8, 0), title: 'Notifications : le widget d’origine en titre, la description en dessous, en français', desc: 'Chaque notification dit maintenant d’où elle vient : « Fil d’actualité · Géopolitique », « Calendrier économique · CPI USD », « Banques · Goldman Sachs », « Analystes · Point marché » ou « Sentiment de risque · bascule en risk-off ». Dessous, la dépêche en français, puis sa description traduite quand elle existe, puis la source. Les titres des rapports de banques publiés en anglais sont traduits avant de partir. Les envois partent aussi plus vite : tous les téléphones sont servis en même temps, et les nouvelles publications sont repérées toutes les 30 secondes au lieu de 90. Enfin, un compte dont l’abonnement a pris fin ne reçoit plus de notifications ; elles reprennent d’elles-mêmes au renouvellement. Sur iPhone, la mention « from » sous le titre porte le nom donné à l’icône lors de son ajout à l’écran d’accueil : pour y lire DataTradingPro, retirez l’icône puis ajoutez-la de nouveau depuis Safari.' },
@@ -2457,7 +2459,7 @@ function _pushResume(cat, lot) {
   const corps = noms.slice(0, 4).join(' · ') + (noms.length > 4 ? ' · et ' + (noms.length - 4) + ' autre' + (noms.length - 4 > 1 ? 's' : '') : '');
   const titre = (c.widget ? c.widget + ' · ' : '') + lot.length + ' ' + c.plusieurs;
   return { cat, id: 'lot:' + cat + ':' + lot.map(e => e.id).join(',').slice(0, 60), title: titre.charAt(0).toUpperCase() + titre.slice(1),
-    body: corps.length > 178 ? corps.slice(0, 177) + '…' : corps, url: lot[0].url || '/' };
+    body: corps.length > 178 ? corps.slice(0, 177) + '…' : corps, url: _pushLien({ news: 'fil', eco: 'fil', banques: 'banques', analystes: 'analystes', risque: 'marches' }[cat] || 'fil') };
 }
 // Son et vibreur : deux réglages du compte, portés par chaque message.
 // ⚠️ Sur le web, `silent` coupe AUSSI la vibration (et Chrome refuse les deux ensemble) : couper le
@@ -2466,7 +2468,7 @@ function _pushMessage(e, prefs) {
   const son = !(prefs && prefs.son === false), vib = !(prefs && prefs.vibreur === false);
   const web = { title: e.title, body: e.body, url: e.url || '/', tag: 'dtp-' + String(e.id).slice(0, 40), silent: !son };
   if (son) web.vibrate = vib ? [180, 80, 180] : [];
-  return { web, expo: { title: e.title, body: e.body, sound: son ? 'default' : null, priority: 'high', channelId: 'alertes', data: { id: String(e.id), cat: e.cat } } };
+  return { web, expo: { title: e.title, body: e.body, sound: son ? 'default' : null, priority: 'high', channelId: 'alertes', data: { id: String(e.id), cat: e.cat, url: e.url || '/' } } };
 }
 /* ⚠️ PLUS D'ABONNEMENT = PLUS DE NOTIFICATION (25/09, « sinon il continuera de recevoir les notifs »).
    Un téléphone reste abonné au push après l'échéance : rien, côté appareil, ne sait qu'un compte a
@@ -2655,7 +2657,7 @@ async function _pushEnvoyer(items) {
         const tx = _pushTexte(it, fr);
         if (cat === 'eco') { _pushEcoDepeches.push({ at: Date.now(), body: tx.body }); if (_pushEcoDepeches.length > 20) _pushEcoDepeches.shift(); }
         evts.push({ cat, pause: 'fil', id: String(it.id), title: tx.title, body: tx.body, court: fr.length > 70 ? fr.slice(0, 69).replace(/\s+\S*$/, '') + '…' : fr,
-          url: '/', urgent: !!it.urgent, suite: _pushMemeSujet(_pushEntites(it.headline), Date.now()) });
+          url: _pushLien('fil', it.id), urgent: !!it.urgent, suite: _pushMemeSujet(_pushEntites(it.headline), Date.now()) });
       }
       await _pushRouter(evts);
     }
@@ -2694,6 +2696,9 @@ function _pushNouveaux(cle, liste, idDe) {
   if (!prec) return [];
   return liste.filter(x => { const i = idDe(x); return i && !prec.has(i); });
 }
+// L'adresse que la notification OUVRE (25/09, « quand on clique sur une notif, ça doit mener à la
+// notif ») : le desk et l'app lisent ?ouvrir=<type>&id=<élément> et vont directement à l'élément.
+const _pushLien = (type, id) => '/?ouvrir=' + encodeURIComponent(type) + (id != null && id !== '' ? '&id=' + encodeURIComponent(String(id)) : '');
 const _pushCourt = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 const _PUSH_RAPPORTS_FR = { 'Weekly Market Recap': 'Récap hebdo des marchés', 'FX Daily Recap': 'Récap FX quotidien', 'DTP Daily': 'Point marché', 'Global Economic Weekly': 'Récap éco de la semaine', 'FX Daily': 'FX Daily' };
 // Un nombre lisible dans un chiffre publié (« 3.1% », « 250K », « -0.2 ») ; null sinon.
@@ -2711,17 +2716,17 @@ function _pushChiffre(e) {
 function _pushGuetter() {
   const ev = [], frais = x => Date.now() - (+(x && x.timestamp) || 0) < 12 * 3600e3;
   _pushNouveaux('sw', Array.isArray(_swCache) ? _swCache : [], x => x && (x.id || x.url || x.link)).filter(frais).slice(0, 2)
-    .forEach(w => ev.push({ cat: 'analystes', id: 'sw:' + (w.id || w.url || w.link), title: 'Analystes · Récap de séance', court: _pushCourt(w.aiTitle || w.title || w.headline, 60), body: _pushCourt(w.aiTitle || w.title || w.headline, 170) }));
+    .forEach(w => ev.push({ cat: 'analystes', id: 'sw:' + (w.id || w.url || w.link), url: _pushLien('analystes', w.id || w.url || w.link), title: 'Analystes · Récap de séance', court: _pushCourt(w.aiTitle || w.title || w.headline, 60), body: _pushCourt(w.aiTitle || w.title || w.headline, 170) }));
   _pushNouveaux('dtp', (Array.isArray(allNews) ? allNews : []).filter(i => i && i._briefing && i._reportType), x => x.id).filter(frais).slice(0, 2)
-    .forEach(r => { const nom = _PUSH_RAPPORTS_FR[r._reportType] || r._reportType; ev.push({ cat: 'analystes', id: 'rap:' + r.id, title: 'Analystes · ' + nom, court: nom, body: _pushCourt(r._titreFr || r.headline, 170) }); });
+    .forEach(r => { const nom = _PUSH_RAPPORTS_FR[r._reportType] || r._reportType; ev.push({ cat: 'analystes', id: 'rap:' + r.id, url: _pushLien('analystes', r.id), title: 'Analystes · ' + nom, court: nom, body: _pushCourt(r._titreFr || r.headline, 170) }); });
   _pushNouveaux('br', Array.isArray(_brCache) ? _brCache : [], x => x && (x.id || x.url)).filter(frais).slice(0, 3)
-    .forEach(b => { const inst = _pushCourt(b.institution || b.source || 'Recherche bancaire', 40); ev.push({ cat: 'banques', id: 'br:' + (b.id || b.url), title: 'Banques · ' + inst, court: inst, body: _pushCourt(b._titreFr || b.title || b.headline, 170), trad: true }); });
+    .forEach(b => { const inst = _pushCourt(b.institution || b.source || 'Recherche bancaire', 40); ev.push({ cat: 'banques', id: 'br:' + (b.id || b.url), url: _pushLien('banques', b.id || b.url), title: 'Banques · ' + inst, court: inst, body: _pushCourt(b._titreFr || b.title || b.headline, 170), trad: true }); });
   // Calendrier : un événement à FORT impact dont le chiffre vient de tomber (moins de 3 h). S'il a déjà
   // été annoncé par une dépêche chiffrée il y a moins de 8 min (même sigle), on ne le répète pas.
   const pub = (Array.isArray(allCalendar) ? allCalendar : []).filter(e => e && /^high$/i.test(String(e.impact || '')) && e.actual != null && String(e.actual).trim() !== '' && Date.now() - (+e.timestamp || 0) < 3 * 3600e3);
   const dejaDit = c => { const mots = String(c.court || '').split(/\s+/).filter(m => m.length >= 3 && !/^[A-Z]{3}$/.test(m)); const dep = (typeof _pushEcoDepeches !== 'undefined' ? _pushEcoDepeches : []).filter(d => Date.now() - d.at < 8 * 60e3); return mots.length > 0 && dep.some(d => mots.every(m => d.body.toUpperCase().includes(m.toUpperCase()))); };
   _pushNouveaux('cal', pub, e => _calKeyDated(e.currency, e.title, e.timestamp)).slice(0, 3)
-    .forEach(e => { const c = _pushChiffre(e); if (!dejaDit(c)) ev.push(Object.assign({ cat: 'eco', id: 'cal:' + _calKeyDated(e.currency, e.title, e.timestamp) }, c)); });
+    .forEach(e => { const c = _pushChiffre(e); if (!dejaDit(c)) ev.push(Object.assign({ cat: 'eco', id: 'cal:' + _calKeyDated(e.currency, e.title, e.timestamp), url: _pushLien('calendrier') }, c)); });
   return ev;
 }
 // 30 s (25/09, « les notifs doivent être instantanées ») : le guetteur ne lit que la mémoire du desk.
@@ -2763,7 +2768,7 @@ async function _pushRisqueTic() {
   if (!prec || !_pushBascule(prec, d.label, Date.now(), _pushRisqueDernier)) return;
   _pushRisqueDernier = Date.now();
   const tx = _pushTexteBascule(prec, d);
-  await _pushRouter([{ cat: 'risque', id: 'risk:' + d.label + ':' + Date.now(), title: tx.title, body: tx.body, url: '/' }]);
+  await _pushRouter([{ cat: 'risque', id: 'risk:' + d.label + ':' + Date.now(), title: tx.title, body: tx.body, url: _pushLien('marches') }]);
 }
 setInterval(() => { _pushRisqueTic().catch(() => {}); }, 10 * 60 * 1000);
 

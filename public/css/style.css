@@ -23323,6 +23323,13 @@ textarea, [contenteditable="true"], [contenteditable=""] { cursor: text !importa
 .sqwk-header .sqwk-auto-lbl--tete { order: 4; margin-left: auto; }
 .sqwk-header .sqwk-toggle { order: 5; }
 
+/* Dépêche ouverte depuis une notification (25/09) : un liseré or qui s'éteint, pour la retrouver d'un coup d'œil. */
+.news-item.news-item--cible { box-shadow: inset 3px 0 0 #e3b23a; animation: dtpCible 2.6s ease-out; }
+@keyframes dtpCible { from { background-color: rgba(227,178,58,.14); } to { background-color: transparent; } }
+
+/* Bibliothèque sans résultat (25/09, capture) : le message occupe toute la largeur et se centre. */
+.wdg-empty.wdg-lib-rien { flex: 1 1 100%; width: 100%; box-sizing: border-box; min-height: 60%; justify-content: center; text-align: center; }
+
 /* ══ SENTINELLE D'ARRIVÉE — DOIT RESTER LA DERNIÈRE RÈGLE DU FICHIER (09/09) ═════════════════════
    Elle ne peint rien. Elle PROUVE que la feuille est arrivée jusqu'au bout : un transfert coupé en
    route ne donne pas une erreur franche, il donne un fichier tronqué que le navigateur applique

@@ -20,7 +20,13 @@
   if (window._dtpV2App) return;
   window._dtpV2App = true;
 
-  var MQ = window.matchMedia('(max-width: 820px)');
+  /* L'APP EST POUR LES ÉCRANS TACTILES, PAS POUR LES FENÊTRES ÉTROITES (25/09, capture user : sur PC,
+     fenêtre Chrome rétrécie pour éprouver le responsive → le desk et son modèle par défaut cédaient
+     la place aux écrans de l'app, « j'ai pas compris pourquoi c'est différent »). La largeur seule
+     ne dit pas qu'on est sur un téléphone ; le pointeur principal, si. Un PC reste donc sur Mon
+     Desk à toutes les largeurs, et c'est la grille qui s'adapte. Même condition, écrite au même
+     endroit, dans boot.js (mémo), index.html (voile) et desk.js / desk.css (habillage). */
+  var MQ = window.matchMedia('(max-width: 820px) and (pointer: coarse)');
   var H = document.documentElement;
 
   var svg = function (d, w, epais) {
@@ -241,6 +247,11 @@
   function montrerEcran(k) {
     Object.keys(ecrans).forEach(function (x) { ecrans[x].classList.toggle('v2a-visible', x === k); });
     if (k && ecrans[k]) { var e = ecrans[k]; e.classList.remove('v2a-entre'); void e.offsetWidth; e.classList.add('v2a-entre'); }
+    /* ⚠️ UN ÉCRAN NATIF MASQUE LE DESK DESSOUS (25/09, capture : le Calendrier transparaissait sous le
+       Fil). L'écran natif entre en fondu ; pendant ce fondu, la vue du desk restée ouverte dessous se
+       voyait à travers. Tant qu'un écran natif est affiché, le desk est masqué (sans être démonté :
+       ses widgets et ses minuteurs continuent). */
+    H.classList.toggle('v2a-natif', !!(k && ecrans[k]));
     if (k !== 'markets') arreterMarches();
   }
   var RENDUS = {};
@@ -278,6 +289,40 @@
     aller(v, { sansPile: true });
   }
   window._v2aAller = aller;
+  /* Ouvrir ce qu'une notification annonce (25/09) : appelé par app.js (_dtpOuvrirCible), avec
+     réessai tant que la liste n'est pas arrivée. Rend true quand c'est fait. */
+  window._v2aOuvrirCible = function (type, id, dernier) {
+    var onglet = { fil: 'fil', calendrier: 'calendar', marches: 'markets', banques: 'banques', analystes: 'analystes' }[type];
+    if (!onglet) return true;
+    if (!id) { aller(onglet); return true; }
+    if (type === 'fil') {
+      if (courant !== 'fil') aller('fil');
+      var n = document.querySelector('#v2a-fil .v2a-news[data-id="' + cssEsc(id) + '"]');
+      if (!n) return !!dernier;
+      n.scrollIntoView({ block: 'center' });
+      if (!n.classList.contains('v2a-ouvert')) n.click();
+      n.classList.add('v2a-cible'); setTimeout(function () { n.classList.remove('v2a-cible'); }, 2600);
+      return true;
+    }
+    if (type === 'banques') {
+      var br = glob('_brArticles') || [], it = null;
+      for (var i = 0; i < br.length; i++) if (br[i] && (String(br[i].id) === id || br[i].url === id)) { it = br[i]; break; }
+      if (!it) { if (dernier) aller('banques'); return !!dernier; }
+      try { var mk = glob('markBrRead'); if (typeof mk === 'function') mk(it.id); } catch (x) {}
+      aller('institution');
+      var t = document.getElementById('v2a-titre'); if (t) t.textContent = 'Rapport';
+      try { var r = glob('renderBrReader'); if (typeof r === 'function') r(it); } catch (x) {}
+      return true;
+    }
+    if (type === 'analystes') {
+      var ra = itemsRapports(), ia = null;
+      for (var k = 0; k < ra.length; k++) if (ra[k] && (String(ra[k].id) === id || ra[k].url === id || ra[k].link === id)) { ia = ra[k]; break; }
+      if (!ia) { if (dernier) aller('analystes'); return !!dernier; }
+      ouvrirRapport(ia);
+      return true;
+    }
+    aller(onglet); return true;
+  };
 
   /* ── Les volets du desk (Copilote IA, support) dans l'app : titre d'écran et bouton Retour. Sans
      cela, le volet s'ouvrait sous un en-tête qui annonçait encore l'écran d'avant. ── */

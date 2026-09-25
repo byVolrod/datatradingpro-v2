@@ -5,15 +5,21 @@
    collés par un trait, aucun ornement qui ne porte pas d'information ; et la signature DTP : l'or,
    un liseré qui s'allume au survol, des apparitions courtes et précises.
    ⚠️ BORNÉ : chaque règle commence par `html.dtp-v2` (posé par js/v2/boot.js, admin + interrupteur)
-   et vit dans un @media grand écran. Sans la classe, cette feuille ne touche RIEN : c'est le desk des
-   clients, au pixel. Aucune règle ne change une dimension de grille, un nombre de colonnes ou un
+   et vit dans un @media « desk » : grand écran, OU tout écran sans pointeur tactile — un PC dont on
+   rétrécit la fenêtre reste un desk (25/09), seul un téléphone passe à l'app. Sans la classe, cette
+   feuille ne touche RIEN : c'est le desk des clients, au pixel. Aucune règle ne change une dimension de grille, un nombre de colonnes ou un
    comportement : seulement l'apparence. */
-@media (min-width: 821px) {
+@media (min-width: 821px), not all and (pointer: coarse) {
   /* ── Fond : un halo d'or très bas, la matière du desk ── */
   html.dtp-v2 body { background: radial-gradient(1100px 380px at 12% -140px, rgba(227,178,58,.07), transparent 70%), #08080a; }
 
   /* ── Barre du haut ── */
-  html.dtp-v2 .topbar { background: linear-gradient(180deg, #0f0f12, #0b0b0d); border-bottom: 1px solid #1a1a1f; position: relative; }
+  html.dtp-v2 .topbar { background: linear-gradient(180deg, #0f0f12, #0b0b0d); border-bottom: 1px solid #1a1a1f; }
+  /* `relative` (ancrage du liseré ::after) SEULEMENT au-delà de 768 px : en dessous, style.css ÉPINGLE
+     la barre (`position: fixed`) et réserve sa hauteur en haut de page. L'écraser laissait une bande
+     vide de 40 px au-dessus de la barre (25/09, fenêtre rétrécie sur PC). Une barre fixe ancre déjà
+     son ::after : rien d'autre à faire. */
+  @media (min-width: 769px) { html.dtp-v2 .topbar { position: relative; } }
   html.dtp-v2 .topbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; pointer-events: none;
     background: linear-gradient(90deg, transparent 0%, rgba(227,178,58,.0) 20%, rgba(227,178,58,.55) 50%, rgba(227,178,58,0) 80%, transparent 100%);
     background-size: 200% 100%; animation: v3Filet 9s linear infinite; opacity: .8; }
@@ -53,13 +59,30 @@
     transform: scaleX(0); transition: transform .25s cubic-bezier(.2,.8,.2,1); }
   html.dtp-v2 .wdgt-tab.on { color: #f4f4f6; font-weight: 600; box-shadow: none; }
   html.dtp-v2 .wdgt-tab.on::after { transform: scaleX(1); }
-  /* LA RANGÉE D'ONGLETS NE GLISSE PLUS (25/09, « la barre panneau à onglet on peut décaler, fixe-la
-     comme celle du panel admin »). En V3 grand écran, elle cesse d'être un ruban défilant : tous les
-     onglets restent visibles et, s'ils ne tiennent pas, la rangée revient à la ligne — comme la
-     navigation du panneau admin, où rien ne se décale jamais. Le gestionnaire de molette de
-     widgets.js se tait de lui-même (« rien à parcourir ») et les fondus s'éteignent. */
-  html.dtp-v2 .wdg-card--tabs .wdgt-bar { flex-wrap: wrap; overflow: hidden; scroll-snap-type: none; row-gap: 0; }
+  /* UNE ICÔNE PAR ONGLET (25/09, référence PMT « fais la même en mieux ») : widgets.js pose l'icône du
+     widget quand le lecteur n'en a pas choisi. Même gabarit pour toutes (les dessins du catalogue
+     n'ont pas tous la même taille), estompée au repos, or sur l'onglet actif. */
+  html.dtp-v2 .wdgt-tab { display: inline-flex; align-items: center; gap: 6px; }
+  html.dtp-v2 .wdgt-tico { margin: 0; color: #5f5f69; transition: color .15s; }
+  html.dtp-v2 .wdgt-tico svg { width: 14px; height: 14px; }
+  html.dtp-v2 .wdgt-tab:hover .wdgt-tico { color: #a1a1aa; }
+  html.dtp-v2 .wdgt-tab.on .wdgt-tico { color: #e3b23a; }
+  /* LA RANGÉE D'ONGLETS NE GLISSE PAS, ET TIENT SUR UNE LIGNE (25/09, deux demandes du même jour).
+     1. « La barre panneau à onglet on peut décaler, fixe-la comme celle du panel admin » : elle a
+        d'abord été rendue à la ligne quand les onglets ne tenaient pas.
+     2. « Le responsive doit être mieux » (fenêtre rétrécie sur PC) : à 880 px, ce retour à la ligne
+        empilait la barre sur CINQ rangées, plus haute que le contenu qu'elle annonce.
+     La règle qui tient les deux : UNE ligne, jamais de défilement tant qu'on peut l'éviter. desk.js
+     mesure la barre ; si les libellés ne tiennent pas, elle passe en « serrée » — les onglets
+     inactifs n'y montrent plus que leur ICÔNE (chacun en a une en V3), l'onglet actif garde son nom,
+     le survol donne le reste. Ce n'est qu'en dernier recours (carte minuscule) qu'elle défile. */
+  html.dtp-v2 .wdg-card--tabs .wdgt-bar { flex-wrap: nowrap; overflow: hidden; scroll-snap-type: none; }
   html.dtp-v2 .wdg-card--tabs .wdgt-bar::before, html.dtp-v2 .wdg-card--tabs .wdgt-bar::after { display: none; }
+  html.dtp-v2 .wdgt-bar.v3-serre .wdgt-tab:not(.on):has(.wdgt-tico) .wdgt-nm { display: none; }
+  html.dtp-v2 .wdgt-bar.v3-serre .wdgt-tab:not(.on):has(.wdgt-tico) { padding: 0 9px; }
+  html.dtp-v2 .wdg-card--tabs.v3-2lignes .wdgt-bar { width: 100%; margin-top: var(--wdgt-head-h, 34px); padding-left: 4px; }
+  html.dtp-v2 .wdgt-bar.v3-defile { overflow-x: auto; scrollbar-width: none; }
+  html.dtp-v2 .wdgt-bar.v3-defile::-webkit-scrollbar { display: none; }
   html.dtp-v2 .wdg-card--tabs .wdgt-tab, html.dtp-v2 .wdg-card--tabs .wdgt-add { min-height: 32px; }
   html.dtp-v2 .wdgt-subname { height: 28px; text-transform: none; letter-spacing: 0; font: 600 12px/1 'Inter Tight', system-ui, sans-serif; color: #b9b9c0; background: #0c0c0e; border-bottom-color: #141417; }
   html.dtp-v2 .wdgt-body { animation: v3Fondu .25s ease both; }
@@ -161,4 +184,38 @@
   @media (prefers-reduced-motion: reduce) {
     html.dtp-v2 .topbar::after, html.dtp-v2 .wdg-card, html.dtp-v2 .wdgt-body, html.dtp-v2 .v3-maj-h, html.dtp-v2 .v3-maj-b { animation: none; }
   }
+}
+
+/* ══ FENÊTRE RÉTRÉCIE SUR PC : LE MODÈLE RESTE LE MODÈLE (25/09) ══════════════════════════════════════
+   Capture user : desk au modèle par défaut, fenêtre Chrome rétrécie « pour voir si le responsive se
+   fait intelligemment ». Sous 900 px, la grille des clients passe en mode TÉLÉPHONE : chaque carte
+   prend sa propre rangée à hauteur de contenu et la page défile (style.css, règles du 04/09, justes
+   sur un téléphone). Sur un PC, ça démontait le modèle : l'Actus, qui occupe toute la hauteur à
+   gauche, ne descendait plus, la carte des Sessions passait dessous, et un grand vide restait à droite.
+   Entre 561 et 900 px, un PC garde donc la grille du BUREAU : mêmes cartes aux mêmes places, mêmes
+   proportions (les spans de colonnes sont déjà convertis au prorata par style.css), et la disposition
+   tient dans la fenêtre sans défiler. Sous 561 px, la colonne unique qui défile reste la bonne
+   réponse, sur PC comme ailleurs. Jamais dans l'app (html.dtp-app) : un téléphone n'y passe pas. */
+@media (max-width: 900px) and (min-width: 561px) {
+  html.dtp-v2:not(.dtp-app) .wdg-grid { overflow: hidden; align-content: stretch; grid-auto-rows: minmax(0, 1fr); }
+  html.dtp-v2:not(.dtp-app) .wdg-card { grid-row: span var(--gh, 12) !important; min-height: 0; }
+}
+
+/* ══ HORLOGE D'UNE CARTE ÉTROITE ET BASSE : LES CINQ VILLES D'UN COUP D'ŒIL (25/09) ═══════════════
+   Même capture : à 894 px, l'horloge du modèle par défaut montrait trois villes sur cinq, les deux
+   autres passaient sous le pli et il fallait faire défiler la carte pour lire Dubaï ou Paris — une
+   horloge qu'on fait défiler n'est plus une horloge. Quand sa carte n'offre ni la largeur de cinq
+   tuiles complètes (5 × 132 px) ni la hauteur de deux rangées, chaque tuile se réduit à ce qu'on vient
+   y lire : le CODE de la place, l'HEURE et le jour / nuit, puis la ville. Le fuseau, le pays et la
+   météo cèdent, et les cinq places tiennent sur une seule rangée. */
+@container dtphorloge (max-width: 659px) and (max-height: 240px) {
+  html.dtp-v2:not(.dtp-app) .wdg-clocks-bar { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); }
+  html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-item { padding: 6px 8px; }
+  html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-top-row,
+  html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-sub-row,
+  html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-gmt { display: none; }
+  html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-time { display: flex; flex-direction: column; align-items: flex-start; font-size: 14px; margin: 0; line-height: 1.2; }
+  html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-code { display: inline; font-size: 10px; font-weight: 700; color: #e3b23a; letter-spacing: .06em; }
+  html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-dn-mini { display: none; }
+  html.dtp-v2:not(.dtp-app) .wdg-clocks-bar .clock-city-label { display: block; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 }

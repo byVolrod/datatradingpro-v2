@@ -19,7 +19,7 @@
     window._dtpV2Charge = true;
     document.documentElement.classList.add('dtp-v2');
     // Mémo de l'app mobile posé dès maintenant (petit écran seulement, comme le voile qui le lit).
-    try { if (window.innerWidth <= 820 && !localStorage.getItem('dtp_v3_app')) localStorage.setItem('dtp_v3_app', String(Date.now())); } catch (e) {}
+    try { if (window.innerWidth <= 820 && matchMedia('(pointer: coarse)').matches && !localStorage.getItem('dtp_v3_app')) localStorage.setItem('dtp_v3_app', String(Date.now())); } catch (e) {}
     var l = document.createElement('link');
     l.rel = 'stylesheet'; l.href = '/css/v2/app.css?v=' + VER;
     document.head.appendChild(l);
@@ -53,6 +53,15 @@
     var mu = document.createElement('script');
     mu.src = '/js/v2/multi.js?v=' + VER; mu.defer = true;
     document.head.appendChild(mu);
+    // Widgets de marché en direct (V3) : Hauts / bas, Taux US, Vol. horaire, Variations — même
+    // donnée que le desk, présentée en vrais graphiques (widgets.js : DTPWidgets.v3Montage).
+    var wv = document.createElement('script');
+    wv.src = '/js/v2/widgets-v3.js?v=' + VER; wv.defer = true;
+    document.head.appendChild(wv);
+    // Neuro-ondes (V3) : ambiances sonores générées (battements binauraux), widget de la bibliothèque.
+    var ne = document.createElement('script');
+    ne.src = '/js/v2/neuro.js?v=' + VER; ne.defer = true;
+    document.head.appendChild(ne);
   }
 
   function poserInterrupteur() {

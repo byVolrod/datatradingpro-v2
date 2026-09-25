@@ -90,6 +90,19 @@
     'livre', 'note', 'chat', 'loupe', 'cloche', 'onde', 'etoile', 'eclair',
   ];
   function _tabIconSvg(slug) { return (slug && _TAB_ICONS[slug]) ? _TAB_ICONS[slug] : ''; }
+  /* V3 (25/09, référence PMT « la barre panneau, fais la même en mieux ») : chaque onglet porte une
+     icône, même quand le lecteur n'en a choisi aucune. Icône PAR DÉFAUT, jamais enregistrée : celle
+     du widget (WICO, le même dessin que la bibliothèque), sinon celle que le widget déclare
+     (`icone`, slug du catalogue ci-dessus), sinon celle de sa famille. Une icône choisie à la main
+     reste prioritaire. Hors `html.dtp-v2` : rien, la barre des clients est inchangée. */
+  var _TAB_ICO_FAMILLE = { 'Marchés': 'graphique', 'Macro': 'globe', 'Risque': 'jauge', 'Devises': 'dollar', 'Outils': 'cible', 'News': 'note' };
+  var _TAB_ICO_GRILLE = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.2"/><rect x="13" y="4" width="7" height="7" rx="1.2"/><rect x="4" y="13" width="7" height="7" rx="1.2"/><rect x="13" y="13" width="7" height="7" rx="1.2"/></svg>';
+  function _tabIconV3(w, estGrille) {
+    if (!document.documentElement.classList.contains('dtp-v2')) return '';
+    if (estGrille) return _TAB_ICO_GRILLE;
+    if (!w) return '';
+    return (typeof WICO !== 'undefined' && WICO[w.id]) || _tabIconSvg(w.icone) || _tabIconSvg(_TAB_ICO_FAMILLE[w.cat]) || '';
+  }
   var _reopen = null;                     // idx dont le panneau RÉGLAGES doit rester ouvert après un renderGrid
   var _LMAX = 12;                         // = _WDG_MAX_LAYOUTS côté serveur (plafond de templates)
   var _IMAX = 24;                         // = _WDG_MAX_ITEMS côté serveur : au-delà, le serveur TRONQUE
@@ -144,14 +157,17 @@
     // plus au catalogue, et on retombe sur le défaut si tout a été décoché (une carte vide ne rend
     // service à personne : mieux vaut la sélection d'origine).
     if (d.type === 'multi') {
-      var gardes = String(v).split('|').filter(function (x) {
+      var gardes = String(v).split('|').map(function (x) {
+        return d.choix.some(function (c) { return c[0] === x; }) ? x : _paireSens(x, d.choix);
+      }).filter(function (x) {
         return x && d.choix.some(function (c) { return c[0] === x; });
       });
       return gardes.length ? gardes : d.def;
     }
     // 'choix' : une valeur devenue invalide (option retirée du catalogue) retombe sur le défaut
     for (var i = 0; i < d.choix.length; i++) if (d.choix[i][0] === v) return v;
-    return d.def;
+    var inv = _paireSens(v, d.choix);                    // paire enregistrée dans l'ancien sens
+    return inv !== v ? inv : d.def;
   }
   // SECTIONS DU FIL : rubriques en cases à cocher persistées. Rendue pour la CARTE fil-news ET
   // pour un fil-news affiché EN ONGLET (le setter change de cible). ⚠️ AU NIVEAU MODULE (et non
@@ -2102,15 +2118,27 @@
     return function () { try { clearInterval(iv); } catch (e) {} };
   }
 
+  /* LES 28 CROISEMENTS DANS LE SENS DU MARCHÉ, CLASSÉS PAR ORDRE ALPHABÉTIQUE (25/09).
+     L'ancienne double boucle gardait le premier sens rencontré dans une liste arbitraire : elle
+     proposait « USD/GBP », « JPY/CHF » ou « CAD/AUD », cotations que personne ne lit, dans un ordre
+     que personne ne retrouve. Le rang ci-dessous est la convention interbancaire : la devise la
+     mieux placée est toujours la base (EUR/GBP, GBP/JPY, AUD/NZD, USD/CAD…). Une valeur déjà
+     enregistrée dans l'ancien sens n'est pas perdue : `opt` retourne la paire (voir `_paireSens`). */
+  var _FX_RANG = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'JPY'];
   function _fxChoix() {
-    var M = ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'], out = [], vus = {};
-    M.forEach(function (b) { M.forEach(function (q) {
-      if (b === q) return;
-      var k = b + '/' + q;
-      // Un seul sens par croisement : EUR/USD OU USD/EUR, jamais les deux.
-      if (!vus[q + '/' + b]) { vus[k] = 1; out.push([k, k]); }
+    var out = [];
+    _FX_RANG.forEach(function (b, i) { _FX_RANG.slice(i + 1).forEach(function (q) {
+      var k = b + '/' + q; out.push([k, k]);
     }); });
-    return out;
+    return out.sort(function (a, b) { return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; });
+  }
+  // « USD/GBP » enregistré avant le 25/09 → « GBP/USD » s'il figure au catalogue, sinon inchangé.
+  function _paireSens(v, choix) {
+    var m = /^([A-Z]{3})\/([A-Z]{3})$/.exec(String(v || ''));
+    if (!m) return v;
+    var inv = m[2] + '/' + m[1];
+    for (var i = 0; i < choix.length; i++) if (choix[i][0] === inv) return inv;
+    return v;
   }
 
   function _dmxPairesChoix() {
@@ -8660,13 +8688,13 @@
             var ttl = w ? (w.name + ' : double-clic pour renommer')
               : (estG ? ('Onglet composite · ' + _tabCells(it, i).filter(function (x) { return x !== 'vide'; }).length + ' widget(s) : double-clic pour renommer')
                       : 'Onglet vide : choisis sa disposition dans le corps');
-            var _ic = _tabIconSvg(icons[i]);
+            var _ic = _tabIconSvg(icons[i]), _auto = !_ic && (w || estG) ? _tabIconV3(w, estG) : '';
             // LE CHEVRON S'EFFACE DÈS QU'UNE ICÔNE EST POSÉE (31/08, demande user : « quand on
             // ajoute une icône à l'onglet il faut enlever le ›, vu que l'icône prend sa place »).
             // Les deux disaient la même chose — « ceci est un onglet » — côte à côte : l'icône
             // choisie par le lecteur remplace le repère générique, elle ne s'y ajoute pas.
             return '<button class="wdgt-tab' + (i === actIdx ? ' on' : '') + (w || estG ? '' : ' wdgt-tab--vide') + '" data-i="' + i + '" title="' + esc(ttl) + '">'
-              + (_ic ? '<span class="wdgt-tico">' + _ic + '</span>' : '<span class="wdgt-chv">›</span>') + '<span class="wdgt-nm">' + esc(lbl) + '</span></button>';
+              + (_ic ? '<span class="wdgt-tico">' + _ic + '</span>' : _auto ? '<span class="wdgt-tico wdgt-tico--auto">' + _auto + '</span>' : '<span class="wdgt-chv">›</span>') + '<span class="wdgt-nm">' + esc(lbl) + '</span></button>';
           }).join('') + '<button class="wdgt-add" title="Ajouter un onglet">+</button>';
           // La rangée vient de changer de longueur : le fondu doit le savoir, sinon il annonce une
           // suite qui n'existe plus (ou se tait alors qu'il en reste).
@@ -10366,7 +10394,7 @@
     }).length;
     var totHtml = (_libFam === '_tpl' || !html) ? '' :
       '<div class="wdg-lib-tot">Tous les widgets <span>(' + nTot + ')</span></div>';
-    box.innerHTML = (totHtml + tplHtml + favHtml + html) || '<div class="wdg-empty">Rien ne correspond à « ' + esc(_libQ) + ' ».</div>';
+    box.innerHTML = (totHtml + tplHtml + favHtml + html) || '<div class="wdg-empty wdg-lib-rien">Rien ne correspond à « ' + esc(_libQ) + ' ».</div>';
   }
 
   /* ── MODÈLE PRÊT : UN SEUL, et c'est le DESK DE BASE À L'IDENTIQUE (demande user 02/08). Il lit la même
@@ -10661,6 +10689,46 @@ function _spansAffiches(lay) {
          une vignette existante. */
       if (typeof w.apercu === 'string' && /^<svg[\s>]/.test(w.apercu) && !WPREV[w.id]) WPREV[w.id] = w.apercu;
       CATALOG.push(w);
+      return true;
+    },
+    /* V3 (25/09) : UNE AUTRE PRÉSENTATION POUR UN WIDGET EXISTANT, jamais un autre widget.
+       Demande user : « Hauts / bas, Taux US, Vol. horaire, Variations ont l'air figés, comme en V2 ;
+       je veux du temps réel, des vrais graphiques, comme PMT ». Le module public/js/v2/widgets-v3.js
+       (servi aux seuls admins, garde /js/v2) déclare ici sa version d'un widget du catalogue. Trois
+       garanties, qui font que les clients ne peuvent pas la voir ni en souffrir :
+         · hors `html.dtp-v2`, c'est le montage d'ORIGINE qui s'exécute, tel quel ;
+         · une exception au montage V3 retombe sur le montage d'origine, dans la même carte ;
+         · le repli asynchrone (source vide, format inattendu) passe par `repli`, dont le nettoyage
+           est rendu avec celui de la V3 — sinon les minuteurs du widget d'origine survivraient.
+       Mêmes réglages, mêmes données (`_bougies`, `opt`) : seule la présentation change. */
+    v3Montage: function (id, fn) {
+      var w = byId(id);
+      if (!w || typeof fn !== 'function' || w._v3Orig) return false;
+      var orig = w._v3Orig = w.mount;
+      var outils = { opt: opt, skel: skel, fallback: fallback, bougies: _bougies, pip: _pipTaille, esc: esc,
+        // Horaires des places : les MÊMES calculs que la frise des clients (heure d'été comprise).
+        frise: { places: _FRISE_PLACES, etat: _friseEtat, segments: _friseSegments, decalage: _friseDecalage, hf: _friseHF, duree: _friseDuree } };
+      w.mount = function (host, it) {
+        if (!document.documentElement.classList.contains('dtp-v2')) return orig.call(w, host, it);
+        var unOrig = null, unV3 = null;
+        var repli = function () {
+          try { var u = orig.call(w, host, it); if (typeof u === 'function') unOrig = u; }
+          catch (e) { fallback(host, w.name + ' indisponible.'); }
+        };
+        try { unV3 = fn.call(w, host, it, repli, outils); }
+        catch (e) { try { console.error('[V3] ' + id + ' :', e && e.message); } catch (_) {} repli(); }
+        return function () {
+          try { if (typeof unV3 === 'function') unV3(); } catch (e) {}
+          try { if (unOrig) unOrig(); } catch (e) {}
+        };
+      };
+      /* Le module arrive APRÈS le premier rendu du desk : les cartes déjà montées gardent l'ancienne
+         présentation tant qu'on ne les remonte pas. Un seul rendu, groupé, pour tous les widgets
+         déclarés dans la même rafale. */
+      if (document.body.classList.contains('wdg-mode') && document.documentElement.classList.contains('dtp-v2')) {
+        clearTimeout(API._v3Rendu);
+        API._v3Rendu = setTimeout(function () { try { renderGrid(); } catch (e) {} }, 60);
+      }
       return true;
     },
     // MONTER UN VRAI WIDGET DU DESK dans n'importe quel conteneur (l'espace d'accueil s'en sert).

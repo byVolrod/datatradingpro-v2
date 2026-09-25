@@ -390,6 +390,65 @@ console.log('\n── 3 sexies. Référencement : ce qui se dégrade sans bruit 
   v('… et aucune URL sans fichier', !fantomes.length, fantomes.join(', '));
 }
 
+console.log('\n── 3 septies. Données structurées : aucune propriété en double ──');
+{
+  /* GOOGLE A REFUSÉ L'ACCUEIL LE 25/09 : « Données structurées impossibles à analyser : Propriété
+     en double ». Le bloc SoftwareApplication portait deux fois `inLanguage` (« fr » puis « fr-FR »).
+     `JSON.parse` ne voit RIEN : il garde silencieusement la dernière valeur. Seul un lecteur qui
+     relève les clés au fil de l'eau voit le doublon — c'est ce qu'on fait ici, objet par objet, sur
+     chaque bloc JSON-LD de chaque page publique. */
+  const doublons = (txt) => {
+    const out = [];
+    let i = 0;
+    const blanc = () => { while (i < txt.length && /\s/.test(txt[i])) i++; };
+    const chaine = () => { let r = ''; i++; while (i < txt.length && txt[i] !== '"') { if (txt[i] === '\\') { r += txt[i + 1]; i += 2; } else r += txt[i++]; } i++; return r; };
+    const valeur = (chemin) => {
+      blanc();
+      const c = txt[i];
+      if (c === '{') {
+        i++; const vus = new Set();
+        blanc(); if (txt[i] === '}') { i++; return; }
+        for (;;) {
+          blanc(); const k = chaine(); blanc(); i++;               // ':'
+          if (vus.has(k)) out.push(chemin + '.' + k); vus.add(k);
+          valeur(chemin + '.' + k); blanc();
+          if (txt[i] === ',') { i++; continue; }
+          i++; return;                                             // '}'
+        }
+      }
+      if (c === '[') {
+        i++; let n = 0; blanc(); if (txt[i] === ']') { i++; return; }
+        for (;;) { valeur(chemin + '[' + (n++) + ']'); blanc(); if (txt[i] === ',') { i++; continue; } i++; return; }
+      }
+      if (c === '"') { chaine(); return; }
+      while (i < txt.length && !/[,}\]\s]/.test(txt[i])) i++;
+    };
+    valeur('$');
+    return out;
+  };
+  // Témoin : le lecteur doit mordre sur le cas exact signalé par Google.
+  v('le lecteur de doublons mord (témoin « inLanguage » ×2)',
+    doublons('{"@graph":[{"@type":"A","inLanguage":"fr","b":{"x":1},"inLanguage":"fr-FR"}]}').length === 1);
+  v('… et se tait sur un objet sain (témoin inverse)',
+    doublons('{"a":{"k":1},"b":{"k":2},"c":[{"k":1},{"k":2}]}').length === 0);
+  const fichiers = [path.join(LAND, 'index.html')]
+    .concat(fs.readdirSync(path.join(LAND, 'documentation')).filter(f => f.endsWith('.html')).map(f => path.join(LAND, 'documentation', f)))
+    .concat([path.join(RACINE, 'public', 'week-ahead.html')]);
+  const fautes = [], invalides = [];
+  let blocs = 0;
+  for (const f of fichiers) {
+    const html = fs.readFileSync(f, 'utf8');
+    for (const m of html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
+      blocs++;
+      try { JSON.parse(m[1]); } catch (e) { invalides.push(path.basename(f) + ' : ' + e.message); continue; }
+      doublons(m[1]).forEach(d => fautes.push(path.basename(f) + ' ' + d));
+    }
+  }
+  v('des blocs JSON-LD sont bien lus', blocs >= 10, blocs + ' bloc(s)');
+  v('chaque bloc JSON-LD est un JSON valide', !invalides.length, invalides.join(' ; '));
+  v('aucune propriété déclarée deux fois dans le même objet', !fautes.length, fautes.join(' ; '));
+}
+
 console.log('\n── 4. Rendu réel, dans un navigateur ──');
 (async () => {
   let pp = null;
