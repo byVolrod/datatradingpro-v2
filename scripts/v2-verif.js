@@ -191,15 +191,22 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
           ecran: e ? e.dataset.ecran : null, debut: re ? Math.round(re.top) : null, fin: re ? Math.round(re.bottom) : null, titre: document.getElementById('v2a-titre').textContent };
       });
       const r = await geo();
-      v('l\'app est active : 5 onglets, le Fil en premier (Fil, Macro, Marchés, Analystes, Banques)', r.app && r.onglets === 'fil,macro,markets,analystes,banques', JSON.stringify(r) + ' · fichiers : ' + vus.join(', '));
+      v('l\'app est active : 5 onglets, le Fil en premier (Fil, Calendrier, Marchés, Analystes, Banques)', r.app && r.onglets === 'fil,calendar,markets,analystes,banques', JSON.stringify(r) + ' · fichiers : ' + vus.join(', '));
       v('l\'ancienne barre du haut et la rangée d\'onglets sont masquées', r.topbar === 'none' && r.nav === 'none');
       v('la barre d\'onglets est collée au bas de l\'écran', r.barreBas === r.hauteur);
       v('l\'app s\'ouvre sur le Fil en direct, logé ENTRE l\'en-tête et la barre', r.ecran === 'fil' && r.titre === 'Fil en direct' && Math.abs(r.debut - r.finTete) <= 1 && Math.abs(r.fin - r.hautBarre) <= 1, JSON.stringify(r));
       v('… Mon Desk (grand écran) ne se rouvre pas tout seul', await page.evaluate(() => document.getElementById('view-widgets').classList.contains('hidden')));
       v('… zoom verrouillé comme une app (pincement et double-tap coupés)', await page.evaluate(() => /maximum-scale=1/.test(document.querySelector('meta[name=viewport]').content) && /user-scalable=no/.test(document.querySelector('meta[name=viewport]').content)));
-      await page.click('.v2a-onglet[data-v2v="macro"]');
+      /* 25/09 : le Calendrier remplace Macro dans la barre ; le Briefing du matin passe en tête du Fil,
+         et l'écran Macro reste ouvert depuis « Tous les outils » (Publications DTP). */
+      await page.click('.v2a-onglet[data-v2v="calendar"]');
       await new Promise(z => setTimeout(z, 900));
-      v('onglet Macro : la carte « Briefing du matin » en tête (V3)', await page.evaluate(() => { const c = document.getElementById('v2a-bf-carte'); return !!c && /Un risk-on prudent/.test(c.innerText) && c.parentElement.dataset.ecran === 'macro'; }));
+      v('onglet Calendrier : la vue Calendrier du desk, onglet allumé, sans bouton Retour', await page.evaluate(() => !document.getElementById('view-calendar').classList.contains('hidden')
+        && document.querySelector('.v2a-onglet.v2a-actif').dataset.v2v === 'calendar' && document.getElementById('v2a-retour').hidden && document.getElementById('v2a-titre').textContent === 'Calendrier'));
+      await page.click('.v2a-onglet[data-v2v="fil"]');
+      await new Promise(z => setTimeout(z, 900));
+      v('la carte « Briefing du matin » en tête du Fil (V3)', await page.evaluate(() => { const c = document.getElementById('v2a-bf-carte'); return !!c && /Un risk-on prudent/.test(c.innerText) && c.parentElement.dataset.ecran === 'fil'; }));
+      v('l\'écran Macro reste accessible depuis « Tous les outils »', await page.evaluate(() => !!document.querySelector('.v2a-feuille [data-v2v="macro"]')));
       const aller = async sel => { await page.click(sel); await new Promise(z => setTimeout(z, 500)); };
       // Captures sur demande (V2_CAPTURES=dossier) : pour juger l'app À L'ŒIL, pas seulement au banc.
       const capture = async nom => { if (process.env.V2_CAPTURES) await page.screenshot({ path: path.join(process.env.V2_CAPTURES, 'app-' + nom + '.png') }); };

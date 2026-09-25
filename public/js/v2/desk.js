@@ -91,8 +91,46 @@
   function fusions() { document.querySelectorAll('#wdg-grid .wdg-card').forEach(function (c) { try { fusion(c); } catch (e) {} }); }
   var fusionPrevue = 0;
   function planifierFusions() { if (fusionPrevue) return; fusionPrevue = requestAnimationFrame(function () { fusionPrevue = 0; fusions(); }); }
+  /* ── CASSE DES ONGLETS (25/09, capture user : « des fois tout est en majuscule et d'autres fois
+     non ») ─────────────────────────────────────────────────────────────────────────────────────
+     La V3 retire la mise en capitales des onglets (desk.css, `text-transform: none`). Les libellés
+     s'affichaient donc tels qu'ils sont ENREGISTRÉS : ceux par défaut en capitales (« ACTUS »,
+     « SENTIMENT », « FORCE »), ceux renommés par l'utilisateur en casse normale (« Institutions »,
+     « Baromètre ») — une barre sur deux registres. On passe à l'AFFICHAGE tout libellé entièrement en
+     capitales en casse normale (« Actus », « Semaine à venir »), en gardant les sigles (FX, COT, DMX,
+     BCE, CPI…). Un libellé déjà en casse mixte n'est pas touché, et rien n'est réécrit dans la
+     configuration : c'est une règle de rendu de la V3, qui s'efface avec elle. */
+  var SIGLES = /^(FX|COT|DMX|IA|AI|US|UK|EU|UE|USD|EUR|GBP|JPY|CHF|CAD|AUD|NZD|CNY|BCE|BNS|FOMC|RBA|RBNZ|SNB|ECB|CPI|NFP|PMI|PIB|GDP|VIX|DXY|XAU|XAG|WTI|DTP|JOT|TV|G7|G20|OPEP|CFTC|ETF|PDF|OK)$/;
+  var MIXTES = { FED: 'Fed', BOE: 'BoE', BOJ: 'BoJ', BOC: 'BoC', BCE: 'BCE', VIEW: 'View' };
+  function casseNormale(t) {
+    if (!/[A-ZÀ-Ý]/.test(t) || /[a-zß-ÿ]/.test(t)) return t;   // sans lettre, ou déjà en casse mixte
+    var premier = true;
+    return t.replace(/[A-Za-zÀ-ÿ]+/g, function (m) {
+      var r = MIXTES[m] || (SIGLES.test(m) ? m : (premier ? m.charAt(0) + m.slice(1).toLowerCase() : m.toLowerCase()));
+      premier = false;
+      return r;
+    });
+  }
+  var CIBLES = '#topbar-nav .nav-item, .wdg-bar .nav-item, .right-panel-tabs .right-tab, .wdgt-tab, .wdgt-subname';
+  function casses() {
+    if (/^en/i.test(document.documentElement.lang || '')) return;   // l'anglais garde ses propres libellés
+    document.querySelectorAll(CIBLES).forEach(function (el) {
+      var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), n;
+      while ((n = w.nextNode())) { var v = n.nodeValue, c = casseNormale(v); if (c !== v) n.nodeValue = c; }
+    });
+  }
+  var cassePrevue = 0;
+  function planifierCasses() { if (cassePrevue) return; cassePrevue = requestAnimationFrame(function () { cassePrevue = 0; casses(); }); }
+  window._v3CasseNormale = casseNormale;   // pour les bancs
+
   function demarrer() {
     puce();
+    casses();
+    ['topbar-nav', 'view-widgets', 'right-panel'].forEach(function (id) {
+      var z = document.getElementById(id);
+      if (z && window.MutationObserver) new MutationObserver(planifierCasses).observe(z, { childList: true, subtree: true, characterData: true });
+    });
+    document.querySelectorAll('.right-panel-tabs').forEach(function (z) { if (window.MutationObserver) new MutationObserver(planifierCasses).observe(z, { childList: true, subtree: true, characterData: true }); });
     voixFJ();
     onglets();
     var nav = document.getElementById('topbar-nav');

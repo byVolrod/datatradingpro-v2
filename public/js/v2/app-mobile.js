@@ -4,7 +4,7 @@
    Drive (application mobile d'un terminal concurrent), dont on reprend l'ERGONOMIE et l'emplacement
    des boutons, jamais l'habillage :
      · en-tête : titre d'écran + pastille « En direct » ; à droite IA, cloche (nombre de non-lus), compte ;
-     · barre du bas, 5 onglets : Macro · Fil · Marchés · Analystes · Banques ;
+     · barre du bas, 5 onglets : Fil · Calendrier · Marchés · Analystes · Banques (Calendrier à la place de Macro le 25/09) ;
      · Alertes : feuille plein écran, 4 filtres (Tout · Rapports · Actu · Calendrier), non-lus comptés ;
      · Compte : écran à sections (fuseau, abonnement, préférences, assistance) et déconnexion.
    Les écrans de LISTE sont natifs (construits ici), et leurs données sont celles que le desk a DÉJÀ en
@@ -37,6 +37,7 @@
   var DUO = {
     fil: ['M5 4h11v16H6a1 1 0 0 1-1-1z', 'M5 4h11v16H6a1 1 0 0 1-1-1zM16 8h3v11a1 1 0 0 1-1 1h-2M8 8h5M8 12h5M8 16h3'],
     macro: ['M3 17l6-6 4 4 8-8v13H3z', 'M3 17l6-6 4 4 8-8M15 7h6v6'],
+    calendar: ['M4 10h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z', 'M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM4 10h16M9 3v4M15 3v4M8 14h2M14 14h2M8 17h2'],
     markets: ['M4 4h7v7H4zM13 13h7v7h-7z', 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z'],
     analystes: ['M7 3h7l5 5v13H7z', 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6'],
     banques: ['M4 8l8-4 8 4v13H4z', 'M4 21V8l8-4 8 4v13M4 21h16M8 11v2M12 11v2M16 11v2M8 16v2M12 16v2M16 16v2']
@@ -97,13 +98,16 @@
   /* ── Les onglets (référence : 5 onglets, pas de « Plus ») et les outils du desk ─────────────────── */
   var ONGLETS = [
     { v: 'fil',       t: 'Fil',       titre: 'Fil en direct', ico: I.fil },
-    { v: 'macro',     t: 'Macro',     titre: 'Macro',         ico: I.macro },
+    /* CALENDRIER À LA PLACE DE MACRO (25/09, demande user). C'est la vue Calendrier du desk, comme
+       les autres outils : même données, même rendu. L'écran Macro (publications du desk) reste dans
+       « Tous les outils » ; ses publications sont aussi dans Analystes. */
+    { v: 'calendar',  t: 'Calendrier', titre: 'Calendrier',    ico: I.cal },
     { v: 'markets',   t: 'Marchés',   titre: 'Marchés',       ico: I.marches },
     { v: 'analystes', t: 'Analystes', titre: 'Analystes',     ico: I.analyst },
     { v: 'banques',   t: 'Banques',   titre: 'Banques',       ico: I.banques }
   ];
   var OUTILS = [
-    { v: 'calendar',    t: 'Calendrier',        ico: I.cal },
+    { v: 'macro',       t: 'Publications DTP',  ico: I.macro, natif: true },
     { v: 'taux',        t: 'Taux',              ico: 'M5 19L19 5M7 7h.01M17 17h.01' },
     { v: 'bias',        t: 'Radar de Biais',    ico: 'M12 3a9 9 0 1 0 9 9M12 7a5 5 0 1 0 5 5M12 12l7-7' },
     { v: 'weekahead',   t: 'Semaine à venir',   ico: 'M5 5h14v14H5zM5 9h14M9 13h2M13 13h2M9 16h2' },
@@ -115,7 +119,7 @@
   ];
   var TITRES = { news: 'Fil en direct', analyst: 'Analystes', institution: 'Banques', symbol: 'Paire', compte: 'Compte' };
   ONGLETS.forEach(function (o) { TITRES[o.v] = o.titre; });
-  OUTILS.forEach(function (o) { TITRES[o.v] = o.t; });
+  OUTILS.forEach(function (o) { if (!TITRES[o.v]) TITRES[o.v] = o.t; });
   // Vue du desk → onglet de l'app qui l'éclaire (le lecteur d'un rapport garde son onglet allumé).
   var PARENT = { news: 'fil', analyst: 'analystes', institution: 'banques' };
   var existe = function (v) { return !!document.getElementById('view-' + v); };
@@ -151,14 +155,15 @@
     feuille.setAttribute('role', 'dialog');
     feuille.setAttribute('aria-label', 'Tous les outils');
     feuille.innerHTML = '<div class="v2a-poignee"></div><div class="v2a-feuille-titre">Tous les outils</div><div class="v2a-grille">'
-      + OUTILS.filter(function (o) { return existe(o.v); }).map(function (o) {
+      + OUTILS.filter(function (o) { return o.natif || existe(o.v); }).map(function (o) {
         return '<button type="button" class="v2a-tuile" data-v2v="' + o.v + '">' + svg(o.ico, 24) + '<span>' + o.t + '</span></button>';
       }).join('') + '</div>';
     document.body.appendChild(voile);
     document.body.appendChild(feuille);
 
-    // Les écrans natifs, dans cet ordre (le premier reçoit la carte du Briefing, cf. briefing-ui.js).
-    ['macro', 'fil', 'markets', 'analystes', 'banques', 'compte'].forEach(function (k) {   // Macro d'abord : il reçoit la carte du Briefing
+    // Les écrans natifs, dans cet ordre (le premier reçoit la carte du Briefing, cf. briefing-ui.js) :
+    // depuis que Macro a quitté la barre, c'est le Fil qui la porte, en tête.
+    ['fil', 'macro', 'markets', 'analystes', 'banques', 'compte'].forEach(function (k) {
       var s = document.createElement('section');
       s.className = 'v2a-ecran'; s.dataset.ecran = k;
       s.setAttribute('aria-label', TITRES[k] || k);
@@ -248,7 +253,9 @@
       return;
     }
     // Une vue du desk (outil, lecteur) : les écrans natifs s'effacent, la vue apparaît dessous.
-    if (courant && courant !== v && !opts.sansPile) pile.push(courant);
+    // Un onglet de la barre (le Calendrier) remet la pile à zéro, comme les onglets natifs.
+    if (ONGLETS.some(function (o) { return o.v === v; })) pile = [];
+    else if (courant && courant !== v && !opts.sansPile) pile.push(courant);
     montrerEcran(null);
     if (typeof window.activateView !== 'function') return;
     window.activateView(v);
@@ -613,7 +620,7 @@
         + '<div class="v2a-carte"><div class="v2a-carte-titre">Multi-actifs</div><div id="v2a-multi" class="v2a-embarque" style="height:460px"></div></div>'
         + '<div class="v2a-carte"><div class="v2a-carte-titre">Carte du monde</div><div id="v2a-carte-monde" class="v2a-embarque" style="height:420px"></div></div>'
         + '<div class="v2a-carte v2a-outils"><div class="v2a-carte-titre">Outils du desk</div><div class="v2a-grille">'
-        + OUTILS.filter(function (o) { return existe(o.v); }).map(function (o) { return '<button type="button" class="v2a-tuile" data-v2v="' + o.v + '">' + svg(o.ico, 22) + '<span>' + o.t + '</span></button>'; }).join('')
+        + OUTILS.filter(function (o) { return o.natif || existe(o.v); }).map(function (o) { return '<button type="button" class="v2a-tuile" data-v2v="' + o.v + '">' + svg(o.ico, 22) + '<span>' + o.t + '</span></button>'; }).join('')
         + '<button type="button" class="v2a-tuile" id="v2a-detail">' + svg(I.horloge, 22) + '<span>Horloges & sessions</span></button>'
         // Ce que le desk offrait et que l'app n'ouvrait pas (25/09, « il manque encore des choses du desk ») :
         // le Flash Marché et la vue d'une paire (COT, saisonnalité, particuliers, biais).

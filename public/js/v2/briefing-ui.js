@@ -86,7 +86,7 @@
     var ctl = tete.querySelector('.panel-header-controls');
     if (ctl) ctl.insertBefore(b, ctl.firstChild); else tete.appendChild(b);
   }
-  // App mobile : carte en tête de l'écran Marchés (créé par app-mobile.js).
+  // App mobile : carte en tête du PREMIER écran natif, le Fil depuis le 25/09 (créé par app-mobile.js).
   function majCarte() {
     var ecran = document.querySelector('.v2a-ecran');
     if (!ecran) return;
