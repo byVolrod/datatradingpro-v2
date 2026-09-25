@@ -98,6 +98,21 @@ const CCY = ['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CHF', 'CAD', 'NZD'];
 const FINS = { USD: 0.12, EUR: -0.05, JPY: -0.21, GBP: 0.3, AUD: 0.02, CHF: -0.09, CAD: 0.07, NZD: -0.11 };
 const FORCE = { currencies: CCY, updatedAt: new Date().toISOString(), series: Object.fromEntries(CCY.map(c => [c, Array.from({ length: 30 }, (_, i) => ({ t: 1790000000000 + i * 6e5, v: +(FINS[c] * (i + 1) / 30).toFixed(5) }))])) };
 
+/* LES CHIFFRES VIVENT (25/09) : un chiffre de widget qui change en place s'allume dans le SENS du
+   mouvement. Le sens n'est juste que si le nombre est lu comme il s'affiche (« 1,2345 » ≠ 12345). */
+{
+  const DSK = fs.readFileSync(path.join(R, 'public/js/v2/desk.js'), 'utf8');
+  const m = /  var nbDe = function \(t\) \{[\s\S]*?\n  \};/.exec(DSK);
+  v('desk.js lit les chiffres qui bougent (nbDe extractible)', !!m);
+  if (m) {
+    const nbDe = new Function(m[0] + ' return nbDe;')();
+    const cas = [['1,2345', 1.2345], ['1 234,5', 1234.5], ['1,234,567', 1234567], ['1.2345', 1.2345], ['-0,42%', -0.42], ['2 654,30', 2654.3]];
+    const faux = cas.filter(c => nbDe(c[0]) !== c[1]);
+    v('… « 1,2345 », « 1 234,5 », « 1,234,567 », « -0,42% » lus comme ils s’affichent', !faux.length, JSON.stringify(faux));
+    v('… et le flash est branché sur la grille, borné au grand écran', /new MutationObserver\(vivre\)/.test(DSK) && /MQ_DESK\.matches/.test(DSK));
+  }
+}
+
 console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (même échelle) ──');
 {
   const CH = fs.readFileSync(path.join(R, 'public/js/charts.js'), 'utf8');
@@ -286,8 +301,20 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       const cp = await page.evaluate(() => ({ ecran: ((document.querySelector('.v2a-ecran.v2a-visible') || {}).dataset || {}).ecran, sortie: !!document.querySelector('.v2a-sortie'), mail: /x@y\.z/.test((document.querySelector('.v2a-profil') || {}).innerText || ''), retour: !document.getElementById('v2a-retour').hidden }));
       v('le bouton compte ouvre l\'écran Compte (profil, sections, déconnexion) avec Retour', cp.ecran === 'compte' && cp.sortie && cp.mail && cp.retour, JSON.stringify(cp));
       await capture('compte');
-      const lg = await page.evaluate(() => { const c = document.querySelector('.v2a-langue-choix'); return c ? [...c.options].map(o => o.value + (o.selected ? '*' : '')).join(',') + '|' + document.querySelectorAll('.v2a-langue').length : ''; });
-      v('Compte propose la langue en UNE ligne à liste déroulante (même réglage que le desk)', lg === 'fr*,en,de,es|1', lg);
+      /* COMPTE EN PAGES (25/09, « quand je clique ça ne marche pas ») : chaque ligne du sommaire ouvre
+         sa page, et Retour ramène au sommaire (pas à l'onglet d'avant). */
+      const cpg = await page.evaluate(async () => {
+        const pause = ms => new Promise(r => setTimeout(r, ms)), ec = document.querySelector('.v2a-ecran[data-ecran="compte"]'), out = {};
+        for (const p of ['fuseau', 'abo', 'notifs', 'prefs', 'langue']) {
+          const b = ec.querySelector('[data-act="page:' + p + '"]'); if (!b) { out[p] = 'absente'; continue; }
+          b.click(); await pause(150);
+          const t = document.getElementById('v2a-titre').textContent, n = ec.querySelectorAll('.v2a-ligne, .v2a-kv').length;
+          document.getElementById('v2a-retour').click(); await pause(150);
+          out[p] = t + ':' + (n > 0) + ':' + (document.getElementById('v2a-titre').textContent === 'Compte' && !!ec.querySelector('[data-act="page:fuseau"]'));
+        }
+        return out;
+      });
+      v('le sommaire du Compte ouvre ses cinq pages, et Retour y ramène', JSON.stringify(cpg) === JSON.stringify({ fuseau: 'Fuseau horaire:true:true', abo: 'Abonnement:true:true', notifs: 'Notifications:true:true', prefs: 'Préférences:true:true', langue: 'Langue:true:true' }), JSON.stringify(cpg));
       /* L'ACCUEIL DU DESK NE COUVRE JAMAIS L'APP (25/09, « rien ne s'affiche » dans Banques/Analystes) :
          body.home-mode masque toutes les vues du desk ; l'app doit le lever dès qu'il apparaît. */
       await page.evaluate(() => { document.body.classList.add('home-mode'); const d = document.createElement('div'); d.id = 'dtp-home'; document.body.appendChild(d); });

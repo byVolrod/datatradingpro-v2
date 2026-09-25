@@ -134,7 +134,31 @@
     border-left: 1px solid #22222a; border-right: 1px solid #22222a; }
   html.dtp-v2 .wdg-card.v3-fusion > .wdg-head .wdg-actions > .wdgt-subacts .wdg-ico[title="Retirer"] { display: none; }
 
+  /* ══ FINITION DE L'INTÉRIEUR DES WIDGETS (25/09, « améliore tous les widgets pour la V3 ») ══════
+     Même grammaire pour tous : chiffres en chasse fixe (les colonnes ne dansent plus quand un cours
+     change), en-têtes de tableau discrets, ligne survolée soulignée d'or, chargement qui scintille
+     dans la teinte de la maison, états vides posés, et un chiffre qui bouge qui s'allume. */
+  html.dtp-v2 .wdg-body { font-variant-numeric: tabular-nums; }
+  html.dtp-v2 .wdg-body table { border-collapse: collapse; }
+  html.dtp-v2 .wdg-body thead th { background: #0e0e11; color: #7c7c86; font-weight: 600; text-transform: none; letter-spacing: 0; border-bottom: 1px solid #1a1a1f; }
+  html.dtp-v2 .wdg-body tbody tr { transition: background .12s; }
+  html.dtp-v2 .wdg-body tbody tr:hover > td { background: rgba(227,178,58,.045); }
+  html.dtp-v2 .wdg-body tbody td { border-color: #141417; }
+  html.dtp-v2 .wdg-skel-l { background: linear-gradient(90deg, #121215 25%, rgba(227,178,58,.07) 50%, #121215 75%) !important; background-size: 220% 100% !important; border-radius: 3px; }
+  html.dtp-v2 .wdg-empty, html.dtp-v2 .wdg-load { color: #6f6f78; font: 500 12px/1.5 'Inter Tight', system-ui, sans-serif; letter-spacing: 0; text-transform: none; }
+  html.dtp-v2 .wdg-body button:focus-visible, html.dtp-v2 .wdg-body select:focus-visible, html.dtp-v2 .wdg-body input:focus-visible, html.dtp-v2 .wdg-ico:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(227,178,58,.45); border-radius: 3px; }
+  html.dtp-v2 .wdg-body input:not([type="checkbox"]):not([type="radio"]), html.dtp-v2 .wdg-body select { background-color: #0e0e11; border-color: #22222a; transition: border-color .15s, box-shadow .15s; }
+  html.dtp-v2 .wdg-body input:not([type="checkbox"]):not([type="radio"]):focus, html.dtp-v2 .wdg-body select:focus { border-color: rgba(227,178,58,.55); }
+  /* Un chiffre qui change en place s'allume (js/v2/desk.js) : vert en hausse, rouge en baisse. */
+  html.dtp-v2 .v3-maj-h, html.dtp-v2 .v3-maj-b { border-radius: 2px; }
+  html.dtp-v2 .v3-maj-h { animation: v3MajH 1.1s ease-out; }
+  html.dtp-v2 .v3-maj-b { animation: v3MajB 1.1s ease-out; }
+  @keyframes v3MajH { from { background-color: rgba(0,230,118,.28); } to { background-color: transparent; } }
+  @keyframes v3MajB { from { background-color: rgba(255,61,0,.28); } to { background-color: transparent; } }
+  /* Infobulles des widgets : même plaque que le reste de la V3. */
+  html.dtp-v2 .wdg-tip, html.dtp-v2 .wdg-tooltip { background: #101013; border: 1px solid #2a2a31; border-radius: 4px; box-shadow: 0 14px 30px -12px rgba(0,0,0,.8); color: #d6d6dc; }
+
   @media (prefers-reduced-motion: reduce) {
-    html.dtp-v2 .topbar::after, html.dtp-v2 .wdg-card, html.dtp-v2 .wdgt-body { animation: none; }
+    html.dtp-v2 .topbar::after, html.dtp-v2 .wdg-card, html.dtp-v2 .wdgt-body, html.dtp-v2 .v3-maj-h, html.dtp-v2 .v3-maj-b { animation: none; }
   }
 }

@@ -267,6 +267,7 @@
   function retour() {
     // Un volet (IA, support) ouvert : Retour le referme, comme le geste retour d'une app.
     if (voletOuvert()) { fermerVolets(); return; }
+    if (courant === 'compte' && sousCompte) { sousCompte = null; RENDUS.compte(true); return; }
     // Un lecteur de rapport du desk : on le referme aussi, sans quoi la vue du desk resterait
     // bloquée sur ce rapport à la prochaine visite.
     if (courant === 'analyst') { var ba = document.getElementById('arlib-back-btn'); if (ba) ba.click(); }
@@ -884,36 +885,81 @@
   /* ══ ÉCRAN COMPTE (référence « Account ») ══════════════════════════════════════════════════════════ */
   var LANGUES = [['fr', 'Français', 'fr'], ['en', 'English', 'gb'], ['de', 'Deutsch', 'de'], ['es', 'Español', 'es']];
   var langue = function () { try { return (localStorage.getItem('dtp_lang') || 'fr').slice(0, 2).toLowerCase(); } catch (x) { return 'fr'; } };
+  /* ══ COMPTE EN PAGES (25/09, « quand je clique ça ne marche pas : que ça emmène vers l'espace ») ═══
+     L'écran Compte est un SOMMAIRE, comme les réglages d'un téléphone : chaque ligne ouvre sa page
+     (Fuseau horaire, Abonnement, Notifications, Préférences, Langue), et Retour ramène au sommaire.
+     Les alertes rejoignent la page Notifications. */
+  var sousCompte = null;
+  var PAGES_COMPTE = { fuseau: 'Fuseau horaire', abo: 'Abonnement', notifs: 'Notifications', prefs: 'Préférences', langue: 'Langue' };
+  var FUSEAUX = ['Europe/Paris', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Asia/Tokyo', 'Asia/Dubai', 'UTC'];
+  var nomTz = function (tz) { return String(tz || '').replace(/_/g, ' ').replace('/', ' / '); };
+  var tzAppareil = function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (x) { return ''; } };
+  var tzChoisi = function () { try { return localStorage.getItem('dtp_tz') || tzAppareil() || 'Europe/Paris'; } catch (x) { return tzAppareil() || 'Europe/Paris'; } };
+  var heureTz = function (tz) { try { return new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: tz }).format(new Date()); } catch (x) { return ''; } };
+  var PLANS = { full: 'Accès complet', pro: 'Professionnel', professionnel: 'Professionnel', premium: 'Premium', trial: 'Essai', essai: 'Essai', basic: 'Essentiel' };
+  var nomPlan = function (u) { var p = String(u.planLabel || u.plan || '').trim(); return PLANS[p.toLowerCase()] || (p ? p.charAt(0).toUpperCase() + p.slice(1) : 'Accès DTP'); };
   RENDUS.compte = function (relu) {
+    if (!relu) sousCompte = null;
     var u = window._pdUser || {}, e = ecrans.compte;
-    var fuseau = ''; try { fuseau = Intl.DateTimeFormat().resolvedOptions().timeZone.replace('_', ' ').replace('/', ' / '); } catch (x) {}
     var av = document.getElementById('topbar-avatar');
     var ech = u.expires_at || u.expiresAt;
+    var t = document.getElementById('v2a-titre'); if (t) t.textContent = sousCompte ? PAGES_COMPTE[sousCompte] : 'Compte';
     var ligne = function (ico, txt, act, extra) { return '<button type="button" class="v2a-ligne" data-act="' + act + '">' + svg(ico, 22) + '<span>' + txt + '</span>' + (extra || svg(I.suite, 18, 1.8)) + '</button>'; };
-    e.innerHTML = '<div class="v2a-profil"><div class="v2a-profil-av">' + (av ? av.innerHTML : '') + '</div><b>' + esc(u.name || u.username || 'Mon compte') + '</b><span>' + esc(u.email || '') + '</span></div>'
-      + '<h3 class="v2a-rubrique">Fuseau horaire</h3>' + '<div class="v2a-groupe">' + ligne(I.horloge, esc(fuseau || 'Heure de l’appareil'), 'rien', '') + '</div>'
-      + '<h3 class="v2a-rubrique">Abonnement</h3><div class="v2a-groupe">' + ligne(I.carte, esc((u.plan ? String(u.plan) : 'Accès DTP') + (ech ? ' · jusqu’au ' + new Date(ech).toLocaleDateString('fr-FR') : '')), 'rien', '') + '</div>'
-      + '<h3 class="v2a-rubrique">Préférences</h3><div class="v2a-groupe">'
-      + ligne(I.etoile, 'Aperçu V3 (nouvelle interface)', 'v2', '<i class="v2a-bascule v2a-on-b"></i>')
-      + ligne(I.son, 'Alertes sonores', 'son', '<i class="v2a-bascule' + (glob('_npEnabled') ? ' v2a-on-b' : '') + '"></i>') + '</div>'
-      /* LANGUE (25/09, « on peut choisir la langue aussi dans l'app ») : le même réglage que le profil
-         du desk (`dtp_lang`, appliqué au rechargement par le moteur i18n), donc un seul choix pour les deux. */
-      // Une seule ligne, liste déroulante (25/09, « pour gagner de la place ») : le sélecteur natif
-      // ouvre la roue d'iOS, et le choix recharge l'app dans la langue retenue.
-      + '<h3 class="v2a-rubrique">Langue</h3><div class="v2a-groupe"><label class="v2a-ligne v2a-langue">'
-      + '<img src="https://flagcdn.com/w40/' + (LANGUES.filter(function (l) { return l[0] === langue(); })[0] || LANGUES[0])[2] + '.png" alt="" loading="lazy"><span>Langue</span>'
-      + '<select class="v2a-langue-choix" aria-label="Langue" data-enhanced="1" data-no-enhance="1">' + LANGUES.map(function (l) { return '<option value="' + l[0] + '"' + (l[0] === langue() ? ' selected' : '') + '>' + l[1] + '</option>'; }).join('') + '</select>'
-      + svg(I.bas, 16, 1.8) + '</label></div>'
-      + wpBloc()
-      // Panneau d'administration DANS l'app (25/09, demande user) : réservé au compte admin, le serveur
-      // refuse de toute façon la page à tout autre compte.
-      + (window._pdIsAdmin ? '<h3 class="v2a-rubrique">Administration</h3><div class="v2a-groupe">' + ligne('M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z', 'Panneau d’administration', 'admin') + '</div>' : '')
-      + '<h3 class="v2a-rubrique">Assistance</h3><div class="v2a-groupe">' + ligne(I.bulle, 'Écrire au support DTP', 'support') + '</div>'
-      + '<button type="button" class="v2a-sortie" data-act="sortie">' + svg(I.sortie, 20) + 'Se déconnecter</button>';
-    var choix = e.querySelector('.v2a-langue-choix');
-    if (choix) choix.onchange = function () { var l = LANGUES.filter(function (x) { return x[0] === choix.value; })[0]; if (l && l[0] !== langue()) { vibre(); appel('pdLangPick', l[0], l[1], l[2]); } };
+    var valeur = function (v) { return '<em class="v2a-val">' + esc(v) + '</em>' + svg(I.suite, 18, 1.8); };
+    var coche = svg('M5 12l5 5 9-11', 18, 2.2);
+    var h = '';
+    if (!sousCompte) {
+      var notifsOn = WP.etat === 'actif' || (WP.etat === 'impossible' && !!window.ReactNativeWebView);
+      h = '<div class="v2a-profil"><div class="v2a-profil-av">' + (av ? av.innerHTML : '') + '</div><b>' + esc(u.name || u.username || 'Mon compte') + '</b><span>' + esc(u.email || '') + '</span></div>'
+        + '<div class="v2a-groupe">'
+        + ligne(I.horloge, 'Fuseau horaire', 'page:fuseau', valeur(nomTz(tzChoisi())))
+        + ligne(I.carte, 'Abonnement', 'page:abo', valeur(nomPlan(u)))
+        + ligne(I.cloche, 'Notifications', 'page:notifs', valeur(notifsOn ? 'Activées' : 'Désactivées'))
+        + ligne(I.etoile, 'Préférences', 'page:prefs')
+        + ligne(I.langue, 'Langue', 'page:langue', valeur((LANGUES.filter(function (l) { return l[0] === langue(); })[0] || LANGUES[0])[1]))
+        + '</div>'
+        + (window._pdIsAdmin ? '<h3 class="v2a-rubrique">Administration</h3><div class="v2a-groupe">' + ligne('M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z', 'Panneau d’administration', 'admin') + '</div>' : '')
+        + '<h3 class="v2a-rubrique">Assistance</h3><div class="v2a-groupe">' + ligne(I.bulle, 'Écrire au support DTP', 'support') + '</div>'
+        + '<button type="button" class="v2a-sortie" data-act="sortie">' + svg(I.sortie, 20) + 'Se déconnecter</button>';
+    } else if (sousCompte === 'fuseau') {
+      var tzA = tzAppareil(), liste = FUSEAUX.slice();
+      if (tzA && liste.indexOf(tzA) < 0) liste.unshift(tzA);
+      h = '<div class="v2a-wp-aide">L’horloge de votre profil suit le fuseau choisi. Il est enregistré sur cet appareil.</div>'
+        + '<div class="v2a-groupe">' + liste.map(function (tz) {
+          return '<button type="button" class="v2a-ligne v2a-choixliste" data-act="tz" data-tz="' + esc(tz) + '"><span>' + esc(nomTz(tz)) + (tz === tzA ? ' <small>cet appareil</small>' : '') + '</span><em class="v2a-val">' + heureTz(tz) + '</em>' + (tz === tzChoisi() ? coche : '<i class="v2a-vide-coche"></i>') + '</button>';
+        }).join('') + '</div>';
+    } else if (sousCompte === 'abo') {
+      var fin = ech ? new Date(ech) : null, jours = fin ? Math.ceil((fin - Date.now()) / 864e5) : null;
+      var statut = !u.active ? 'Suspendu' : (u.isTrial ? 'Essai gratuit' : 'Actif');
+      var kv = function (k, v, cls) { return '<div class="v2a-kv"><span>' + k + '</span><b' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(v) + '</b></div>'; };
+      h = '<div class="v2a-groupe v2a-fiche">'
+        + kv('Formule', nomPlan(u))
+        + kv('Statut', statut, u.active ? 'v2a-ok' : 'v2a-ko')
+        + (fin ? kv(jours >= 0 ? 'Prochaine échéance' : 'Échu le', fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })) : '')
+        + (jours != null && jours >= 0 ? kv('Jours restants', String(jours)) : '')
+        + '</div>'
+        + '<div class="v2a-groupe">' + ligne(I.carte, 'Gérer mon abonnement (Whop)', 'whop') + ligne(I.bulle, 'Une question sur mon abonnement', 'support') + '</div>';
+    } else if (sousCompte === 'notifs') {
+      h = '<div class="v2a-groupe">'
+        + ligne(I.son, 'Alertes sonores du desk', 'son', '<i class="v2a-bascule' + (glob('_npEnabled') ? ' v2a-on-b' : '') + '"></i>')
+        + ligne(I.cloche, 'Voir les alertes', 'alertes')
+        + '</div>' + wpBloc();
+    } else if (sousCompte === 'prefs') {
+      h = '<div class="v2a-groupe">' + ligne(I.etoile, 'Aperçu V3 (nouvelle interface)', 'v2', '<i class="v2a-bascule v2a-on-b"></i>') + '</div>';
+    } else if (sousCompte === 'langue') {
+      h = '<div class="v2a-groupe">' + LANGUES.map(function (l) {
+        return '<button type="button" class="v2a-ligne v2a-langue" data-act="lg" data-lg="' + l[0] + '"><img src="https://flagcdn.com/w40/' + l[2] + '.png" alt="" loading="lazy"><span>' + l[1] + '</span>' + (l[0] === langue() ? coche : '') + '</button>';
+      }).join('') + '</div><div class="v2a-wp-aide">Le desk et l’application se rechargent dans la langue choisie.</div>';
+    }
+    e.innerHTML = h;
+    e.scrollTop = 0;
     e.onclick = function (ev) {
       var b = ev.target.closest('[data-act]'); if (!b) return; var a = b.dataset.act; if (a === 'rien') return; vibre();
+      if (a.indexOf('page:') === 0) { sousCompte = a.slice(5); RENDUS.compte(true); return; }
+      if (a === 'tz') { try { localStorage.setItem('dtp_tz', b.dataset.tz); } catch (x) {} var s0 = document.getElementById('pd-timezone'); if (s0) { if (![].some.call(s0.options, function (o) { return o.value === b.dataset.tz; })) s0.add(new Option(b.dataset.tz, b.dataset.tz)); s0.value = b.dataset.tz; appel('pdUpdateClock'); } RENDUS.compte(true); return; }
+      if (a === 'lg') { var l = LANGUES.filter(function (x) { return x[0] === b.dataset.lg; })[0]; if (l && l[0] !== langue()) appel('pdLangPick', l[0], l[1], l[2]); return; }
+      if (a === 'whop') { window.open('https://whop.com/@me/settings/memberships/', '_blank', 'noopener'); return; }
+      if (a === 'alertes') { ouvrirAlertes(); return; }
       if (a === 'support') appel('chatToggle');
       else if (a === 'admin') ouvrirAdmin();
       else if (a === 'son') { appel('npToggleEnabled'); RENDUS.compte(true); }

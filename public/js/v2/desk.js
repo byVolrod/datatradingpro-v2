@@ -124,6 +124,43 @@
   function planifierCasses() { if (cassePrevue) return; cassePrevue = requestAnimationFrame(function () { cassePrevue = 0; casses(); }); }
   window._v3CasseNormale = casseNormale;   // pour les bancs
 
+  /* ── LES CHIFFRES VIVENT (25/09, « améliore tous les widgets pour la V3 : finitions, détails,
+     animations ») ─────────────────────────────────────────────────────────────────────────────
+     Un chiffre de widget qui change EN PLACE (cours, variation, score) s'allume un instant : vert
+     s'il monte, rouge s'il baisse, or si le sens ne se lit pas. C'est la respiration d'un terminal :
+     l'œil voit ce qui vient de bouger sans relire la grille.
+     ⚠️ BORNÉ À DESSEIN : seulement une feuille de texte courte et numérique, à l'intérieur d'un corps
+     de widget, dont l'ÉLÉMENT survit à la mise à jour (un widget qui reconstruit sa table ne
+     clignote pas : il n'y a rien à comparer). Au plus 40 allumages par seconde. Grand écran et
+     mouvement autorisé seulement. */
+  var RX_NB = /^[\s+\-−–]*[$€£¥]?\s*\d[\d\s.,\u202f]*\s*(%|pb|bp|k|K|M|Md|B|pips?)?\s*$/;
+  // Nombre lu tel qu'il s'affiche : « 1,2345 » (virgule décimale), « 1 234,5 », « 1,234,567 » ou
+  // « 1.2345 ». Une seule virgule sans point = décimale ; plusieurs = milliers ; avec un point, la
+  // dernière marque est la décimale. Seul compte le SENS, donc une lecture constante suffit.
+  var nbDe = function (t) {
+    var x = String(t).replace(/[\s  ]/g, '').replace(/−|–/g, '-').replace(/[^\d.,\-]/g, '');
+    var v = (x.match(/,/g) || []).length, pt = x.indexOf('.') >= 0;
+    if (v && pt) x = x.lastIndexOf(',') > x.lastIndexOf('.') ? x.replace(/\./g, '').replace(',', '.') : x.replace(/,/g, '');
+    else if (v === 1) x = x.replace(',', '.');
+    else if (v > 1) x = x.replace(/,/g, '');
+    var m = x.match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null;
+  };
+  var flashs = 0, flashT = 0;
+  function vivre(muts) {
+    if (!MQ_DESK.matches || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    var t = Date.now(); if (t - flashT > 1000) { flashT = t; flashs = 0; }
+    for (var i = 0; i < muts.length && flashs < 40; i++) {
+      var n = muts[i].target, e = n.nodeType === 3 ? n.parentNode : n;
+      if (!e || e.nodeType !== 1 || e.children.length || !e.closest || !e.closest('.wdg-body')) continue;
+      var tx = e.textContent; if (!tx || tx.length > 16 || !RX_NB.test(tx)) continue;
+      var v = nbDe(tx), avant = e._v3nb; e._v3nb = v;
+      if (avant == null || v == null || v === avant) continue;
+      e.classList.remove('v3-maj-h', 'v3-maj-b'); void e.offsetWidth;
+      e.classList.add(v > avant ? 'v3-maj-h' : 'v3-maj-b'); flashs++;
+      clearTimeout(e._v3t); e._v3t = setTimeout(function (x) { x.classList.remove('v3-maj-h', 'v3-maj-b'); }.bind(null, e), 1100);
+    }
+  }
+
   function demarrer() {
     puce();
     casses();
@@ -140,6 +177,7 @@
     rangs(g);
     if (g && window.MutationObserver) new MutationObserver(function () { rangs(g); }).observe(g, { childList: true });
     if (g && window.MutationObserver) new MutationObserver(planifierFusions).observe(g, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class'] });
+    if (g && window.MutationObserver) new MutationObserver(vivre).observe(g, { childList: true, subtree: true, characterData: true });
     if (MQ_DESK.addEventListener) MQ_DESK.addEventListener('change', planifierFusions);
     planifierFusions();
   }

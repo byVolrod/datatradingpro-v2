@@ -160,14 +160,21 @@
       var d = '';
       polys.forEach(function (poly) {
         poly.forEach(function (anneau) {
-          var prec = null;
+          /* ⚠️ ANTIMÉRIDIEN (25/09, capture : dents de scie sur la Tchoukotka). Relever le crayon au
+             saut laissait le « Z » refermer chaque morceau EN TRAVERS de l'anneau : des triangles
+             parasites. L'anneau est désormais rendu CONTINU : du côté où il a le plus de points, les
+             longitudes de l'autre côté sont décalées de 360°, et le cadre rogne ce qui dépasse. */
+          var franchit = false, est = 0;
+          for (var k = 0; k < anneau.length; k++) {
+            if (anneau[k][0] > 0) est++;
+            if (k && Math.abs(anneau[k][0] - anneau[k - 1][0]) > 180) franchit = true;
+          }
+          var cote = est * 2 >= anneau.length ? 1 : -1;
           anneau.forEach(function (pt, i) {
-            var q = proj(pt[0], pt[1]);
-            // Un anneau qui franchit l'antiméridien (Russie, Fidji) tracerait une barre à travers la
-            // carte : on relève le crayon au saut.
-            var saut = prec && Math.abs(q[0] - prec[0]) > W / 2;
-            d += (i === 0 || saut ? 'M' : 'L') + q[0].toFixed(1) + ',' + q[1].toFixed(1);
-            prec = q;
+            var lon = pt[0];
+            if (franchit) { if (cote > 0 && lon < 0) lon += 360; else if (cote < 0 && lon > 0) lon -= 360; }
+            var q = proj(lon, pt[1]);
+            d += (i === 0 ? 'M' : 'L') + q[0].toFixed(1) + ',' + q[1].toFixed(1);
           });
           d += 'Z';
         });
@@ -279,6 +286,10 @@
     + 'html.dtp-v2 .v3c-leg{position:absolute;left:8px;bottom:8px;display:flex;flex-wrap:wrap;gap:4px 10px;max-width:70%;padding:6px 8px;background:rgba(10,10,12,.82);border:1px solid #1c1c21;border-radius:4px;font-size:11px;color:#a1a1aa;backdrop-filter:blur(6px)}'
     + 'html.dtp-v2 .v3c-leg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}'
     + 'html.dtp-v2 .v3c-leg b{color:#ececf0;font-weight:600;margin-left:3px}'
+    + 'html.dtp-v2 .v3c-chaudes{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding-bottom:5px;margin-bottom:1px;border-bottom:1px solid #1c1c21}'
+    + 'html.dtp-v2 .v3c-chaudes>span{color:#e3b23a;font-weight:600;margin-right:2px}'
+    + 'html.dtp-v2 .v3c-chaudes button{border:1px solid #26262c;background:#101013;color:#d6d6dc;font:500 11px/1 "Inter Tight",system-ui,sans-serif;padding:3px 7px;border-radius:3px;cursor:pointer;transition:border-color .15s,color .15s}'
+    + 'html.dtp-v2 .v3c-chaudes button:hover{border-color:rgba(227,178,58,.6);color:#f4f4f6}'
     + 'html.dtp-v2 .v3c-bulle{position:absolute;pointer-events:none;z-index:4;min-width:140px;max-width:260px;padding:7px 9px;background:#101013;border:1px solid #2a2a31;border-radius:4px;box-shadow:0 14px 30px -12px rgba(0,0,0,.8);font-size:11.5px;line-height:1.4;color:#d6d6dc;opacity:0;transition:opacity .12s}'
     + 'html.dtp-v2 .v3c-bulle b{color:#f4f4f6}'
     + 'html.dtp-v2 .v3c-fiche{width:300px;flex:0 0 300px;border-left:1px solid #16161a;background:#0b0b0d;overflow-y:auto;display:none}'
@@ -359,6 +370,7 @@
       gPts = el('g', {}, svg);
       bulle = document.createElement('div'); bulle.className = 'v3c-bulle'; vue.appendChild(bulle);
       legende = document.createElement('div'); legende.className = 'v3c-leg'; vue.appendChild(legende);
+      legende.addEventListener('click', function (e) { var b = e.target.closest('[data-iso]'); if (b) ouvrir(b.getAttribute('data-iso')); });
       var z = document.createElement('div'); z.className = 'v3c-zoom';
       z.innerHTML = '<button type="button" data-z="in" title="Zoomer">+</button><button type="button" data-z="out" title="Dézoomer">−</button><button type="button" data-z="0" title="Vue d’ensemble">⟲</button>';
       vue.appendChild(z);
@@ -408,11 +420,24 @@
     }
 
     var infos = {}, dernieres = [];
+    /* Étiquettes SANS CHEVAUCHEMENT (25/09, « China » posé sur son propre point) : chaque libellé
+       réserve sa boîte ; s'il en heurte une, il tente l'autre côté du point, sinon il se tait. */
+    var boites = [];
+    function placer(q, rayon, texte) {
+      var w = texte.length * 5.3 + 4, h = 11;
+      var essais = [[q[0] + rayon + 4, q[1] + 3.5], [q[0] - rayon - 4 - w, q[1] + 3.5], [q[0] - w / 2, q[1] - rayon - 5]];
+      for (var i = 0; i < essais.length; i++) {
+        var b = { x: essais[i][0], y: essais[i][1] - 9, w: w, h: h };
+        if (!boites.some(function (o) { return b.x < o.x + o.w && b.x + b.w > o.x && b.y < o.y + o.h && b.y + b.h > o.y; })) { boites.push(b); return essais[i]; }
+      }
+      return null;
+    }
     function point(lat, lon, rayon, couleur, pulse, titre) {
       var q = proj(lon, lat), g = el('g', { class: 'v3c-pt' }, gPts);
       if (pulse) el('circle', { class: 'v3c-puls', cx: q[0], cy: q[1], r: rayon, fill: couleur }, g);
       el('circle', { cx: q[0], cy: q[1], r: rayon, fill: couleur, stroke: '#08080a', 'stroke-width': 1.2 }, g);
-      if (titre) { var t = el('text', { class: 'v3c-lib', x: q[0] + rayon + 3, y: q[1] + 3 }, g); t.textContent = titre; }
+      boites.push({ x: q[0] - rayon, y: q[1] - rayon, w: 2 * rayon, h: 2 * rayon });
+      if (titre) { var pos = placer(q, rayon, titre); if (pos) { var t = el('text', { class: 'v3c-lib', x: pos[0], y: pos[1] }, g); t.textContent = titre; } }
       return g;
     }
     function losange(lat, lon, taille, couleur, titre) {
@@ -425,14 +450,15 @@
       var k = Math.min(1, Math.log(1 + n) / Math.log(1 + Math.max(max, 1)));
       // Rampe séquentielle d'une seule teinte (or) : anthracite → or, lisible sur fond noir.
       var a = [0x1c, 0x1a, 0x14], b = [0xe3, 0xb2, 0x3a];
-      var m = 0.18 + 0.82 * k;
+      // Retenue (25/09) : même le pays le plus cité reste un or sourd, les points portent l'éclat.
+      var m = 0.10 + 0.42 * k;
       return 'rgb(' + a.map(function (v, i) { return Math.round(v + (b[i] - v) * m); }).join(',') + ')';
     }
 
     function peindre() {
       if (!svg && !construire()) return;
       barre();
-      gPts.innerHTML = ''; infos = {};
+      gPts.innerHTML = ''; infos = {}; boites = [];
       Object.keys(cheminsPays).forEach(function (id) { cheminsPays[id].style.fill = ''; cheminsPays[id].classList.toggle('v3c-sel-p', id === etat.choix); });
       dernieres = depeches(etat.heures);
       var parPays = {}, parPass = {}, familles = {};
@@ -443,16 +469,20 @@
       var leg = '';
       if (etat.couche === 'actu') {
         var max = 0; Object.keys(parPays).forEach(function (k) { max = Math.max(max, parPays[k].length); });
-        Object.keys(parPays).forEach(function (iso) {
+        // Du plus cité au moins cité : les grands points et leurs libellés réservent leur place d'abord.
+        var ordre = Object.keys(parPays).sort(function (a, b) { return parPays[b].length - parPays[a].length; });
+        var chaudes = ordre.filter(function (iso) { return PAYS[iso]; }).slice(0, 5);
+        ordre.forEach(function (iso) {
           var n = parPays[iso].length, p = cheminsPays[iso];
           if (p) p.style.fill = teinte(n, max);
           infos[iso] = n + ' dépêche' + (n > 1 ? 's' : '') + ' sur ' + etat.heures + ' h';
           var d0 = parPays[iso][0], P = PAYS[iso];
-          if (P) point(P.p[0], P.p[1], 2.6 + Math.min(4, Math.log2(1 + n)), d0.fam.c, Date.now() - d0.ts < 3600e3, n >= Math.max(3, max * 0.35) ? P.n : '');
+          if (P) point(P.p[0], P.p[1], 2.2 + Math.min(3.4, Math.log2(1 + n) * 0.9), d0.fam.c, Date.now() - d0.ts < 3600e3, chaudes.indexOf(iso) >= 0 ? P.n : '');
         });
         dernieres.forEach(function (d) { familles[d.fam.k] = familles[d.fam.k] || { f: d.fam, n: 0 }; familles[d.fam.k].n++; });
         leg = FAMILLES.concat([FAM_AUTRE]).filter(function (f) { return familles[f.k]; }).map(function (f) { return '<span><i style="background:' + f.c + '"></i>' + esc(f.n) + '<b>' + familles[f.k].n + '</b></span>'; }).join('')
           || '<span>Aucune dépêche rattachée à un pays sur ' + etat.heures + ' h</span>';
+        if (chaudes.length) leg = '<div class="v3c-chaudes"><span>Zones chaudes</span>' + chaudes.map(function (iso) { return '<button type="button" data-iso="' + iso + '">' + esc(PAYS[iso].n) + '<b>' + parPays[iso].length + '</b></button>'; }).join('') + '</div>' + leg;
         leg += '<span style="color:#6f6f78">· teinte = nombre de dépêches · point battant = moins d’une heure</span>';
       } else if (etat.couche === 'bc') {
         BC.forEach(function (b) {

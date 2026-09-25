@@ -82,6 +82,8 @@ console.log('\n── 2. Rendu dans Chromium ──');
       { type: 'Feature', id: 'IR', properties: { id: 'IR', name: 'Iran' }, geometry: { type: 'Polygon', coordinates: carre(50, 28) } },
       { type: 'Feature', id: 'FR', properties: { id: 'FR', name: 'France' }, geometry: { type: 'Polygon', coordinates: carre(0, 43) } },
       { type: 'Feature', id: 'AQ', properties: { id: 'AQ', name: 'Antarctica' }, geometry: { type: 'Polygon', coordinates: carre(0, -80) } },
+      // Tchoukotka : un anneau qui FRANCHIT l'antiméridien (170°E → 175°W).
+      { type: 'Feature', id: 'RU', properties: { id: 'RU', name: 'Russia' }, geometry: { type: 'Polygon', coordinates: [[[170, 64], [179.9, 64], [-175, 65], [-175, 70], [179.9, 70], [170, 69], [170, 64]]] } },
     ] };
     await page.setContent('<!doctype html><html class="dtp-v2"><head></head><body style="margin:0;background:#08080a"><div id="h" style="width:1100px;height:600px"></div></body></html>');
     await page.evaluate((g) => {
@@ -106,7 +108,13 @@ console.log('\n── 2. Rendu dans Chromium ──');
       return { n: h.querySelectorAll('.v3c-pays').length, us: f('US'), ir: f('IR'), fr: f('FR'), pts: h.querySelectorAll('.v3c-pt').length, pulse: h.querySelectorAll('.v3c-puls').length,
         leg: h.querySelector('.v3c-leg').textContent, dec: window._declare && window._declare.id, mount: !!(window._declare && typeof window._declare.mount === 'function') };
     });
-    t('trois pays dessinés, l’Antarctique écarté', r1.n === 3);
+    t('quatre pays dessinés, l’Antarctique écarté', r1.n === 4);
+    /* ANTIMÉRIDIEN (25/09, capture : dents de scie sur la Tchoukotka). L'anneau doit rester UN trait :
+       un seul « M » ; relever le crayon au saut laissait le « Z » refermer en travers. */
+    const ru = await page.evaluate(() => { const p = document.querySelector('#h .v3c-pays[data-id=RU]'); return p ? p.getAttribute('d') : ''; });
+    t('un anneau qui franchit l’antiméridien reste d’un seul trait (pas de dents de scie)', (ru.match(/M/g) || []).length === 1, ru.slice(0, 120));
+    const chaud = await page.evaluate(() => [...document.querySelectorAll('#h .v3c-chaudes [data-iso]')].map(b => b.getAttribute('data-iso') + ':' + b.textContent).join(','));
+    t('les zones chaudes nomment les pays les plus cités, du plus au moins cité', /^IR:Iran2,US:États-Unis1$/.test(chaud), chaud);
     t('couche Actualité : Iran et États-Unis teintés, France (aucune dépêche) neutre', !!r1.ir && !!r1.us && !r1.fr, JSON.stringify(r1));
     t('Iran (2 dépêches) plus doré que les États-Unis (1)', (() => { const v = s => (s.match(/\d+/g) || []).map(Number).reduce((a, b) => a + b, 0); return v(r1.ir) > v(r1.us); })());
     t('une dépêche de moins d’une heure fait battre un point', r1.pulse >= 1);
