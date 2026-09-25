@@ -12972,8 +12972,10 @@ function npPush(items, opts) {
   if (_npPush && !muted && !_wpActif && !_npCoquille() && 'Notification' in window && Notification.permission === 'granted') {
     const hi = items.find(i => i.priority === 'high' || i.urgent);
     const familleOk = !_pp || (_pp.cats || []).includes(hi && /-?\d/.test(hi.headline || '') ? 'eco' : 'news');
-    if (hi && familleOk && _npNotifSousPause(hi)) {
-      const txt = _npNotifTexte(hi);
+    // « Met en français les notifs » (25/09) : une dépêche dont la traduction n'est pas prête ne part
+    // pas en anglais par ce repli ; le serveur, lui, traduit avant d'envoyer.
+    const txt = hi ? _npNotifTexte(hi) : null;
+    if (hi && txt.fr && familleOk && _npNotifSousPause(hi)) {
       const opts = {
         body:   txt.body,
         icon:   '/icon-192.png',
@@ -13013,8 +13015,13 @@ function _npNotifTexte(it) {
   if (fr.length > 150) fr = fr.slice(0, 149).replace(/\s+\S*$/, '') + '…';
   const theme = _NP_NOTIF_THEME[it && it.category] || '';
   const eco = /-?\d/.test(brut);
-  const title = it && it.urgent ? 'URGENT' + (theme ? ' · ' + theme : '') : (eco ? 'Chiffre économique' : 'Actualité majeure' + (theme ? ' · ' + theme : ''));
-  return { title, body: fr + '\n' + (m ? 'Source : ' + m[1] : 'Fil d’actualité DTP') };
+  // Même format que le serveur (25/09) : NOM DU WIDGET + description, dépêche puis description FR.
+  const title = 'Fil d’actualité · ' + (it && it.urgent ? 'Urgent' + (theme ? ' · ' + theme : '') : (eco ? 'Chiffre' : (theme || 'Actualité majeure')));
+  let d = String((it && it._descFr) || '').replace(/\s+/g, ' ').trim();
+  if (d.length > 110) d = d.slice(0, 109).replace(/\s+\S*$/, '') + '…';
+  return { title, body: fr + (d && d !== fr ? '\n' + d : '') + '\n' + (m ? 'Source : ' + m[1] : 'Fil d’actualité DTP'), fr: _npLangue() !== 'fr' || !!(it && it._titreFr) || fr !== brut.trim() };
+}
+function _npLangue() { try { return (localStorage.getItem('dtp_lang') || 'fr').slice(0, 2).toLowerCase(); } catch (e) { return 'fr'; }
 }
 // Une notification système au plus toutes les 5 min (2 pour une urgence), jamais deux fois un sujet
 // déjà notifié dans les 45 dernières minutes (deux noms propres en commun).
@@ -13414,7 +13421,7 @@ function _sqwkMaj(m) {
    lecture ne demarre pas. On precharge la liste et on la garde a jour via onvoiceschanged. On
    choisit la MEILLEURE voix anglaise disponible : les voix « Google » et « Natural » (Microsoft)
    sonnent nettement moins robotiques que la voix systeme par defaut. */
-let _sqwkVoix = null;
+let _sqwkVoix = null, _sqwkVoixFr = null;
 function _sqwkChargerVoix() {
   try {
     const vs = window.speechSynthesis.getVoices() || [];
@@ -13425,8 +13432,26 @@ function _sqwkChargerVoix() {
     _sqwkVoix = pool.find(v => /natural|aria|jenny|guy/i.test(v.name))
              || pool.find(v => /google/i.test(v.name))
              || pool[0] || null;
+    /* EN FRANÇAIS (25/09, « titres en anglais ») : le squawk lit la dépêche TRADUITE, avec une voix
+       française — une voix anglaise sur un texte français serait incompréhensible. */
+    const frFR = vs.filter(v => /fr[-_]FR/i.test(v.lang));
+    const poolFr = frFR.length ? frFR : vs.filter(v => /^fr/i.test(v.lang));
+    _sqwkVoixFr = poolFr.find(v => /natural|denise|henri|vivienne|remy/i.test(v.name))
+               || poolFr.find(v => /google/i.test(v.name))
+               || poolFr.find(v => /amelie|am\u00e9lie|thomas|audrey|aurelie/i.test(v.name))
+               || poolFr[0] || null;
   } catch {}
 }
+// Le texte d'une dépêche tel que le FIL l'affiche : sa traduction française quand elle existe.
+function _sqwkTexte(it) {
+  let t = '';
+  try { t = typeof _newsDisplayTitle === 'function' ? _newsDisplayTitle(it) : ''; } catch (e) {}
+  return String(t || (it && it.headline) || '').replace(/\s+/g, ' ').trim();
+}
+const _sqwkEstFr = t => !!(t && (/[éèêàâçùûôîœ]/i.test(t) || /\b(le|la|les|des|du|une|pour|dans|avec|sur|et)\b/i.test(t)));
+// Français si le texte vient de la traduction du desk (pas besoin de deviner), sinon on le reconnaît.
+const _sqwkFrDe = it => !!(it && typeof it._titreFr === 'string' && it._titreFr.trim()) || _sqwkEstFr(_sqwkTexte(it));
+const _sqwkLigne = (it, dit) => ({ id: 'sq-' + String(it.id).replace(/[^\w-]/g, ''), ts: _sqwkHeure(it), text: _sqwkTexte(it), fr: _sqwkFrDe(it), dit, src: it });
 if ('speechSynthesis' in window) {
   _sqwkChargerVoix();
   try { window.speechSynthesis.onvoiceschanged = _sqwkChargerVoix; } catch {}
@@ -13477,8 +13502,10 @@ function _sqwkDire(m) {
   try {
     if (!_sqwkVoix) _sqwkChargerVoix();
     const u = new SpeechSynthesisUtterance(m.text);
-    u.lang = 'en-US'; u.pitch = 0.95; u.rate = 1.05; u.volume = 1;
-    if (_sqwkVoix) u.voice = _sqwkVoix;
+    const fr = m.fr != null ? m.fr : _sqwkEstFr(m.text);
+    u.lang = fr ? 'fr-FR' : 'en-US'; u.pitch = 0.95; u.rate = fr ? 1.08 : 1.05; u.volume = 1;
+    const voix = fr ? _sqwkVoixFr : _sqwkVoix;
+    if (voix) u.voice = voix;
     u.onboundary = e => {
       if (e.name && e.name !== 'word') return;
       parSon = true;
@@ -13497,8 +13524,12 @@ function _sqwkDire(m) {
 function _sqwkSuivant() {
   if (_sqwkOccupe || !_sqwkFile.length) return;
   if (!_sqwkAuto && !_sqwkLive) { _sqwkFile.length = 0; return; }
+  /* La traduction arrive quelques secondes APRÈS la dépêche : on la laisse venir (8 s au plus) plutôt
+     que de lire l'anglais, puis on lit ce qui est là. */
+  const tete = _sqwkFile[0];
+  if (tete && !_sqwkFrDe(tete) && Date.now() - (tete._sqwkVu || 0) < 8000) { setTimeout(_sqwkSuivant, 800); return; }
   const it = _sqwkFile.shift();
-  const m = { id: 'sq-' + String(it.id).replace(/[^\w-]/g, ''), ts: _sqwkHeure(it), text: String(it.headline).replace(/\s+/g, ' ').trim(), dit: 0 };
+  const m = _sqwkLigne(it, 0);
   _sqwkMessages.unshift(m);
   if (_sqwkMessages.length > 80) _sqwkMessages.length = 80;
   _sqwkDire(m);
@@ -13514,7 +13545,7 @@ function _sqwkAmorcer() {
   // anciennes remontaient au passage suivant comme des « nouvelles », en tete, et se faisaient lire.
   elig.forEach(it => { _sqwkProcessed.add(it.id); if ((+it.timestamp || 0) > _sqwkDernierTs) _sqwkDernierTs = +it.timestamp; });
   const hist = elig.slice(0, 25);
-  const lignes = hist.map(it => ({ id: 'sq-' + String(it.id).replace(/[^\w-]/g, ''), ts: _sqwkHeure(it), text: String(it.headline).replace(/\s+/g, ' ').trim(), dit: -1 }))
+  const lignes = hist.map(it => _sqwkLigne(it, -1))
     .filter(m => !connus.has(m.id));
   if (!lignes.length) return false;
   _sqwkMessages.push(...lignes);
@@ -13528,6 +13559,9 @@ function _sqwkPollReal() {
   if (!_sqwkAuto && !_sqwkLive) return;
   const src = (typeof allItems !== 'undefined' ? allItems : []);
   if (!_sqwkMessages.length) { if (_sqwkAmorcer()) _sqwkRender(); }
+  let traduites = false;
+  _sqwkMessages.forEach(m => { if (m.dit < 0 && m.src) { const t = _sqwkTexte(m.src); if (t && t !== m.text) { m.text = t; m.fr = _sqwkFrDe(m.src); traduites = true; } } });
+  if (traduites && !_sqwkOccupe) _sqwkRender();
   let fresh = src.filter(it => !_sqwkProcessed.has(it.id) && _sqwkEligible(it));
   if (!fresh.length) return;
   fresh.forEach(it => _sqwkProcessed.add(it.id));
@@ -13540,8 +13574,9 @@ function _sqwkPollReal() {
   // Une rafale (reconnexion, rattrapage) ne se lit pas en entier : les 3 plus recentes, le reste en historique.
   const ordre = fresh.slice().reverse();
   const aLire = ordre.slice(-3);
-  const deja = ordre.slice(0, -3).map(it => ({ id: 'sq-' + String(it.id).replace(/[^\w-]/g, ''), ts: _sqwkHeure(it), text: String(it.headline).replace(/\s+/g, ' ').trim(), dit: -1 }));
+  const deja = ordre.slice(0, -3).map(it => _sqwkLigne(it, -1));
   if (deja.length) { _sqwkMessages.unshift(...deja.reverse()); if (!_sqwkOccupe) _sqwkRender(); }
+  aLire.forEach(it => { it._sqwkVu = Date.now(); });
   _sqwkFile.push(...aLire);
   _sqwkSuivant();
 }
@@ -13562,8 +13597,10 @@ function _sqwkRefresh() {
   if (play) { play.textContent = _sqwkLive ? '■' : '▶'; play.classList.toggle('sqwk-play--live', _sqwkLive); play.title = _sqwkLive ? 'Couper le squawk audio' : 'Activer le squawk audio (voix)'; }
   // Libellé court comme la référence (« Connected ») ; le détail de la voix passe en infobulle.
   if (status) {
-    status.innerHTML = active ? '<span class="sqwk-dot sqwk-dot--live"></span> Connecté' : '<span class="sqwk-dot"></span> Déconnecté';
-    status.title = !active ? '' : (_sqwkLive ? (_sqwkPeutParler() ? 'Connecté · voix active' : 'Connecté · son coupé (notifications en muet)') : 'Connecté · texte seul');
+    // « Déconnecté » faisait croire à une panne alors que le flux était simplement en pause (25/09).
+    status.innerHTML = !active ? '<span class="sqwk-dot"></span> En pause'
+      : '<span class="sqwk-dot sqwk-dot--live"></span> ' + (_sqwkLive ? (_sqwkPeutParler() ? 'En direct · voix' : 'En direct · son coupé') : 'En direct');
+    status.title = !active ? 'Activez la connexion auto ou la lecture vocale' : (_sqwkLive ? (_sqwkPeutParler() ? 'Voix active' : 'Son coupé (notifications en muet)') : 'Texte seul : appuyez sur lecture pour entendre');
   }
   document.getElementById('sqwk-live-note')?.classList.toggle('hidden', !active);
   const note = document.getElementById('sqwk-live-note-txt');
@@ -13592,7 +13629,8 @@ function _sqwkRefresh() {
 }
 
 // Toggle "Connexion automatique" = flux TEXTE (sans audio)
-function sqwkToggleAuto() { _sqwkAuto = !_sqwkAuto; _sqwkRefresh(); }
+let _sqwkAutoChoisi = false;   // le lecteur a-t-il touché l'interrupteur lui-même ?
+function sqwkToggleAuto() { _sqwkAutoChoisi = true; _sqwkAuto = !_sqwkAuto; _sqwkRefresh(); }
 // Bouton play = Flash Marche LIVE = AUDIO/voix (independant du texte auto)
 function sqwkToggleLive() {
   _sqwkLive = !_sqwkLive;
@@ -13622,6 +13660,10 @@ function sqwkOpen() {
   document.getElementById('sqwk-panel')?.classList.add('open');
   document.getElementById('sqwk-overlay')?.classList.add('open');
   document.getElementById('sqwk-btn')?.classList.add('topbar-icon--active');
+  /* Ouvrir le volet, c'est vouloir le flux : le texte en direct s'allume de lui-même, sauf si le
+     lecteur l'a coupé exprès. La voix, elle, attend toujours le bouton lecture (le navigateur exige
+     un geste pour parler). */
+  if (!_sqwkAuto && !_sqwkLive && !_sqwkAutoChoisi) { _sqwkAuto = true; _sqwkRefresh(); }
   _sqwkRender();
 }
 function sqwkClose() {
@@ -17047,9 +17089,24 @@ function _dtpToast(msg, kind) {
   let shown = false;
   // Rechargement PROPRE : on vide d'abord tout Cache Storage (service worker / wrapper desktop) puis on
   // recharge → l'app installée récupère VRAIMENT la dernière version (fini le « bloqué sur l'ancienne »).
-  async function _hardReload() {
-    try { if (window.caches && caches.keys) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } } catch {}
-    try { location.reload(); } catch { location.href = location.pathname + '?u=' + Date.now(); }
+  /* ⚠️ 25/09, capture user (app iPhone) : « quand j'appuyais sur Mettre à jour ça se mettait pas,
+     c'était figé, on dirait qu'il n'y avait pas de bouton ». Deux causes cumulées : aucun retour au
+     toucher (le bouton ne changeait pas pendant le vidage des caches), et `location.reload()`, qu'une
+     app installée sur iPhone peut servir depuis sa mémoire de page. On répond donc TOUT DE SUITE
+     (bouton « Mise à jour… », désactivé), le vidage des caches est borné à 1,5 s, puis on NAVIGUE vers
+     une adresse neuve (`?maj=`) — un chargement complet, pas une remise en mémoire. Filet : si la page
+     est toujours là 4 s plus tard, on recommence par la racine. */
+  async function _hardReload(ev) {
+    const b = ev && ev.currentTarget;
+    if (b) { b.disabled = true; b.textContent = 'Mise à jour…'; }
+    try {
+      if (window.caches && caches.keys) {
+        await Promise.race([caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))), new Promise(ok => setTimeout(ok, 1500))]);
+      }
+    } catch {}
+    const cible = location.pathname + '?maj=' + Date.now() + (location.hash || '');
+    try { location.replace(cible); } catch { location.href = cible; }
+    setTimeout(() => { try { location.href = '/?maj=' + Date.now(); } catch {} }, 4000);
   }
   function banner() {
     if (shown || document.getElementById('dtp-update-banner')) return;
@@ -17061,7 +17118,7 @@ function _dtpToast(msg, kind) {
       b.innerHTML =
         '<span class="dub-ic">✨</span>'
         + '<span class="dub-body"><b class="dub-title">Mise à jour de DataTradingPro</b>'
-        + '<span class="dub-txt">Une nouvelle version est prête (nouvelle icône incluse). Mets à jour pour en profiter.</span></span>'
+        + '<span class="dub-txt">Une nouvelle version est prête. Mettez à jour pour en profiter.</span></span>'
         + '<button type="button" class="dub-btn">Mettre à jour</button>'
         + '<button type="button" class="dub-x" title="Plus tard" aria-label="Plus tard">&times;</button>';
     } else {

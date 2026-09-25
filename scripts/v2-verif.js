@@ -256,6 +256,10 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       v('… le régime de risque traduit, avec le décompte réel des facteurs (3 / 1)', m.lib === 'Risk-on léger' && /Risk-on : 3 · Risk-off : 1/.test(m.cpt), m.lib + ' · ' + m.cpt);
       v('… et sa source nommée (traçabilité)', /4 actifs suivis · cotations Yahoo Finance/.test(m.source || ''), m.source);
       await capture('marches');
+      /* ÉCRAN DÉCALÉ AU DOIGT (25/09, capture : Marchés glissé de 110 px). Un conteneur en
+         overflow-y:auto défile AUSSI en X : il suffisait d'un encart de 2 px de trop. */
+      const mx = await page.evaluate(() => { const e = document.querySelector('.v2a-ecran[data-ecran="markets"].v2a-visible'); return e ? { sw: e.scrollWidth, cw: e.clientWidth, ox: getComputedStyle(e).overflowX } : null; });
+      v('Marchés ne se décale pas latéralement (axe X verrouillé, rien ne dépasse)', mx && mx.ox === 'hidden' && mx.sw <= mx.cw + 1, JSON.stringify(mx));
       await aller('.v2a-outils .v2a-tuile[data-v2v="taux"]');
       const t = await page.evaluate(() => ({ vue: !document.getElementById('view-taux').classList.contains('hidden'), ecran: !!document.querySelector('.v2a-ecran.v2a-visible'), retour: !document.getElementById('v2a-retour').hidden, onglet: ((document.querySelector('.v2a-onglet.v2a-actif') || {}).dataset || {}).v2v }));
       v('un outil ouvre la VRAIE vue du desk, avec un bouton Retour, et Marchés reste allumé', t.vue && !t.ecran && t.retour && t.onglet === 'markets', JSON.stringify(t));
@@ -282,6 +286,13 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       const cp = await page.evaluate(() => ({ ecran: ((document.querySelector('.v2a-ecran.v2a-visible') || {}).dataset || {}).ecran, sortie: !!document.querySelector('.v2a-sortie'), mail: /x@y\.z/.test((document.querySelector('.v2a-profil') || {}).innerText || ''), retour: !document.getElementById('v2a-retour').hidden }));
       v('le bouton compte ouvre l\'écran Compte (profil, sections, déconnexion) avec Retour', cp.ecran === 'compte' && cp.sortie && cp.mail && cp.retour, JSON.stringify(cp));
       await capture('compte');
+      const lg = await page.evaluate(() => [...document.querySelectorAll('.v2a-langue')].map(b => b.dataset.lg + (b.classList.contains('v2a-langue-on') ? '*' : '')).join(','));
+      v('Compte propose le choix de la langue (même réglage que le desk)', lg === 'fr*,en,de,es', lg);
+      /* L'ACCUEIL DU DESK NE COUVRE JAMAIS L'APP (25/09, « rien ne s'affiche » dans Banques/Analystes) :
+         body.home-mode masque toutes les vues du desk ; l'app doit le lever dès qu'il apparaît. */
+      await page.evaluate(() => { document.body.classList.add('home-mode'); const d = document.createElement('div'); d.id = 'dtp-home'; document.body.appendChild(d); });
+      await new Promise(z => setTimeout(z, 200));
+      v('l\'accueil du desk est levé dans l\'app (sinon les vues du desk restent invisibles)', await page.evaluate(() => !document.body.classList.contains('home-mode') && !document.getElementById('dtp-home')));
       await page.evaluate(() => window.activateView('news'));
       await new Promise(z => setTimeout(z, 300));
       v('une navigation faite ailleurs (activateView) resynchronise la barre', await page.evaluate(() => (document.querySelector('.v2a-onglet.v2a-actif') || {}).dataset.v2v === 'fil'));

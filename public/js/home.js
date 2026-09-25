@@ -290,6 +290,9 @@
   }
 
   function build(user, cfg) {
+    // L'app mobile (V3) a ses propres écrans : l'accueil du desk y masquerait toutes les vues
+    // (body.home-mode), cf. app-mobile.js sansAccueil().
+    if (document.documentElement.classList.contains('dtp-app')) { try { sessionStorage.setItem(_flagCle, '1'); } catch (e) {} return; }
     var prenom = esc((user.name || '').split(' ')[0] || 'trader');
     // NAV DU DESK MASQUÉE tant que l'accueil est ouvert (constat user mobile 04/08 : la barre
     // › ACTUS › CALENDRIER restait visible ET manipulable au-dessus du ticker). Même patron que

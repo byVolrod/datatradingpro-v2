@@ -115,11 +115,11 @@ console.log('\n── Guetteur des publications par catégorie (tranche réelle 
   const cal = ev.find(e => e.cat === 'eco') || {};
   t('… le chiffre du calendrier porte réel et prévision, à la française', /^Publié 0,4% · attendu 0,3%\./.test(cal.body || ''), cal.body);
   t('… et dit s’il bat le consensus', /Au-dessus du consensus\./.test(cal.body || ''), cal.body);
-  t('… sous un titre rédigé', /^Chiffre économique · /.test(cal.title || ''), cal.title);
+  t('… sous un titre rédigé', /^Calendrier économique · /.test(cal.title || ''), cal.title);
   const dtp = ev.find(e => e.id === 'rap:r1') || {};
-  t('… le rapport DTP est nommé en français', dtp.title === 'Rapport d’analyste · Point marché', dtp.title);
+  t('… le rapport DTP est nommé en français', dtp.title === 'Analystes · Point marché', dtp.title);
   const br = ev.find(e => e.cat === 'banques') || {};
-  t('… la note de banque nomme la banque', br.title === 'Rapport de banque · Goldman Sachs', br.title);
+  t('… la note de banque nomme la banque', br.title === 'Banques · Goldman Sachs', br.title);
   t('troisième passage sans rien de neuf : rien ne repart', G.passe().length === 0);
 }
 

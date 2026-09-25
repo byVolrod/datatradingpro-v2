@@ -64,6 +64,7 @@
     son: 'M5 9v6h4l5 4V5L9 9zM17 9a4 4 0 0 1 0 6',
     etoile: 'M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z',
     sortie: 'M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4M16 17l5-5-5-5M21 12H9',
+    langue: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18',
     hausse: 'M3 17l6-6 4 4 8-8M15 7h6v6',
     baisse: 'M3 7l6 6 4-4 8 8M15 17h6v-6'
   };
@@ -881,6 +882,8 @@
   }
 
   /* ══ ÉCRAN COMPTE (référence « Account ») ══════════════════════════════════════════════════════════ */
+  var LANGUES = [['fr', 'Français', 'fr'], ['en', 'English', 'gb'], ['de', 'Deutsch', 'de'], ['es', 'Español', 'es']];
+  var langue = function () { try { return (localStorage.getItem('dtp_lang') || 'fr').slice(0, 2).toLowerCase(); } catch (x) { return 'fr'; } };
   RENDUS.compte = function (relu) {
     var u = window._pdUser || {}, e = ecrans.compte;
     var fuseau = ''; try { fuseau = Intl.DateTimeFormat().resolvedOptions().timeZone.replace('_', ' ').replace('/', ' / '); } catch (x) {}
@@ -893,6 +896,13 @@
       + '<h3 class="v2a-rubrique">Préférences</h3><div class="v2a-groupe">'
       + ligne(I.etoile, 'Aperçu V3 (nouvelle interface)', 'v2', '<i class="v2a-bascule v2a-on-b"></i>')
       + ligne(I.son, 'Alertes sonores', 'son', '<i class="v2a-bascule' + (glob('_npEnabled') ? ' v2a-on-b' : '') + '"></i>') + '</div>'
+      /* LANGUE (25/09, « on peut choisir la langue aussi dans l'app ») : le même réglage que le profil
+         du desk (`dtp_lang`, appliqué au rechargement par le moteur i18n), donc un seul choix pour les deux. */
+      + '<h3 class="v2a-rubrique">Langue</h3><div class="v2a-groupe">' + LANGUES.map(function (l) {
+          return '<button type="button" class="v2a-ligne v2a-langue' + (l[0] === langue() ? ' v2a-langue-on' : '') + '" data-act="langue" data-lg="' + l[0] + '">'
+            + '<img src="https://flagcdn.com/w40/' + l[2] + '.png" alt="" loading="lazy"><span>' + l[1] + '</span>'
+            + (l[0] === langue() ? svg('M5 12l5 5 9-11', 18, 2.2) : '') + '</button>';
+        }).join('') + '</div>'
       + wpBloc()
       // Panneau d'administration DANS l'app (25/09, demande user) : réservé au compte admin, le serveur
       // refuse de toute façon la page à tout autre compte.
@@ -904,6 +914,7 @@
       if (a === 'support') appel('chatToggle');
       else if (a === 'admin') ouvrirAdmin();
       else if (a === 'son') { appel('npToggleEnabled'); RENDUS.compte(true); }
+      else if (a === 'langue') { var l = LANGUES.filter(function (x) { return x[0] === b.dataset.lg; })[0]; if (l && l[0] !== langue()) appel('pdLangPick', l[0], l[1], l[2]); }
       else if (a === 'v2') { var s = document.getElementById('v2-interrupteur'); if (s) s.click(); }
       else if (a === 'pp' || a === 'ppson' || a === 'ppvib') {
         if (!PP.prefs || b.disabled) return;
@@ -1015,12 +1026,35 @@
     l.addEventListener('error', fini, { once: true });
     setTimeout(fini, 4000);
   }
+  /* ⚠️ L'ACCUEIL DU DESK N'A PAS SA PLACE DANS L'APP (25/09, captures user : « Rapport » vide dans
+     Banques ET Analystes). home.js pose `body.home-mode` à chaque connexion de l'admin (et des comptes
+     à accueil activé) ; la feuille masquait son écran dans l'app, mais PAS la classe — et
+     `body.home-mode .view-panel { visibility: hidden }` rendait alors INVISIBLES toutes les vues du
+     desk ouvertes depuis l'app : lecteurs de rapports, Calendrier, outils. Il ne restait que le fond
+     de la colonne. On referme l'accueil par sa propre fonction (qui retire la classe et marque la
+     connexion comme vue), et on le refait si home.js le construit plus tard (réponse réseau lente). */
+  function sansAccueil() {
+    var fermer = function () {
+      if (!H.classList.contains('dtp-app')) return;
+      if (document.body.classList.contains('home-mode') || document.getElementById('dtp-home')) {
+        try { if (window.DTPHome && typeof DTPHome.close === 'function') DTPHome.close(); } catch (e) {}
+        document.body.classList.remove('home-mode');
+        var o = document.getElementById('dtp-home'); if (o) o.remove();
+      }
+    };
+    fermer();
+    if (!sansAccueil._obs && window.MutationObserver) {
+      sansAccueil._obs = new MutationObserver(fermer);
+      sansAccueil._obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
+  }
   function appliquer() {
     if (MQ.matches) {
       var premiere = !tete;
       construire();
       brancherFil();
       H.classList.add('dtp-app');
+      sansAccueil();
       verrouZoom(true); memoApp(true); brancherVolets();
       leverVoile();
       if (premiere) aller('fil'); else if (courant) marquer(courant);

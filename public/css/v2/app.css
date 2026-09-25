@@ -442,12 +442,12 @@ html.dtp-app .v2a-puces button.v2a-puce-on { background: var(--v2a-or); border-c
 .v2a-plus::before { width: 10px; height: 2px; margin: -1px 0 0 -5px; }
 .v2a-plus::after { width: 2px; height: 10px; margin: -5px 0 0 -1px; transition: transform .15s; }
 .v2a-news.v2a-ouvert .v2a-plus::after { transform: scaleY(0); }
-.v2a-news-desc { display: none; margin: 14px 0 0 36px; padding: 14px 16px; border-left: 3px solid var(--v2a-or); border-radius: 0 8px 8px 0; background: rgba(227,178,58,.07); font: 15px/1.6 'Inter', sans-serif; color: #dcdce0; white-space: pre-line; }
+.v2a-news-desc { display: none; margin: 10px 0 0 36px; font: 15px/1.6 'Inter', sans-serif; color: #9a9aa3; white-space: pre-line; }
 .v2a-news.v2a-ouvert .v2a-news-desc { display: block; animation: v2aEntre .2s ease both; }
 .v2a-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .v2a-tags:empty { display: none; }
 .v2a-tags > span:not(.tag) { padding: 7px 12px; border-radius: 6px; background: #19191d; color: #a8a8b0; font: 500 12px/1 'Inter', sans-serif; letter-spacing: .12em; text-transform: uppercase; }
-.v2a-news.v2a-imp { background: #1e140f !important; }
+.v2a-news.v2a-imp { background: #261715 !important; }
 .v2a-news.v2a-imp .v2a-tags > span:not(.tag):first-child { color: #ffb4a6; background: rgba(229,72,77,.14); }
 .v2a-charger { display: block; width: calc(100% - 28px); margin: 14px; height: 44px; border-radius: 10px; border: 1px solid #26262c; background: #121215; color: var(--v2a-or); font: 600 14px/1 'Inter', sans-serif; }
 
@@ -571,7 +571,7 @@ html.dtp-app .v2a-news-l { margin-top: 9px; gap: 10px; }
 html.dtp-app .v2a-news-l p { font: 500 15.5px/1.5 'Inter Tight', system-ui, sans-serif; color: #eeeef1; }
 html.dtp-app .v2a-plus { flex-basis: 20px; width: 20px; height: 20px; border-color: #2e2e36; border-radius: 4px; }
 html.dtp-app .v2a-plus::before { width: 8px; margin-left: -4px; } html.dtp-app .v2a-plus::after { height: 8px; margin-top: -4px; }
-html.dtp-app .v2a-news-desc { margin-left: 30px; padding: 11px 13px; font-size: 14px; background: rgba(227,178,58,.05); border-left-width: 2px; }
+html.dtp-app .v2a-news-desc { margin-left: 30px; font-size: 14px; }
 html.dtp-app .v2a-tags { margin-top: 10px; gap: 6px; }
 html.dtp-app .v2a-tags > span:not(.tag) { padding: 5px 9px; border-radius: 4px; font-size: 10.5px; letter-spacing: .1em; background: #141418; }
 /* Fil aligné sur le desk (25/09) : les tags et les boutons Info / Analyse / Impact marché sont ceux du
@@ -580,7 +580,7 @@ html.dtp-app .v2a-tags > span:not(.tag) { padding: 5px 9px; border-radius: 4px; 
 html.dtp-app .v2a-tags .tag { padding: 5px 9px; border-radius: 4px; font: 500 12px/1.2 'Inter Tight', system-ui, sans-serif; letter-spacing: .01em; }
 html.dtp-app .v2a-tags button.tag { -webkit-appearance: none; appearance: none; cursor: pointer; }
 html.dtp-app .v2a-tags .tag .tag-flag { width: 13px; height: 13px; border-radius: 50%; object-fit: cover; }
-html.dtp-app .v2a-news-corps { display: none; margin: 12px 0 0 30px; padding: 11px 13px; border-left: 2px solid var(--v2a-or); border-radius: 0 8px 8px 0; background: rgba(227,178,58,.05); font: 14px/1.6 'Inter Tight', system-ui, sans-serif; color: #d6d6dc; overflow-wrap: anywhere; cursor: text; -webkit-user-select: text; user-select: text; }
+html.dtp-app .v2a-news-corps { display: none; margin: 10px 0 0 30px; font: 14px/1.6 'Inter Tight', system-ui, sans-serif; color: #9a9aa3; overflow-wrap: anywhere; cursor: text; -webkit-user-select: text; user-select: text; }
 html.dtp-app .v2a-news.v2a-ouvert .v2a-news-corps { display: block; animation: v2aEntre .2s ease both; }
 html.dtp-app .v2a-news-corps:empty::before { content: 'Chargement…'; color: #7c7c86; }
 html.dtp-app .v2a-news-corps .article-points { padding-left: 0; margin: 0; }
@@ -592,7 +592,8 @@ html.dtp-app .v2a-news-corps strong { color: #f0f0f3; }
 html.dtp-app .v2a-news-corps .iq-note { color: #8e8e98; font-size: 12.5px; margin-bottom: 6px; }
 html.dtp-app .v2a-news-corps img { max-width: 100%; height: auto; }
 html.dtp-app .v2a-news-corps .market-update-body { padding: 0; font-size: 14px; }
-html.dtp-app .v2a-news.v2a-imp { background: linear-gradient(90deg, rgba(229,72,77,.10), rgba(229,72,77,.02)) !important; box-shadow: inset 2px 0 0 #e5484d; }
+/* Dépêche importante : le fond bordeaux mat du desk (#261715), sans liseré (25/09, demande user). */
+html.dtp-app .v2a-news.v2a-imp { background: #261715 !important; }
 html.dtp-app .v2a-jour { padding: 10px 16px; font: 600 11px/1 'Inter Tight', system-ui, sans-serif; letter-spacing: .12em; background: #0e0e11; }
 html.dtp-app .v2a-puces { padding: 10px 14px; gap: 6px; }
 html.dtp-app .v2a-puces button { height: 30px; padding: 0 13px; border-radius: 15px; font: 600 12.5px/1 'Inter Tight', system-ui, sans-serif; }
@@ -660,6 +661,8 @@ html.dtp-app .v2a-onglet svg { display: block; }
    de GRAND écran : dans l'app, l'accueil est le Fil. Il ne s'affiche pas, et aucun écran natif ne
    laisse transparaître ce qui est dessous (capture user 24/09 : l'accueil se lisait à travers Banques). */
 html.dtp-app .home-overlay { display: none !important; }
+/* Filet : même si la classe de l'accueil survivait, les vues du desk restent visibles dans l'app. */
+html.dtp-app body.home-mode .view-panel { visibility: visible !important; }
 html.dtp-app .v2a-ecran.v2a-visible { background: #0a0a0c !important; isolation: isolate; }
 /* Icône du Copilote : celle du desk, étoile verte + « IA ». */
 html.dtp-app #v2a-ia { width: auto; padding: 0 6px; gap: 4px; color: #00e676; }
@@ -673,7 +676,7 @@ html.dtp-app #v2a-ia .ai-spark-txt { font: 800 13px/1 'Inter Tight', system-ui, 
 .v2a-wp-msg.v2a-wp-err { color: #ff8a65; background: rgba(255,61,0,.07); }
 
 /* ── Widgets V3 embarqués dans l'écran Marchés (Multi-actifs, Carte du monde) : bord à bord ── */
-html.dtp-app .v2a-embarque { margin: 10px -18px -16px; border-top: 1px solid #1c1c20; border-radius: 0 0 12px 12px; overflow: hidden; }
+html.dtp-app .v2a-embarque { margin: 10px -16px -16px; max-width: none; width: auto; border-top: 1px solid #1c1c20; border-radius: 0 0 12px 12px; overflow: hidden; }
 
 /* ── Feuille « Paires » : les 28 croisements et l'or, drapeaux ronds (25/09) ── */
 html.dtp-app .v2a-paires-g { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 16px 6px; }
@@ -701,3 +704,35 @@ html.dtp-app .v2a-choix-t b { font: 500 15px/1.3 'Inter Tight', system-ui, sans-
 html.dtp-app .v2a-choix-t small { font: 12.5px/1.4 'Inter Tight', system-ui, sans-serif; color: #7c7c86; }
 html.dtp-app .v2a-ligne.v2a-choix:disabled { cursor: default; }
 html.dtp-app .v2a-bascule.v2a-bascule-off { opacity: .4; }
+
+/* Bannière de mise à jour dans l'app (25/09, capture user : texte empilé mot par mot, carte posée sur
+   la barre d'onglets, bouton qui semblait inerte). Pleine largeur au-dessus de la barre, texte sur
+   toute la largeur, bouton en bas, lisible et grand au doigt. */
+html.dtp-app .dtp-update-banner { left: 12px; right: 12px; bottom: calc(var(--navbar-h) + 12px); max-width: none; transform: translateY(16px); z-index: 10050;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 10px 12px; align-items: start; padding: 14px 14px 14px 16px; font-size: 14px; }
+html.dtp-app .dtp-update-banner.show { transform: none; }
+html.dtp-app .dtp-update-banner .dub-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+html.dtp-app .dtp-update-banner .dub-title { font: 600 15px/1.3 'Inter Tight', system-ui, sans-serif; color: #f0f0f3; }
+html.dtp-app .dtp-update-banner .dub-txt { font: 13.5px/1.45 'Inter Tight', system-ui, sans-serif; color: #a8a8b0; }
+html.dtp-app .dtp-update-banner .dub-btn { grid-column: 1 / -1; justify-self: stretch; height: 44px; font-size: 15px; border-radius: 8px; }
+html.dtp-app .dtp-update-banner .dub-btn:disabled { opacity: .7; }
+html.dtp-app .dtp-update-banner .dub-x { font-size: 22px; padding: 0 4px; }
+html.dtp-app .dtp-update-banner .dub-x { grid-column: 3; grid-row: 1; }
+html.dtp-app .dtp-update-banner .dub-btn { grid-row: 2; }
+
+/* Description dépliée : le texte gris du desk, posé sur le fond de la ligne (25/09, demande user :
+   « la description n'a pas de fond orange normalement »). */
+html.dtp-app .v2a-news-corps .article-points li { color: #9a9aa3; }
+html.dtp-app .v2a-news-corps strong { color: #d6d6dc; }
+
+/* Écran décalé au doigt (25/09, capture « Marchés » coupée à droite). Un conteneur en overflow-y:auto
+   rend AUSSI l'axe X défilable : il suffisait qu'un encart dépasse de 2 px (marge −18 px sous un
+   padding de 16 px) pour que tout l'écran glisse latéralement sur iPhone. L'axe X est verrouillé sur
+   tous les écrans de l'app ; les rangées de puces gardent leur propre défilement horizontal. */
+html.dtp-app .v2a-ecran.v2a-visible { overflow-x: hidden; }
+html.dtp-app, html.dtp-app body { overflow-x: hidden; overscroll-behavior-x: none; }
+
+/* Choix de la langue dans Compte (25/09) : drapeau rond, coche or sur la langue active. */
+html.dtp-app .v2a-langue img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex: 0 0 22px; }
+html.dtp-app .v2a-langue > svg:last-child { margin-left: auto; color: #e3b23a; }
+html.dtp-app .v2a-langue.v2a-langue-on span { color: #f2f2f4; font-weight: 600; }

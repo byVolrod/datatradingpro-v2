@@ -73,18 +73,26 @@ const srcTexte = fn(SRV, '_pushTexte'), srcClef = cst(SRV, '_pushClef');
 v('_pushTexte est extractible', !!srcTexte);
 if (srcTexte) {
   // _pushTexte s'appuie sur _pushClef et la table des thèmes : on les extrait avec lui.
-  const _pushTexte = new Function('const _pushClef = ' + (srcClef || '() => "news"') + '; const _PUSH_THEME = ' + (cstBloc(SRV, '_PUSH_THEME') || '{}') + '; ' + (fn(SRV, '_pushProvenance') || '') + '; return (' + srcTexte + ');')();
+  const _pushTexte = new Function('const _looksFr = t => /[éèàùçêâô]|\\b(le|la|les|des|du|une?)\\b/i.test(t); const _pushClef = ' + (srcClef || '() => "news"') + '; const _PUSH_THEME = ' + (cstBloc(SRV, '_PUSH_THEME') || '{}') + '; ' + (fn(SRV, '_pushProvenance') || '') + '; return (' + srcTexte + ');')();
   const premiere = t => String(t.body).split('\n')[0];
   const court = _pushTexte({ headline: 'US CPI 3.2% vs 3.1% expected' });
   /* Format « notification d'app » (25/09, capture de référence « URGENT / Alerte pour NZDCHF ») : le
      téléphone affiche déjà le nom de l'app, le titre dit la NATURE de l'alerte, puis son thème quand
      il renseigne (« rédige bien le nom des notifs »). */
-  v('une donnée chiffrée s’intitule « Chiffre économique »', court.title === 'Chiffre économique', court.title);
-  v('une dépêche urgente s’intitule « URGENT »', _pushTexte({ headline: 'Iran closes Hormuz', urgent: true }).title === 'URGENT');
-  v('… avec son thème quand il renseigne (« URGENT · Géopolitique »)', _pushTexte({ headline: 'Iran closes Hormuz', urgent: true, category: 'Geopolitical' }).title === 'URGENT · Géopolitique');
-  v('une autre dépêche majeure s’intitule « Actualité majeure »', _pushTexte({ headline: 'Trump parle de l’Iran' }).title === 'Actualité majeure');
-  v('… « Actualité majeure · Énergie » pour une dépêche énergie', _pushTexte({ headline: 'Opec cuts output', category: 'Energy & Power' }).title === 'Actualité majeure · Énergie');
-  v('une catégorie générique n’ajoute rien au titre', _pushTexte({ headline: 'Trump parle', category: 'Global News' }).title === 'Actualité majeure');
+  /* TITRE = NOM DU WIDGET + DESCRIPTION (25/09, « faut nom du widget + description ») : le titre dit
+     d'abord QUEL widget du desk porte l'alerte, puis sa nature. */
+  v('une donnée chiffrée s’intitule « Fil d’actualité · Chiffre »', court.title === 'Fil d’actualité · Chiffre', court.title);
+  v('une dépêche urgente s’intitule « Fil d’actualité · Urgent »', _pushTexte({ headline: 'Iran closes Hormuz', urgent: true }).title === 'Fil d’actualité · Urgent');
+  v('… avec son thème quand il renseigne', _pushTexte({ headline: 'Iran closes Hormuz', urgent: true, category: 'Geopolitical' }).title === 'Fil d’actualité · Urgent · Géopolitique');
+  v('une autre dépêche majeure : « Fil d’actualité · Actualité majeure »', _pushTexte({ headline: 'Trump parle de l’Iran' }).title === 'Fil d’actualité · Actualité majeure');
+  v('… « Fil d’actualité · Énergie » pour une dépêche énergie', _pushTexte({ headline: 'Opec cuts output', category: 'Energy & Power' }).title === 'Fil d’actualité · Énergie');
+  v('une catégorie générique n’ajoute rien au titre', _pushTexte({ headline: 'Trump parle', category: 'Global News' }).title === 'Fil d’actualité · Actualité majeure');
+  /* LA DESCRIPTION suit le titre de la dépêche, en français seulement. */
+  const avecDesc = _pushTexte({ headline: 'Gold falls in India', _descFr: 'Le prix de l’or en Inde a baissé vendredi.' }, 'L’or recule en Inde');
+  v('la description traduite suit la dépêche (2e ligne)', avecDesc.body.split('\n')[1] === 'Le prix de l’or en Inde a baissé vendredi.', avecDesc.body);
+  v('… et la provenance reste la dernière ligne', avecDesc.body.split('\n')[2] === 'Fil d’actualité DTP', avecDesc.body);
+  const descEn = _pushTexte({ headline: 'Gold falls', _descFr: 'Gold price in India fell on Friday.' }, 'L’or recule', null);
+  v('une description anglaise ne part JAMAIS', !/Gold price/.test(descEn.body), descEn.body);
   v('le corps porte la dépêche', premiere(court) === 'US CPI 3.2% vs 3.1% expected', court.body);
   /* PROVENANCE (25/09, capture user : six notifications sans source). Un média nommé en suffixe
      quitte le texte et passe sur sa propre ligne ; sans média, la provenance est le fil DTP. */
@@ -138,6 +146,26 @@ v('l\'appel à Expo porte un délai de garde', /AbortController/.test(fn(SRV, '_
 v('l\'envoi est branché sur le cycle de news', /_pushEnvoyer\(added\)\.catch/.test(SRV));
 v('… hors du chemin de diffusion (il ne retarde pas le fil)', /broadcast\(\{ type: 'news_update', items: added[\s\S]{0,400}?_pushEnvoyer\(added\)\.catch/.test(SRV));
 v('les deux routes d\'abonnement existent', /app\.post\('\/api\/push\/token'/.test(SRV) && /app\.post\('\/api\/push\/stop'/.test(SRV));
+/* PLUS D'ABONNEMENT = PLUS DE NOTIFICATION (25/09). Même règle que la connexion : actif, échéance
+   + 24 h de grâce, l'équipe jamais coupée. On JOUE la vraie fonction, avec ses témoins. */
+{
+  const srcAb = fn(SRV, '_pushAbonneDe');
+  v('_pushAbonneDe est extractible', !!srcAb);
+  if (srcAb) {
+    const auth = { isStaff: r => r === 'admin' };
+    const ab = new Function('auth', 'const PUSH_GRACE_MS = 24 * 3600e3; return (' + srcAb + ');')(auth);
+    const n = Date.now(), jour = 24 * 3600e3;
+    v('un abonné actif à échéance future reçoit', ab({ active: true, expires_at: new Date(n + 5 * jour).toISOString() }, n) === true);
+    v('un compte SUSPENDU ne reçoit plus rien', ab({ active: false, expires_at: new Date(n + 5 * jour).toISOString() }, n) === false);
+    v('un abonnement EXPIRÉ depuis 2 jours ne reçoit plus rien', ab({ active: true, expires_at: new Date(n - 2 * jour).toISOString() }, n) === false);
+    v('… mais la grâce de 24 h vaut comme à la connexion', ab({ active: true, expires_at: new Date(n - 3600e3).toISOString() }, n) === true);
+    v('l’équipe n’est jamais coupée', ab({ role: 'admin', active: false, expires_at: new Date(n - 9 * jour).toISOString() }, n) === true);
+    v('un compte introuvable (supprimé) ne reçoit rien', ab(null, n) === false);
+  }
+  v('le routeur trie les comptes sur leur abonnement', /await _pushAbonne\(uid\)/.test(srcRouteur));
+  v('… et un récap de fin de pause aussi', /_pushAbonne\(uid\)/.test(fn(SRV, '_pushVider') || ''));
+  v('les appareils Web Push sont servis en parallèle', /Promise\.all\(envois/.test(fn(SRV, '_pushExpedier') || ''));
+}
 v('… et exigent une session', (SRV.match(/app\.post\('\/api\/push\/(?:token|stop)'[\s\S]{0,160}?req\.session\?\.userId/g) || []).length === 2);
 
 console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement, son et vibreur ──');
@@ -163,7 +191,7 @@ console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement
   v('une dépêche URGENTE passe toujours', !outils._pushDoublon(Object.assign({}, e2, { urgent: true }), t0 + 120e3));
   v('trois heures plus tard, le sujet peut revenir', !outils._pushDoublon(Object.assign({}, e2, { id: 'd' }), t0 + 4 * 3600e3));
   const lot = outils._pushResume('banques', [{ id: '1', court: 'Goldman Sachs', body: 'EUR/USD' }, { id: '2', court: 'ING', body: 'GBP' }, { id: '3', court: 'Nomura', body: 'JPY' }]);
-  v('trois rapports de banques pendant la pause → une seule notification', lot.title === '3 rapports de banques', lot.title);
+  v('trois rapports de banques pendant la pause → une seule notification', lot.title === 'Banques · 3 rapports de banques', lot.title);
   v('… qui les nomme', lot.body === 'Goldman Sachs · ING · Nomura', lot.body);
   v('… et une seule publication reste elle-même', outils._pushResume('banques', [e3]) === e3);
   const avec = outils._pushMessage(e3, { son: true, vibreur: true }).web, sans = outils._pushMessage(e3, { son: false, vibreur: true }).web, muet = outils._pushMessage(e3, { son: true, vibreur: false }).web;
@@ -197,7 +225,7 @@ console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement
   v('au plus une bascule toutes les 4 h', !_pushBascule('RISK-ON', 'RISK-OFF', 10 * H, 8 * H) && _pushBascule('RISK-ON', 'RISK-OFF', 10 * H, 5.9 * H));
   const _RISK_NOM = eval('(' + cstBloc(SRV, '_RISK_NOM') + ')');
   const tb = new Function('_RISK_NOM', 'return (' + fn(SRV, '_pushTexteBascule') + ');')(_RISK_NOM)('NEUTRAL', { label: 'RISK-OFF', assets: [{ label: 'VIX', chg: 12.4 }, { label: 'S&P 500', chg: -2.1 }, { label: 'Or', chg: 0.4 }, { label: 'AUD', chg: -0.2 }] });
-  v('la bascule s’intitule en français', tb.title === 'Sentiment de marché · bascule en risk-off', tb.title);
+  v('la bascule s’intitule en français', tb.title === 'Sentiment de risque · bascule en risk-off', tb.title);
   v('… et nomme ses trois premiers moteurs', tb.body === 'Le marché passe de neutre à risk-off. Moteurs : VIX +12,4%, S&P 500 -2,1%, Or +0,4%.', tb.body);
 }
 

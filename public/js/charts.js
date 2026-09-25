@@ -4082,7 +4082,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Titre FIXE de l'onglet : "DataTradingPro - <nom utilisateur>" (ne dépend plus de la vue active).
   // Le nom est exposé par index.html après /api/auth/me (window._dtpUser).
   function _setDocTitle(_view) {
-    try { document.title = 'DTP' + (window._dtpUser ? ' | ' + window._dtpUser : ''); } catch {}
+    /* Sur l'écran d'accueil du téléphone, le titre de la page devient le NOM de l'app (« from DTP | JOT »
+       sous chaque notification iPhone, capture du 25/09) : l'app installée garde son nom de marque. */
+    try {
+      const installee = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true || document.documentElement.classList.contains('dtp-app');
+      document.title = installee ? 'DataTradingPro' : 'DTP' + (window._dtpUser ? ' | ' + window._dtpUser : '');
+    } catch {}
   }
 
   let _tauxPoll = null, _tauxSig = '';   // rafraîchissement TEMPS RÉEL de l'onglet TAUX

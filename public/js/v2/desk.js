@@ -56,7 +56,8 @@
     if (!pied || document.getElementById('v3-fj-voix')) return;
     var b = document.createElement('button');
     b.type = 'button'; b.id = 'v3-fj-voix'; b.className = 'v3-fj-voix';
-    b.textContent = 'Voix officielle FinancialJuice (mon compte) ↗';
+    b.textContent = 'Écouter la voix FinancialJuice ↗';
+    b.title = 'Ouvre la Voice News officielle sur financialjuice.com, avec votre compte FinancialJuice';
     b.addEventListener('click', function () {
       var w = window.open('https://www.financialjuice.com/home', 'dtp_fj_voix', 'popup,width=460,height=780');
       if (w) { try { w.opener = null; } catch (e) {} }

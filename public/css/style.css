@@ -23300,6 +23300,29 @@ textarea, [contenteditable="true"], [contenteditable=""] { cursor: text !importa
 .jrd-imgblock--filled { cursor: zoom-in !important; }
 .chat-lightbox, .jrd-lightbox { cursor: zoom-out !important; }
 
+/* ═══ FLASH MARCHÉ : EN-TÊTE QUI NE DÉBORDE PLUS, BOUTON FINANCIALJUICE HABILLÉ (25/09) ═══════════
+   Capture user : le titre « Flash Marché en direct » débordait sous « Connexion auto » (contenu de
+   167 px dans une case de 66 px) et le bouton « Voix officielle FinancialJuice » apparaissait en
+   bouton système BLANC, sans aucun style, au pied du volet sombre. */
+.sqwk-header .sqwk-title { overflow: hidden; text-overflow: ellipsis; }
+.sqwk-header .sqwk-status { overflow: hidden; text-overflow: ellipsis; }
+.sqwk-footer .v3-fj-voix {
+  display: flex; width: fit-content; align-items: center; gap: 6px; margin: 8px auto 0; padding: 6px 12px;
+  background: transparent; border: 1px solid rgba(227,178,58,.35); border-radius: 6px;
+  color: #e3b23a; font: 600 11px/1.2 var(--tight, 'Inter Tight', system-ui, sans-serif); letter-spacing: .01em;
+  cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+}
+.sqwk-footer .v3-fj-voix:hover { background: rgba(227,178,58,.1); border-color: #e3b23a; color: #f0c65a; }
+.sqwk-footer .v3-fj-voix:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(227,178,58,.45); }
+/* L'en-tête tient sur DEUX rangées : lecture + titre + statut + croix, puis l'égaliseur et la
+   connexion auto. Sur une seule rangée, le titre n'avait plus que 66 px (« Flash … »). */
+.sqwk-header { flex-wrap: wrap; row-gap: 10px; }
+.sqwk-header .sqwk-head-text { order: 1; flex: 1 1 calc(100% - 90px); }
+.sqwk-header .sqwk-close { order: 2; }
+.sqwk-header .sqwk-eq { order: 3; margin-left: 42px; margin-right: 0; }
+.sqwk-header .sqwk-auto-lbl--tete { order: 4; margin-left: auto; }
+.sqwk-header .sqwk-toggle { order: 5; }
+
 /* ══ SENTINELLE D'ARRIVÉE — DOIT RESTER LA DERNIÈRE RÈGLE DU FICHIER (09/09) ═════════════════════
    Elle ne peint rien. Elle PROUVE que la feuille est arrivée jusqu'au bout : un transfert coupé en
    route ne donne pas une erreur franche, il donne un fichier tronqué que le navigateur applique

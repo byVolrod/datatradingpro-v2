@@ -53,6 +53,14 @@
     transform: scaleX(0); transition: transform .25s cubic-bezier(.2,.8,.2,1); }
   html.dtp-v2 .wdgt-tab.on { color: #f4f4f6; font-weight: 600; box-shadow: none; }
   html.dtp-v2 .wdgt-tab.on::after { transform: scaleX(1); }
+  /* LA RANGÉE D'ONGLETS NE GLISSE PLUS (25/09, « la barre panneau à onglet on peut décaler, fixe-la
+     comme celle du panel admin »). En V3 grand écran, elle cesse d'être un ruban défilant : tous les
+     onglets restent visibles et, s'ils ne tiennent pas, la rangée revient à la ligne — comme la
+     navigation du panneau admin, où rien ne se décale jamais. Le gestionnaire de molette de
+     widgets.js se tait de lui-même (« rien à parcourir ») et les fondus s'éteignent. */
+  html.dtp-v2 .wdg-card--tabs .wdgt-bar { flex-wrap: wrap; overflow: hidden; scroll-snap-type: none; row-gap: 0; }
+  html.dtp-v2 .wdg-card--tabs .wdgt-bar::before, html.dtp-v2 .wdg-card--tabs .wdgt-bar::after { display: none; }
+  html.dtp-v2 .wdg-card--tabs .wdgt-tab, html.dtp-v2 .wdg-card--tabs .wdgt-add { min-height: 32px; }
   html.dtp-v2 .wdgt-subname { height: 28px; text-transform: none; letter-spacing: 0; font: 600 12px/1 'Inter Tight', system-ui, sans-serif; color: #b9b9c0; background: #0c0c0e; border-bottom-color: #141417; }
   html.dtp-v2 .wdgt-body { animation: v3Fondu .25s ease both; }
   @keyframes v3Fondu { from { opacity: 0; } to { opacity: 1; } }
