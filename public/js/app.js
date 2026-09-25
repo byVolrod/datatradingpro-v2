@@ -12731,6 +12731,15 @@ function _wpOctets(b) { const p = '='.repeat((4 - b.length % 4) % 4), r = atob((
    restait sur « Envoi… » pour toujours (mesuré au banc). */
 const _wpDelai = (pr, ms) => Promise.race([pr, new Promise((_, ko) => setTimeout(() => ko(new Error('délai')), ms))]);
 function _wpAbonner() { return _wpDelai(_wpAbonnerSansBorne(), 12000).catch(() => false); }
+/* Cet appareil reçoit-il les alertes du SERVEUR (Web Push) ? Si oui, le desk ne produit plus lui-même
+   de notification système : ce serait la même dépêche deux fois, et la sienne sans tri ni traduction. */
+let _wpActif = false;
+function _wpLireActif() {
+  try {
+    if (!_wpDispo() || Notification.permission !== 'granted') { _wpActif = false; return; }
+    _wpDelai(navigator.serviceWorker.ready, 5000).then(reg => reg.pushManager.getSubscription()).then(sub => { _wpActif = !!sub; }).catch(() => {});
+  } catch (e) {}
+}
 async function _wpAbonnerSansBorne() {
   if (!_wpDispo() || Notification.permission !== 'granted') return false;
   const reg = await navigator.serviceWorker.ready;
@@ -12746,9 +12755,11 @@ async function _wpAbonnerSansBorne() {
   if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _wpOctets(d.cle) });
   const plat = _wpIOS() ? 'ios' : (/Android/i.test(navigator.userAgent || '') ? 'android' : 'ordinateur');
   const r = await fetch('/api/webpush/abonner', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ abonnement: sub.toJSON(), plat }) });
+  if (r.ok) _wpActif = true;
   return r.ok;
 }
 async function _wpDesabonner() {
+  _wpActif = false;
   if (!_wpDispo()) return;
   try {
     const reg = await _wpDelai(navigator.serviceWorker.ready, 5000), sub = await reg.pushManager.getSubscription();
@@ -12827,6 +12838,7 @@ if (typeof window !== 'undefined') {
     setTimeout(() => {
       try { if (_npPush && !_npCoquille() && _wpDispo() && Notification.permission === 'granted') _wpAbonner().catch(() => {}); } catch (e) {}
       try { _wpLigne(); } catch (e) {}
+      _wpLireActif();
     }, 4000);
   });
 }
@@ -12945,28 +12957,34 @@ function npPush(items, opts) {
      Deux corrections, pas une : on passe par le service worker quand il y en a un (le seul chemin
      qu'Android accepte), et surtout ON N'INTERROMPT JAMAIS LE FIL pour une notification système.
      Le carillon interne et le panneau, eux, ne dépendent de rien de tout ça. */
-  if (_npPush && !muted && 'Notification' in window && Notification.permission === 'granted') {
+  /* ⚠️ 25/09, CAPTURE USER : SIX NOTIFICATIONS D'UN COUP, EN ANGLAIS, TITRÉES « DataTradingPro ».
+     Elles venaient d'ICI, pas du serveur : l'app ouverte en arrière-plan sur l'iPhone notifiait
+     chaque dépêche prioritaire telle quelle — titre d'origine, aucune provenance, aucun tri, aucune
+     pause. Et depuis le Web Push, l'appareil abonné la recevait AUSSI du serveur.
+     Désormais : un appareil abonné au Web Push (ou l'app native) laisse le serveur seul maître des
+     notifications — triées, traduites, regroupées, avec leur provenance. Ce chemin ne sert plus que
+     de repli (navigateur sans Push), au même format, avec la même famille cochée, une notification
+     au plus toutes les 5 minutes et jamais deux fois le même sujet. */
+  if (_npPush && !muted && !_wpActif && !_npCoquille() && 'Notification' in window && Notification.permission === 'granted') {
     const hi = items.find(i => i.priority === 'high' || i.urgent);
-    if (hi) {
+    const familleOk = !_pp || (_pp.cats || []).includes(hi && /-?\d/.test(hi.headline || '') ? 'eco' : 'news');
+    if (hi && familleOk && _npNotifSousPause(hi)) {
+      const txt = _npNotifTexte(hi);
       const opts = {
-        body:   hi.headline,
-        icon:   '/favicon.png',
+        body:   txt.body,
+        icon:   '/icon-192.png',
         tag:    'dtp-' + hi.id,
         silent: true,   // pas de son OS : seul le carillon interne (respectant Muet) sonne
       };
       try {
         const sw = navigator.serviceWorker && navigator.serviceWorker.ready;
         /* ⚠️ `showNotification` REND UNE PROMESSE, et elle REJETTE quand l'origine n'a pas la
-           permission — un `try/catch` ne voit RIEN d'un rejet, et le rejet non traité remonte en
-           erreur de page. Le desk se retrouvait donc avec une erreur d'exécution à chaque dépêche
-           importante sur un appareil où la permission n'est pas accordée : exactement la situation
-           par défaut, puisque personne n'accorde les notifications avant qu'on les lui demande.
-           On attrape donc les DEUX chemins : l'exception synchrone ET le rejet asynchrone. */
+           permission — un `try/catch` ne voit RIEN d'un rejet : on attrape les DEUX chemins. */
         if (sw && sw.then) sw.then(function (reg) {
-          try { const p = reg.showNotification('DataTradingPro', opts); if (p && p.catch) p.catch(function () {}); }
+          try { const p = reg.showNotification(txt.title, opts); if (p && p.catch) p.catch(function () {}); }
           catch (e) {}
         }).catch(function () {});
-        else new Notification('DataTradingPro', opts);
+        else new Notification(txt.title, opts);
       } catch (e) {
         // Constructeur refusé (Android), permission révoquée entre-temps, quota du navigateur :
         // aucune de ces raisons ne justifie de priver le lecteur de sa news.
@@ -12975,6 +12993,38 @@ function npPush(items, opts) {
     }
   }
   return newOnes;
+}
+
+// Le format du serveur (_pushTexte), côté desk : nature · thème en titre ; la dépêche en français
+// (titre affiché par le fil), puis sa provenance.
+const _NP_NOTIF_THEME = { Geopolitical: 'Géopolitique', 'Energy & Power': 'Énergie', Metals: 'Métaux', Crypto: 'Crypto', Equities: 'Actions',
+  Fed: 'Fed', ECB: 'BCE', BoE: 'BoE', BoJ: 'BoJ', SNB: 'BNS', BoC: 'BoC', RBA: 'RBA', RBNZ: 'RBNZ', Tariffs: 'Commerce', 'Fixed Income': 'Taux' };
+function _npNotifTexte(it) {
+  const brut = String((it && it.headline) || '');
+  const m = /\s*(?:[-–—|]\s*|\(\s*)(Reuters|Bloomberg|CNBC|CNN|BBC|WSJ|Wall Street Journal|Financial Times|FT|New York Times|NYT|Washington Post|Axios|Politico|Semafor|Associated Press|AFP|Nikkei|Kyodo|Xinhua|Yonhap|Tasnim|IRNA|Al Jazeera|Fox News|Sky News|MNI|Dow Jones)\s*\)?\s*$/.exec(brut);
+  let fr = '';
+  try { fr = typeof _newsDisplayTitle === 'function' ? _newsDisplayTitle(it) : ''; } catch (e) {}
+  fr = String(fr || it._titreFr || brut).replace(/\s+/g, ' ').trim();
+  try { fr = _sansSource(fr); } catch (e) {}
+  if (fr.length > 150) fr = fr.slice(0, 149).replace(/\s+\S*$/, '') + '…';
+  const theme = _NP_NOTIF_THEME[it && it.category] || '';
+  const eco = /-?\d/.test(brut);
+  const title = it && it.urgent ? 'URGENT' + (theme ? ' · ' + theme : '') : (eco ? 'Chiffre économique' : 'Actualité majeure' + (theme ? ' · ' + theme : ''));
+  return { title, body: fr + '\n' + (m ? 'Source : ' + m[1] : 'Fil d’actualité DTP') };
+}
+// Une notification système au plus toutes les 5 min (2 pour une urgence), jamais deux fois un sujet
+// déjà notifié dans les 45 dernières minutes (deux noms propres en commun).
+let _npNotifDernier = 0;
+const _npNotifSujets = [];
+function _npNotifSousPause(it) {
+  const now = Date.now();
+  if (now - _npNotifDernier < (it.urgent ? 120000 : 300000)) return false;
+  while (_npNotifSujets.length && now - _npNotifSujets[0].at > 45 * 60000) _npNotifSujets.shift();
+  const e = new Set((String(it.headline || '').match(/[A-Z][a-zA-Z]{2,}/g) || []).map(w => w.toLowerCase()));
+  if (e.size >= 2 && _npNotifSujets.some(h => { let n = 0; e.forEach(x => { if (h.e.has(x)) n++; }); return n >= 2; })) return false;
+  _npNotifSujets.push({ e, at: now });
+  _npNotifDernier = now;
+  return true;
 }
 
 // ── Notifications de NOUVEAUX RAPPORTS (Analyst = session wraps ; Institution = recherche) ──

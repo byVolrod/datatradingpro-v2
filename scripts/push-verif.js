@@ -73,7 +73,8 @@ const srcTexte = fn(SRV, '_pushTexte'), srcClef = cst(SRV, '_pushClef');
 v('_pushTexte est extractible', !!srcTexte);
 if (srcTexte) {
   // _pushTexte s'appuie sur _pushClef et la table des thèmes : on les extrait avec lui.
-  const _pushTexte = new Function('const _pushClef = ' + (srcClef || '() => "news"') + '; const _PUSH_THEME = ' + (cstBloc(SRV, '_PUSH_THEME') || '{}') + '; return (' + srcTexte + ');')();
+  const _pushTexte = new Function('const _pushClef = ' + (srcClef || '() => "news"') + '; const _PUSH_THEME = ' + (cstBloc(SRV, '_PUSH_THEME') || '{}') + '; ' + (fn(SRV, '_pushProvenance') || '') + '; return (' + srcTexte + ');')();
+  const premiere = t => String(t.body).split('\n')[0];
   const court = _pushTexte({ headline: 'US CPI 3.2% vs 3.1% expected' });
   /* Format « notification d'app » (25/09, capture de référence « URGENT / Alerte pour NZDCHF ») : le
      téléphone affiche déjà le nom de l'app, le titre dit la NATURE de l'alerte, puis son thème quand
@@ -84,14 +85,22 @@ if (srcTexte) {
   v('une autre dépêche majeure s’intitule « Actualité majeure »', _pushTexte({ headline: 'Trump parle de l’Iran' }).title === 'Actualité majeure');
   v('… « Actualité majeure · Énergie » pour une dépêche énergie', _pushTexte({ headline: 'Opec cuts output', category: 'Energy & Power' }).title === 'Actualité majeure · Énergie');
   v('une catégorie générique n’ajoute rien au titre', _pushTexte({ headline: 'Trump parle', category: 'Global News' }).title === 'Actualité majeure');
-  v('le corps porte la dépêche', court.body === 'US CPI 3.2% vs 3.1% expected', court.body);
-  v('… en français quand la traduction est prête', _pushTexte({ headline: 'Oil jumps', _titreFr: 'Le pétrole bondit' }).body === 'Le pétrole bondit');
+  v('le corps porte la dépêche', premiere(court) === 'US CPI 3.2% vs 3.1% expected', court.body);
+  /* PROVENANCE (25/09, capture user : six notifications sans source). Un média nommé en suffixe
+     quitte le texte et passe sur sa propre ligne ; sans média, la provenance est le fil DTP. */
+  const rt = _pushTexte({ headline: 'Trump says tariffs on China will rise - Reuters' });
+  v('un média en suffixe devient la provenance (« Source : Reuters »)', rt.body.split('\n')[1] === 'Source : Reuters', rt.body);
+  v('… et quitte le texte de la dépêche', premiere(rt) === 'Trump says tariffs on China will rise', rt.body);
+  v('« according to Bloomberg » est reconnu, la phrase reste intacte', /Source : Bloomberg$/.test(_pushTexte({ headline: 'Fed to cut in December, according to Bloomberg survey' }).body));
+  v('sans média nommé : « Fil d’actualité DTP »', court.body.split('\n')[1] === 'Fil d’actualité DTP', court.body);
+  v('la traduction passée en second argument est celle qui s’affiche', premiere(_pushTexte({ headline: 'Oil jumps' }, 'Le pétrole bondit')) === 'Le pétrole bondit');
+  v('… en français quand la traduction est prête', premiere(_pushTexte({ headline: 'Oil jumps', _titreFr: 'Le pétrole bondit' })) === 'Le pétrole bondit');
   /* iOS tronque une notification longue SANS prévenir : mieux vaut couper nous-mêmes et le dire
      par une ellipse que laisser le système couper au milieu d'un chiffre. */
   const long = _pushTexte({ headline: 'x'.repeat(400) });
-  v('une dépêche trop longue est coupée', long.body.length <= 178, String(long.body.length));
-  v('… et la coupe se voit', /…$/.test(long.body));
-  v('les retours à la ligne sont aplatis', _pushTexte({ headline: 'a\n\n  b' }).body === 'a b');
+  v('une dépêche trop longue est coupée', premiere(long).length <= 150, String(premiere(long).length));
+  v('… et la coupe se voit', /…$/.test(premiere(long)));
+  v('les retours à la ligne du titre sont aplatis', premiere(_pushTexte({ headline: 'a\n\n  b' })) === 'a b');
   v('un item sans titre ne produit pas de corps fantôme', _pushTexte({}).body === '');
 }
 if (srcClef) {
@@ -165,7 +174,14 @@ console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement
 
   const srcR = fn(SRV, '_pushRouter') || '';
   v('une pause par famille met de côté au lieu de sonner', /_pushAttente\.set\(k, f\)/.test(srcR) && /PUSH_PAUSE_MS\[e\.cat\]/.test(srcR));
-  v('… une dépêche urgente passe malgré la pause', /enPause && !e\.urgent/.test(srcR));
+  v('… une urgence a sa propre pause, courte (une rafale d’urgences ne sonne pas six fois)', /urgente \? PUSH_PAUSE_URGENT_MS/.test(srcR) && +cst(SRV, 'PUSH_PAUSE_URGENT_MS').replace(/\s*\*\s*60e3/, '') * 60e3 <= 3 * 60e3);
+  v('… et la suite d’une histoire déjà notifiée perd son passe-droit', /e\.urgent && !e\.suite/.test(srcR));
+  const sujet = new Function(fn(SRV, '_pushEntites') + '\nconst _pushHistoires = [];\n' + fn(SRV, '_pushMemeSujet') + '\nreturn { _pushEntites, _pushMemeSujet };')();
+  const T = Date.now(), cap = ['US, Iran reach peace deal, signing set for Friday, Pakistan says', 'U.S. and Iran agree on peace deal to end the war, Pakistan Prime Minister Shehbaz Sharif says', 'World leaders welcome U.S.-Iran deal as Europe signals sanctions relief, urges Hormuz reopening', 'ECB\'s Nagel says no inflation relief in sight even if Hormuz Strait reopens soon'];
+  v('capture du 25/09 : la première dépêche ouvre l’histoire', !sujet._pushMemeSujet(sujet._pushEntites(cap[0]), T));
+  v('… la même nouvelle par une autre source est reconnue comme sa suite', sujet._pushMemeSujet(sujet._pushEntites(cap[1]), T + 1000));
+  v('… un sujet sans rapport ouvre sa propre histoire', !sujet._pushMemeSujet(sujet._pushEntites('Bank of Japan keeps rates unchanged, Ueda signals patience'), T + 2000));
+  v('… et 45 minutes plus tard, l’histoire est close', !sujet._pushMemeSujet(sujet._pushEntites(cap[1]), T + 50 * 60e3));
   v('… et ce qui a été mis de côté part en récapitulatif', /_pushResume\(cat, f\.lot\)/.test(fn(SRV, '_pushVider') || '') && /setInterval\(\(\) => \{ _pushVider\(\)/.test(SRV));
   const PAUSE = eval('(' + cst(SRV, 'PUSH_PAUSE_MS') + ')');
   v('un chiffre du calendrier n’attend jamais (chacun est distinct)', PAUSE.eco === 0);
@@ -183,6 +199,16 @@ console.log('\n── 4 bis. Pas d’inondation : doublons, pauses, regroupement
   const tb = new Function('_RISK_NOM', 'return (' + fn(SRV, '_pushTexteBascule') + ');')(_RISK_NOM)('NEUTRAL', { label: 'RISK-OFF', assets: [{ label: 'VIX', chg: 12.4 }, { label: 'S&P 500', chg: -2.1 }, { label: 'Or', chg: 0.4 }, { label: 'AUD', chg: -0.2 }] });
   v('la bascule s’intitule en français', tb.title === 'Sentiment de marché · bascule en risk-off', tb.title);
   v('… et nomme ses trois premiers moteurs', tb.body === 'Le marché passe de neutre à risk-off. Moteurs : VIX +12,4%, S&P 500 -2,1%, Or +0,4%.', tb.body);
+}
+
+console.log('\n── 4 ter. Le desk ne double plus le serveur ──');
+{
+  const i = APP.indexOf('function npPush('), bloc = i >= 0 ? APP.slice(i, APP.indexOf('\n}\n', i)) : '';
+  v('un appareil abonné au Web Push ne reçoit plus la notification du desk (capture du 25/09)', /!_wpActif && !_npCoquille\(\)/.test(bloc));
+  v('… l’état de l’abonnement est relu au chargement', /_wpLireActif\(\)/.test(APP) && /pushManager\.getSubscription\(\)\.then|getSubscription\(\)\)\.then\(sub => \{ _wpActif/.test(APP));
+  v('en repli, le desk écrit au format du serveur (titre rédigé, provenance)', /_npNotifTexte\(hi\)/.test(bloc) && /Fil d’actualité DTP/.test(APP));
+  v('… et ne notifie pas en rafale', /_npNotifSousPause\(hi\)/.test(bloc));
+  v('le titre fixe « DataTradingPro » a disparu', !/showNotification\('DataTradingPro'/.test(APP) && !/new Notification\('DataTradingPro'/.test(APP));
 }
 
 console.log('\n── 5. Le desk et la coquille se parlent vraiment ──');

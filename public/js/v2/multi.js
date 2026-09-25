@@ -97,6 +97,13 @@
       aide: '<p>Une grille de cotations pour les traders qui ne sont pas que sur le forex : or, argent, platine, palladium et cuivre ; pétrole et gaz ; grands indices ; Bitcoin, Ethereum, Solana et XRP ; courbe des taux américaine, dollar index et VIX.</p><p>Chaque ligne donne le dernier prix, la variation depuis la clôture précédente (en points de base pour un rendement), la courbe de la séance et la position du prix dans son range du jour : un repère collé au plus haut dit un marché qui termine fort.</p>',
       src: 'Cotations Yahoo Finance (contrats à terme pour les matières premières, indices au comptant, paires crypto en dollar), relues toutes les 90 secondes, différées selon les places.',
       watch: 'Or et dollar qui montent ensemble (aversion au risque), cuivre contre or (croissance), et le VIX quand il dépasse 20.',
+      // Vignette de la bibliothèque (120×56) : ce que la carte montre vraiment.
+      apercu: '<svg viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"><g font-family="monospace" font-size="6" fill="#9aa1ac"><text x="6" y="12">XAU</text><text x="6" y="25">WTI</text><text x="6" y="38">BTC</text><text x="6" y="51">VIX</text></g>'
+        + '<g fill="none" stroke-width="1.3" stroke-linejoin="round"><path d="M26 11 L32 9 L38 10 L44 7 L50 6" stroke="#00e676"/><path d="M26 20 L32 22 L38 21 L44 24 L50 25" stroke="#ff3d00"/><path d="M26 36 L32 34 L38 35 L44 32 L50 31" stroke="#00e676"/><path d="M26 47 L32 49 L38 46 L44 49 L50 50" stroke="#ff3d00"/></g>'
+        + '<g font-family="monospace" font-size="6" text-anchor="end"><text x="82" y="12" fill="#e6e8ec">2 355</text><text x="82" y="25" fill="#e6e8ec">71,40</text><text x="82" y="38" fill="#e6e8ec">84 320</text><text x="82" y="51" fill="#e6e8ec">16,2</text>'
+        + '<text x="104" y="12" fill="#00e676">+0,8%</text><text x="104" y="25" fill="#ff3d00">-1,2%</text><text x="104" y="38" fill="#00e676">+2,1%</text><text x="104" y="51" fill="#ff3d00">-3,4%</text></g>'
+        + '<g fill="#1c1c21"><rect x="106" y="9" width="10" height="2" rx="1"/><rect x="106" y="22" width="10" height="2" rx="1"/><rect x="106" y="35" width="10" height="2" rx="1"/><rect x="106" y="48" width="10" height="2" rx="1"/></g>'
+        + '<g fill="#e3b23a"><rect x="114" y="8" width="1.2" height="4"/><rect x="107" y="21" width="1.2" height="4"/><rect x="113" y="34" width="1.2" height="4"/><rect x="108" y="47" width="1.2" height="4"/></g></svg>',
       opts: [],
       mount: function (host) { return monter(host); },
     });

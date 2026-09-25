@@ -10654,6 +10654,12 @@ function _spansAffiches(lay) {
        déjà pris est refusé, jamais écrasé. */
     enregistrer: function (w) {
       if (!w || !w.id || typeof w.mount !== 'function' || byId(w.id)) return false;
+      /* APERÇU FOURNI PAR LE WIDGET (25/09, capture user : « Multi-actifs » et « Carte du monde »
+         arrivaient dans la bibliothèque avec une vignette VIDE). La table WPREV ne connaît que les
+         widgets écrits dans ce fichier ; un widget déclaré de l'extérieur apporte donc son propre
+         dessin, au même format (SVG, viewBox 120×56). Seul un SVG est accepté, et jamais par-dessus
+         une vignette existante. */
+      if (typeof w.apercu === 'string' && /^<svg[\s>]/.test(w.apercu) && !WPREV[w.id]) WPREV[w.id] = w.apercu;
       CATALOG.push(w);
       return true;
     },

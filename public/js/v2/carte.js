@@ -546,6 +546,19 @@
       aide: '<p>La carte rattache chaque dépêche du fil au pays qu’elle nomme : plus la teinte est dorée, plus le pays fait l’actualité ; un point qui bat signale une dépêche de moins d’une heure. Un clic sur un pays ouvre sa fiche : devise, banque centrale, actifs exposés avec leur variation du jour, dépêches, et la chaîne d’impact de la plus récente.</p><p>Les couches <strong>Banques centrales</strong>, <strong>Points de passage</strong> et <strong>Ressources</strong> montrent ce qui relie une zone aux marchés : un détroit nommé par l’actualité passe au rouge, et une matière (pétrole, gaz, or, argent, cuivre, blé, minerai de fer, lithium, crypto) éclaire ses grands producteurs.</p>',
       src: 'Fil d’actualité du desk (rattachement par mots-clés relus), /api/rates pour les banques centrales, /api/market-snapshot pour les variations du jour. Producteurs et points de passage : liste qualitative relue, sans classement chiffré.',
       watch: 'Un pays qui s’allume hors de ses habitudes, et un détroit qui passe au rouge : c’est souvent là que l’énergie, les refuges (or, JPY, CHF) et les devises des producteurs se mettent à bouger.',
+      // Vignette de la bibliothèque (120×56) : ce que la carte montre vraiment.
+      apercu: '<svg viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"><g fill="#24242a" stroke="#34343b" stroke-width=".6" stroke-linejoin="round">'
+        + '<path d="M8 12 L22 7 L36 9 L40 15 L33 22 L27 29 L21 26 L14 20 Z"/>'
+        + '<path d="M29 31 L37 32 L39 38 L35 47 L31 52 L29 43 Z"/>'
+        + '<path d="M52 10 L61 8 L64 13 L60 18 L53 18 Z"/>'
+        + '<path d="M53 22 L64 20 L70 27 L67 38 L61 47 L57 41 L53 31 Z"/>'
+        + '<path d="M64 9 L84 6 L100 8 L108 14 L102 22 L92 27 L80 27 L72 22 L66 17 Z"/>'
+        + '<path d="M92 38 L104 36 L109 42 L104 48 L94 46 Z"/></g>'
+        + '<g fill="#e3b23a" fill-opacity=".55"><path d="M14 12 L22 9 L30 11 L30 17 L22 20 L15 17 Z"/><path d="M54 11 L60 10 L61 14 L55 16 Z"/></g>'
+        + '<circle cx="70" cy="23" r="5" fill="#ff3d00" fill-opacity=".18"/><circle cx="70" cy="23" r="1.9" fill="#ff3d00"/>'
+        + '<circle cx="23" cy="15" r="4.5" fill="#e3b23a" fill-opacity=".2"/><circle cx="23" cy="15" r="1.8" fill="#e3b23a"/>'
+        + '<circle cx="57" cy="13" r="1.6" fill="#e3b23a"/><circle cx="100" cy="15" r="1.6" fill="#e3b23a"/><circle cx="100" cy="42" r="1.5" fill="#00e676"/>'
+        + '<path d="M70 23 Q84 12 100 15" fill="none" stroke="#e3b23a" stroke-width=".7" stroke-dasharray="2 1.6" opacity=".7"/></svg>',
       opts: [],
       mount: function (host, it) {
         var cfg = (it && it.cfg) || {};
