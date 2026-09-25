@@ -56,6 +56,10 @@
     banques: 'M4 21V7l8-4 8 4v14M4 21h16M8 10v2M12 10v2M16 10v2M8 15v2M12 15v2M16 15v2',
     cloche: 'M6 17V11a6 6 0 1 1 12 0v6l1.5 2h-15zM10 21h4',
     compte: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
+    photo: 'M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    crayon: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
+    mail: 'M4 6h16v12H4zM4 7l8 6 8-6',
+    cadenas: 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3',
     x: 'M6 6l12 12M18 6L6 18',
     retour: 'M15 5l-7 7 7 7',
     suite: 'M9 5l7 7-7 7',
@@ -888,11 +892,14 @@
   }
   /* Ce qui peut sonner (25/09) : les cinq familles du serveur, le son et le vibreur. Le choix vit sur
      le COMPTE (/api/push-prefs) : il vaut pour le desk, le téléphone et l'app native à la fois. */
-  var PP = { prefs: null, familles: [], charge: false };
+  var PP = { prefs: null, familles: [], banques: [], charge: false };
+  // « Nouveau » pendant trois mois (25/09) : l'étiquette invite à activer, puis disparaît d'elle-même.
+  var NOUVEAU_JUSQUA = Date.UTC(2026, 11, 26);
+  var nouveau = function () { return Date.now() < NOUVEAU_JUSQUA ? '<em class="v2a-neuf">Nouveau</em>' : ''; };
   function ppCharger() {
     if (PP.charge) return; PP.charge = true;
     wpJson('/api/push-prefs').then(function (d) {
-      if (d && d.ok) { PP.prefs = d.prefs; PP.familles = d.familles || []; if (courant === 'compte') RENDUS.compte(true); }
+      if (d && d.ok) { PP.prefs = d.prefs; PP.familles = d.familles || []; PP.banques = d.banquesDispo || []; if (courant === 'compte') RENDUS.compte(true); }
       else PP.charge = false;
     }).catch(function () { PP.charge = false; });
   }
@@ -900,8 +907,21 @@
     if (!PP.prefs) { ppCharger(); return ''; }
     var bascule = function (on, dis) { return '<i class="v2a-bascule' + (on ? ' v2a-on-b' : '') + (dis ? ' v2a-bascule-off' : '') + '"></i>'; };
     var ligneP = function (act, k, nom, desc, on, dis) { return '<button type="button" class="v2a-ligne v2a-choix" data-act="' + act + '"' + (k ? ' data-k="' + k + '"' : '') + (dis ? ' disabled' : '') + '><span class="v2a-choix-t"><b>' + esc(nom) + '</b>' + (desc ? '<small>' + esc(desc) + '</small>' : '') + '</span>' + bascule(on, dis) + '</button>'; };
-    var h = '</div><h3 class="v2a-rubrique">Ce qui peut sonner</h3><div class="v2a-groupe">';
-    PP.familles.forEach(function (f) { h += ligneP('pp', f.k, f.nom, f.desc, PP.prefs.cats.indexOf(f.k) >= 0); });
+    // Sous une famille cochée, ses réglages fins : une rangée de choix, un seul toucher.
+    var segs = function (act, val, opts) { return '<div class="v2a-segs">' + opts.map(function (o) { return '<button type="button" class="v2a-seg-b' + (val === o[0] ? ' on' : '') + '" data-act="' + act + '" data-v="' + esc(o[0]) + '">' + esc(o[1]) + '</button>'; }).join('') + '</div>'; };
+    var fins = function (k) {
+      var p = PP.prefs;
+      if (k === 'news') return segs('ppfil', p.fil || 'tout', [['tout', 'Toutes les importantes'], ['eco', 'Économie'], ['geo', 'Géopolitique']]);
+      if (k === 'analystes') return segs('pprecaps', p.recaps || 'tous', [['tous', 'Tous les récaps'], ['quotidien', 'Quotidiens'], ['hebdo', 'Hebdo']]);
+      if (k === 'banques' && PP.banques.length) {
+        var ch = p.banques || [];
+        return '<div class="v2a-segs v2a-segs--b"><button type="button" class="v2a-seg-b' + (ch.length ? '' : ' on') + '" data-act="ppbanque" data-v="*">Toutes</button>'
+          + PP.banques.map(function (b) { return '<button type="button" class="v2a-seg-b' + (ch.indexOf(b) >= 0 ? ' on' : '') + '" data-act="ppbanque" data-v="' + esc(b) + '">' + esc(b) + '</button>'; }).join('') + '</div>';
+      }
+      return '';
+    };
+    var h = '</div><h3 class="v2a-rubrique">Ce que vous recevez ' + nouveau() + '<small>sur tous vos appareils</small></h3><div class="v2a-groupe">';
+    PP.familles.forEach(function (f) { var on = PP.prefs.cats.indexOf(f.k) >= 0; h += ligneP('pp', f.k, f.nom, f.desc, on) + (on ? fins(f.k) : ''); });
     h += ligneP('ppson', '', 'Son', '', PP.prefs.son);
     h += ligneP('ppvib', '', 'Vibreur', PP.prefs.son ? '' : 'Sans le son, le téléphone ne vibre pas non plus.', PP.prefs.son && PP.prefs.vibreur, !PP.prefs.son);
     h += '<div class="v2a-wp-aide">Seul l’important part : une pause par famille regroupe le reste en une seule notification, et une dépêche urgente passe toujours. Sur iPhone, le son et la vibration suivent aussi les réglages de notifications de l’iPhone.</div>';
@@ -935,7 +955,45 @@
      (Fuseau horaire, Abonnement, Notifications, Préférences, Langue), et Retour ramène au sommaire.
      Les alertes rejoignent la page Notifications. */
   var sousCompte = null;
-  var PAGES_COMPTE = { fuseau: 'Fuseau horaire', abo: 'Abonnement', notifs: 'Notifications', prefs: 'Préférences', langue: 'Langue' };
+  var PAGES_COMPTE = { profil: 'Profil', nom: 'Nom affiché', email: 'Adresse e-mail', mdp: 'Mot de passe', fuseau: 'Fuseau horaire', abo: 'Abonnement', notifs: 'Notifications', prefs: 'Préférences', langue: 'Langue' };
+  /* PROFIL ÉDITABLE (25/09, demande user) : toucher la photo la change (une pastille appareil photo le
+     dit), le nom se modifie sur place ; l'e-mail quitte l'en-tête pour la page « Profil », première du
+     sommaire ; « Identifiants » regroupe nom, e-mail et mot de passe. La photo passe par le sélecteur
+     du desk (#pd-avatar-file) : même recadrage, même poids, même enregistrement sur le compte. */
+  var CPT = { edNom: false, msg: '', err: false };
+  var dateFr = function (d) { try { var x = new Date(d); return isNaN(x) ? '' : x.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { return ''; } };
+  var dateCourte = function (d) { try { var x = new Date(d); return isNaN(x) ? '' : x.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); } catch (e) { return ''; } };
+  function choisirPhoto() {
+    var i = document.getElementById('pd-avatar-file'); if (!i) return;
+    // Le desk met l'avatar à jour à la fin de la lecture : on repeint le Compte juste après.
+    var apres = function () { i.removeEventListener('change', apres); setTimeout(function () { if (courant === 'compte') RENDUS.compte(true); }, 900); };
+    i.addEventListener('change', apres); i.click();
+  }
+  function enregistrerNom(nom) {
+    nom = String(nom || '').replace(/\s+/g, ' ').trim();
+    if (!nom) { CPT.msg = 'Le nom ne peut pas être vide.'; CPT.err = true; RENDUS.compte(true); return; }
+    fetch('/api/auth/me/profile', { method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nom }) })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok && d && d.ok, d: d }; }); })
+      .then(function (x) {
+        if (!x.ok) throw new Error((x.d && x.d.error) || 'Enregistrement impossible.');
+        if (window._pdUser) window._pdUser.name = x.d.name || nom;
+        var h = document.getElementById('pd-hdr-username'); if (h) h.textContent = x.d.name || nom;
+        var c = document.getElementById('pd-name'); if (c) c.value = x.d.name || nom;
+        CPT.edNom = false; CPT.msg = 'Nom enregistré.'; CPT.err = false;
+      })
+      .catch(function (e) { CPT.msg = e.message || 'Enregistrement impossible.'; CPT.err = true; })
+      .then(function () { RENDUS.compte(true); });
+  }
+  function changerMdp(f) {
+    var cur = f.cur.value, n1 = f.n1.value, n2 = f.n2.value;
+    var ko = !cur || !n1 ? 'Remplissez les trois champs.' : n1 !== n2 ? 'Les deux nouveaux mots de passe ne correspondent pas.' : n1.length < 8 ? 'Au moins 8 caractères.' : '';
+    if (ko) { CPT.msg = ko; CPT.err = true; RENDUS.compte(true); return; }
+    fetch('/api/auth/me/password', { method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: cur, newPassword: n1 }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (!d || !d.ok) throw new Error((d && d.error) || 'Changement refusé.'); CPT.msg = 'Mot de passe modifié. Vos autres appareils devront se reconnecter.'; CPT.err = false; })
+      .catch(function (e) { CPT.msg = e.message || 'Changement refusé.'; CPT.err = true; })
+      .then(function () { RENDUS.compte(true); });
+  }
   var FUSEAUX = ['Europe/Paris', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Asia/Tokyo', 'Asia/Dubai', 'UTC'];
   var nomTz = function (tz) { return String(tz || '').replace(/_/g, ' ').replace('/', ' / '); };
   var tzAppareil = function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (x) { return ''; } };
@@ -944,7 +1002,7 @@
   var PLANS = { full: 'Accès complet', pro: 'Professionnel', professionnel: 'Professionnel', premium: 'Premium', trial: 'Essai', essai: 'Essai', basic: 'Essentiel' };
   var nomPlan = function (u) { var p = String(u.planLabel || u.plan || '').trim(); return PLANS[p.toLowerCase()] || (p ? p.charAt(0).toUpperCase() + p.slice(1) : 'Accès DTP'); };
   RENDUS.compte = function (relu) {
-    if (!relu) sousCompte = null;
+    if (!relu) { sousCompte = null; CPT.edNom = false; CPT.msg = ''; }
     var u = window._pdUser || {}, e = ecrans.compte;
     var av = document.getElementById('topbar-avatar');
     var ech = u.expires_at || u.expiresAt;
@@ -955,17 +1013,59 @@
     var h = '';
     if (!sousCompte) {
       var notifsOn = WP.etat === 'actif' || (WP.etat === 'impossible' && !!window.ReactNativeWebView);
-      h = '<div class="v2a-profil"><div class="v2a-profil-av">' + (av ? av.innerHTML : '') + '</div><b>' + esc(u.name || u.username || 'Mon compte') + '</b><span>' + esc(u.email || '') + '</span></div>'
-        + '<div class="v2a-groupe">'
+      var nom = u.name || u.username || 'Mon compte';
+      h = '<div class="v2a-profil">'
+        + '<button type="button" class="v2a-profil-ph" data-act="photo" aria-label="Changer la photo de profil"><span class="v2a-profil-av">' + (av ? av.innerHTML : '') + '</span>'
+        + '<i class="v2a-profil-cam">' + svg(I.photo, 13, 2) + '</i></button>'
+        + (CPT.edNom
+          ? '<form class="v2a-profil-ed" data-form="nom"><input class="v2a-champ" name="nom" maxlength="80" value="' + esc(nom) + '" autocomplete="name" aria-label="Votre nom"><button type="submit" class="v2a-mini-ok">OK</button></form>'
+          : '<button type="button" class="v2a-profil-nom" data-act="nom"><b>' + esc(nom) + '</b>' + svg(I.crayon, 14, 2) + '</button>')
+        + '<span class="v2a-profil-plan">' + esc(nomPlan(u)) + '</span>'
+        + (CPT.msg ? '<div class="v2a-wp-msg' + (CPT.err ? ' v2a-wp-err' : '') + '">' + esc(CPT.msg) + '</div>' : '') + '</div>'
+        + '<h3 class="v2a-rubrique">Profil</h3><div class="v2a-groupe">'
+        + ligne(I.compte, 'Informations personnelles', 'page:profil')
+        + '</div>'
+        + '<h3 class="v2a-rubrique">Identifiants</h3><div class="v2a-groupe">'
+        + ligne(I.crayon, 'Nom affiché', 'page:nom', valeur(nom))
+        + ligne(I.mail, 'Adresse e-mail', 'page:email', valeur(u.email || ''))
+        + ligne(I.cadenas, 'Mot de passe', 'page:mdp', valeur('••••••••'))
+        + '</div>'
+        + '<h3 class="v2a-rubrique">Réglages</h3><div class="v2a-groupe">'
         + ligne(I.horloge, 'Fuseau horaire', 'page:fuseau', valeur(nomTz(tzChoisi())))
-        + ligne(I.carte, 'Abonnement', 'page:abo', valeur(nomPlan(u)))
-        + ligne(I.cloche, 'Notifications', 'page:notifs', valeur(notifsOn ? 'Activées' : 'Désactivées'))
+        + ligne(I.carte, 'Abonnement', 'page:abo', valeur(ech ? 'Jusqu’au ' + dateCourte(ech) : nomPlan(u)))
+        + ligne(I.cloche, 'Notifications ' + nouveau(), 'page:notifs', valeur(notifsOn ? 'Activées' : 'Désactivées'))
         + ligne(I.etoile, 'Préférences', 'page:prefs')
         + ligne(I.langue, 'Langue', 'page:langue', valeur((LANGUES.filter(function (l) { return l[0] === langue(); })[0] || LANGUES[0])[1]))
         + '</div>'
         + (window._pdIsAdmin ? '<h3 class="v2a-rubrique">Administration</h3><div class="v2a-groupe">' + ligne('M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z', 'Panneau d’administration', 'admin') + '</div>' : '')
         + '<h3 class="v2a-rubrique">Assistance</h3><div class="v2a-groupe">' + ligne(I.bulle, 'Écrire au support DTP', 'support') + '</div>'
         + '<button type="button" class="v2a-sortie" data-act="sortie">' + svg(I.sortie, 20) + 'Se déconnecter</button>';
+    } else if (sousCompte === 'profil') {
+      var kvp = function (k, v) { return v ? '<div class="v2a-kv"><span>' + k + '</span><b>' + esc(v) + '</b></div>' : ''; };
+      h = '<div class="v2a-profil v2a-profil--page"><button type="button" class="v2a-profil-ph" data-act="photo" aria-label="Changer la photo de profil"><span class="v2a-profil-av">' + (av ? av.innerHTML : '') + '</span>'
+        + '<i class="v2a-profil-cam">' + svg(I.photo, 13, 2) + '</i></button><button type="button" class="v2a-lien" data-act="photo">Changer la photo</button></div>'
+        + '<div class="v2a-groupe v2a-fiche">'
+        + kvp('Nom', u.name || u.username || '') + kvp('Adresse e-mail', u.email || '') + kvp('Formule', nomPlan(u))
+        + kvp('Membre depuis le', dateFr(u.createdAt)) + kvp(ech && new Date(ech) >= new Date() ? 'Accès jusqu’au' : 'Échu le', ech ? dateFr(ech) : '')
+        + '</div><div class="v2a-groupe">' + ligne(I.crayon, 'Modifier mes identifiants', 'page:nom') + '</div>';
+    } else if (sousCompte === 'nom') {
+      h = '<form class="v2a-form" data-form="nomp"><label class="v2a-lbl" for="v2a-nom">Nom affiché</label>'
+        + '<input class="v2a-champ" id="v2a-nom" name="nom" maxlength="80" autocomplete="name" value="' + esc(u.name || '') + '">'
+        + '<button type="submit" class="v2a-bouton">Enregistrer</button></form>'
+        + (CPT.msg ? '<div class="v2a-wp-msg' + (CPT.err ? ' v2a-wp-err' : '') + '">' + esc(CPT.msg) + '</div>' : '')
+        + '<div class="v2a-wp-aide">C’est le nom qui s’affiche sur votre profil et dans vos échanges avec le support.</div>';
+    } else if (sousCompte === 'email') {
+      h = '<div class="v2a-groupe v2a-fiche"><div class="v2a-kv"><span>Adresse actuelle</span><b>' + esc(u.email || '') + '</b></div></div>'
+        + '<div class="v2a-wp-aide">Votre adresse e-mail est votre identifiant de connexion et le lien avec votre abonnement. Pour la changer sans interrompre votre accès, le support la met à jour pour vous, en général dans la journée.</div>'
+        + '<div class="v2a-groupe">' + ligne(I.bulle, 'Demander le changement d’adresse', 'support') + '</div>';
+    } else if (sousCompte === 'mdp') {
+      h = '<form class="v2a-form" data-form="mdp">'
+        + '<label class="v2a-lbl" for="v2a-mdp0">Mot de passe actuel</label><input class="v2a-champ" id="v2a-mdp0" name="cur" type="password" autocomplete="current-password">'
+        + '<label class="v2a-lbl" for="v2a-mdp1">Nouveau mot de passe</label><input class="v2a-champ" id="v2a-mdp1" name="n1" type="password" autocomplete="new-password" minlength="8">'
+        + '<label class="v2a-lbl" for="v2a-mdp2">Confirmer le nouveau mot de passe</label><input class="v2a-champ" id="v2a-mdp2" name="n2" type="password" autocomplete="new-password" minlength="8">'
+        + '<button type="submit" class="v2a-bouton">Changer le mot de passe</button></form>'
+        + (CPT.msg ? '<div class="v2a-wp-msg' + (CPT.err ? ' v2a-wp-err' : '') + '">' + esc(CPT.msg) + '</div>' : '')
+        + '<div class="v2a-wp-aide">Au moins 8 caractères, avec majuscule, minuscule, chiffre et caractère spécial. Les autres appareils connectés devront se reconnecter.</div>';
     } else if (sousCompte === 'fuseau') {
       var tzA = tzAppareil(), liste = FUSEAUX.slice();
       if (tzA && liste.indexOf(tzA) < 0) liste.unshift(tzA);
@@ -980,6 +1080,7 @@
       h = '<div class="v2a-groupe v2a-fiche">'
         + kv('Formule', nomPlan(u))
         + kv('Statut', statut, u.active ? 'v2a-ok' : 'v2a-ko')
+        + (u.createdAt ? kv('Abonné depuis le', dateFr(u.createdAt)) : '')
         + (fin ? kv(jours >= 0 ? 'Prochaine échéance' : 'Échu le', fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })) : '')
         + (jours != null && jours >= 0 ? kv('Jours restants', String(jours)) : '')
         + '</div>'
@@ -1000,7 +1101,9 @@
     e.scrollTop = 0;
     e.onclick = function (ev) {
       var b = ev.target.closest('[data-act]'); if (!b) return; var a = b.dataset.act; if (a === 'rien') return; vibre();
-      if (a.indexOf('page:') === 0) { sousCompte = a.slice(5); RENDUS.compte(true); return; }
+      if (a.indexOf('page:') === 0) { sousCompte = a.slice(5); CPT.msg = ''; RENDUS.compte(true); return; }
+      if (a === 'photo') { choisirPhoto(); return; }
+      if (a === 'nom') { CPT.edNom = true; CPT.msg = ''; RENDUS.compte(true); var ch = e.querySelector('.v2a-profil-ed input'); if (ch) { ch.focus(); ch.select(); } return; }
       if (a === 'tz') { try { localStorage.setItem('dtp_tz', b.dataset.tz); } catch (x) {} var s0 = document.getElementById('pd-timezone'); if (s0) { if (![].some.call(s0.options, function (o) { return o.value === b.dataset.tz; })) s0.add(new Option(b.dataset.tz, b.dataset.tz)); s0.value = b.dataset.tz; appel('pdUpdateClock'); } RENDUS.compte(true); return; }
       if (a === 'lg') { var l = LANGUES.filter(function (x) { return x[0] === b.dataset.lg; })[0]; if (l && l[0] !== langue()) appel('pdLangPick', l[0], l[1], l[2]); return; }
       if (a === 'whop') { window.open('https://whop.com/@me/settings/memberships/', '_blank', 'noopener'); return; }
@@ -1009,9 +1112,12 @@
       else if (a === 'admin') ouvrirAdmin();
       else if (a === 'son') { appel('npToggleEnabled'); RENDUS.compte(true); }
       else if (a === 'v2') { var s = document.getElementById('v2-interrupteur'); if (s) s.click(); }
-      else if (a === 'pp' || a === 'ppson' || a === 'ppvib') {
+      else if (a === 'pp' || a === 'ppson' || a === 'ppvib' || a === 'ppfil' || a === 'pprecaps' || a === 'ppbanque') {
         if (!PP.prefs || b.disabled) return;
-        if (a === 'pp') { var k = b.dataset.k, i = PP.prefs.cats.indexOf(k); if (i >= 0) PP.prefs.cats.splice(i, 1); else PP.prefs.cats.push(k); }
+        if (a === 'ppfil') PP.prefs.fil = b.dataset.v;
+        else if (a === 'pprecaps') PP.prefs.recaps = b.dataset.v;
+        else if (a === 'ppbanque') { var l = PP.prefs.banques || [], x = b.dataset.v; PP.prefs.banques = x === '*' ? [] : (l.indexOf(x) >= 0 ? l.filter(function (y) { return y !== x; }) : l.concat(x)); }
+        else if (a === 'pp') { var k = b.dataset.k, i = PP.prefs.cats.indexOf(k); if (i >= 0) PP.prefs.cats.splice(i, 1); else PP.prefs.cats.push(k); }
         else if (a === 'ppson') PP.prefs.son = !PP.prefs.son;
         else PP.prefs.vibreur = !PP.prefs.vibreur;
         wpJson('/api/push-prefs', PP.prefs);
@@ -1025,6 +1131,12 @@
         RENDUS.compte(true);
         suite.catch(function (x) { WP.message = (x && x.message) || 'Échec.'; WP.erreur = true; }).then(function () { RENDUS.compte(true); });
       }
+    };
+    e.onsubmit = function (ev) {
+      var f = ev.target.closest('form[data-form]'); if (!f) return;
+      ev.preventDefault(); vibre();
+      if (f.dataset.form === 'nom' || f.dataset.form === 'nomp') enregistrerNom(f.nom.value);
+      else if (f.dataset.form === 'mdp') changerMdp(f);
     };
     // État réel de l'abonnement, relu à chaque ouverture (l'utilisateur a pu couper dans les réglages).
     if (!relu) wpLireEtat().then(function () { if (e.isConnected) RENDUS.compte(true); });

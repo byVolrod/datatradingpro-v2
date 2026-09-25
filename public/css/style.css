@@ -10377,9 +10377,25 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
 .np-wp-row[hidden] { display: none; }
 .np-wp-txt { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.4; color: #9ca3af; }
 .np-wp-txt.np-wp-err { color: #ff8a65; }
-.np-pp { padding: 8px 14px 10px; border-bottom: 1px solid var(--border); }
+.np-pp { padding: 0 14px; border-bottom: 1px solid var(--border); }
 .np-pp[hidden] { display: none; }
-.np-pp-titre { font-size: 11px; font-weight: 600; color: #c2c6cd; margin-bottom: 7px; }
+/* Menu déroulant (25/09) : une ligne repliée, son résumé à droite, le détail au clic. */
+.np-pp-titre { display: flex; align-items: center; gap: 7px; min-height: 34px; font-size: 11.5px; font-weight: 600; color: #c2c6cd; cursor: pointer; list-style: none; user-select: none; }
+.np-pp-titre::-webkit-details-marker { display: none; }
+.np-pp-titre:hover { color: #ececf0; }
+.np-pp-resume { margin-left: auto; font-size: 10.5px; font-weight: 500; color: #6f6f78; }
+.np-pp-chev { flex: 0 0 auto; color: #8b8b95; transition: transform .18s ease; }
+.np-pp[open] .np-pp-chev { transform: rotate(180deg); }
+.np-pp-corps { padding: 2px 0 10px; }
+.np-neuf { font-style: normal; font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #0c0c0e; background: #e3b23a; border-radius: 3px; padding: 2px 5px; }
+.np-neuf[hidden] { display: none; }
+.np-pp-fins { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+.np-pp-fins[hidden] { display: none; }
+.np-pp-fin { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.np-pp-fin > span { flex: 0 0 52px; font-size: 10.5px; color: #6f6f78; }
+.np-pp-s { padding: 3px 8px; border: 1px solid var(--border2); border-radius: 12px; background: transparent; color: #8b8b95; font-size: 10.5px; cursor: pointer; }
+.np-pp-s:hover { color: #e6e6ea; }
+.np-pp-s.on { border-color: rgba(227,178,58,.55); background: rgba(227,178,58,.1); color: #e3b23a; }
 .np-pp-liste, .np-pp-opts { display: flex; flex-wrap: wrap; gap: 5px; }
 .np-pp-opts { margin-top: 7px; align-items: center; }
 .np-pp-f, .np-pp-o { padding: 4px 9px; border: 1px solid var(--border2); border-radius: 4px; background: transparent; color: #8b8b95; font-size: 11px; font-weight: 500; cursor: pointer; }

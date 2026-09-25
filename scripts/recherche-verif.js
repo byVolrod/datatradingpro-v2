@@ -29,6 +29,28 @@ const v = (nom, cond, detail) => { if (cond) { ok++; console.log('  ✓ ' + nom)
    sur la Russie. On rejoue le VRAI `_rechercheCorrespond` d'app.js (tranche extraite, pas une copie)
    sur des dépêches du fil telles que le serveur les livre : titre d'origine anglais, titre français
    d'affichage, parfois sans source. Chaque contrôle est un cas que l'ancien filtre ratait. */
+console.log('\n── Recherche multi-actifs V3 (vrai module v2/recherche-actifs.js) ──');
+{
+  const src = fs.readFileSync(path.join(PUB, 'js/v2/recherche-actifs.js'), 'utf8');
+  const win = {}, doc = { getElementById: () => ({}), head: { appendChild() {} }, createElement: () => ({}) };
+  new Function('window', 'document', src)(win, doc);
+  const R = win.DTPRechercheActifs;
+  v('le module se charge et expose sa recherche', !!(R && R.chercher && R.sections));
+  if (R) {
+    const top = q => (R.chercher(q)[0] || {}).code, cl = q => (R.chercher(q)[0] || {}).cl;
+    v('« sp » trouve le S&P 500 (capture : « Aucune paire »)', top('sp') === 'US500' && cl('sp') === 'indices');
+    v('« nasdaq » et « US100 » → Nasdaq 100, rangé en Indices', top('nasdaq') === 'US100' && top('US100') === 'US100');
+    v('« AAPL » → Actions ; « BTC » → Crypto ; « XAUUSD » → Métaux', cl('AAPL') === 'actions' && cl('btc') === 'crypto' && cl('XAUUSD') === 'metaux');
+    v('« pétrole » trouve le Brent et le WTI (accents ignorés)', R.chercher('pétrole').map(a => a.code).sort().join() === 'BRENT,WTI');
+    v('deux lettres ne cherchent qu\'un début (« as » ne trouve pas « Nasdaq »)', !R.chercher('as').some(a => a.code === 'US100'));
+    v('la barre de filtres propose les six classes', ['Forex', 'Indices', 'Actions', 'Métaux', 'Énergie', 'Crypto'].every(c => R.sections('sp', '', 0).includes('>' + c + '<')));
+    R.filtrer('crypto');
+    v('un filtre de classe ne garde que sa classe', /data-actif="BTCUSD"/.test(R.sections('', '', 0)) && !/data-actif="US500"/.test(R.sections('', '', 0)));
+    R.filtrer('tout');
+    v('rien ne correspond : un message dit lequel', /Aucun actif ne correspond/.test(R.sections('zzzz', '', 0)));
+  }
+}
+
 console.log('\n── Recherche du fil par mots-clés (vrai code d\'app.js) ──');
 {
   const src = fs.readFileSync(path.join(PUB, 'js/app.js'), 'utf8');

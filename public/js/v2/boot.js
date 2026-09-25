@@ -58,6 +58,11 @@
     var wv = document.createElement('script');
     wv.src = '/js/v2/widgets-v3.js?v=' + VER; wv.defer = true;
     document.head.appendChild(wv);
+    // Recherche multi-actifs (V3) : la barre de recherche reconnaît indices, actions, métaux, énergie
+    // et crypto, rangés par classe, et ouvre la fiche d'un actif (graphique, cotation, dépêches).
+    var ra = document.createElement('script');
+    ra.src = '/js/v2/recherche-actifs.js?v=' + VER; ra.defer = true;
+    document.head.appendChild(ra);
     // Neuro-ondes (V3) : ambiances sonores générées (battements binauraux), widget de la bibliothèque.
     var ne = document.createElement('script');
     ne.src = '/js/v2/neuro.js?v=' + VER; ne.defer = true;

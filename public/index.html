@@ -44,7 +44,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ : plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260925bbg1257" />
+  <link rel="stylesheet" href="/css/style.css?v=20260925bbg1258" />
 
   <!-- ══ SENTINELLE DE LA FEUILLE DE STYLES — LE DESK NE PEUT PLUS S'AFFICHER NU (09/09) ═════════
        DEUX MEMBRES ONT VU LE DESK EN HTML BRUT À LA CONNEXION. La feuille pèse 1,4 Mo : entre le
@@ -193,7 +193,7 @@
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
   <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script defer src="/js/noinspect.js?v=20260925bbg1257"></script>
+  <script defer src="/js/noinspect.js?v=20260925bbg1258"></script>
 </head>
 <body>
 
@@ -1113,18 +1113,18 @@
   </div>
 </div>
 
-<script defer src="/js/jspdf.umd.min.js?v=20260925bbg1257"></script>
-<script defer src="/js/app.js?v=20260925bbg1257"></script>
-<script defer src="/js/charts.js?v=20260925bbg1257"></script>
-<script defer src="/js/sessionmap.js?v=20260925bbg1257"></script>
+<script defer src="/js/jspdf.umd.min.js?v=20260925bbg1258"></script>
+<script defer src="/js/app.js?v=20260925bbg1258"></script>
+<script defer src="/js/charts.js?v=20260925bbg1258"></script>
+<script defer src="/js/sessionmap.js?v=20260925bbg1258"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js, il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260925bbg1257"></script>
-<script defer src="/js/home.js?v=20260925bbg1257"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
-<script defer src="/js/perf-beacon.js?v=20260925bbg1257"></script><!-- Instrumentation PASSIVE de la navigation (chrono par vue + API, doublons, tâches longues) → panneau Performance admin. N'interfère jamais. -->
+<script defer src="/js/widgets.js?v=20260925bbg1258"></script>
+<script defer src="/js/home.js?v=20260925bbg1258"></script><!-- Espace d'accueil « workstation » (v1 admin volrod.dev, À CHAQUE CONNEXION) -->
+<script defer src="/js/perf-beacon.js?v=20260925bbg1258"></script><!-- Instrumentation PASSIVE de la navigation (chrono par vue + API, doublons, tâches longues) → panneau Performance admin. N'interfère jamais. -->
 
-<script defer src="/js/i18n-dicts.js?v=20260925bbg1257"></script>
-<script defer src="/js/i18n.js?v=20260925bbg1257"></script>
+<script defer src="/js/i18n-dicts.js?v=20260925bbg1258"></script>
+<script defer src="/js/i18n.js?v=20260925bbg1258"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -2096,16 +2096,22 @@
   <div class="np-wp-row" id="np-wp-row" hidden>
     <span class="np-wp-txt" id="np-wp-txt">Alertes sur cet appareil, même navigateur fermé et écran verrouillé.</span>
   </div>
-  <!-- Choix des notifications du téléphone (25/09) : cinq familles, son et vibreur, par compte. -->
-  <div class="np-pp" id="np-pp" hidden>
-    <div class="np-pp-titre">Ce qui peut sonner sur votre téléphone</div>
-    <div class="np-pp-liste" id="np-pp-liste" onclick="npPpClic(event)"></div>
-    <div class="np-pp-opts" onclick="npPpClic(event)">
-      <button type="button" class="np-pp-o" id="np-pp-son" data-o="son">Son</button>
-      <button type="button" class="np-pp-o" id="np-pp-vib" data-o="vibreur">Vibreur</button>
-      <span class="np-pp-note">Seul l’important part : une pause par famille regroupe le reste en une notification.</span>
+  <!-- Choix des notifications (25/09) : cinq familles, réglages fins, son et vibreur. Le choix vit sur
+       le COMPTE : il vaut pour l'ordinateur, le téléphone et l'application. Replié par défaut (menu
+       déroulant) pour ne pas prendre la place du fil d'alertes ; son résumé tient sur la ligne. -->
+  <details class="np-pp" id="np-pp" hidden>
+    <summary class="np-pp-titre"><span>Notifications</span><em class="np-neuf" id="np-pp-neuf" hidden>Nouveau</em><small class="np-pp-resume" id="np-pp-resume"></small>
+      <svg class="np-pp-chev" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2.5 3.8L5 6.3l2.5-2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+    <div class="np-pp-corps" onclick="npPpClic(event)">
+      <div class="np-pp-liste" id="np-pp-liste"></div>
+      <div class="np-pp-fins" id="np-pp-fins"></div>
+      <div class="np-pp-opts">
+        <button type="button" class="np-pp-o" id="np-pp-son" data-o="son">Son</button>
+        <button type="button" class="np-pp-o" id="np-pp-vib" data-o="vibreur">Vibreur</button>
+        <span class="np-pp-note">Vaut pour tous vos appareils : ordinateur, téléphone et application. Seul l’important part : une pause par famille regroupe le reste en une notification.</span>
+      </div>
     </div>
-  </div>
+  </details>
 
   <!-- Filter tabs -->
   <div class="np-tabs-bar">

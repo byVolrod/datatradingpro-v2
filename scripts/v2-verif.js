@@ -218,6 +218,11 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
     if (/^\/(js|css)\/v2\//.test(u)) { vus.push(u); if (SC.role !== 'admin') { rs.writeHead(404); return rs.end(); } }
     if (u === '/api/auth/me') return j({ loggedIn: true, user: { id: 'u-' + SC.role, email: 'x@y.z', name: 'Essai', role: SC.role, plan: 'professionnel', active: true }, loginAt: Date.now(), feat: {}, v2: SC.role === 'admin' });
     if (u === '/api/ui-prefs') return j(SC.v2 ? { src: 'kv', prefs: { v2: SC.v2 } } : { src: 'defaut', prefs: {} });
+    if (u === '/api/push-prefs' && rq.method === 'GET') return j({ ok: true, prefs: { cats: ['news', 'eco', 'risque', 'banques', 'analystes'], son: true, vibreur: true, fil: 'tout', recaps: 'tous', banques: [] },
+      banquesDispo: ['Goldman Sachs', 'ING'], familles: [{ k: 'news', nom: 'Actualités majeures', desc: '' }, { k: 'eco', nom: 'Calendrier économique', desc: '' }, { k: 'risque', nom: 'Sentiment de risque', desc: '' }, { k: 'banques', nom: 'Rapports de banques', desc: '' }, { k: 'analystes', nom: 'Récaps et rapports d’analystes', desc: '' }] });
+    if ((u === '/api/push-prefs' || u === '/api/auth/me/profile' || u === '/api/auth/me/password') && rq.method !== 'GET') {
+      let corps = ''; rq.on('data', c => { corps += c; }); rq.on('end', () => { (global.__envois = global.__envois || []).push({ u, corps });
+        j(u === '/api/auth/me/profile' ? { ok: true, name: (JSON.parse(corps || '{}').name || '') } : { ok: true }); }); return; }
     if (u === '/api/risk-sentiment') return j(RISQUE);
     if (u === '/api/currency-strength') return j(FORCE);
     if (u === '/api/admin/data-health') return SC.role === 'admin' ? j(SANTE) : (rs.writeHead(403), rs.end());
@@ -392,23 +397,59 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       v('la cloche ouvre la feuille Alertes : Tout · Rapports · Actu · Calendrier, sans ouvrir le panneau du desk', al.ouverte && al.filtres === 'Tout,Rapports,Actu,Calendrier' && !al.deskOuvert, JSON.stringify(al));
       await aller('.v2a-alertes .v2a-x');
       await aller('#v2a-compte');
-      const cp = await page.evaluate(() => ({ ecran: ((document.querySelector('.v2a-ecran.v2a-visible') || {}).dataset || {}).ecran, sortie: !!document.querySelector('.v2a-sortie'), mail: /x@y\.z/.test((document.querySelector('.v2a-profil') || {}).innerText || ''), retour: !document.getElementById('v2a-retour').hidden }));
-      v('le bouton compte ouvre l\'écran Compte (profil, sections, déconnexion) avec Retour', cp.ecran === 'compte' && cp.sortie && cp.mail && cp.retour, JSON.stringify(cp));
+      const cp = await page.evaluate(() => ({ ecran: ((document.querySelector('.v2a-ecran.v2a-visible') || {}).dataset || {}).ecran, sortie: !!document.querySelector('.v2a-sortie'),
+        mailEnTete: /x@y\.z/.test((document.querySelector('.v2a-profil') || {}).innerText || ''), retour: !document.getElementById('v2a-retour').hidden,
+        photo: !!document.querySelector('.v2a-profil [data-act="photo"] .v2a-profil-cam'), crayon: !!document.querySelector('.v2a-profil [data-act="nom"]'),
+        rubriques: [...document.querySelectorAll('.v2a-ecran[data-ecran="compte"] .v2a-rubrique')].map(r => r.firstChild.textContent.trim()).join(',') }));
+      v('le bouton compte ouvre l\'écran Compte (profil, sections, déconnexion) avec Retour', cp.ecran === 'compte' && cp.sortie && cp.retour, JSON.stringify(cp));
+      // 25/09 : « toucher la photo pour la modifier (montrer que c'est modifiable), le nom modifiable, pas
+      // l'e-mail sous le nom ; Profil en premier ; une catégorie à part pour e-mail, mot de passe, nom ».
+      v('… la photo porte sa pastille « modifier », le nom son crayon, l\'e-mail a quitté l\'en-tête', cp.photo && cp.crayon && !cp.mailEnTete, JSON.stringify(cp));
+      v('… « Profil » vient en premier, puis « Identifiants »', /^Profil,Identifiants/.test(cp.rubriques), cp.rubriques);
+      const ed = await page.evaluate(async () => {
+        const pause = ms => new Promise(r => setTimeout(r, ms)), ec = document.querySelector('.v2a-ecran[data-ecran="compte"]');
+        ec.querySelector('[data-act="nom"]').click(); await pause(120);
+        const ch = ec.querySelector('.v2a-profil-ed input'); if (!ch) return { champ: false };
+        ch.value = 'Nouveau Nom'; ch.form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await pause(400);
+        return { champ: true, affiche: (ec.querySelector('.v2a-profil-nom b') || {}).textContent, envoi: (window.__envoisVus || null) };
+      });
+      const envNom = (global.__envois || []).find(x => x.u === '/api/auth/me/profile');
+      v('le nom se modifie sur place et part au serveur', ed.champ && ed.affiche === 'Nouveau Nom' && envNom && /Nouveau Nom/.test(envNom.corps), JSON.stringify(ed) + ' · ' + JSON.stringify(envNom));
       await capture('compte');
       /* COMPTE EN PAGES (25/09, « quand je clique ça ne marche pas ») : chaque ligne du sommaire ouvre
          sa page, et Retour ramène au sommaire (pas à l'onglet d'avant). */
       const cpg = await page.evaluate(async () => {
         const pause = ms => new Promise(r => setTimeout(r, ms)), ec = document.querySelector('.v2a-ecran[data-ecran="compte"]'), out = {};
-        for (const p of ['fuseau', 'abo', 'notifs', 'prefs', 'langue']) {
+        for (const p of ['profil', 'nom', 'email', 'mdp', 'fuseau', 'abo', 'notifs', 'prefs', 'langue']) {
           const b = ec.querySelector('[data-act="page:' + p + '"]'); if (!b) { out[p] = 'absente'; continue; }
           b.click(); await pause(150);
-          const t = document.getElementById('v2a-titre').textContent, n = ec.querySelectorAll('.v2a-ligne, .v2a-kv').length;
+          const t = document.getElementById('v2a-titre').textContent, n = ec.querySelectorAll('.v2a-ligne, .v2a-kv, .v2a-form').length;
           document.getElementById('v2a-retour').click(); await pause(150);
           out[p] = t + ':' + (n > 0) + ':' + (document.getElementById('v2a-titre').textContent === 'Compte' && !!ec.querySelector('[data-act="page:fuseau"]'));
         }
         return out;
       });
-      v('le sommaire du Compte ouvre ses cinq pages, et Retour y ramène', JSON.stringify(cpg) === JSON.stringify({ fuseau: 'Fuseau horaire:true:true', abo: 'Abonnement:true:true', notifs: 'Notifications:true:true', prefs: 'Préférences:true:true', langue: 'Langue:true:true' }), JSON.stringify(cpg));
+      v('le sommaire du Compte ouvre ses neuf pages, et Retour y ramène', JSON.stringify(cpg) === JSON.stringify({ profil: 'Profil:true:true', nom: 'Nom affiché:true:true', email: 'Adresse e-mail:true:true', mdp: 'Mot de passe:true:true', fuseau: 'Fuseau horaire:true:true', abo: 'Abonnement:true:true', notifs: 'Notifications:true:true', prefs: 'Préférences:true:true', langue: 'Langue:true:true' }), JSON.stringify(cpg));
+      // Notifications : réglages fins sous les familles cochées, étiquette « Nouveau », choix envoyé au compte.
+      const nf = await page.evaluate(async () => {
+        const pause = ms => new Promise(r => setTimeout(r, ms)), ec = document.querySelector('.v2a-ecran[data-ecran="compte"]');
+        ec.querySelector('[data-act="page:notifs"]').click(); await pause(500);
+        const fins = [...ec.querySelectorAll('.v2a-seg-b')].map(b => b.textContent);
+        const geo = [...ec.querySelectorAll('[data-act="ppfil"]')].find(b => b.dataset.v === 'geo'); if (geo) geo.click(); await pause(300);
+        const on = (ec.querySelector('[data-act="ppfil"].on') || {}).dataset;
+        const r = { fins, neuf: !!ec.querySelector('.v2a-neuf'), actif: on && on.v, tester: /test/i.test(ec.innerText) };
+        document.getElementById('v2a-retour').click(); await pause(150);
+        return r;
+      });
+      const envPP = (global.__envois || []).filter(x => x.u === '/api/push-prefs').pop();
+      v('Notifications : type de dépêches, rythme des récaps, banques au choix, sous leur famille', ['Géopolitique', 'Quotidiens', 'Hebdo', 'Goldman Sachs', 'ING'].every(x => nf.fins.includes(x)), JSON.stringify(nf));
+      v('… étiquette « Nouveau », plus de notification test', nf.neuf && !nf.tester, JSON.stringify(nf));
+      v('… un toucher enregistre le choix sur le compte', nf.actif === 'geo' && envPP && /"fil":"geo"/.test(envPP.corps), envPP && envPP.corps);
+      if (process.env.V2_CAPTURES) for (const pg of ['notifs', 'profil', 'mdp']) {
+        await page.evaluate(p => document.querySelector('.v2a-ecran[data-ecran="compte"] [data-act="page:' + p + '"]').click(), pg);
+        await new Promise(z => setTimeout(z, 350)); await capture('compte-' + pg);
+        await page.evaluate(() => document.getElementById('v2a-retour').click()); await new Promise(z => setTimeout(z, 200));
+      }
       /* L'ACCUEIL DU DESK NE COUVRE JAMAIS L'APP (25/09, « rien ne s'affiche » dans Banques/Analystes) :
          body.home-mode masque toutes les vues du desk ; l'app doit le lever dès qu'il apparaît. */
       await page.evaluate(() => { document.body.classList.add('home-mode'); const d = document.createElement('div'); d.id = 'dtp-home'; document.body.appendChild(d); });
@@ -492,6 +533,30 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       v('… sans repère F1, F2… ni « Fiche de faits »', bf && bf.cites === 0 && bf.fiche === 0 && !/\bF\d+\b/.test(bf.t) && !/fiche de faits|faits sourcés|écarté/i.test(bf.t), JSON.stringify(bf));
       await page.keyboard.press('Escape');
       v('Échap referme la feuille', await page.evaluate(() => !document.getElementById('v2a-bf')));
+
+      console.log('\n── 7 bis. V3 · recherche multi-actifs dans la barre du desk ──');
+      // Capture du 25/09 : « sp » → « Aucune paire ». On tape comme un utilisateur, puis on ouvre la fiche.
+      const tape = async q => page.evaluate(async q => {
+        const i = document.getElementById('topbar-symbol-input'); if (!i) return null;
+        i.focus(); i.value = q; i.dispatchEvent(new Event('input', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 150));
+        const dd = document.getElementById('sym-dd');
+        return { txt: dd.innerText, puces: [...dd.querySelectorAll('.sym-dd-puce')].map(b => b.textContent), actifs: [...dd.querySelectorAll('[data-actif]')].map(r => r.dataset.actif), paires: [...dd.querySelectorAll('[data-pair]')].map(r => r.dataset.pair) };
+      }, q);
+      await page.waitForFunction(() => !!window.DTPRechercheActifs, { timeout: 8000 }).catch(() => {});
+      const r1 = await tape('sp');
+      v('« sp » trouve le S&P 500, rangé en Indices, avec la barre de filtres', r1 && r1.actifs[0] === 'US500' && /Indices/.test(r1.txt) && r1.puces.join() === 'Tout,Forex,Indices,Actions,Métaux,Énergie,Crypto' && !/Aucune paire/.test(r1.txt), JSON.stringify(r1));
+      const r2 = await tape('eurusd');
+      v('… une paire de devises reste en tête, dans « Forex »', r2 && r2.paires[0] === 'EURUSD' && /Forex/.test(r2.txt), JSON.stringify(r2 && r2.paires));
+      const r3 = await tape('xau');
+      v('… l\'or se range en Métaux (et une seule fois)', r3 && r3.actifs.includes('XAUUSD') && !r3.paires.includes('XAUUSD'), JSON.stringify(r3));
+      await tape('aapl');
+      await page.evaluate(() => { const r = document.querySelector('#sym-dd [data-actif="AAPL"]'); if (r) r.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })); });
+      await new Promise(z => setTimeout(z, 400));
+      const fi = await page.evaluate(() => { const f = document.getElementById('v3a-fiche'); return f ? { titre: (f.querySelector('.v3a-fiche-t b') || {}).textContent, classe: (f.querySelector('.v3a-fiche-cl') || {}).textContent, graph: !!f.querySelector('#v3a-fiche-tv'), fil: !!f.querySelector('.v3a-fiche-fil') } : null; });
+      v('un actif ouvre sa fiche : nom, classe, graphique, dépêches du fil', fi && fi.titre === 'Apple' && fi.classe === 'Actions' && fi.graph && fi.fil, JSON.stringify(fi));
+      await page.keyboard.press('Escape');
+      v('… et Échap la referme', await page.evaluate(() => !document.getElementById('v3a-fiche')));
 
       console.log('\n── 8. V3 · widgets de marché en direct (admin, V2 activée) ──');
       const w3 = await page.evaluate(async () => {

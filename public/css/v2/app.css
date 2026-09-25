@@ -758,3 +758,54 @@ html.dtp-app .v2a-news.v2a-cible { box-shadow: inset 3px 0 0 #e3b23a; animation:
    Cible élargie par le padding pour garder l'infobulle au doigt, sans rien peser dans la rangée. */
 html.dtp-app .v2a-direct { gap: 0; height: auto; padding: 6px; margin-left: 2px; border: 0; background: none; }
 html.dtp-app .v2a-direct i { width: 8px; height: 8px; }
+
+/* Réglages fins des notifications (25/09) : une rangée de choix sous la famille cochée, l'étiquette
+   « Nouveau » pendant trois mois, et la mention qu'ils valent pour tous les appareils du compte. */
+html.dtp-app .v2a-segs { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 14px 12px 14px; border-bottom: 1px solid #16161a; }
+html.dtp-app .v2a-seg-b { padding: 6px 11px; border: 1px solid #26262c; border-radius: 16px; background: #121215; color: #9a9aa4; font: 500 12.5px/1.2 'Inter Tight', system-ui, sans-serif; transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
+html.dtp-app .v2a-seg-b.on { border-color: rgba(227,178,58,.6); background: rgba(227,178,58,.12); color: #e3b23a; }
+html.dtp-app .v2a-seg-b:active { transform: scale(.97); }
+.v2a-neuf { display: inline-block; margin-left: 6px; padding: 2px 6px; border-radius: 4px; background: #e3b23a; color: #0c0c0e; font: 700 9.5px/1.2 'Inter Tight', system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; font-style: normal; vertical-align: 2px; }
+html.dtp-app .v2a-rubrique small { display: block; margin-top: 3px; font-size: 11.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: #6f6f78; }
+
+/* Compte (25/09) : la photo se touche pour la changer (pastille appareil photo), le nom se modifie sur
+   place (crayon), formulaires d'identifiants dans le gabarit des lignes. */
+html.dtp-app .v2a-profil-ph { position: relative; border: 0; padding: 0; margin-bottom: 6px; background: none; cursor: pointer; border-radius: 50%; transition: transform .15s ease; }
+html.dtp-app .v2a-profil-ph:active { transform: scale(.97); }
+html.dtp-app .v2a-profil .v2a-profil-ph .v2a-profil-av { margin-bottom: 0; font: 700 34px/1 'Inter', sans-serif; color: #0c0c0e; }
+html.dtp-app .v2a-profil-cam svg { width: 13px; height: 13px; }
+html.dtp-app .v2a-profil-cam { position: absolute; right: -2px; bottom: -2px; width: 24px; height: 24px; border-radius: 50%; background: #e3b23a; color: #0c0c0e; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px #0a0a0c; }
+html.dtp-app .v2a-profil-nom { display: inline-flex; align-items: center; gap: 7px; border: 0; background: none; color: #f2f2f4; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+html.dtp-app .v2a-profil-nom b { font: 600 19px/1.2 'Inter Tight', system-ui, sans-serif; }
+html.dtp-app .v2a-profil-nom svg { color: #8e8e98; }
+html.dtp-app .v2a-profil-plan { font-size: 12.5px; color: #e3b23a; }
+html.dtp-app .v2a-profil-ed { display: flex; gap: 6px; width: min(300px, 100%); }
+html.dtp-app .v2a-profil-ed .v2a-champ { flex: 1 1 auto; text-align: center; }
+html.dtp-app .v2a-champ { width: 100%; box-sizing: border-box; height: 44px; padding: 0 12px; border: 1px solid #26262c; border-radius: 8px; background: #121215; color: #f2f2f4; font: 500 16px/1 'Inter Tight', system-ui, sans-serif; }
+html.dtp-app .v2a-champ:focus { outline: none; border-color: rgba(227,178,58,.7); box-shadow: 0 0 0 3px rgba(227,178,58,.12); }
+html.dtp-app .v2a-mini-ok { flex: 0 0 auto; height: 44px; padding: 0 14px; border: 0; border-radius: 8px; background: #e3b23a; color: #0c0c0e; font: 700 14px/1 'Inter Tight', system-ui, sans-serif; }
+html.dtp-app .v2a-form { display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 6px; }
+html.dtp-app .v2a-lbl { margin-top: 6px; font-size: 12.5px; color: #8e8e98; }
+html.dtp-app .v2a-bouton { margin-top: 12px; height: 46px; border: 0; border-radius: 10px; background: #e3b23a; color: #0c0c0e; font: 700 15px/1 'Inter Tight', system-ui, sans-serif; }
+html.dtp-app .v2a-bouton:active, html.dtp-app .v2a-mini-ok:active { filter: brightness(.92); transform: scale(.99); }
+html.dtp-app .v2a-lien { border: 0; background: none; color: #e3b23a; font: 600 13.5px/1 'Inter Tight', system-ui, sans-serif; padding: 6px; }
+html.dtp-app .v2a-profil--page { padding-bottom: 6px; }
+
+/* Finitions de l'app (25/09, « améliore les finitions : détails, animations légères, navigation ») :
+   un retour visuel à chaque toucher, l'onglet choisi qui se pose, le chevron qui accompagne le geste.
+   Rien de plus long que 0,3 s, et tout s'éteint si le téléphone demande moins d'animations. */
+html.dtp-app button.v2a-ligne { transition: background-color .14s ease; -webkit-tap-highlight-color: transparent; }
+html.dtp-app button.v2a-ligne:active { background: #131316; }
+html.dtp-app button.v2a-ligne > svg:last-child { transition: transform .16s ease; }
+html.dtp-app button.v2a-ligne:active > svg:last-child { transform: translateX(2px); }
+html.dtp-app .v2a-onglet.v2a-actif svg { animation: v2aOnglet .3s cubic-bezier(.2,.8,.2,1); }
+@keyframes v2aOnglet { 40% { transform: translateY(-2px) scale(1.08); } }
+html.dtp-app .v2a-sortie { transition: background-color .14s ease, transform .12s ease; }
+html.dtp-app .v2a-sortie:active { transform: scale(.98); }
+html.dtp-app .v2a-bascule, html.dtp-app .v2a-bascule::after { transition-timing-function: cubic-bezier(.2,.8,.2,1); }
+@media (prefers-reduced-motion: reduce) {
+  html.dtp-app .v2a-onglet.v2a-actif svg { animation: none; }
+  html.dtp-app button.v2a-ligne:active > svg:last-child, html.dtp-app .v2a-sortie:active, html.dtp-app .v2a-seg-b:active, html.dtp-app .v2a-profil-ph:active { transform: none; }
+}
+/* Le point « en direct » n'a de sens que sur les écrans qui vivent : pas dans le Compte. */
+html.dtp-app.v2a-sous-ecran .v2a-direct { display: none; }

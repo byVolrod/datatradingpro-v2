@@ -12916,11 +12916,13 @@ function _wpLigne(txt, erreur) {
    bascule risk-on / risk-off, rapports de banques, rapports d'analystes. Le choix vit sur le compte
    (/api/push-prefs), donc il vaut pour tous les appareils : desk, téléphone, app. Le serveur décide
    de ce qui part (tri, pauses, regroupement) : ici, on ne fait que cocher. */
-let _pp = null, _ppFamilles = [], _ppCharge = null;
+let _pp = null, _ppFamilles = [], _ppBanques = [], _ppCharge = null;
+/* « NOUVEAU » PENDANT TROIS MOIS (25/09, demande user : inviter à activer les notifications). */
+const _PP_NOUVEAU_JUSQUA = Date.UTC(2026, 11, 26);
 function _ppCharger() {
   if (_ppCharge) return _ppCharge;
   _ppCharge = fetch('/api/push-prefs', { credentials: 'same-origin' }).then(r => (r.ok ? r.json() : null))
-    .then(d => { if (d && d.ok) { _pp = d.prefs; _ppFamilles = d.familles || []; } else _ppCharge = null; return _pp; })
+    .then(d => { if (d && d.ok) { _pp = d.prefs; _ppFamilles = d.familles || []; _ppBanques = d.banquesDispo || []; } else _ppCharge = null; return _pp; })
     .catch(() => { _ppCharge = null; return null; });
   return _ppCharge;
 }
@@ -12937,11 +12939,36 @@ function _ppRendre() {
   const son = document.getElementById('np-pp-son'), vib = document.getElementById('np-pp-vib');
   if (son) { son.classList.toggle('on', _pp.son); son.setAttribute('aria-pressed', String(_pp.son)); }
   if (vib) { vib.classList.toggle('on', _pp.vibreur && _pp.son); vib.disabled = !_pp.son; vib.title = _pp.son ? '' : 'Sans le son, le téléphone ne vibre pas non plus.'; }
+  // Réglages fins, sous les familles qui en ont : type de dépêches, rythme des récaps, banques suivies.
+  const fins = document.getElementById('np-pp-fins');
+  if (fins) {
+    const seg = (lib, cle, val, opts) => '<div class="np-pp-fin"><span>' + lib + '</span>' + opts.map(o => '<button type="button" class="np-pp-s' + (val === o[0] ? ' on' : '') + '" data-' + cle + '="' + o[0] + '" aria-pressed="' + (val === o[0]) + '">' + o[1] + '</button>').join('') + '</div>';
+    let h = '';
+    if (_pp.cats.includes('news')) h += seg('Fil', 'fil', _pp.fil || 'tout', [['tout', 'Toutes les importantes'], ['eco', 'Économie'], ['geo', 'Géopolitique']]);
+    if (_pp.cats.includes('analystes')) h += seg('Récaps', 'recaps', _pp.recaps || 'tous', [['tous', 'Tous'], ['quotidien', 'Quotidiens'], ['hebdo', 'Hebdo']]);
+    if (_pp.cats.includes('banques') && _ppBanques.length) {
+      const choisies = _pp.banques || [];
+      h += '<div class="np-pp-fin np-pp-fin--b"><span>Banques</span><button type="button" class="np-pp-s' + (choisies.length ? '' : ' on') + '" data-banque="*">Toutes</button>'
+        + _ppBanques.map(b => '<button type="button" class="np-pp-s' + (choisies.includes(b) ? ' on' : '') + '" data-banque="' + esc(b) + '">' + esc(b) + '</button>').join('') + '</div>';
+    }
+    fins.innerHTML = h;
+    fins.hidden = !h;
+  }
+  const res = document.getElementById('np-pp-resume');
+  if (res) res.textContent = _pp.cats.length + ' sur ' + (_ppFamilles.length || 5) + (_pp.son ? (_pp.vibreur ? ' · son et vibreur' : ' · son') : ' · silencieux');
+  const neuf = document.getElementById('np-pp-neuf');
+  if (neuf) neuf.hidden = Date.now() >= _PP_NOUVEAU_JUSQUA;
 }
 function npPpClic(ev) {
-  const b = ev.target.closest('[data-k],[data-o]');
+  const b = ev.target.closest('[data-k],[data-o],[data-fil],[data-recaps],[data-banque]');
   if (!b || !_pp || b.disabled) return;
-  if (b.dataset.k) {
+  if (b.dataset.fil) _pp.fil = b.dataset.fil;
+  else if (b.dataset.recaps) _pp.recaps = b.dataset.recaps;
+  else if (b.dataset.banque) {
+    // « Toutes » vide le choix ; une banque se coche ou se décoche (aucune cochée = toutes).
+    const l = _pp.banques || [], x = b.dataset.banque;
+    _pp.banques = x === '*' ? [] : (l.includes(x) ? l.filter(y => y !== x) : l.concat(x));
+  } else if (b.dataset.k) {
     const k = b.dataset.k, i = _pp.cats.indexOf(k);
     if (i >= 0) _pp.cats.splice(i, 1); else _pp.cats.push(k);
   } else if (b.dataset.o === 'son') _pp.son = !_pp.son;

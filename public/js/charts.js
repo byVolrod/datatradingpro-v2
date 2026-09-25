@@ -6466,20 +6466,28 @@ window._retryCalendar = function() {
   //  • champ VIDE (clic/focus) → UNIQUEMENT « Recherches récentes » (horloge) = 6 dernières paires ouvertes ;
   //    s'il n'y a aucun historique → état vide « Aucune recherche récente » (JAMAIS les paires majeures).
   //  • en SAISIE → « Recherches récentes » filtrées + « Paires de devises » (celles qui matchent, préfixe d'abord).
+  // MULTI-ACTIFS (V3, 25/09, capture « sp » → « Aucune paire ») : sous l'Aperçu V3, le module
+  // v2/recherche-actifs.js ajoute les autres classes (indices, actions, métaux, énergie, crypto) et une
+  // rangée de filtres ; le Forex garde ses lignes et sa vue paire. Sans le module : rien ne change.
+  const _ext = () => (window.DTPRechercheActifs && document.documentElement.classList.contains('dtp-v2')) ? window.DTPRechercheActifs : null;
   function renderDd(q) {
+    const brut = q || '', ext = _ext();
     q = (q || '').toUpperCase().replace(/[^A-Z]/g, '');
     let html;
     if (!q) {
       const recents = _recent.slice(0, 6);
       html = '<div class="sym-dd-head">' + _DD_CLOCK + ' Recherches récentes <span class="sym-dd-count">(' + recents.length + ')</span></div>'
         + (recents.length ? recents.map(_ddRow).join('') : '<div class="sym-dd-empty">Aucune recherche récente</div>');
+      if (ext && !brut.trim()) html = ext.sections('', html, recents.length);
     } else {
       const recents = _recent.slice(0, 6).filter(p => p.includes(q));
-      const fx = PAIRS.filter(p => p.includes(q) && !recents.includes(p))
+      // L'or et l'argent se rangent dans « Métaux » quand les classes sont affichées.
+      const fx = PAIRS.filter(p => p.includes(q) && !recents.includes(p) && !(ext && /^XA[UG]/.test(p)))
         .sort((a, b) => (a.startsWith(q) ? 0 : 1) - (b.startsWith(q) ? 0 : 1) || a.localeCompare(b))
         .slice(0, 10);
-      html = _ddSection(_DD_CLOCK, 'Recherches récentes', recents) + _ddSection(_DD_HASH, 'Paires de devises', fx);
-      if (!html) html = '<div class="sym-dd-empty">Aucune paire</div>';
+      html = _ddSection(_DD_CLOCK, 'Recherches récentes', recents) + _ddSection(_DD_HASH, ext ? 'Forex' : 'Paires de devises', fx);
+      if (ext) html = ext.sections(brut, html, recents.length + fx.length);
+      else if (!html) html = '<div class="sym-dd-empty">Aucune paire</div>';
     }
     dd.innerHTML = html;
     positionDd();
@@ -6511,10 +6519,22 @@ window._retryCalendar = function() {
   input.addEventListener('click', () => renderDd(input.value));
   input.addEventListener('input', () => renderDd(input.value));
   input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { const q = input.value.toUpperCase().replace(/[^A-Z]/g,''); if (q.length < 2) return; const m = PAIRS.find(p => p === q) || PAIRS.find(p => p.includes(q)); if (m) openSymbol(m); }
+    if (e.key === 'Enter') {
+      const q = input.value.toUpperCase().replace(/[^A-Z]/g,''); if (q.length < 2) return;
+      const m = PAIRS.find(p => p === q) || PAIRS.find(p => p.includes(q) && !(_ext() && /^XA[UG]/.test(p)));
+      if (m) { openSymbol(m); return; }
+      const ext = _ext(), a = ext && ext.chercher(input.value)[0];
+      if (a) { input.value = ''; hideDd(); try { input.blur(); } catch (_) {} ext.ouvrir(a.code); }
+    }
     else if (e.key === 'Escape') { hideDd(); input.blur(); }
   });
-  dd.addEventListener('mousedown', e => { const row = e.target.closest('.sym-dd-row'); if (row) { e.preventDefault(); openSymbol(row.dataset.pair); } });
+  dd.addEventListener('mousedown', e => {
+    const ext = _ext(), f = e.target.closest('[data-filtre]');
+    if (f && ext) { e.preventDefault(); ext.filtrer(f.dataset.filtre); renderDd(input.value); return; }
+    const a = e.target.closest('[data-actif]');
+    if (a && ext) { e.preventDefault(); input.value = ''; hideDd(); try { input.blur(); } catch (_) {} ext.ouvrir(a.dataset.actif); return; }
+    const row = e.target.closest('.sym-dd-row'); if (row && row.dataset.pair) { e.preventDefault(); openSymbol(row.dataset.pair); }
+  });
   document.addEventListener('click', e => { if (!e.target.closest('.topbar-symbol-search') && !e.target.closest('#sym-dd')) hideDd(); });
   window.addEventListener('resize', () => { if (!dd.classList.contains('hidden')) positionDd(); });
   window.addEventListener('scroll', () => { if (!dd.classList.contains('hidden')) positionDd(); }, true);

@@ -357,6 +357,19 @@ console.log('\n── 4 quinquies. Ce qui sonne (25/09) : calendrier de la fiche
   v('le diffuseur retire l’étiquette après traduction', /_pushSansAmorce\(await _pushFrNotif\(e\.body, e\.cat\)\)/.test(fn(SRV, '_pushDiffuser') || ''));
 }
 
+console.log('\n── 4 sexies. Le panneau Alertes du desk : un menu déroulant « Notifications » ──');
+{
+  const IDX = fs.readFileSync(path.join(RACINE, 'public/index.html'), 'utf8');
+  const bloc = (IDX.match(/<details class="np-pp"[\s\S]*?<\/details>/) || [''])[0];
+  v('le réglage est un menu déroulant, replié par défaut (il ne prend plus la place du fil d’alertes)', !!bloc && !/<details[^>]*\bopen\b/.test(bloc), bloc.slice(0, 120));
+  v('… titré « Notifications » (le choix vaut pour tous les appareils, pas « votre téléphone »)', /<span>Notifications<\/span>/.test(bloc) && !/Ce qui peut sonner/.test(IDX) && /tous vos appareils/.test(bloc));
+  v('… avec l’étiquette « Nouveau » et un résumé sur la ligne', /np-neuf/.test(bloc) && /np-pp-resume/.test(bloc));
+  v('le bouton « Tester » a disparu du desk et de l’app', !/npTesterPush|np-wp-test/.test(IDX + APP) && !/wptest/.test(fs.readFileSync(path.join(RACINE, 'public/js/v2/app-mobile.js'), 'utf8')));
+  const clic = (APP.match(/function npPpClic\(ev\) \{[\s\S]*?\n\}/) || [''])[0];
+  v('les réglages fins se cochent au desk (type de dépêches, rythme des récaps, banques)', /data-fil/.test(APP) && /_pp\.fil = b\.dataset\.fil/.test(clic) && /_pp\.recaps = b\.dataset\.recaps/.test(clic) && /_pp\.banques = x === '\*' \? \[\]/.test(clic));
+  v('l’étiquette « Nouveau » s’éteint seule après trois mois', /_PP_NOUVEAU_JUSQUA = Date\.UTC\(2026, 11, 26\)/.test(APP));
+}
+
 console.log('\n── 4 ter. Le desk ne double plus le serveur ──');
 {
   const i = APP.indexOf('function npPush('), bloc = i >= 0 ? APP.slice(i, APP.indexOf('\n}\n', i)) : '';
