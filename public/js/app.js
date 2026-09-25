@@ -12572,6 +12572,10 @@ function npOpen() {
     // Repli : les 20 plus RÉCENTS (et non les 20 premiers du tableau, qui sont les plus anciens).
     if (!_ajoutes) frais.slice().sort(parDateDesc).slice(0, 20).forEach(i => { if (!_npReadIds.has(i.id)) { _npReadIds.add(i.id); _npItems.push(i); } });
   }
+  // Les rapports déjà publiés (récaps de séance, notes de banques), hydratés depuis le cache local ou
+  // reçus à la connexion : ils ne sont pas dans `allItems`, on les sème à part (voir _npSemerRapports).
+  _npSemerRapports(_sessionWraps, 'analyst');
+  _npSemerRapports(_brArticles, 'institution');
   // Ouvrir = prendre connaissance : l'état « non lu » des items du panneau s'efface (le badge aussi, plus bas).
   _npItems.forEach(i => { if (i._new) delete i._new; });
   _npRenderList();
@@ -13033,12 +13037,40 @@ function _npNotifSousPause(it) {
 // (et récent < 36 h) déclenche une notification.
 const _reportNotifSeen = { analyst: new Set(), institution: new Set() };
 const _reportNotifInit = { analyst: false, institution: false };
+/* ══ LES RAPPORTS DÉJÀ PUBLIÉS ENTRENT AU PANNEAU, EN SILENCE (25/09, « rien ne s'affiche concernant
+   les rapports institutions et récap analystes… c'est toujours pareil ») ══════════════════════════
+   Les onglets ANALYSTES et INSTITUTIONS du panneau Alertes (desk ET app) étaient vides à chaque
+   ouverture. Cause : le pré-remplissage ne lit que le FIL (`allItems`), or les récaps de séance
+   (`_sessionWraps`) et les notes de banques (`_brArticles`) vivent dans deux listes à part ; et le
+   premier passage de `_notifyNewReports` (la liste reçue à la connexion) les MÉMORISAIT sans rien
+   montrer. Un rapport n'y entrait donc que s'il paraissait pendant que le desk était ouvert.
+   On pose ici les rapports récents (fenêtre des alertes, 7 j), SANS son, sans badge, sans
+   notification : ce sont des publications déjà sorties, pas des nouveautés. Seules celles qui
+   paraissent ensuite sonnent, comme avant. */
+function _npSemerRapports(items, kind) {
+  if (!Array.isArray(items) || !items.length) return 0;
+  const limite = Date.now() - NP_FRAICHEUR_MS;
+  let n = 0;
+  items.filter(i => i && i.id && (i.timestamp || 0) >= limite)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 12)
+    .forEach(i => {
+      if (_npReadIds.has(i.id)) return;
+      _npReadIds.add(i.id);
+      let titre = i.headline || i.title || '';
+      try { titre = standardizeReportTitle({ ...i, headline: titre }); } catch (e) {}
+      _npItems.push({ ...i, headline: titre, _reportNotif: kind });
+      n++;
+    });
+  if (n && _npOpen) _npRenderList();
+  return n;
+}
 function _notifyNewReports(items, kind) {
   if (!Array.isArray(items) || !items.length) return;
   const seen = _reportNotifSeen[kind];
   if (!_reportNotifInit[kind]) {                       // 1er passage : on mémorise, on ne notifie pas
     items.forEach(i => { if (i && i.id) seen.add(i.id); });
     _reportNotifInit[kind] = true;
+    _npSemerRapports(items, kind);                     // … mais les rapports récents entrent au panneau, en silence
     return;
   }
   const fresh = items.filter(i => i && i.id && !seen.has(i.id)
