@@ -8703,6 +8703,21 @@ async function _brRenderPdfCanvas(content, data, ttl) {
 // Embarque un PDF (proxy OU rendu). Renvoie true si affiche, false sinon (→ l'appelant tente le repli suivant).
 // MOBILE : rendu PDF.js sur canvas (l'iframe PDF ne s'affiche PAS inline sur iOS/WebKit = cadre gris). DESKTOP : iframe.
 // FAST PATH : si les octets ont ete prechauffes (cache blob JS) → reutilisation directe, ZERO fetch = instantane.
+let _brPdfjsPromesse = null;
+function _brChargerPdfjs() {
+  if (window.pdfjsLib) return Promise.resolve(true);
+  if (_brPdfjsPromesse) return _brPdfjsPromesse;
+  _brPdfjsPromesse = new Promise(resolve => {
+    const fini = ok => { clearTimeout(t); if (!ok) _brPdfjsPromesse = null; resolve(ok); };
+    const t = setTimeout(() => fini(!!window.pdfjsLib), 10000);
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => fini(!!window.pdfjsLib);
+    s.onerror = () => fini(false);
+    document.head.appendChild(s);
+  });
+  return _brPdfjsPromesse;
+}
 async function _brEmbedPdf(item, endpointUrl) {
   const content = document.getElementById('br-rcontent');
   if (!content) return false;
@@ -8727,6 +8742,11 @@ async function _brEmbedPdf(item, endpointUrl) {
   // PDF.js CANVAS partout (desktop + mobile) : rendu fiable + scrollbar CUSTOM du desk (le canvas vit dans
   // #br-rcontent, scrollbar 11px stylée), au lieu de la scrollbar NATIVE de la visionneuse iframe de Chrome
   // (flèches, non stylable : « met le scroller comme le desk »). Repli iframe (desktop) si PDF.js indispo.
+  /* ⚠️ PDF.js ARRIVE EN `defer` DEPUIS LE CDN (25/09, signalé sur téléphone : « les rapports de
+     banques ne fonctionnent pas »). Sur un réseau mobile lent, un rapport ouvert tôt trouvait
+     `pdfjsLib` absent ; le mobile n'ayant pas de repli iframe, il tombait sur la carte « affichage
+     indisponible ». On le charge donc À LA DEMANDE (10 s au plus) avant de conclure. */
+  if (!window.pdfjsLib) await _brChargerPdfjs();
   if (window.pdfjsLib) { try { if (await _brRenderPdfCanvas(content, buf.slice(0), ttl)) return true; } catch (e) {} }
   if (window.innerWidth <= 768) return false;            // MOBILE : jamais d'iframe (cadre gris sur WebKit) → carte « ouvrir l'original »
   try { if (window._brBlobUrl) URL.revokeObjectURL(window._brBlobUrl); } catch {}   // DESKTOP sans PDF.js → iframe blob same-origin
@@ -12691,6 +12711,83 @@ function _npPushCoquilleStop() {
   }).catch(() => {});
 }
 
+/* ══ WEB PUSH DU NAVIGATEUR (25/09) ═══════════════════════════════════════════════════════════════
+   L'interrupteur « Notifs navigateur » ne montrait des bannières QUE tant que l'onglet du desk était
+   ouvert (API Notification). Demande user : « recevoir la notif comme une app installée, jusqu'à
+   l'écran verrouillé ». L'interrupteur abonne désormais AUSSI ce navigateur au Web Push (chiffrement
+   et envoi côté serveur : webpush.js), et un bouton « Tester » en donne la preuve immédiate.
+   iPhone : il faut ouvrir DTP depuis l'écran d'accueil (iOS 16.4+) ; Safari seul n'expose pas le
+   push, et le panneau le dit au lieu de laisser un interrupteur sans effet. */
+const _wpDispo = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const _wpIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent || '');
+const _wpAutonome = () => window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+function _wpOctets(b) { const p = '='.repeat((4 - b.length % 4) % 4), r = atob((b + p).replace(/-/g, '+').replace(/_/g, '/')), o = new Uint8Array(r.length); for (let i = 0; i < r.length; i++) o[i] = r.charCodeAt(i); return o; }
+/* ⚠️ TOUT EST BORNÉ : `serviceWorker.ready` n'aboutit JAMAIS si le service worker n'est pas
+   enregistré, et `subscribe` peut attendre un service de push injoignable. Sans borne, le bouton
+   restait sur « Envoi… » pour toujours (mesuré au banc). */
+const _wpDelai = (pr, ms) => Promise.race([pr, new Promise((_, ko) => setTimeout(() => ko(new Error('délai')), ms))]);
+function _wpAbonner() { return _wpDelai(_wpAbonnerSansBorne(), 12000).catch(() => false); }
+async function _wpAbonnerSansBorne() {
+  if (!_wpDispo() || Notification.permission !== 'granted') return false;
+  const reg = await navigator.serviceWorker.ready;
+  const d = await (await fetch('/api/webpush/cle', { credentials: 'same-origin' })).json();
+  if (!d || !d.cle) return false;
+  let sub = await reg.pushManager.getSubscription();
+  if (sub) {
+    // Clé du serveur changée (volume réinitialisé) : l'ancien abonnement ne recevrait plus rien.
+    let meme = true;
+    try { const a = new Uint8Array(sub.options.applicationServerKey), b = _wpOctets(d.cle); meme = a.length === b.length && a.every((v, i) => v === b[i]); } catch (e) {}
+    if (!meme) { await sub.unsubscribe(); sub = null; }
+  }
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _wpOctets(d.cle) });
+  const plat = _wpIOS() ? 'ios' : (/Android/i.test(navigator.userAgent || '') ? 'android' : 'ordinateur');
+  const r = await fetch('/api/webpush/abonner', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ abonnement: sub.toJSON(), plat }) });
+  return r.ok;
+}
+async function _wpDesabonner() {
+  if (!_wpDispo()) return;
+  try {
+    const reg = await _wpDelai(navigator.serviceWorker.ready, 5000), sub = await reg.pushManager.getSubscription();
+    if (!sub) return;
+    const ep = sub.endpoint;
+    await sub.unsubscribe();
+    await fetch('/api/webpush/desabonner', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ endpoint: ep }) });
+  } catch (e) {}
+}
+function _wpLigne(txt, erreur) {
+  const row = document.getElementById('np-wp-row'), t = document.getElementById('np-wp-txt'), b = document.getElementById('np-wp-test');
+  if (!row || !t) return;
+  const aideIOS = _wpIOS() && !_wpAutonome();
+  row.hidden = !(aideIOS || (_npPush && _wpDispo()) || txt);
+  if (b) b.hidden = aideIOS || !_wpDispo() || !_npPush;
+  t.classList.toggle('np-wp-err', !!erreur);
+  t.textContent = txt || (aideIOS
+    ? 'Sur iPhone : touchez Partager puis « Sur l’écran d’accueil », et ouvrez DTP depuis son icône pour recevoir les alertes, écran verrouillé compris.'
+    : 'Alertes sur cet appareil, même navigateur fermé et écran verrouillé.');
+}
+async function npTesterPush() {
+  _wpLigne('Envoi de la notification test…');
+  try {
+    // L'abonnement de CET appareil est rafraîchi s'il le faut, mais le test part quoi qu'il arrive :
+    // le serveur l'envoie à tous les appareils déjà abonnés sur le compte.
+    const abonne = await _wpAbonner();
+    const r = await fetch('/api/webpush/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: '{}' });
+    const d = await r.json().catch(() => ({}));
+    if (!d.ok) return _wpLigne((d.error || 'La notification n’a pas pu partir.') + (abonne ? '' : ' Cet appareil n’a pas pu s’abonner : vérifiez l’autorisation des notifications.'), true);
+    const bons = (d.resultats || []).filter(x => x.ok).length;
+    _wpLigne('Envoyée à ' + bons + ' appareil' + (bons > 1 ? 's' : '') + '. Verrouillez l’écran : elle arrive en quelques secondes.');
+  } catch (e) { _wpLigne('La notification n’a pas pu partir.', true); }
+}
+// Au chargement : un navigateur déjà autorisé se réabonne en silence (clé changée, abonnement perdu).
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      try { if (_npPush && !_npCoquille() && _wpDispo() && Notification.permission === 'granted') _wpAbonner().catch(() => {}); } catch (e) {}
+      try { _wpLigne(); } catch (e) {}
+    }, 4000);
+  });
+}
+
 // ── Push toggle (API Web Notifications au navigateur, coquille native dans l'app) ──────────────
 function npTogglePush() {
   if (!_npPush) {
@@ -12702,11 +12799,14 @@ function npTogglePush() {
         localStorage.setItem('np_push', JSON.stringify(_npPush));
         _npCfgSave();
         _npSyncUI();
+        if (_npPush) { _wpLigne(); _wpAbonner().then(ok => _wpLigne(ok ? '' : 'Cet appareil n’a pas pu s’abonner aux alertes pour le moment : réessayez avec « Tester ».', !ok)); }
+        else _wpLigne(p === 'denied' ? 'Notifications bloquées : autorisez-les pour ce site dans les réglages du navigateur.' : '', p === 'denied');
       });
-    }
+    } else _wpLigne();
   } else {
     _npPush = false;
     if (_npCoquille()) _npPushCoquilleStop();   // l'appareil se retire, plutôt que d'attendre une désinstallation
+    else _wpDesabonner().then(() => _wpLigne());
     localStorage.setItem('np_push', JSON.stringify(_npPush));
     _npCfgSave();
     _npSyncUI();

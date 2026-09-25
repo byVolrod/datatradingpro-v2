@@ -656,3 +656,17 @@ html.dtp-app #v2a-ia .ai-spark-txt { font: 800 13px/1 'Inter Tight', system-ui, 
 
 /* ── Widgets V3 embarqués dans l'écran Marchés (Multi-actifs, Carte du monde) : bord à bord ── */
 html.dtp-app .v2a-embarque { margin: 10px -18px -16px; border-top: 1px solid #1c1c20; border-radius: 0 0 12px 12px; overflow: hidden; }
+
+/* ── Feuille « Paires » : les 28 croisements et l'or, drapeaux ronds (25/09) ── */
+html.dtp-app .v2a-paires-g { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 16px 6px; }
+html.dtp-app .v2a-paires-g button { display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 10px; border: 1px solid #24242a; border-radius: 10px; background: #111114; color: #ececf0; font: 600 13.5px/1 'Inter Tight', system-ui, sans-serif; cursor: pointer; }
+html.dtp-app .v2a-paires-g button:active { background: rgba(227,178,58,.12); border-color: rgba(227,178,58,.5); }
+html.dtp-app .v2a-p-fl { display: inline-flex; flex: 0 0 auto; }
+html.dtp-app .v2a-p-fl img, html.dtp-app .v2a-p-or { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 1.5px #111114; }
+html.dtp-app .v2a-p-fl > * + * { margin-left: -5px; }
+html.dtp-app .v2a-p-or { display: inline-grid; place-items: center; background: linear-gradient(135deg, #f6d77b, #b8860b); color: #1a1206; font: 800 7px/1 'Inter Tight', system-ui, sans-serif; font-style: normal; }
+/* ── Panneau d'administration embarqué ── */
+html.dtp-app .v2a-admin-cadre { flex: 1 1 auto; width: 100%; border: 0; background: #08080a; }
+/* ── Liste des banques qui ne répond pas : reprise ── */
+html.dtp-app .v2a-reessai { margin-top: 14px; padding: 10px 18px; border: 1px solid rgba(227,178,58,.55); border-radius: 10px; background: transparent; color: #e3b23a; font: 600 14px/1 'Inter Tight', system-ui, sans-serif; }
+html.dtp-app .v2a-banque.v2a-lu { opacity: .62; }

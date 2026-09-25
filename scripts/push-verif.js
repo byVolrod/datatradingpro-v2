@@ -70,10 +70,16 @@ console.log('\n── 3. Le texte et la catégorie ──');
 const srcTexte = fn(SRV, '_pushTexte'), srcClef = cst(SRV, '_pushClef');
 v('_pushTexte est extractible', !!srcTexte);
 if (srcTexte) {
-  const _pushTexte = eval('(' + srcTexte + ')');
+  // _pushTexte s'appuie sur _pushClef pour nommer la nature de l'alerte : on l'extrait avec lui.
+  const _pushTexte = new Function('const _pushClef = ' + (srcClef || '() => "news"') + '; return (' + srcTexte + ');')();
   const court = _pushTexte({ headline: 'US CPI 3.2% vs 3.1% expected' });
-  v('le titre nomme le produit', court.title === 'DataTradingPro', court.title);
+  /* Format « notification d'app » (25/09, capture de référence « URGENT / Alerte pour NZDCHF ») : le
+     téléphone affiche déjà le nom de l'app, le titre dit la NATURE de l'alerte en un mot. */
+  v('une donnée chiffrée s’intitule « Donnée macro »', court.title === 'Donnée macro', court.title);
+  v('une dépêche urgente s’intitule « URGENT »', _pushTexte({ headline: 'Iran closes Hormuz', urgent: true }).title === 'URGENT');
+  v('une autre dépêche majeure s’intitule « Actualité majeure »', _pushTexte({ headline: 'Trump parle de l’Iran' }).title === 'Actualité majeure');
   v('le corps porte la dépêche', court.body === 'US CPI 3.2% vs 3.1% expected', court.body);
+  v('… en français quand la traduction est prête', _pushTexte({ headline: 'Oil jumps', _titreFr: 'Le pétrole bondit' }).body === 'Le pétrole bondit');
   /* iOS tronque une notification longue SANS prévenir : mieux vaut couper nous-mêmes et le dire
      par une ellipse que laisser le système couper au milieu d'un chiffre. */
   const long = _pushTexte({ headline: 'x'.repeat(400) });

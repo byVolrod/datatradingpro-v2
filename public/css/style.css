@@ -10372,6 +10372,14 @@ html[data-theme="light"] .np-abc-c { background: rgba(0, 0, 0, .02); }
   background: rgba(34,197,94,0.07); color: #4ade80;
   font-size: var(--fs-title); line-height: 1.5;
 }
+/* Web Push (25/09) : ligne d'état sous les réglages du panneau Alertes, avec le bouton de test. */
+.np-wp-row { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: rgba(0,230,118,.04); }
+.np-wp-row[hidden] { display: none; }
+.np-wp-txt { flex: 1; min-width: 0; font-size: 11.5px; line-height: 1.4; color: #9ca3af; }
+.np-wp-txt.np-wp-err { color: #ff8a65; }
+.np-wp-test { flex: 0 0 auto; padding: 5px 12px; border: 1px solid rgba(227,178,58,.55); border-radius: 5px; background: transparent; color: #e3b23a; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+.np-wp-test:hover { background: rgba(227,178,58,.1); }
+.np-wp-test[hidden] { display: none; }
 .sqwk-live-note.hidden { display: none; }
 /* ── REFONTE DU SQUAWK (24/09, capture de référence) : bandeau vert « flux connecté », bouton rouge
    quand la voix est en direct, dernière annonce mise en avant, bascule ON / OFF lisible. ── */

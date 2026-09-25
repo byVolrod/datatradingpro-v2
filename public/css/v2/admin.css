@@ -61,6 +61,10 @@ html.dtp-v3-admin .btn, html.dtp-v3-admin .btn-sm { transition: border-color .15
 html.dtp-v3-admin .btn:active, html.dtp-v3-admin .btn-sm:active { transform: scale(.97); }
 html.dtp-v3-admin input:focus, html.dtp-v3-admin select:focus, html.dtp-v3-admin textarea:focus { border-color: rgba(227,178,58,.55) !important; box-shadow: 0 0 0 3px rgba(227,178,58,.08); outline: none; }
 
+/* ── Panneau embarqué dans l'app mobile (25/09) : la feuille de l'app porte déjà le titre et la croix ;
+   « Retour au desk » et « Déconnexion » n'y ont pas de sens (ils chargeraient le desk DANS le cadre). ── */
+html.dtp-v3-admin.adm-embarque .topbar .btn { display: none; }
+
 @media (prefers-reduced-motion: reduce) {
   html.dtp-v3-admin .topbar::after, html.dtp-v3-admin .panel-card { animation: none; }
 }

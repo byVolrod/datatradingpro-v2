@@ -1377,6 +1377,8 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260925-notifs-appareil', ts: Date.UTC(2026, 8, 25, 5, 30), title: 'Alertes sur votre téléphone et votre ordinateur, même écran verrouillé', desc: 'L’interrupteur « Notifs navigateur » du panneau Alertes ne montrait des bannières que tant que l’onglet du desk restait ouvert. Il abonne désormais votre appareil pour de bon : les alertes arrivent comme celles d’une application, navigateur fermé et écran verrouillé compris, sur ordinateur, sur Android, et sur iPhone quand DTP est ajouté à l’écran d’accueil (Partager, puis « Sur l’écran d’accueil »). Un bouton « Tester » vous envoie une notification pour vérifier en quelques secondes. Chaque alerte dit sa nature en un mot (URGENT, Donnée macro, Calendrier, Institutions…) suivie de la dépêche, en français dès que sa traduction est prête.' },
+  { id: 'dtpu-20260925-rapports-banques-mobile', ts: Date.UTC(2026, 8, 25, 5, 25), title: 'Rapports des banques : ouverture fiable sur téléphone', desc: 'Sur un réseau mobile lent, un rapport PDF ouvert juste après l’arrivée sur le desk pouvait afficher « affichage indisponible » : l’outil qui dessine les pages n’avait pas encore fini de charger. Il est désormais chargé à la demande avant de conclure, et le rapport s’affiche page après page.' },
   { id: 'dtpu-20260924-notifs-categories', ts: Date.UTC(2026, 8, 24, 22, 20), title: 'Notifications sur téléphone : récaps, institutions et calendrier', desc: 'Jusqu’ici, votre téléphone ne recevait une notification que pour les actualités majeures. Il est désormais prévenu aussi quand un récap de séance arrive dans l’onglet Analystes, quand une banque publie une nouvelle note dans Institutions, quand un récap DTP sort, et dès qu’un chiffre à fort impact du calendrier économique tombe, avec le réel et la prévision. Les catégories que vous avez coupées dans le filtre des Alertes restent coupées, et le nombre de notifications par heure reste plafonné pour ne jamais vous submerger.' },
   { id: 'dtpu-20260924-site-noir', ts: Date.UTC(2026, 8, 24, 21, 40), title: 'Le site DataTradingPro passe en noir, comme le desk', desc: 'La page d’accueil de datatradingpro.com, la documentation et les pages d’actualités publiques affichaient un fond blanc, puis vous entriez dans un terminal entièrement noir. Elles adoptent désormais la même matière que le desk : fond noir, surfaces anthracite, filets fins et accents dorés. Rien ne change dans leur contenu ni dans leur organisation.' },
   { id: 'dtpu-20260924-saisonnalite-paires', ts: Date.UTC(2026, 8, 24, 21, 10), title: 'Saisonnalité : la paire affichée, avec ses drapeaux', desc: 'Dans les réglages des widgets Saisonnalité et Rendement mensuel, la liste commençait par un choix « Compte » que rien n’expliquait. Il est retiré : vous choisissez directement une paire, et celle que la carte affiche est cochée. Vos cartes gardent la paire qu’elles montraient. L’en-tête de la carte et la pastille de paire portent désormais les deux drapeaux, par exemple Canada et Japon pour CAD/JPY, et l’en-tête se met à jour dès que vous changez de paire, sans recharger la page.' },
@@ -2240,7 +2242,7 @@ app.post('/api/webpush/test', async (req, res) => {
   if (Date.now() - avant < 15000) return res.status(429).json({ ok: false, error: 'Patientez quelques secondes avant un nouveau test.' });
   _wpTestDernier.set(String(uid), Date.now());
   try {
-    const r = await _wpEnvoyerA(uid, { title: 'DataTradingPro', body: 'Notification test : vos alertes arrivent bien sur cet appareil, même écran verrouillé.', url: '/', tag: 'dtp-test' });
+    const r = await _wpEnvoyerA(uid, { title: 'Notification test', body: 'Vos alertes DataTradingPro arrivent bien sur cet appareil, même écran verrouillé.', url: '/', tag: 'dtp-test' });
     if (!r.length) return res.json({ ok: false, error: 'Aucun appareil abonné sur ce compte : activez d’abord les notifications sur le téléphone.' });
     res.json({ ok: r.some(x => x.ok), resultats: r.map(x => ({ service: x.service, plat: x.plat, ok: x.ok, statut: x.statut, erreur: x.erreur || null })) });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
@@ -2248,9 +2250,13 @@ app.post('/api/webpush/test', async (req, res) => {
 
 // Ce que le push peut porter : deux clés seulement, projetées sur la taxonomie du panneau Filtre.
 const _pushClef = it => (/-?\d/.test(String((it && it.headline) || '')) ? 'eco' : 'news');
+/* Format « notification d'app » (25/09, capture de référence : « URGENT / Alerte pour NZDCHF ») : le
+   téléphone affiche déjà le nom de l'app ; le TITRE dit la nature de l'alerte en un mot, le corps
+   porte la dépêche, en français quand sa traduction est prête. */
 function _pushTexte(it) {
-  const h = String((it && it.headline) || '').replace(/\s+/g, ' ').trim();
-  return { title: 'DataTradingPro', body: h.length > 178 ? h.slice(0, 177) + '…' : h };
+  const h = String((it && (it._titreFr || it.headline)) || '').replace(/\s+/g, ' ').trim();
+  const titre = it && it.urgent ? 'URGENT' : (_pushClef(it) === 'eco' ? 'Donnée macro' : 'Actualité majeure');
+  return { title: titre, body: h.length > 178 ? h.slice(0, 177) + '…' : h };
 }
 // Fenêtre glissante d'une heure, purgée à la lecture : pas de minuteur, pas de croissance.
 function _pushSousPlafond(userId, combien) {

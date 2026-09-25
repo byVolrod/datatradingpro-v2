@@ -79,6 +79,7 @@
         case '_npItems':           return typeof _npItems !== 'undefined' ? _npItems : undefined;
         case 'newsEssentialMode':  return typeof newsEssentialMode !== 'undefined' ? newsEssentialMode : undefined;
         case '_npEnabled':         return typeof _npEnabled !== 'undefined' ? _npEnabled : undefined;
+        case '_brReadIds':         return typeof _brReadIds !== 'undefined' ? _brReadIds : undefined;
       }
     } catch (e) { return undefined; }
     return window[nom];
@@ -270,7 +271,7 @@
 
   /* ── Les volets du desk (Copilote IA, support) dans l'app : titre d'écran et bouton Retour. Sans
      cela, le volet s'ouvrait sous un en-tête qui annonçait encore l'écran d'avant. ── */
-  var VOLETS = [['ai-panel', 'Copilote Macro', 'aiClose'], ['chat-panel', 'Support DTP', 'chatClose']];
+  var VOLETS = [['ai-panel', 'Copilote Macro', 'aiClose'], ['chat-panel', 'Support DTP', 'chatClose'], ['sqwk-panel', 'Flash Marché', 'sqwkClose']];
   function voletOuvert() { for (var i = 0; i < VOLETS.length; i++) { var p = document.getElementById(VOLETS[i][0]); if (p && p.classList.contains('open')) return VOLETS[i]; } return null; }
   function fermerVolets() { VOLETS.forEach(function (v) { var p = document.getElementById(v[0]); if (p && p.classList.contains('open')) appel(v[2]); }); syncVolet(); }
   function syncVolet() {
@@ -305,6 +306,56 @@
     };
     enveloppe._v2 = true;
     window.activateView = enveloppe;
+  }
+
+  /* ══ ADMINISTRATION : le panneau admin dans une feuille de l'app, sans quitter l'app ═══════════════
+     Même origine, même session : la page /admin se charge dans un cadre plein écran. Elle se sait
+     embarquée (admin.html pose `adm-embarque`) et masque alors ses boutons « Retour au desk » et
+     « Déconnexion », qui n'ont pas de sens ici : la croix ramène à l'app. */
+  var feuilleAdmin = null;
+  function ouvrirAdmin() {
+    if (!window._pdIsAdmin) return;
+    if (!feuilleAdmin) {
+      feuilleAdmin = document.createElement('div');
+      feuilleAdmin.className = 'v2a-alertes v2a-admin';
+      feuilleAdmin.setAttribute('role', 'dialog'); feuilleAdmin.setAttribute('aria-label', 'Administration');
+      feuilleAdmin.innerHTML = '<header><h2>Administration</h2><button type="button" class="v2a-x" aria-label="Fermer">' + svg(I.x, 24, 2) + '</button></header>'
+        + '<iframe class="v2a-admin-cadre" title="Panneau d’administration" src="/admin?app=1"></iframe>';
+      document.body.appendChild(feuilleAdmin);
+      feuilleAdmin.querySelector('.v2a-x').addEventListener('click', function () { vibre(); feuilleAdmin.classList.remove('v2a-ouverte'); });
+    }
+    requestAnimationFrame(function () { feuilleAdmin.classList.add('v2a-ouverte'); });
+  }
+
+  /* ══ PAIRES : la vue paire du desk (COT, saisonnalité, particuliers, biais) depuis l'app ════════════
+     Les 28 croisements des 8 devises du desk, plus l'or, rangés par devise de base. Un toucher ouvre
+     la vue paire du desk (`openSymbol`), comme la recherche de symboles de la barre du haut. */
+  var DEV8 = ['EUR', 'GBP', 'AUD', 'NZD', 'USD', 'CAD', 'CHF', 'JPY'];
+  var DRAP8 = { EUR: 'eu', GBP: 'gb', AUD: 'au', NZD: 'nz', USD: 'us', CAD: 'ca', CHF: 'ch', JPY: 'jp' };
+  var feuillePaires = null;
+  function ouvrirPaires() {
+    if (!feuillePaires) {
+      feuillePaires = document.createElement('div');
+      feuillePaires.className = 'v2a-alertes v2a-paires';
+      feuillePaires.setAttribute('role', 'dialog'); feuillePaires.setAttribute('aria-label', 'Paires');
+      var groupes = DEV8.slice(0, 7).map(function (b, i) {
+        var ps = DEV8.slice(i + 1).map(function (q) { return b + q; });
+        return '<h3 class="v2a-rubrique">' + b + '</h3><div class="v2a-paires-g">' + ps.map(function (p) {
+          return '<button type="button" data-p="' + p + '"><span class="v2a-p-fl"><img src="https://flagcdn.com/w40/' + DRAP8[p.slice(0, 3)] + '.png" alt=""><img src="https://flagcdn.com/w40/' + DRAP8[p.slice(3)] + '.png" alt=""></span>' + p.slice(0, 3) + '/' + p.slice(3) + '</button>';
+        }).join('') + '</div>';
+      }).join('');
+      feuillePaires.innerHTML = '<header><h2>Paires</h2><button type="button" class="v2a-x" aria-label="Fermer">' + svg(I.x, 24, 2) + '</button></header>'
+        + '<div class="v2a-al-liste"><h3 class="v2a-rubrique">Or</h3><div class="v2a-paires-g"><button type="button" data-p="XAUUSD"><span class="v2a-p-fl"><i class="v2a-p-or">Au</i><img src="https://flagcdn.com/w40/us.png" alt=""></span>XAU/USD</button></div>' + groupes + '</div>';
+      document.body.appendChild(feuillePaires);
+      feuillePaires.querySelector('.v2a-x').addEventListener('click', function () { vibre(); feuillePaires.classList.remove('v2a-ouverte'); });
+      feuillePaires.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-p]'); if (!b) return; vibre();
+        feuillePaires.classList.remove('v2a-ouverte');
+        appel('openSymbol', b.dataset.p);
+      });
+    }
+    fermerVolets();
+    requestAnimationFrame(function () { feuillePaires.classList.add('v2a-ouverte'); });
   }
 
   /* ══ ÉCRAN MACRO : le briefing du matin sourcé + les publications du desk, en fil de lecture ══════
@@ -433,6 +484,10 @@
         + '<div class="v2a-carte v2a-outils"><div class="v2a-carte-titre">Outils du desk</div><div class="v2a-grille">'
         + OUTILS.filter(function (o) { return existe(o.v); }).map(function (o) { return '<button type="button" class="v2a-tuile" data-v2v="' + o.v + '">' + svg(o.ico, 22) + '<span>' + o.t + '</span></button>'; }).join('')
         + '<button type="button" class="v2a-tuile" id="v2a-detail">' + svg(I.horloge, 22) + '<span>Horloges & sessions</span></button>'
+        // Ce que le desk offrait et que l'app n'ouvrait pas (25/09, « il manque encore des choses du desk ») :
+        // le Flash Marché et la vue d'une paire (COT, saisonnalité, particuliers, biais).
+        + '<button type="button" class="v2a-tuile" id="v2a-flash">' + svg('M4 12h2l2-6 4 12 3-9 2 3h3', 22) + '<span>Flash Marché</span></button>'
+        + '<button type="button" class="v2a-tuile" id="v2a-paires">' + svg('M4 7h12l-3-3M20 17H8l3 3', 22) + '<span>Paires</span></button>'
         + '</div></div>');
       e.querySelector('.v2a-ut').addEventListener('click', function (ev) {
         var b = ev.target.closest('[data-ut]'); if (!b) return;
@@ -445,6 +500,8 @@
         if (b.dataset.v2v === 'widgets') window._v2aDeskDemande = true;
         vibre(); aller(b.dataset.v2v);
       });
+      document.getElementById('v2a-flash').addEventListener('click', function () { vibre(); appel('sqwkOpen'); });
+      document.getElementById('v2a-paires').addEventListener('click', function () { vibre(); ouvrirPaires(); });
       document.getElementById('v2a-detail').addEventListener('click', function () { vibre(); montrerEcran(null); pile.push('markets'); window.activateView('markets'); marquer('markets'); H.classList.add('v2a-sous-ecran'); var r = document.getElementById('v2a-retour'); if (r) r.hidden = false; });
     }
     // Les deux widgets V3 se montent une fois (ils se relisent seuls) ; leurs scripts peuvent arriver
@@ -521,12 +578,28 @@
     var br = glob('_brArticles'), badgeF = glob('_instBadge'), coul = glob('_instBrandColor'), ok = glob('_brAllowed');
     var items = (Array.isArray(br) ? br : []).filter(function (it) { try { return typeof ok !== 'function' || ok(it); } catch (x) { return true; } })
       .slice().sort(function (a, b) { return (b.timestamp || 0) - (a.timestamp || 0); }).slice(0, 60);
-    if (!items.length) { e.innerHTML = '<p class="v2a-vide">Chargement des rapports de banques…</p>'; appel('_loadBrArticles', 0); setTimeout(function () { if (courant === 'banques') RENDUS.banques(); }, 2500); return; }
+    /* ⚠️ Jamais de chargement sans fin (25/09) : après six essais vides (≈ 20 s), l'écran le dit et
+       propose de réessayer, au lieu de « Chargement… » à perpétuité. */
+    if (!items.length) {
+      RENDUS.banques._essais = (RENDUS.banques._essais || 0) + 1;
+      if (RENDUS.banques._essais > 6) {
+        e.innerHTML = '<div class="v2a-vide">Les rapports de banques ne répondent pas pour le moment.<br><button type="button" class="v2a-reessai">Réessayer</button></div>';
+        e.onclick = function (ev) { if (!ev.target.closest('.v2a-reessai')) return; vibre(); RENDUS.banques._essais = 0; RENDUS.banques(); };
+        return;
+      }
+      e.innerHTML = '<p class="v2a-vide">Chargement des rapports de banques…</p>';
+      if (RENDUS.banques._essais === 1 || RENDUS.banques._essais % 2 === 0) appel('_loadBrArticles', 0);
+      setTimeout(function () { if (courant === 'banques') RENDUS.banques(); }, 3000);
+      return;
+    }
+    RENDUS.banques._essais = 0;
+    var luBr = glob('_brReadIds');
     e.innerHTML = '<div class="v2a-cartes">' + items.map(function (it, i) {
       var b = 'DTP'; try { b = typeof badgeF === 'function' ? badgeF(it) : (it.institution || 'Banque'); } catch (x) {}
       var c = '#e3b23a'; try { if (typeof coul === 'function') c = coul(b); } catch (x) {}
       var tags = (Array.isArray(it.tags) ? it.tags : []).slice(0, 3);
-      return '<button type="button" class="v2a-banque" data-i="' + i + '"><span class="v2a-banque-h"><span class="v2a-banque-logo" style="background:' + esc(c) + '">' + esc(b.charAt(0)) + '</span>'
+      var estLu = false; try { estLu = !!(luBr && luBr.has && luBr.has(it.id)); } catch (x) {}
+      return '<button type="button" class="v2a-banque' + (estLu ? ' v2a-lu' : '') + '" data-i="' + i + '"><span class="v2a-banque-h"><span class="v2a-banque-logo" style="background:' + esc(c) + '">' + esc(b.charAt(0)) + '</span>'
         + '<b style="color:' + esc(c) + '">' + esc(b) + '</b><span class="v2a-banque-d">' + svg(I.cal, 15) + esc(dateCourte(it.timestamp)) + '</span></span>'
         + '<span class="v2a-banque-t">' + esc(it.title || it.headline || '') + '</span>'
         + '<span class="v2a-banque-p">' + tags.map(function (x) { return '<i>' + esc(x) + '</i>'; }).join('') + '<em>' + svg(I.suite, 18, 1.8) + '</em></span></button>';
@@ -561,17 +634,19 @@
     return fetch(url, corps ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps), credentials: 'same-origin' } : { credentials: 'same-origin' })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { d._statut = r.status; return d; }); });
   }
+  // Attente bornée : `serviceWorker.ready` n'aboutit jamais sans service worker enregistré.
+  function wpPret() { return Promise.race([navigator.serviceWorker.ready, new Promise(function (_, ko) { setTimeout(function () { ko(new Error('Service de notifications indisponible sur cet appareil.')); }, 8000); })]); }
   function wpLireEtat() {
     if (!wpPossible()) { WP.etat = (wpIOS && !wpAutonome) ? 'ecran' : 'impossible'; return Promise.resolve(); }
     if (Notification.permission === 'denied') { WP.etat = 'refuse'; return Promise.resolve(); }
-    return navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); })
+    return wpPret().then(function (reg) { return reg.pushManager.getSubscription(); })
       .then(function (sub) { WP.etat = (sub && Notification.permission === 'granted') ? 'actif' : 'inactif'; })
       .catch(function () { WP.etat = 'inactif'; });
   }
   function wpActiver() {
     return Notification.requestPermission().then(function (perm) {
       if (perm !== 'granted') { WP.etat = perm === 'denied' ? 'refuse' : 'inactif'; throw new Error('Autorisation non accordée.'); }
-      return Promise.all([navigator.serviceWorker.ready, wpJson('/api/webpush/cle')]);
+      return Promise.all([wpPret(), wpJson('/api/webpush/cle')]);
     }).then(function (x) {
       var reg = x[0], cle = x[1] && x[1].cle;
       if (!cle) throw new Error('Clé du serveur indisponible.');
@@ -584,7 +659,7 @@
     }).then(function (d) { if (!d.ok) throw new Error('Enregistrement refusé par le serveur.'); WP.etat = 'actif'; });
   }
   function wpDesactiver() {
-    return navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
+    return wpPret().then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
       if (!sub) return;
       var ep = sub.endpoint;
       return sub.unsubscribe().then(function () { return wpJson('/api/webpush/desabonner', { endpoint: ep }); });
@@ -629,11 +704,15 @@
       + ligne(I.etoile, 'Aperçu V3 (nouvelle interface)', 'v2', '<i class="v2a-bascule v2a-on-b"></i>')
       + ligne(I.son, 'Alertes sonores', 'son', '<i class="v2a-bascule' + (glob('_npEnabled') ? ' v2a-on-b' : '') + '"></i>') + '</div>'
       + wpBloc()
+      // Panneau d'administration DANS l'app (25/09, demande user) : réservé au compte admin, le serveur
+      // refuse de toute façon la page à tout autre compte.
+      + (window._pdIsAdmin ? '<h3 class="v2a-rubrique">Administration</h3><div class="v2a-groupe">' + ligne('M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z', 'Panneau d’administration', 'admin') + '</div>' : '')
       + '<h3 class="v2a-rubrique">Assistance</h3><div class="v2a-groupe">' + ligne(I.bulle, 'Écrire au support DTP', 'support') + '</div>'
       + '<button type="button" class="v2a-sortie" data-act="sortie">' + svg(I.sortie, 20) + 'Se déconnecter</button>';
     e.onclick = function (ev) {
       var b = ev.target.closest('[data-act]'); if (!b) return; var a = b.dataset.act; if (a === 'rien') return; vibre();
       if (a === 'support') appel('chatToggle');
+      else if (a === 'admin') ouvrirAdmin();
       else if (a === 'son') { appel('npToggleEnabled'); RENDUS.compte(true); }
       else if (a === 'v2') { var s = document.getElementById('v2-interrupteur'); if (s) s.click(); }
       else if (a === 'sortie') appel('logoutUser');
