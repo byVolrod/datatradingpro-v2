@@ -2419,6 +2419,10 @@ const NEWS_TAG_FR = {
   'Bank of Japan': 'Banque du Japon', 'Treasury Yields': 'Rendements obligataires',
   'Global Equities': 'Actions mondiales', 'Commodities': 'Matières premières', 'US Dollar': 'Dollar américain',
   'China': 'Chine', 'Trade': 'Commerce',
+  /* Vocabulaire des tags posés par le SERVEUR (AI_TAG_VOCAB, _HERO_CAT_TAG) resté sans entrée ici :
+     « Oil » s'affichait tel quel sur le desk et dans l'app (capture user du 25/09, « OIL » à côté de
+     « Géopolitique »). */
+  'Oil': 'Pétrole', 'Metals': 'Métaux', 'Gold': 'Or', 'Risk': 'Risque', 'NatGas': 'Gaz naturel',
 };
 
 function getSmartTags(item) {

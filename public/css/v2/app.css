@@ -446,9 +446,9 @@ html.dtp-app .v2a-puces button.v2a-puce-on { background: var(--v2a-or); border-c
 .v2a-news.v2a-ouvert .v2a-news-desc { display: block; animation: v2aEntre .2s ease both; }
 .v2a-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .v2a-tags:empty { display: none; }
-.v2a-tags span { padding: 7px 12px; border-radius: 6px; background: #19191d; color: #a8a8b0; font: 500 12px/1 'Inter', sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+.v2a-tags > span:not(.tag) { padding: 7px 12px; border-radius: 6px; background: #19191d; color: #a8a8b0; font: 500 12px/1 'Inter', sans-serif; letter-spacing: .12em; text-transform: uppercase; }
 .v2a-news.v2a-imp { background: #1e140f !important; }
-.v2a-news.v2a-imp .v2a-tags span:first-child { color: #ffb4a6; background: rgba(229,72,77,.14); }
+.v2a-news.v2a-imp .v2a-tags > span:not(.tag):first-child { color: #ffb4a6; background: rgba(229,72,77,.14); }
 .v2a-charger { display: block; width: calc(100% - 28px); margin: 14px; height: 44px; border-radius: 10px; border: 1px solid #26262c; background: #121215; color: var(--v2a-or); font: 600 14px/1 'Inter', sans-serif; }
 
 /* ── Marchés : sentiment de risque + force des devises ── */
@@ -573,7 +573,25 @@ html.dtp-app .v2a-plus { flex-basis: 20px; width: 20px; height: 20px; border-col
 html.dtp-app .v2a-plus::before { width: 8px; margin-left: -4px; } html.dtp-app .v2a-plus::after { height: 8px; margin-top: -4px; }
 html.dtp-app .v2a-news-desc { margin-left: 30px; padding: 11px 13px; font-size: 14px; background: rgba(227,178,58,.05); border-left-width: 2px; }
 html.dtp-app .v2a-tags { margin-top: 10px; gap: 6px; }
-html.dtp-app .v2a-tags span { padding: 5px 9px; border-radius: 4px; font-size: 10.5px; letter-spacing: .1em; background: #141418; }
+html.dtp-app .v2a-tags > span:not(.tag) { padding: 5px 9px; border-radius: 4px; font-size: 10.5px; letter-spacing: .1em; background: #141418; }
+/* Fil aligné sur le desk (25/09) : les tags et les boutons Info / Analyse / Impact marché sont ceux du
+   desk, avec ses classes (couleurs incluses) ; on n'ajuste ici que la taille au doigt. Le corps déplié
+   reçoit le contenu du panneau du desk, puces et intertitres compris. */
+html.dtp-app .v2a-tags .tag { padding: 5px 9px; border-radius: 4px; font: 500 12px/1.2 'Inter Tight', system-ui, sans-serif; letter-spacing: .01em; }
+html.dtp-app .v2a-tags button.tag { -webkit-appearance: none; appearance: none; cursor: pointer; }
+html.dtp-app .v2a-tags .tag .tag-flag { width: 13px; height: 13px; border-radius: 50%; object-fit: cover; }
+html.dtp-app .v2a-news-corps { display: none; margin: 12px 0 0 30px; padding: 11px 13px; border-left: 2px solid var(--v2a-or); border-radius: 0 8px 8px 0; background: rgba(227,178,58,.05); font: 14px/1.6 'Inter Tight', system-ui, sans-serif; color: #d6d6dc; overflow-wrap: anywhere; cursor: text; -webkit-user-select: text; user-select: text; }
+html.dtp-app .v2a-news.v2a-ouvert .v2a-news-corps { display: block; animation: v2aEntre .2s ease both; }
+html.dtp-app .v2a-news-corps:empty::before { content: 'Chargement…'; color: #7c7c86; }
+html.dtp-app .v2a-news-corps .article-points { padding-left: 0; margin: 0; }
+html.dtp-app .v2a-news-corps .article-points li { margin: 0 0 6px; color: #d6d6dc; }
+html.dtp-app .v2a-news-corps .article-points li:last-child { margin-bottom: 0; }
+html.dtp-app .v2a-news-corps .ip-head { margin-top: 10px; color: #e3b23a; font-weight: 600; }
+html.dtp-app .v2a-news-corps .ip-head:first-child { margin-top: 0; }
+html.dtp-app .v2a-news-corps strong { color: #f0f0f3; }
+html.dtp-app .v2a-news-corps .iq-note { color: #8e8e98; font-size: 12.5px; margin-bottom: 6px; }
+html.dtp-app .v2a-news-corps img { max-width: 100%; height: auto; }
+html.dtp-app .v2a-news-corps .market-update-body { padding: 0; font-size: 14px; }
 html.dtp-app .v2a-news.v2a-imp { background: linear-gradient(90deg, rgba(229,72,77,.10), rgba(229,72,77,.02)) !important; box-shadow: inset 2px 0 0 #e5484d; }
 html.dtp-app .v2a-jour { padding: 10px 16px; font: 600 11px/1 'Inter Tight', system-ui, sans-serif; letter-spacing: .12em; background: #0e0e11; }
 html.dtp-app .v2a-puces { padding: 10px 14px; gap: 6px; }

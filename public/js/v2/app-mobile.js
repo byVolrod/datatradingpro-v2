@@ -80,6 +80,7 @@
         case 'newsEssentialMode':  return typeof newsEssentialMode !== 'undefined' ? newsEssentialMode : undefined;
         case '_npEnabled':         return typeof _npEnabled !== 'undefined' ? _npEnabled : undefined;
         case '_brReadIds':         return typeof _brReadIds !== 'undefined' ? _brReadIds : undefined;
+        case 'NEWS_TAG_FR':        return typeof NEWS_TAG_FR !== 'undefined' ? NEWS_TAG_FR : undefined;
       }
     } catch (e) { return undefined; }
     return window[nom];
@@ -393,7 +394,101 @@
      Mêmes éléments que le fil du desk (`getFilteredItems` : filtre Essentiel et sections compris),
      même titre affiché (`_newsDisplayTitle` : la traduction française quand elle existe), même règle
      d'importance (`_estNewsRouge`). Il se met à jour quand le desk reçoit une dépêche. */
-  var filMode = 'tout', filLimite = 60, filOuverts = {};
+  var filMode = 'tout', filLimite = 60, filOuverts = {}, filParId = {};
+  /* ══ LE FIL DE L'APP PARLE COMME LE DESK (25/09, demande user : « met les bons tags et descriptions
+     du desk web pour l'app mobile, garder cette cohérence »). Capture à l'appui : l'app affichait les
+     tags BRUTS du serveur (« GEOPOLITICAL », « OIL »), en capitales, et une description réduite au
+     texte source, là où le desk affiche « Géopolitique », la paire exposée (XAUUSD), l'indicateur
+     avec son drapeau, puis Info / Analyse / Impact marché.
+     ⚠️ ON NE RECOPIE PAS LES RÈGLES DU DESK, ON LES FAIT TOURNER. Les tags du desk tiennent sur une
+     douzaine de filtres (doublons de catégorie, tags masqués, pays déjà dit par la devise, garde des
+     taux, paire déduite, or sur le géopolitique, plafond des rapports…) écrits DANS buildNewsItem.
+     Une copie divergerait au premier réglage. On lit donc la ligne que le desk a déjà construite
+     (#news-list), ou on la lui fait construire, et on en reprend les tags tels quels.
+     Même principe pour le dépliage : le contenu d'Info / Analyse / Impact marché est celui que le
+     desk écrit dans SON panneau (résumé en cache, dépêche en repli, traduction en place, synthèse
+     d'analyse d'événement…). Une ligne du desk, montée hors écran, ouvre son panneau ; l'app en
+     reflète le contenu, y compris quand il change (squelette → texte définitif). */
+  var PILLS = { analysis: '.tag--analyse', info: '.tag--info', impact: '.tag--impact' };
+  var ORDRE_ONGLETS = ['analysis', 'info', 'impact'];   // l'ordre du dépliage par défaut du desk (_togglePanel)
+  var rangsDesk = new Map();
+  var cssEsc = function (x) { x = String(x); return window.CSS && CSS.escape ? CSS.escape(x) : x.replace(/["\\]/g, '\\$&'); };
+  function rangDesk(it) {
+    var r = null;
+    try { r = document.querySelector('#news-list .news-item[data-id="' + cssEsc(it.id) + '"]'); } catch (e) {}
+    if (r) return r;
+    var c = rangsDesk.get(it.id);
+    if (c && c.it === it) return c.el;
+    var b = glob('buildNewsItem');
+    if (typeof b !== 'function') return null;
+    try { r = b(it); } catch (e) { return null; }
+    rangsDesk.set(it.id, { it: it, el: r });
+    if (rangsDesk.size > 400) rangsDesk.delete(rangsDesk.keys().next().value);
+    return r;
+  }
+  // Tags du desk (sans les boutons de panneau) + onglets disponibles, dans l'ordre du desk.
+  function tagsDesk(it) {
+    var r = rangDesk(it);
+    var zone = r && r.querySelector('.news-tags');
+    if (!zone) return null;
+    var html = '', onglets = [];
+    Array.prototype.forEach.call(zone.children, function (t) {
+      if (!t.classList || !t.classList.contains('tag')) return;
+      if (t.classList.contains('tag--reaction')) return;   // graphique de réaction : desk seulement
+      for (var k in PILLS) if (t.matches(PILLS[k])) { onglets.push({ k: k, html: t.innerHTML }); return; }
+      html += '<span class="' + esc(t.className.replace(/\btag--active\b/g, '')) + '"' + (t.dataset.cat ? ' data-cat="' + esc(t.dataset.cat) + '"' : '') + '>' + t.innerHTML + '</span>';
+    });
+    // Les boutons gardent l'ordre du desk ; l'onglet ouvert par défaut suit sa préférence.
+    var defaut = ORDRE_ONGLETS.filter(function (k) { return onglets.some(function (o) { return o.k === k; }); })[0] || null;
+    return { html: html, onglets: onglets, defaut: defaut };
+  }
+  var miroirs = {};
+  function hoteMiroir() {
+    var h = document.getElementById('v2a-miroir-fil');
+    if (!h) {
+      h = document.createElement('div');
+      h.id = 'v2a-miroir-fil'; h.setAttribute('aria-hidden', 'true');
+      h.style.cssText = 'position:fixed;left:-10000px;top:0;width:560px;height:1px;overflow:hidden;visibility:hidden;pointer-events:none';
+      document.body.appendChild(h);
+    }
+    return h;
+  }
+  function panneauMiroir(m) { return m && m.el.querySelector('.news-content > .news-description'); }
+  function copierMiroir(id) {
+    var m = miroirs[id], exp = panneauMiroir(m);
+    if (!exp) return;
+    var corps = document.querySelector('#v2a-fil .v2a-news[data-id="' + cssEsc(id) + '"] .v2a-news-corps');
+    if (corps && corps.innerHTML !== exp.innerHTML) corps.innerHTML = exp.innerHTML;
+  }
+  function fermerMiroir(id) {
+    var m = miroirs[id];
+    if (!m) return;
+    delete miroirs[id];
+    if (m.obs) m.obs.disconnect();
+    // Refermer par le desk lui-même : il oublie alors le panneau (_openNewsPanels) et promeut ce
+    // qu'il tenait en réserve pendant la lecture.
+    if (m.tab) { var p = m.el.querySelector('.news-tags ' + PILLS[m.tab]); if (p) { try { p.click(); } catch (e) {} } }
+    m.el.remove();
+  }
+  function ouvrirOnglet(it, k) {
+    var m = miroirs[it.id];
+    if (m && m.it !== it) { fermerMiroir(it.id); m = null; }
+    if (!m) {
+      var b = glob('buildNewsItem');
+      if (typeof b !== 'function') return false;
+      var el; try { el = b(it); } catch (e) { return false; }
+      hoteMiroir().appendChild(el);
+      m = miroirs[it.id] = { it: it, el: el, tab: null, obs: null };
+      var exp = panneauMiroir(m);
+      if (exp) { m.obs = new MutationObserver(function () { copierMiroir(it.id); }); m.obs.observe(exp, { childList: true, subtree: true, characterData: true }); }
+    }
+    var p = m.el.querySelector('.news-tags ' + PILLS[k]);
+    if (!p) return false;
+    if (m.tab !== k) { try { p.click(); } catch (e) { return false; } m.tab = k; }
+    filOuverts[it.id] = k;
+    copierMiroir(it.id);
+    return true;
+  }
   function modeEssentiel() { try { return !!glob('newsEssentialMode'); } catch (e) { return false; } }
   RENDUS.fil = function () {
     var e = ecrans.fil;
@@ -412,7 +507,24 @@
         var plus = ev.target.closest('[data-plus]');
         if (plus) { filLimite += 60; RENDUS.fil(); return; }
         var art = ev.target.closest('.v2a-news'); if (!art || !art.dataset.ouvrable) return;
-        vibre(); filOuverts[art.dataset.id] = !filOuverts[art.dataset.id]; art.classList.toggle('v2a-ouvert', !!filOuverts[art.dataset.id]);
+        var id = art.dataset.id, it = filParId[id];
+        var og = ev.target.closest('[data-onglet]');
+        if (!og && ev.target.closest('.v2a-news-corps')) return;   // lire / sélectionner le texte ne referme pas
+        vibre();
+        if (it && art.dataset.onglets) {
+          // Même geste que le desk : un onglet ouvre SON contenu ; retoucher l'onglet actif, ou la
+          // ligne, referme. La ligne ouvre l'onglet par défaut du desk (Analyse, sinon Info, sinon Impact).
+          var k = og ? og.dataset.onglet : (filOuverts[id] ? filOuverts[id] : (art.dataset.defaut || art.dataset.onglets.split(',')[0]));
+          if (filOuverts[id] === k) {
+            delete filOuverts[id]; fermerMiroir(id);
+            art.classList.remove('v2a-ouvert');
+          } else if (ouvrirOnglet(it, k)) {
+            art.classList.add('v2a-ouvert');
+          }
+          art.querySelectorAll('[data-onglet]').forEach(function (b) { b.classList.toggle('tag--active', b.dataset.onglet === filOuverts[id]); });
+          return;
+        }
+        filOuverts[id] = !filOuverts[id]; art.classList.toggle('v2a-ouvert', !!filOuverts[id]);
       });
     }
     var eff = modeEssentiel() && filMode !== 'important' ? 'essentiel' : filMode;
@@ -425,22 +537,41 @@
     var liste = document.getElementById('v2a-fil');
     if (!items.length) { liste.innerHTML = '<p class="v2a-vide">Le fil est en direct : les dépêches apparaissent dès leur publication.</p>'; return; }
     var html = '', jour = '';
+    filParId = {};
     items.slice(0, filLimite).forEach(function (it) {
+      filParId[it.id] = it;
       var j = new Date(it.timestamp || 0).toDateString();
       if (j !== jour) { jour = j; html += '<div class="v2a-jour">' + esc(jourLong(it.timestamp)) + '</div>'; }
       var imp = false; try { imp = typeof rouge === 'function' && rouge(it); } catch (x) {}
       var t = ''; try { t = typeof titre === 'function' ? titre(it) : (it._titreFr || it.headline); } catch (x) { t = it.headline; }
       var desc = String(it._descFr || it.description || '').replace(/<[^>]+>/g, ' ').trim();
       var c = it.category ? (typeof cat === 'function' ? cat(it.category) : it.category) : '';
+      var dk = null; try { dk = tagsDesk(it); } catch (x) {}
+      if (dk) {
+        // Ligne alignée sur le desk : ses tags, puis ses boutons Info / Analyse / Impact marché.
+        var ks = dk.onglets.map(function (o) { return o.k; });
+        var ouvert = filOuverts[it.id] && ks.indexOf(filOuverts[it.id]) >= 0 ? filOuverts[it.id] : null;
+        if (filOuverts[it.id] && !ouvert) { delete filOuverts[it.id]; fermerMiroir(it.id); }
+        html += '<article class="v2a-news v2a-news-dk' + (imp ? ' v2a-imp' : '') + (ouvert ? ' v2a-ouvert' : '') + '" data-id="' + esc(it.id) + '"' + (ks.length ? ' data-ouvrable="1" data-onglets="' + ks.join(',') + '" data-defaut="' + dk.defaut + '"' : '') + '>'
+          + '<div class="v2a-news-meta">' + (imp ? '<span class="v2a-excl">!</span>' : '') + '<span>' + esc(dateHeure(it.timestamp)) + '</span>' + (c ? '<b>' + esc(c) + '</b>' : '') + '</div>'
+          + '<div class="v2a-news-l">' + (ks.length ? '<span class="v2a-plus"><i></i></span>' : '') + '<p>' + esc(t) + '</p></div>'
+          + '<div class="v2a-tags">' + dk.html + dk.onglets.map(function (o) { return '<button type="button" class="tag ' + PILLS[o.k].slice(1) + (o.k === ouvert ? ' tag--active' : '') + '" data-onglet="' + o.k + '">' + o.html + '</button>'; }).join('') + '</div>'
+          + (ks.length ? '<div class="v2a-news-corps"></div>' : '') + '</article>';
+        return;
+      }
+      // Repli (desk indisponible) : l'ancienne ligne, libellés traduits comme au desk.
+      var trad = glob('NEWS_TAG_FR') || {};
       var tags = (Array.isArray(it.tags) ? it.tags : []).slice(0, 3).filter(function (x) { return x && x !== it.category; });
       html += '<article class="v2a-news' + (imp ? ' v2a-imp' : '') + (filOuverts[it.id] ? ' v2a-ouvert' : '') + '" data-id="' + esc(it.id) + '"' + (desc ? ' data-ouvrable="1"' : '') + '>'
         + '<div class="v2a-news-meta">' + (imp ? '<span class="v2a-excl">!</span>' : '') + '<span>' + esc(dateHeure(it.timestamp)) + '</span>' + (c ? '<b>' + esc(c) + '</b>' : '') + '</div>'
         + '<div class="v2a-news-l">' + (desc ? '<span class="v2a-plus"><i></i></span>' : '') + '<p>' + esc(t) + '</p></div>'
         + (desc ? '<div class="v2a-news-desc">' + esc(desc) + '</div>' : '')
-        + '<div class="v2a-tags">' + (imp ? '<span>Importante</span>' : '') + (it.urgent ? '<span>Urgente</span>' : '') + tags.map(function (x) { return '<span>' + esc(x) + '</span>'; }).join('') + '</div></article>';
+        + '<div class="v2a-tags">' + tags.map(function (x) { return '<span>' + esc(trad[x] || x) + '</span>'; }).join('') + '</div></article>';
     });
     if (items.length > filLimite) html += '<button type="button" class="v2a-charger" data-plus="1">Charger plus (' + (items.length - filLimite) + ')</button>';
     liste.innerHTML = html;
+    // Le fil vient d'être réécrit : on y reverse le contenu des panneaux ouverts.
+    Object.keys(miroirs).forEach(function (id) { if (filOuverts[id]) copierMiroir(id); else fermerMiroir(id); });
   };
   // Le desk reçoit une dépêche → il redessine #news-list → l'écran Fil suit (regroupé, 400 ms).
   var filMaj = null;

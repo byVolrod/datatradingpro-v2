@@ -225,7 +225,19 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       v('… « Essentiel » bascule le vrai filtre du fil (fonction existante)', await page.evaluate(() => { try { return newsEssentialMode === true && document.querySelector('#v2a-puces-fil [data-mode="essentiel"]').classList.contains('v2a-puce-on'); } catch (e) { return false; } }));
       await aller('#v2a-puces-fil [data-mode="tout"]');
       await page.click('#v2a-fil .v2a-news[data-ouvrable]');
-      v('… « + » déplie le texte de la dépêche', await page.evaluate(() => { const n = document.querySelector('#v2a-fil .v2a-news[data-ouvrable]'); return n.classList.contains('v2a-ouvert') && getComputedStyle(n.querySelector('.v2a-news-desc')).display !== 'none'; }));
+      await new Promise(z => setTimeout(z, 500));
+      // Depuis le 25/09 la ligne reprend les tags et le panneau du desk : le corps déplié
+      // (.v2a-news-corps) reçoit le contenu du panneau Info / Analyse / Impact marché du desk.
+      // L'ancien corps (.v2a-news-desc) ne reste qu'en repli, quand le desk est indisponible.
+      v('… « + » déplie le texte de la dépêche (le panneau du desk)', await page.evaluate(() => {
+        const n = document.querySelector('#v2a-fil .v2a-news[data-ouvrable]');
+        const c = n && (n.querySelector('.v2a-news-corps') || n.querySelector('.v2a-news-desc'));
+        return !!(c && n.classList.contains('v2a-ouvert') && getComputedStyle(c).display !== 'none' && c.textContent.trim().length > 10);
+      }));
+      v('… tags du desk en français, jamais le tag brut du serveur', await page.evaluate(() => {
+        const t = [...document.querySelectorAll('#v2a-fil .v2a-tags .tag')].map(x => x.textContent.trim());
+        return t.length > 0 && !t.some(x => /^(Geopolitical|Oil|Energy|Data|Rates|Metals|Gold|Risk)$/.test(x));
+      }));
       await aller('.v2a-onglet[data-v2v="markets"]');
       await new Promise(z => setTimeout(z, 600));
       const m = await page.evaluate(() => ({ visible: !!document.querySelector('.v2a-ecran[data-ecran="markets"].v2a-visible'),
