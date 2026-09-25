@@ -736,3 +736,7 @@ html.dtp-app, html.dtp-app body { overflow-x: hidden; overscroll-behavior-x: non
 html.dtp-app .v2a-langue img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex: 0 0 22px; }
 html.dtp-app .v2a-langue > svg:last-child { margin-left: auto; color: #e3b23a; }
 html.dtp-app .v2a-langue.v2a-langue-on span { color: #f2f2f4; font-weight: 600; }
+
+/* Réglages du Calendrier dans l'app : l'icône dessinée du desk, à la taille du doigt. */
+html.dtp-app .cal-title-icon--svg svg { width: 17px; height: 17px; }
+html.dtp-app .cal-title-icon--svg { color: #8e8e98; }
