@@ -186,6 +186,7 @@
     barre.addEventListener('click', function (e) {
       var b = e.target.closest('[data-v2v]'); if (!b) return;
       vibre(); ouvrirPlus(false); fermerAlertes(); fermerVolets(); aller(b.dataset.v2v);
+      rafraichir(b.dataset.v2v); remonter(b.dataset.v2v);
     });
     feuille.addEventListener('click', function (e) {
       var b = e.target.closest('[data-v2v]'); if (!b) return;
@@ -259,6 +260,27 @@
     if (k !== 'markets') arreterMarches();
   }
   var RENDUS = {};
+  /* ══ UN TOUCHER SUR UN ONGLET = À JOUR ET EN HAUT (25/09, « quand on clique sur les boutons, ça doit
+     rafraîchir et remonter en haut ») ═══════════════════════════════════════════════════════════════
+     Le geste de toutes les apps : toucher l'onglet ramène en tête de liste et relit les données.
+     Revenir sur un écran le montrait là où on l'avait laissé, avec ce qu'il affichait alors.
+     REMONTER : l'écran natif ET tout conteneur défilant de la vue du desk (le calendrier défile dans
+     son tableau, pas dans la page). RAFRAÎCHIR : la même lecture que le desk, par écran ; le fil est
+     déjà tenu à jour en direct, son écran se redessine (aller). */
+  function remonter(v) {
+    var haut = function (el) { try { if (el.scrollTop > 0) { if (el.scrollTo) el.scrollTo({ top: 0, behavior: 'smooth' }); else el.scrollTop = 0; } } catch (x) { el.scrollTop = 0; } };
+    if (ecrans[v]) haut(ecrans[v]);
+    var p = document.getElementById('view-' + v);
+    if (p) { haut(p); p.querySelectorAll('div, section, ul, tbody').forEach(haut); }
+    try { if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (x) {}
+  }
+  function rafraichir(v) {
+    try {
+      if (v === 'calendar') { var rc = glob('_refreshCalendarData'); if (typeof rc === 'function') rc(true); }
+      else if (v === 'analystes') appel('loadAnalystView');
+      else if (v === 'banques') appel('_loadBrArticles', 0);
+    } catch (x) {}
+  }
   function aller(v, opts) {
     opts = opts || {};
     if (ecrans[v]) {
@@ -282,7 +304,7 @@
   function retour() {
     // Un volet (IA, support) ouvert : Retour le referme, comme le geste retour d'une app.
     if (voletOuvert()) { fermerVolets(); return; }
-    if (courant === 'compte' && sousCompte) { sousCompte = null; RENDUS.compte(true); return; }
+    if (courant === 'compte' && sousCompte) { sousCompte = PARENT_COMPTE[sousCompte] || null; RENDUS.compte(true); return; }
     // Un lecteur de rapport du desk : on le referme aussi, sans quoi la vue du desk resterait
     // bloquée sur ce rapport à la prochaine visite.
     if (courant === 'analyst') { var ba = document.getElementById('arlib-back-btn'); if (ba) ba.click(); }
@@ -563,7 +585,7 @@
       });
       e.querySelector('#v2a-fil').addEventListener('click', function (ev) {
         var plus = ev.target.closest('[data-plus]');
-        if (plus) { filLimite += 60; RENDUS.fil(); return; }
+        if (plus) { filLimite = RENDUS.fil._suite || (filLimite + 60); RENDUS.fil(); return; }
         var art = ev.target.closest('.v2a-news'); if (!art || !art.dataset.ouvrable) return;
         var id = art.dataset.id, it = filParId[id];
         var og = ev.target.closest('[data-onglet]');
@@ -636,7 +658,21 @@
         + (desc ? '<div class="v2a-news-desc">' + esc(desc) + '</div>' : '')
         + '<div class="v2a-tags">' + tags.map(function (x) { return '<span>' + esc(trad[x] || x) + '</span>'; }).join('') + '</div></article>';
     });
-    if (items.length > filLimite) html += '<button type="button" class="v2a-charger" data-plus="1">Charger plus (' + (items.length - filLimite) + ')</button>';
+    /* « CHARGER PLUS » = LE BOUTON DU DESK (25/09, « le bouton doit être le même que celui du desk ») :
+       même classe (.load-more-btn : gris, police mono, coins de 4 px) et même libellé, qui nomme le jour
+       qui va s'afficher (« Charger jeudi 24 septembre ») ou « Voir toute la journée » quand la suite
+       appartient encore au dernier jour affiché, au lieu d'un compteur doré propre à l'app. */
+    if (items.length > filLimite) {
+      var jourP = function (ts) { try { return new Date(ts).toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' }); } catch (x) { return ''; } };
+      var suivant = items[filLimite], dernierVu = items[filLimite - 1];
+      var libP = suivant && dernierVu && jourP(suivant.timestamp) === jourP(dernierVu.timestamp) ? 'Voir toute la journée'
+        : (suivant ? 'Charger ' + new Date(suivant.timestamp).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }) : 'Charger plus');
+      // Le bouton tient sa promesse : il déroule jusqu'à la FIN du jour qu'il nomme (comme au desk).
+      var jCible = suivant ? jourP(suivant.timestamp) : '', fin = filLimite;
+      while (fin < items.length && jourP(items[fin].timestamp) === jCible) fin++;
+      RENDUS.fil._suite = Math.max(fin, filLimite + 20);
+      html += '<button type="button" class="load-more-btn v2a-charger" data-plus="1">' + esc(libP) + '</button>';
+    }
     liste.innerHTML = html;
     // Le fil vient d'être réécrit : on y reverse le contenu des panneaux ouverts.
     Object.keys(miroirs).forEach(function (id) { if (filOuverts[id]) copierMiroir(id); else fermerMiroir(id); });
@@ -772,13 +808,22 @@
     brancherAnalystes();
     var tf = glob('arlibItemType');
     var typeDe = function (it) { try { return typeof tf === 'function' ? tf(it) : ''; } catch (x) { return ''; } };
+    /* ⚠️ LA LISTE SE RELIT À L'ENTRÉE (25/09, capture : ni hebdo, ni Récap quotidien du jour). Les
+       rapports n'étaient demandés au serveur QUE si la liste était vide ; or les récaps de séance
+       arrivent tout de suite par le cache local : l'écran s'affichait donc avec le cache de la
+       veille, sans les hebdos (lus par une autre route) ni le Récap quotidien paru depuis. On relit
+       à chaque entrée, au plus une fois par minute (la relecture redessine la liste du desk, que cet
+       écran suit : sans cette borne, elle se relancerait elle-même). */
+    if (Date.now() - (RENDUS.analystes._lu || 0) > 60000) { RENDUS.analystes._lu = Date.now(); appel('loadAnalystView'); }
     var tous = itemsRapports().slice();   // l'ordre du desk (getArlibItems), pas un tri refait ici
     if (!tous.length) { e.innerHTML = '<p class="v2a-vide">Chargement des rapports…</p>'; appel('loadAnalystView'); setTimeout(function () { if (courant === 'analystes') RENDUS.analystes(); }, 2500); return; }
     var presents = {}; tous.forEach(function (it) { presents[typeDe(it)] = true; });
-    if (typeRapport !== 'all' && !presents[typeRapport]) typeRapport = 'all';
+    if (typeRapport !== 'all' && typeRapport !== 'weekly' && !presents[typeRapport]) typeRapport = 'all';
     var items = (typeRapport === 'all' ? tous : tous.filter(function (it) { return typeDe(it) === typeRapport; })).slice(0, 80);
     var lu = glob('isRead'), rk = glob('_reportReadKey');
-    var puces = TYPES_RAPPORT.filter(function (t) { return t[0] === 'all' || presents[t[0]]; });
+    // Le Récap hebdomadaire a TOUJOURS sa puce (« il manque récap hebdo dans les sélections ») : c'est
+    // le rendez-vous de la semaine, on doit pouvoir le chercher même avant qu'il soit arrivé.
+    var puces = TYPES_RAPPORT.filter(function (t) { return t[0] === 'all' || t[0] === 'weekly' || presents[t[0]]; });
     e.innerHTML = (puces.length > 2 ? '<div class="v2a-puces v2a-puces-an">' + puces.map(function (t) { return '<button type="button" data-type="' + t[0] + '"' + (t[0] === typeRapport ? ' class="v2a-puce-on"' : '') + '>' + esc(t[1]) + '</button>'; }).join('') + '</div>' : '')
       + '<div class="v2a-liste">' + items.map(function (it, i) {
       var dejaLu = false; try { dejaLu = typeof lu === 'function' && typeof rk === 'function' && lu(rk(it)); } catch (x) {}
@@ -824,7 +869,13 @@
       var c = '#e3b23a'; try { if (typeof coul === 'function') c = coul(b); } catch (x) {}
       var tags = (Array.isArray(it.tags) ? it.tags : []).slice(0, 3);
       var estLu = false; try { estLu = !!(luBr && luBr.has && luBr.has(it.id)); } catch (x) {}
-      return '<button type="button" class="v2a-banque' + (estLu ? ' v2a-lu' : '') + '" data-i="' + i + '"><span class="v2a-banque-h"><span class="v2a-banque-logo" style="background:' + esc(c) + '">' + esc(b.charAt(0)) + '</span>'
+      // Le LOGO de la banque, celui du desk (25/09, « mets les icônes des banques comme dans le desk ») ;
+      // s'il ne charge pas, la tuile retombe sur l'initiale à la couleur de la marque.
+      var url = null; try { var lf = glob('_instLogoUrl'); url = typeof lf === 'function' ? lf(b) : null; } catch (x) {}
+      var logo = '<span class="v2a-banque-logo' + (url ? ' v2a-banque-logo--img' : '') + '" style="--c:' + esc(c) + '">'
+        + (url ? '<img src="' + esc(url) + '" alt="" loading="lazy" decoding="async" onerror="this.parentNode.classList.remove(\'v2a-banque-logo--img\');this.remove()">' : '')
+        + '<i>' + esc(b.charAt(0)) + '</i></span>';
+      return '<button type="button" class="v2a-banque' + (estLu ? ' v2a-lu' : '') + '" data-i="' + i + '"><span class="v2a-banque-h">' + logo
         + '<b style="color:' + esc(c) + '">' + esc(b) + '</b><span class="v2a-banque-d">' + svg(I.cal, 15) + esc(dateCourte(it.timestamp)) + '</span></span>'
         + '<span class="v2a-banque-t">' + esc(it.title || it.headline || '') + '</span>'
         + '<span class="v2a-banque-p">' + tags.map(function (x) { return '<i>' + esc(x) + '</i>'; }).join('') + '<em>' + svg(I.suite, 18, 1.8) + '</em></span></button>';
@@ -913,10 +964,13 @@
       var p = PP.prefs;
       if (k === 'news') return segs('ppfil', p.fil || 'tout', [['tout', 'Toutes les importantes'], ['eco', 'Économie'], ['geo', 'Géopolitique']]);
       if (k === 'analystes') return segs('pprecaps', p.recaps || 'tous', [['tous', 'Tous les récaps'], ['quotidien', 'Quotidiens'], ['hebdo', 'Hebdo']]);
+      /* UNE LIGNE, PAS VINGT-DEUX PASTILLES (25/09, capture : « ça prend trop d'espace, affiche-le
+         autrement »). Le choix des banques ouvre sa propre page, une liste à cocher avec les logos,
+         comme le Fuseau ou la Langue ; ici ne reste que le résumé de ce qui est suivi. */
       if (k === 'banques' && PP.banques.length) {
-        var ch = p.banques || [];
-        return '<div class="v2a-segs v2a-segs--b"><button type="button" class="v2a-seg-b' + (ch.length ? '' : ' on') + '" data-act="ppbanque" data-v="*">Toutes</button>'
-          + PP.banques.map(function (b) { return '<button type="button" class="v2a-seg-b' + (ch.indexOf(b) >= 0 ? ' on' : '') + '" data-act="ppbanque" data-v="' + esc(b) + '">' + esc(b) + '</button>'; }).join('') + '</div>';
+        var ch = (p.banques || []).filter(function (b) { return PP.banques.indexOf(b) >= 0; });
+        var resume = !ch.length ? 'Toutes' : (ch.length <= 2 ? ch.join(', ') : ch.slice(0, 2).join(', ') + ' +' + (ch.length - 2));
+        return '<button type="button" class="v2a-ligne v2a-pp-sous" data-act="page:banques"><span>Banques suivies</span><em class="v2a-val">' + esc(resume) + '</em>' + svg(I.suite, 18, 1.8) + '</button>';
       }
       return '';
     };
@@ -955,7 +1009,9 @@
      (Fuseau horaire, Abonnement, Notifications, Préférences, Langue), et Retour ramène au sommaire.
      Les alertes rejoignent la page Notifications. */
   var sousCompte = null;
-  var PAGES_COMPTE = { profil: 'Profil', nom: 'Nom affiché', email: 'Adresse e-mail', mdp: 'Mot de passe', fuseau: 'Fuseau horaire', abo: 'Abonnement', notifs: 'Notifications', prefs: 'Préférences', langue: 'Langue' };
+  var PAGES_COMPTE = { profil: 'Profil', nom: 'Nom affiché', email: 'Adresse e-mail', mdp: 'Mot de passe', fuseau: 'Fuseau horaire', abo: 'Abonnement', notifs: 'Notifications', prefs: 'Préférences', langue: 'Langue', banques: 'Banques suivies' };
+  // Une sous-page d'une sous-page : Retour ramène à sa page parente, pas à l'accueil du Compte.
+  var PARENT_COMPTE = { banques: 'notifs' };
   /* PROFIL ÉDITABLE (25/09, demande user) : toucher la photo la change (une pastille appareil photo le
      dit), le nom se modifie sur place ; l'e-mail quitte l'en-tête pour la page « Profil », première du
      sommaire ; « Identifiants » regroupe nom, e-mail et mot de passe. La photo passe par le sélecteur
@@ -1093,6 +1149,19 @@
         + ligne(I.son, 'Alertes sonores du desk', 'son', '<i class="v2a-bascule' + (glob('_npEnabled') ? ' v2a-on-b' : '') + '"></i>')
         + ligne(I.cloche, 'Voir les alertes', 'alertes')
         + '</div>' + wpBloc();
+    } else if (sousCompte === 'banques') {
+      // Liste à cocher, logos du desk. Aucune cochée = toutes (c'est ce que dit la première ligne).
+      var chB = (PP.prefs && PP.prefs.banques) || [], badge = glob('_instBadge'), logoF = glob('_instLogoUrl'), coulF = glob('_instBrandColor');
+      var logoB = function (nomB) {
+        var lb = nomB, url = null, cl = '#e3b23a';
+        try { if (typeof badge === 'function') { lb = badge({ institution: nomB }); if (lb === 'DTP') lb = nomB; } if (typeof logoF === 'function') url = logoF(lb); if (typeof coulF === 'function') cl = coulF(lb); } catch (x) {}
+        return '<span class="v2a-banque-logo' + (url ? ' v2a-banque-logo--img' : '') + '" style="--c:' + esc(cl) + '">' + (url ? '<img src="' + esc(url) + '" alt="" loading="lazy" onerror="this.parentNode.classList.remove(\'v2a-banque-logo--img\');this.remove()">' : '') + '<i>' + esc(nomB.charAt(0)) + '</i></span>';
+      };
+      h = '<div class="v2a-wp-aide">Choisissez les banques dont les nouvelles notes vous sont signalées. Sans choix, toutes le sont.</div>'
+        + '<div class="v2a-groupe"><button type="button" class="v2a-ligne v2a-choixliste" data-act="ppbanque" data-v="*"><span>Toutes les banques</span>' + (chB.length ? '<i class="v2a-vide-coche"></i>' : coche) + '</button></div>'
+        + '<div class="v2a-groupe">' + (PP.banques || []).map(function (nomB) {
+          return '<button type="button" class="v2a-ligne v2a-choixliste v2a-banque-choix" data-act="ppbanque" data-v="' + esc(nomB) + '">' + logoB(nomB) + '<span>' + esc(nomB) + '</span>' + (chB.indexOf(nomB) >= 0 ? coche : '<i class="v2a-vide-coche"></i>') + '</button>';
+        }).join('') + '</div>';
     } else if (sousCompte === 'prefs') {
       h = '<div class="v2a-groupe">' + ligne(I.etoile, 'Aperçu V3 (nouvelle interface)', 'v2', '<i class="v2a-bascule v2a-on-b"></i>') + '</div>';
     } else if (sousCompte === 'langue') {

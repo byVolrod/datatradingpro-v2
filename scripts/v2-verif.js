@@ -177,6 +177,24 @@ console.log('\n── 1 ter. Les barres d\'en-tête des écrans du desk dans l\'
   v('flèches ‹ › du calendrier et de la Semaine à venir dessinées', ['cal-range-prev', 'cal-range-next', 'wa-week-prev', 'wa-week-next'].every(id => new RegExp('id="' + id + '"[^>]*>\\s*<svg').test(IDX)));
   v('app : une seule barre (fond de l\'app, filet, titre gris en capitales) pour .panel-header et .chart-header',
     /html\.dtp-app \.view-panel \.panel-header,\s*html\.dtp-app \.view-panel \.chart-header \{[^}]*background: var\(--v2a-fond\) !important/.test(CSS));
+  // 25/09 : « quand on clique sur les boutons ça doit rafraîchir et remonter en haut ».
+  const AM = fs.readFileSync(path.join(R, 'public/js/v2/app-mobile.js'), 'utf8');
+  v('toucher un onglet de la barre relit l\'écran ET le remonte en haut', /aller\(b\.dataset\.v2v\);\s*rafraichir\(b\.dataset\.v2v\); remonter\(b\.dataset\.v2v\);/.test(AM)
+    && /function remonter\(v\)/.test(AM) && /if \(v === 'calendar'\)[^\n]*_refreshCalendarData/.test(AM) && /else if \(v === 'banques'\) appel\('_loadBrArticles', 0\)/.test(AM));
+  v('Analystes (app) : la liste se relit à chaque entrée (hebdos, Récap quotidien du jour), bornée à une fois par minute',
+    /if \(Date\.now\(\) - \(RENDUS\.analystes\._lu \|\| 0\) > 60000\) \{ RENDUS\.analystes\._lu = Date\.now\(\); appel\('loadAnalystView'\); \}/.test(AM));
+  v('Analystes (app) : la puce « Récap hebdomadaire » est toujours proposée', /t\[0\] === 'all' \|\| t\[0\] === 'weekly' \|\| presents\[t\[0\]\]/.test(AM) && /\['weekly', 'Récap hebdomadaire'\]/.test(AM));
+  v('Notifications (app) : les banques en UNE ligne-résumé qui ouvre une page à cocher (plus vingt pastilles)',
+    !/v2a-segs--b/.test(AM) && /data-act="page:banques"/.test(AM) && /sousCompte === 'banques'/.test(AM) && /PARENT_COMPTE = \{ banques: 'notifs' \}/.test(AM));
+  v('Fil (app) : « Charger plus » porte la classe et le libellé du desk (le jour suivant), plus un compteur doré',
+    /class="load-more-btn v2a-charger"/.test(AM) && /'Voir toute la journée'/.test(AM) && !/Charger plus \(' \+/.test(AM));
+  v('Banques (app) : le logo de la banque, celui du desk, avec repli sur l\'initiale', /glob\('_instLogoUrl'\)/.test(AM) && /function _instLogoUrl\(label\)/.test(fs.readFileSync(path.join(R, 'public/js/app.js'), 'utf8')) && /onerror="this\.parentNode\.classList\.remove/.test(AM));
+  // 25/09, capture iPhone : « les drapeaux ne prennent pas tout le cercle comme au desk ».
+  const STY = fs.readFileSync(path.join(R, 'public/css/style.css'), 'utf8');
+  const drap = STY.match(/\.cal-row \.cth-flag \.cal-flag-wrap \{ width: (\d+)px; height: \1px; \}\s*[^\n]*\.cal-row \.cth-flag img \{ width: (\d+)px; height: \2px;/g) || [];
+  v('calendrier mobile : le drapeau remplit son cercle (cercle ET image réglés ensemble, image plus grande que le cercle)',
+    drap.length >= 3 && drap.every(x => { const m = /wrap \{ width: (\d+)px[\s\S]*img \{ width: (\d+)px/.exec(x); return m && +m[2] > +m[1]; })
+    && !/\.cal-row \.cth-flag img \{ width: 1[35]px; height: 1[35]px; \}/.test(STY), drap.length + ' règle(s)');
   v('app : icônes à la même taille, cibles au doigt, croix « Fermer » retirée', /html\.dtp-app \.cal-title-icon \{[^}]*width: 36px; height: 36px/.test(CSS) && /html\.dtp-app \.cal-title-icon--svg svg \{ width: 18px; height: 18px; \}/.test(CSS) && /html\.dtp-app \.cal-title-icon--fermer \{ display: none; \}/.test(CSS));
 }
 
@@ -451,11 +469,26 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
         const geo = [...ec.querySelectorAll('[data-act="ppfil"]')].find(b => b.dataset.v === 'geo'); if (geo) geo.click(); await pause(300);
         const on = (ec.querySelector('[data-act="ppfil"].on') || {}).dataset;
         const r = { fins, neuf: !!ec.querySelector('.v2a-neuf'), actif: on && on.v, tester: /test/i.test(ec.innerText) };
+        // Les banques : une ligne-résumé, qui ouvre la page à cocher (25/09) ; Retour ramène aux Notifications.
+        const lb = ec.querySelector('[data-act="page:banques"]');
+        r.resume = lb ? lb.innerText.replace(/\s+/g, ' ').trim() : '';
+        if (lb) {
+          lb.click(); await pause(250);
+          r.pageB = document.getElementById('v2a-titre').textContent;
+          r.banques = [...ec.querySelectorAll('[data-act="ppbanque"]')].map(b => b.dataset.v);
+          const ing = ec.querySelector('[data-act="ppbanque"][data-v="ING"]'); if (ing) ing.click(); await pause(300);
+          document.getElementById('v2a-retour').click(); await pause(200);
+          r.retourB = document.getElementById('v2a-titre').textContent;
+          r.resumeApres = ((ec.querySelector('[data-act="page:banques"]') || {}).innerText || '').replace(/\s+/g, ' ').trim();
+        }
         document.getElementById('v2a-retour').click(); await pause(150);
         return r;
       });
       const envPP = (global.__envois || []).filter(x => x.u === '/api/push-prefs').pop();
-      v('Notifications : type de dépêches, rythme des récaps, banques au choix, sous leur famille', ['Géopolitique', 'Quotidiens', 'Hebdo', 'Goldman Sachs', 'ING'].every(x => nf.fins.includes(x)), JSON.stringify(nf));
+      v('Notifications : type de dépêches et rythme des récaps, sous leur famille', ['Géopolitique', 'Quotidiens', 'Hebdo'].every(x => nf.fins.includes(x)), JSON.stringify(nf));
+      v('… les banques en UNE ligne (« Banques suivies · Toutes »), plus de rangée de pastilles', /Banques suivies Toutes/.test(nf.resume) && !nf.fins.includes('Goldman Sachs'), JSON.stringify(nf));
+      v('… qui ouvre la page à cocher (toutes les banques + « Toutes »), et Retour ramène aux Notifications',
+        nf.pageB === 'Banques suivies' && ['*', 'Goldman Sachs', 'ING'].every(x => (nf.banques || []).includes(x)) && nf.retourB === 'Notifications' && /Banques suivies ING/.test(nf.resumeApres || ''), JSON.stringify(nf));
       v('… étiquette « Nouveau », plus de notification test', nf.neuf && !nf.tester, JSON.stringify(nf));
       v('… un toucher enregistre le choix sur le compte', nf.actif === 'geo' && envPP && /"fil":"geo"/.test(envPP.corps), envPP && envPP.corps);
       if (process.env.V2_CAPTURES) for (const pg of ['notifs', 'profil', 'mdp']) {

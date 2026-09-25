@@ -8686,6 +8686,12 @@ const _BANK_LOCAL_LOGO = {
   StanChart: '/assets/images/banks/StanChart.png',   // logo Standard Chartered (téléchargé en local)
 };
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
+// L'adresse du logo d'une banque (partagée par le desk et l'app) : logo local d'abord, sinon l'icône
+// officielle du domaine ; DTP pour les publications maison.
+function _instLogoUrl(label) {
+  if (label === 'DTP') return '/favicon.svg';
+  return _BANK_LOCAL_LOGO[label] || (_BANK_DOMAIN[label] ? `https://www.google.com/s2/favicons?sz=128&domain=${_BANK_DOMAIN[label]}` : null);
+}
 function _instLogoHtml(label) {
   const color = _instBrandColor(label);
   // Nom de la banque : TOUJOURS affiché (à côté du logo).
@@ -8693,7 +8699,7 @@ function _instLogoHtml(label) {
   if (label === 'DTP') return name;
   // Logo local (MUFG/SEB/ING) prioritaire, sinon Clearbit via le domaine officiel.
   // Logo local prioritaire ; sinon service de favicons OFFICIEL fiable (Clearbit ayant fermé → renvoyait des images cassées).
-  const url = _BANK_LOCAL_LOGO[label] || (_BANK_DOMAIN[label] ? `https://www.google.com/s2/favicons?sz=128&domain=${_BANK_DOMAIN[label]}` : null);
+  const url = _instLogoUrl(label);
   if (!url) return name;
   // Logo + NOM côte à côte : le nom reste toujours visible ; le logo se masque seulement s'il échoue.
   return `<span class="br-bank-logo-wrap"><img class="br-bank-logo" src="${url}" alt="${label}" onerror="this.style.display='none'">${name}</span>`;
