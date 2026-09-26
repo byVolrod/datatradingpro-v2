@@ -578,8 +578,130 @@
     return function () { clearInterval(iv); if (ro) ro.disconnect(); };
   }
 
+
+  /* ══ 6. SENTIMENT DE RISQUE (25/09, « le design ne reflète pas la V3 », capture) ═════════════════════
+     Même source que la jauge du desk (instantané partagé `dtp-risk`, sinon /api/risk-sentiment), et
+     l'historique 60 jours du desk (/api/risk-history). Présentation V3 : une jauge tracée en SVG (pas
+     de moteur de graphique à charger), l'aiguille qui glisse jusqu'au score, le régime en toutes
+     lettres, puis les MOTEURS : chaque actif suivi, sa variation, et le sens où il pousse (vers le
+     risk-on ou le risk-off). En bas, la trace des 60 dernières séances, zéro marqué. */
+  var RISQUE_FR = { 'STRONG RISK-ON': 'Fort appétit', 'RISK-ON': 'Appétit', 'WEAK RISK-ON': 'Léger appétit', 'NEUTRAL': 'Neutre', 'WEAK RISK-OFF': 'Légère aversion', 'RISK-OFF': 'Aversion', 'STRONG RISK-OFF': 'Forte aversion' };
+  var teinteRisque = function (p) { return p >= 15 ? VERT : p <= -15 ? ROUGE : OR; };
+  function stylesR() {
+    if (document.getElementById('v3r-css')) return;
+    var st = document.createElement('style'); st.id = 'v3r-css';
+    st.textContent = ''
+      + 'html.dtp-v2 .v3r-duo{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1px;background:var(--v3-ligne, #15151a)}'
+      + 'html.dtp-v2 .v3r-duo>div{position:relative;background:var(--v3-carte, #0a0a0c);display:flex;flex-direction:column;min-height:0}'
+      + 'html.dtp-v2 .v3r-jauge{flex:1;min-height:90px;position:relative}'
+      + 'html.dtp-v2 .v3r-jauge svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}'
+      + 'html.dtp-v2 .v3r-aig{transition:transform 1s cubic-bezier(.2,.8,.2,1);transform-box:view-box}'
+      + 'html.dtp-v2 .v3r-score{font:700 22px/1 "Inter Tight",system-ui,sans-serif;fill:var(--v3-titre, #f2f2f4)}'
+      + 'html.dtp-v2 .v3r-regime{font:600 11px/1 "Inter Tight",system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase}'
+      + 'html.dtp-v2 .v3r-mot{display:grid;grid-template-columns:minmax(64px,1fr) 60px minmax(60px,1.2fr);align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--v3-ligne, #141417)}'
+      + 'html.dtp-v2 .v3r-mot b{font-weight:600;color:var(--v3-titre, #ececf0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+      + 'html.dtp-v2 .v3r-mot span{text-align:right;font-variant-numeric:tabular-nums}'
+      + 'html.dtp-v2 .v3r-barre{position:relative;height:6px;border-radius:3px;background:var(--v3-tete, #121215)}'
+      + 'html.dtp-v2 .v3r-barre::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--v3-bord, #2a2a31)}'
+      + 'html.dtp-v2 .v3r-barre i{position:absolute;top:0;bottom:0;border-radius:3px;transition:width .6s cubic-bezier(.2,.8,.2,1)}'
+      + 'html.dtp-v2 .v3r-liste{flex:1;min-height:0;overflow-y:auto}'
+      + 'html.dtp-v2 .v3r-histo{height:74px;flex:0 0 74px;position:relative;border-top:1px solid var(--v3-ligne, #15151a)}'
+      + 'html.dtp-v2 .v3r-histo svg{position:absolute;inset:0;width:100%;height:100%}'
+      + '@container (max-width:520px){html.dtp-v2 .v3r-duo{grid-template-columns:1fr;grid-auto-rows:minmax(0,1fr)}}'
+      + '@media (prefers-reduced-motion:reduce){html.dtp-v2 .v3r-aig,html.dtp-v2 .v3r-barre i{transition:none}}';
+    document.head.appendChild(st);
+  }
+  function risque(host, it, orig, O) {
+    styles(); stylesR(); O.skel(host, 4);
+    var dernier = null, histo = null;
+    function lireHisto() {
+      if (histo) return Promise.resolve(histo);
+      return fetch('/api/risk-history?days=60', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { histo = (d && Array.isArray(d.series)) ? d.series.filter(function (e) { return e && typeof e.pct === 'number'; }) : []; return histo; })
+        .catch(function () { histo = []; return histo; });
+    }
+    // Relu à chaque tour (la minute) ; l'instantané partagé du desk sert de repli si la lecture échoue.
+    function lireRisque() {
+      return fetch('/api/risk-sentiment', { credentials: 'same-origin' }).then(function (r) { return r.json(); })
+        .then(function (d) { if (!d || d.error || !d.label) throw new Error('sentiment indisponible'); return d; })
+        .catch(function (e) { if (window._dtpRisk && window._dtpRisk.label) return window._dtpRisk; throw e; });
+    }
+    function jauge(z, pct) {
+      var t = taille(z), W = t.w, H = t.h;
+      var r = Math.max(30, Math.min(W / 2 - 18, H - 30)), cx = W / 2, cy = Math.min(H - 16, r + 18);
+      var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'none' });
+      var defs = el('defs', {}, svg), g = el('linearGradient', { id: 'v3r-grad', x1: '0', x2: '1', y1: '0', y2: '0' }, defs);
+      [[0, ROUGE], [.35, '#e88a28'], [.5, OR], [.65, '#a9c64a'], [1, VERT]].forEach(function (s) { el('stop', { offset: s[0], 'stop-color': s[1] }, g); });
+      var pt = function (v, rr) { var a = Math.PI * (1 - (v + 100) / 200); return [cx + rr * Math.cos(a), cy - rr * Math.sin(a)]; };
+      var a0 = pt(-100, r), a1 = pt(100, r);
+      el('path', { d: 'M' + a0[0] + ',' + a0[1] + ' A' + r + ',' + r + ' 0 0 1 ' + a1[0] + ',' + a1[1], fill: 'none', stroke: 'url(#v3r-grad)', 'stroke-width': Math.max(6, r * .13), 'stroke-linecap': 'round', opacity: .9 }, svg);
+      [-100, -50, 0, 50, 100].forEach(function (v) {
+        var p1 = pt(v, r + Math.max(6, r * .13) / 2 + 3), p2 = pt(v, r + Math.max(6, r * .13) / 2 + 8);
+        el('line', { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1], stroke: TXT, 'stroke-width': 1 }, svg);
+      });
+      // L'aiguille est dessinée à zéro puis TOURNÉE : la transition CSS la fait glisser jusqu'au score.
+      var ai = el('g', { class: 'v3r-aig', style: 'transform-origin:' + cx + 'px ' + cy + 'px;transform:rotate(0deg)' }, svg);
+      el('path', { d: 'M' + (cx - 4) + ',' + cy + ' L' + cx + ',' + (cy - r * .78) + ' L' + (cx + 4) + ',' + cy + ' Z', fill: teinteRisque(pct) }, ai);
+      el('circle', { cx: cx, cy: cy, r: 5, fill: 'var(--v3-carte, #0a0a0c)', stroke: teinteRisque(pct), 'stroke-width': 2 }, svg);
+      var sc = el('text', { x: cx, y: cy - r * .34, 'text-anchor': 'middle', class: 'v3r-score' }, svg); sc.textContent = signe(pct, 1);
+      z.innerHTML = ''; z.appendChild(svg);
+      requestAnimationFrame(function () { ai.style.transform = 'rotate(' + (pct / 100 * 90) + 'deg)'; });
+    }
+    function tracerHisto(z, serie) {
+      if (!z || !serie || serie.length < 2) { if (z) z.innerHTML = '<div class="v3w-vide">Historique indisponible.</div>'; return; }
+      var t = taille(z), W = t.w, H = t.h, pad = 8;
+      var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'none' });
+      var x = function (i) { return pad + i * (W - 2 * pad) / (serie.length - 1); }, y = function (v) { return H / 2 - v / 100 * (H / 2 - 6); };
+      el('line', { x1: pad, x2: W - pad, y1: y(0), y2: y(0), stroke: GRILLE, 'stroke-width': 1 }, svg);
+      var d = serie.map(function (e, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(e.pct).toFixed(1); }).join('');
+      el('path', { d: d + 'L' + x(serie.length - 1) + ',' + y(0) + 'L' + x(0) + ',' + y(0) + 'Z', fill: OR, opacity: .08 }, svg);
+      el('path', { d: d, fill: 'none', stroke: OR, 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke' }, svg);
+      var dz = serie[serie.length - 1];
+      el('circle', { cx: x(serie.length - 1), cy: y(dz.pct), r: 3, fill: teinteRisque(dz.pct) }, svg);
+      var lb = el('text', { x: pad, y: 11, class: 'v3w-ax' }, svg); lb.textContent = '60 séances';
+      z.innerHTML = ''; z.appendChild(svg);
+    }
+    function dessinerAvec(d) { return Promise.all([Promise.resolve(d), lireHisto()]).then(rendre).catch(function () {}); }
+    function dessiner(redim) { return Promise.all([lireRisque(), lireHisto()]).then(function (r) { return rendre(r, redim); }); }
+    function rendre(r, redim) {
+        if (!host.isConnected) return;
+        var d = r[0], serie = r[1];
+        var pct = Math.max(-100, Math.min(100, typeof d.pct === 'number' ? d.pct : (d.score || 0) * 50));
+        var teinte = teinteRisque(pct), on = 0, off = 0;
+        var mots = (Array.isArray(d.assets) ? d.assets : []).filter(function (a) { return a && typeof a.chg === 'number'; })
+          .map(function (a) { var s = a.chg * (+a.dir || 0); if (s > 0) on++; else if (s < 0) off++; return { nom: a.label, chg: a.chg, s: s }; })
+          .sort(function (a, b) { return Math.abs(b.s) - Math.abs(a.s); });
+        var maxS = mots.reduce(function (m, a) { return Math.max(m, Math.abs(a.s)); }, 0.01);
+        if (!redim || !host.querySelector('.v3r-duo')) {
+          host.innerHTML = '<div class="v3w" style="container-type:inline-size"><div class="v3w-tete"><span class="v3w-nom">Sentiment de risque</span>'
+            + '<span class="v3w-puce v3r-reg" style="color:' + teinte + ';border-color:' + teinte + '55"><b style="color:' + teinte + '">' + esc(RISQUE_FR[d.label] || d.label) + '</b></span>'
+            + '<span class="v3w-puce">Score <b class="v3r-sc">' + signe(pct, 1) + '</b></span>'
+            + '<span class="v3w-puce v3w-h">Risk-on <b>' + on + '</b></span><span class="v3w-puce v3w-b">Risk-off <b>' + off + '</b></span>'
+            + enDirect(Date.now()) + '</div>'
+            + '<div class="v3w-corps"><div class="v3r-duo"><div><div class="v3w-st">Jauge</div><div class="v3r-jauge"></div></div>'
+            + '<div><div class="v3w-st">Moteurs du jour</div><div class="v3r-liste">' + (mots.length ? mots.map(function (a) {
+              var w = Math.round(Math.abs(a.s) / maxS * 50), c = a.s > 0 ? VERT : a.s < 0 ? ROUGE : TXT;
+              return '<div class="v3r-mot" title="' + esc(a.nom) + ' : ' + (a.s > 0 ? 'pousse vers le risk-on' : a.s < 0 ? 'pousse vers le risk-off' : 'neutre') + '"><b>' + esc(a.nom) + '</b>'
+                + '<span style="color:' + (a.chg >= 0 ? VERT : ROUGE) + '">' + signe(a.chg, 2) + '%</span>'
+                + '<div class="v3r-barre"><i style="background:' + c + ';' + (a.s >= 0 ? 'left:50%' : 'right:50%') + ';width:' + w + '%"></i></div></div>';
+            }).join('') : '<div class="v3w-vide">Aucun moteur relu pour le moment.</div>') + '</div></div></div>'
+            + '<div class="v3r-histo"></div></div></div>';
+        }
+        jauge(host.querySelector('.v3r-jauge'), pct);
+        tracerHisto(host.querySelector('.v3r-histo'), serie);
+        clignoter(host, '.v3r-sc', dernier, pct);
+        dernier = pct;
+    }
+    var stop = carte(host, orig, 60000, dessiner);
+    // Le desk pousse chaque nouvel instantané : on redessine tout de suite, sans attendre la minute.
+    function onRisk(e) { if (e && e.detail && e.detail.label && host.isConnected) dessinerAvec(e.detail); }
+    window.addEventListener('dtp-risk', onRisk);
+    return function () { window.removeEventListener('dtp-risk', onRisk); stop(); };
+  }
+
+
   /* ── Branchement : widgets.js appelle ces montages sous html.dtp-v2 seulement ──────────────────── */
-  var MONTAGES = { 'hauts-bas': hautsBas, 'courbe-taux-us': tauxUS, 'vol-horaire': volHoraire, 'distribution-variations': variations, 'sessions': horaires };
+  var MONTAGES = { 'hauts-bas': hautsBas, 'courbe-taux-us': tauxUS, 'vol-horaire': volHoraire, 'distribution-variations': variations, 'sessions': horaires, 'risque-jauge': risque };
   window._v3WidgetsMontages = MONTAGES;             // pour les bancs
   function brancher() {
     if (!window.DTPWidgets || typeof DTPWidgets.v3Montage !== 'function') return false;

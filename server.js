@@ -2905,7 +2905,9 @@ function _pushGuetter() {
     .forEach(r => {
       const nom = _PUSH_RAPPORTS_FR[r._reportType] || r._reportType, cle = _pushCleRapport(r);
       ev.push({ cat: 'analystes', rythme: /weekly|hebdo/i.test(r._reportType) ? 'hebdo' : 'quotidien', id: 'rap:' + cle, url: _pushLien('analystes', cle),
-        title: 'Analystes · ' + nom, court: nom, body: _pushCourt(_pushSansAmorce(r._titreFr || r.headline), 170) || nom, trad: true, nom });
+        // Le titre porte parfois le nom anglais du rapport en préfixe (« FX Daily Recap: Le Dow Jones… ») :
+        // le titre de la notification dit déjà « Récap quotidien », le corps ne garde que le sujet.
+        title: 'Analystes · ' + nom, court: nom, body: _pushCourt(_pushSansAmorce(r._titreFr || r.headline).replace(/^\s*(?:FX Daily Recap|Weekly Market Recap|Global Economic Weekly|R[ée]cap (?:Quotidien|FX quotidien|Hebdo(?:madaire)?(?: des March[ée]s)?|[ÉE]co des March[ée]s))\s*[:—–-]\s*/i, ''), 170) || nom, trad: true, nom });
     });
   _pushNouveaux('br', Array.isArray(_brCache) ? _brCache : [], x => x && (x.id || x.url)).filter(frais).slice(0, 3)
     .forEach(b => { const inst = _pushCourt(b.institution || b.source || 'Recherche bancaire', 40); ev.push({ cat: 'banques', banque: String(b.institution || b.source || '').trim(), id: 'br:' + (b.id || b.url), url: _pushLien('banques', b.id || b.url), title: 'Banques · ' + inst, court: inst, body: _pushCourt(b._titreFr || b.title || b.headline, 170), trad: true }); });

@@ -654,6 +654,22 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       });
       v('Horaires des marchés : 4 places, pastilles d\'état, trait « maintenant »', hs.v3 && hs.pistes === 4 && hs.pastilles === 4 && hs.maintenant && !hs.nan, JSON.stringify(hs));
       v('Neuro-ondes : 48 pistes et les trois commandes', hs.neuro === 48 && hs.neuroCmd === 3, JSON.stringify(hs));
+      // Sentiment de risque V3 (25/09, « le design ne reflète pas la V3 ») : jauge SVG, régime en français, moteurs.
+      const rq = await page.evaluate(async () => {
+        const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:760px;height:380px;z-index:99999';
+        document.body.appendChild(h);
+        const un = DTPWidgets.mountInto('risque-jauge', h);
+        await new Promise(r => setTimeout(r, 1800));
+        const aig = h.querySelector('.v3r-aig');
+        const o = { v3: !!h.querySelector('.v3w'), jauge: !!h.querySelector('.v3r-jauge svg'), regime: (h.querySelector('.v3r-reg') || {}).textContent || '',
+          moteurs: h.querySelectorAll('.v3r-mot').length, rot: aig ? aig.style.transform : '', direct: !!h.querySelector('.v3w-live'),
+          nan: /NaN|undefined/.test(h.textContent), deborde: h.scrollWidth > h.clientWidth + 1 };
+        un && un(); h.remove();
+        return o;
+      });
+      v('Sentiment de risque V3 : jauge dessinée, régime EN FRANÇAIS, les 4 moteurs, EN DIRECT',
+        rq.v3 && rq.jauge && rq.regime === 'Léger appétit' && rq.moteurs === 4 && rq.direct, JSON.stringify(rq));
+      v('… l\'aiguille tourne jusqu\'au score (+12,4 → 11,2°), sans NaN ni débordement', /rotate\(11\.16\d*deg\)/.test(rq.rot) && !rq.nan && !rq.deborde, JSON.stringify(rq));
       await ctx.close();
     }
   } catch (e) { v('le banc se termine', false, e.message); }

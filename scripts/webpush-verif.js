@@ -104,7 +104,7 @@ console.log('\n── Guetteur des publications par catégorie (tranche réelle 
   env._swCache = [{ id: 'w2', aiTitle: 'Wall Street finit en hausse', timestamp: n }, ...env._swCache];
   env._brCache = [{ id: 'b2', title: 'EUR/USD : vers 1,20', institution: 'Goldman Sachs', timestamp: n }, { id: 'b0', title: 'Archive', institution: 'X', timestamp: n - 40 * 3600e3 }, ...env._brCache];
   // Le Récap quotidien (dans l'onglet Analystes) sonne ; le « Daily Market Recap » (absent de l'onglet) non.
-  env.allNews = [{ id: 'r1', _briefing: true, _reportType: 'FX Daily Recap', _fxr: { day: '2026-09-25' }, headline: 'Le dollar recule', timestamp: n },
+  env.allNews = [{ id: 'r1', _briefing: true, _reportType: 'FX Daily Recap', _fxr: { day: '2026-09-25' }, headline: 'FX Daily Recap: Le dollar recule', timestamp: n },
                  { id: 'r2', _briefing: true, _reportType: 'Daily Market Recap', headline: 'PRIMER : Fed holds', timestamp: n }];
   env.allCalendar = [{ currency: 'USD', title: 'CPI m/m', impact: 'High', actual: '0.4%', forecast: '0.3%', timestamp: n - 60000 },
                      { currency: 'EUR', title: 'Low thing', impact: 'Low', actual: '1', timestamp: n - 60000 },
@@ -121,6 +121,7 @@ console.log('\n── Guetteur des publications par catégorie (tranche réelle 
   const dtp = ev.find(e => e.id === 'rap:fxr:2026-09-25') || {};
   t('… le Récap quotidien est nommé en français', dtp.title === 'Analystes · Récap quotidien', dtp.title);
   t('… son lien vise la clé STABLE du jour (le rapport est réécrit à 22 h 30 sous un autre identifiant)', dtp.url === '/?ouvrir=analystes&id=fxr%3A2026-09-25', dtp.url);
+  t('… et son corps ne répète pas le nom anglais du rapport (« FX Daily Recap: »)', dtp.body === 'Le dollar recule', dtp.body);
   t('… le « Daily Market Recap », absent de l’onglet Analystes, ne sonne pas', !ev.some(e => /Daily Market|Fed holds/.test((e.title || '') + (e.body || ''))));
   const br = ev.find(e => e.cat === 'banques') || {};
   t('… la note de banque nomme la banque', br.title === 'Banques · Goldman Sachs', br.title);
