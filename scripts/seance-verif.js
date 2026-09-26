@@ -1637,7 +1637,9 @@ v('… en couvrant les deux champs (intro récente, summary ancien)', /const _wr
 /* [13 ter] LES RÉCAPS HEBDO ARRIVENT VITE (27/08 : « je les vois pas quand j'actualise, ils
    prennent du temps à charger »). Deux défauts, tous deux dans le repli local. */
 v('un SEUL endroit range les hebdo', /function _rangerHebdo\(d\) \{/.test(_APP));
-v('… et il écrit le cache', /lsSet\('dtp_wk', _weeklyReports\.slice\(0, 60\)\)/.test(_APP));
+// 26/09 : le cache garde les 12 derniers rapports (6 hebdo, 6 quotidiens) au lieu de 60 — à 60, trop
+// lourd, il était EFFACÉ au premier quota plein. L'intention du contrôle reste la même : il écrit le cache.
+v('… et il écrit le cache (allégé, pour ne pas être effacé au quota plein)', /lsSet\('dtp_wk', _hebdoPourCache\(_weeklyReports\)\)/.test(_APP));
 /* ⚠️ LE DÉFAUT : les re-tentatives — le chemin qui sert QUAND LE SERVEUR GÉNÈRE, donc celui qui
    compte — affectaient la variable sans jamais écrire le cache. Le repli restait vide à chaque
    fois, et chaque rechargement repartait du réseau. */

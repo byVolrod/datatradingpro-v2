@@ -911,9 +911,11 @@ let _weeklyRetryCount = 0;
 // briefings) en rafale pendant qu'on regarde la page, on ne re-rend qu'UNE fois (coalescé ~450 ms) au lieu
 // de re-rendre à chaque arrivée → fini le clignotement « un par un ». Le 1er chargement, lui, reste immédiat.
 let _arlibRenderT = null;
+let _arlibAttente = false;   // première peinture de l'onglet en attente des récaps hebdo : aucune liste partielle
 function _renderArlibSoon() {
-  if (_arlibRenderT) return;
-  _arlibRenderT = setTimeout(function () { _arlibRenderT = null; try { renderArlibList(); } catch (e) {} }, 450);
+  if (_arlibRenderT || _arlibAttente) return;
+  // Le minuteur peut avoir été posé AVANT l'attente (préchargement) : il la respecte aussi en tombant.
+  _arlibRenderT = setTimeout(function () { _arlibRenderT = null; if (_arlibAttente) return; try { renderArlibList(); } catch (e) {} }, 450);
 }
 /* ⚠️ LE RETRY NE RANGEAIT RIEN (27/08, signalement : « les récaps hebdo je les vois pas quand
    j'actualise, ils prennent du temps à charger »). Quand le serveur est en train de générer, les
@@ -923,10 +925,22 @@ function _renderArlibSoon() {
    cache existait, il n'était simplement jamais rempli sur le chemin qui comptait.
    Les deux chemins passent désormais par la MÊME fonction : ranger et afficher ne peuvent plus
    diverger. */
+/* ⚠️ LE CACHE DES HEBDO S'EFFAÇAIT LUI-MÊME (26/09, capture : « quand j'arrive sur l'onglet, les deux
+   récaps hebdo ne sont pas là, ils s'ajoutent deux secondes après »). On y rangeait les 60 derniers
+   rapports de ce flux, récaps quotidiens compris, AVEC leur texte complet : trop lourd pour le
+   stockage du navigateur, et `lsSet`, sur quota plein, SUPPRIME la clé. Le repli instantané restait
+   donc vide et l'onglet repartait chaque fois du réseau. On ne garde que ce que la liste montre en
+   haut : les 6 récaps hebdo (marchés et éco) et les 6 récaps quotidiens les plus récents. */
+function _hebdoPourCache(l) {
+  const r = (l || []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const hebdo = r.filter(i => i && i._reportType !== 'FX Daily Recap').slice(0, 6);
+  const jour = r.filter(i => i && i._reportType === 'FX Daily Recap').slice(0, 6);
+  return hebdo.concat(jour);
+}
 function _rangerHebdo(d) {
   if (Array.isArray(d && d.items) && d.items.length) {
     _weeklyReports = d.items;
-    lsSet('dtp_wk', _weeklyReports.slice(0, 60));
+    lsSet('dtp_wk', _hebdoPourCache(_weeklyReports));
   }
   _weeklyGenerating = !!(d && d.generating);
   _renderArlibSoon();
@@ -986,6 +1000,8 @@ function init() {
            requête au lieu de l'anticiper.
        La doctrine du desk est déjà celle-là partout ailleurs : ne jamais générer quand
        l'utilisateur ouvre. Cet onglet y échappait. */
+    // Onglet Analystes : ses quatre sources lues d'avance (récaps hebdo compris), sans rien dessiner.
+    try { _arlibCharger(); } catch (e) {}
     try {
       if (!window._fxlPrechauffe && typeof loadFxListView === 'function' && !window._fxlistTabInited) {
         window._fxlPrechauffe = true;
@@ -6340,28 +6356,56 @@ function initAnalystTab() {
    passe par `_renderArlibSoon` (coalescé ~450 ms) : les trois réponses rapides tombent dans la même
    fenêtre et ne produisent qu'un seul re-rendu — le clignotement « les rapports apparaissent un par
    un », corrigé le 23/07, ne revient pas par cette porte. */
-function loadAnalystView() {
-  renderArlibList();                                   // ce qu'on a déjà en mémoire, sans attendre le réseau
+/* LES QUATRE SOURCES DE L'ONGLET, LUES UNE FOIS ET PARTAGÉES (26/09). L'onglet ne les demandait qu'à
+   son OUVERTURE : les récaps hebdo, servis par la source la plus lente, arrivaient après la liste.
+   Elles sont désormais lues au démarrage du desk, en temps idle (init), et l'ouverture de l'onglet
+   reprend la MÊME lecture si elle est encore en vol, au lieu d'en relancer une. */
+let _arlibLecture = null, _arlibLectureAt = 0;
+// `force` : le lien d'une notification vient chercher un rapport TOUT JUSTE paru → toujours le réseau.
+function _arlibCharger(force) {
+  if (!force && _arlibLecture && Date.now() - _arlibLectureAt < 60000) return _arlibLecture;
+  _arlibLectureAt = Date.now();
   // On ne remplace QUE si le serveur renvoie des données NON VIDES → jamais d'écrasement du cache
   // hydraté par une réponse vide (cold-start). + persistance localStorage.
   const _lire = (url, fn) => fetch(url).then(r => r.json()).then(v => { fn(v); _renderArlibSoon(); }).catch(() => {});
-  _lire('/api/session-wraps', v => {
+  _arlibLecture = Promise.all([_lire('/api/session-wraps', v => {
     if (!Array.isArray(v) || !v.length) return;
     _sessionWraps = v.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
     lsSet('dtp_sw', _sessionWraps.slice(0, 80));
-  });
+  }),
   _lire('/api/bank-research', v => {
     if (!Array.isArray(v) || !v.length) return;
     _brArticles = v;
     lsSet('dtp_br', _brArticles.slice(0, 60));
-  });
+  }),
   _lire('/api/fx-daily', v => {
     if (!Array.isArray(v) || !v.length) return;
     _fxDaily = v.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
     lsSet('dtp_fx', _fxDaily.slice(0, 40));
-  });
+  }),
   // Même fabrique que les re-tentatives (cf. _rangerHebdo) : un seul endroit range et affiche.
-  _lire('/api/weekly-reports', _rangerHebdo);
+  _lire('/api/weekly-reports', _rangerHebdo)]);
+  return _arlibLecture;
+}
+// Les récaps hebdo en mémoire sont-ils ceux de la semaine en cours (publiés depuis samedi 0 h) ?
+function _hebdoAJour() {
+  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+  return (_weeklyReports || []).some(i => i && i._reportType === 'Weekly Market Recap' && (i.timestamp || 0) >= d.getTime());
+}
+function loadAnalystView(force) {
+  const lecture = _arlibCharger(force);
+  if (_hebdoAJour()) { renderArlibList(); return; }   // ce qu'on a déjà en mémoire est complet : tout de suite
+  /* La liste ARRIVE COMPLÈTE. Les récaps de la semaine ne sont pas encore là : on attend la lecture
+     (1,5 s au plus, squelette de chargement si la liste est vide) au lieu de peindre une liste que
+     les récaps viendraient compléter deux secondes plus tard. Passé ce délai on peint quand même :
+     une liste sans ses hebdo vaut mieux qu'un écran d'attente. */
+  _arlibAttente = true;
+  const list = document.getElementById('arlib-list');
+  if (list && !list.querySelector('tr, .arlib-row, table')) { try { list.innerHTML = _arlibSkel(); } catch (e) {} }
+  let fait = false;
+  const peindre = () => { if (fait) return; fait = true; _arlibAttente = false; renderArlibList(); };
+  lecture.then(peindre);
+  setTimeout(peindre, 1500);
 }
 
 // ═══════════════════ ONGLET BIAS : Radar de Biais (matrice) ═══════════════════
@@ -12767,7 +12811,7 @@ function _dtpOuvrirCible(type, id) {
      relit une fois, tout de suite (26/09, « quand je clique sur la notif, ça doit ouvrir le récap »),
      et on laisse 12 s à la relecture avant de se rabattre sur l'onglet. */
   try {
-    if (type === 'analystes' && typeof loadAnalystView === 'function') loadAnalystView();
+    if (type === 'analystes' && typeof loadAnalystView === 'function') loadAnalystView(true);   // relecture forcée : le rapport vient de paraître
     else if (type === 'banques' && typeof _loadBrArticles === 'function') _loadBrArticles(0);
   } catch (e) {}
   const essai = () => {

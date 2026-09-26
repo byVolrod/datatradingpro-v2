@@ -1370,9 +1370,14 @@ function phaseLogique() {
        route lente met 3 s exprès. On ouvre l'onglet, on regarde 700 ms plus tard : la liste doit
        DÉJÀ être remplie par les trois sources rapides. Un contrôle qui attendrait la fin passerait
        même avec le défaut — c'est le délai court qui fait la preuve. */
+    /* ⚠️ 26/09, LE CONTRAT A CHANGÉ À LA DEMANDE DE L'UTILISATEUR : « quand j'arrive sur l'onglet, les
+       récaps hebdo s'ajoutent deux secondes après, ce n'est pas pro ». La liste ARRIVE COMPLÈTE : si
+       les récaps de la semaine ne sont pas encore en mémoire, l'onglet attend leur lecture 1,5 s au
+       plus (squelette), puis peint quand même. On regarde donc à 1,8 s : AVANT la source lente (3 s),
+       mais après la fenêtre d'attente. La preuve reste la même : la liste n'attend pas la source lente. */
     const t0 = Date.now();
     await page.evaluate(() => window.activateView && window.activateView('analyst'));
-    await new Promise(r => setTimeout(r, 700));
+    await new Promise(r => setTimeout(r, 1800));
     const a = await page.evaluate(() => {
       const l = document.getElementById('arlib-list');
       return {
@@ -1400,7 +1405,11 @@ function phaseLogique() {
        sources ensemble, et la route lente n'attend plus Supabase quand elle a de quoi répondre. */
     const APP = fs.readFileSync(path.join(RACINE, 'public/js/app.js'), 'utf8');
     const SRV = fs.readFileSync(path.join(RACINE, 'server.js'), 'utf8');
-    verif('le client rend AVANT tout appel réseau', /function loadAnalystView\(\) \{\s*\n\s*renderArlibList\(\);/.test(APP));
+    verif('le client rend tout de suite quand la liste est complète, et n\'attend jamais plus de 1,5 s',
+      /if \(_hebdoAJour\(\)\) \{ renderArlibList\(\); return; \}/.test(APP) && /setTimeout\(peindre, 1500\)/.test(APP));
+    verif('… aucune liste partielle peinte pendant l\'attente (les arrivées sont retenues)', /if \(_arlibRenderT \|\| _arlibAttente\) return;/.test(APP));
+    verif('les sources de l\'onglet sont lues dès le démarrage du desk, en temps idle', /try \{ _arlibCharger\(\); \} catch \(e\) \{\}/.test(APP));
+    verif('le cache des hebdo reste petit (sinon, quota plein, il est effacé)', /lsSet\('dtp_wk', _hebdoPourCache\(_weeklyReports\)\)/.test(APP) && /\.slice\(0, 6\)/.test(APP));
     verif('plus d\'attente groupée des quatre sources', !/Promise\.allSettled\(\[\s*\n\s*fetch\('\/api\/session-wraps'\)/.test(APP));
     verif('chaque source rafraîchit dès son arrivée', /_lire\(url, fn\)|const _lire = \(url, fn\)/.test(APP));
     /* ⚠️ CE CONTRÔLE ÉPINGLAIT LA DURÉE EXACTE (`DAY`) alors que son intention est « les hebdo ont un
