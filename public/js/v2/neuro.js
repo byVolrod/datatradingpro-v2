@@ -180,6 +180,17 @@
   };
   var CSS = ''
     + 'html.dtp-v2 .v3n{display:flex;flex-direction:column;height:100%;min-height:0;background:var(--v3-carte, #0a0a0c);color:var(--v3-texte, #d6d6dc);font:500 12px/1.35 "Inter Tight",system-ui,sans-serif;font-variant-numeric:tabular-nums}'
+    /* EN-TÊTE V3 (25/09, « le design ne reflète pas la V3 ») : la carte n'avait pas de tête — elle
+       s'ouvrait sur « Choisissez une piste — ». Même grammaire que les widgets de marché (.v3w-tete) :
+       le nom, puis des pastilles d'état (lecture, famille, casque). */
+    + 'html.dtp-v2 .v3n-tete{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border-bottom:1px solid var(--v3-ligne, #15151a)}'
+    + 'html.dtp-v2 .v3n-nom{font:600 12.5px/1 "Inter Tight",system-ui,sans-serif;color:var(--v3-titre, #f2f2f4);margin-right:2px}'
+    + 'html.dtp-v2 .v3n-pil{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border:1px solid var(--v3-bord, #22222a);border-radius:3px;background:var(--v3-tete, #0f0f12);color:#a1a1aa;font-size:11px;white-space:nowrap}'
+    + 'html.dtp-v2 .v3n-pil b{color:var(--v3-titre, #f0f0f3);font-weight:600}html.dtp-v2 .v3n-pil[hidden]{display:none}'
+    + 'html.dtp-v2 .v3n-etat i{width:6px;height:6px;border-radius:50%;background:#6f6f78}html.dtp-v2 .v3n-etat.est-joue i{background:' + OR + ';animation:v3nPouls 2s ease-out infinite}'
+    + '@keyframes v3nPouls{0%{box-shadow:0 0 0 0 rgba(227,178,58,.55)}100%{box-shadow:0 0 0 7px rgba(227,178,58,0)}}'
+    + 'html.dtp-v2 .v3n-pil-fam b{color:var(--fam, #f0f0f3)}'
+    + 'html.dtp-v2 .v3n-casque-p{margin-left:auto;color:var(--v3-pale, #6f6f78)}'
     + 'html.dtp-v2 .v3n-lecteur{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:10px;padding:10px 12px 8px}'
     + 'html.dtp-v2 .v3n-titre{min-width:0}html.dtp-v2 .v3n-titre b{display:block;color:var(--v3-titre, #f4f4f6);font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
     + 'html.dtp-v2 .v3n-titre span{display:block;color:var(--v3-pale, #6f6f78);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
@@ -198,7 +209,7 @@
     + 'html.dtp-v2 .v3n-onde canvas{position:absolute;inset:0;width:100%;height:100%}'
     + 'html.dtp-v2 .v3n-prog{position:absolute;left:0;bottom:0;height:2px;background:' + OR + ';transition:width 1s linear}'
     + 'html.dtp-v2 .v3n-temps{position:absolute;right:8px;top:5px;font-size:10.5px;color:var(--v3-doux, #8e8e98)}'
-    + 'html.dtp-v2 .v3n-casque{position:absolute;left:8px;top:5px;display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--v3-pale, #6f6f78)}'
+    + 'html.dtp-v2 .v3n-temps:empty{display:none}'
     + 'html.dtp-v2 .v3n-filtres{display:flex;align-items:center;gap:4px;padding:10px 12px 6px;border-bottom:1px solid var(--v3-ligne, #15151a)}'
     + 'html.dtp-v2 .v3n-nb{color:var(--v3-pale, #6f6f78);font-size:11px;margin-right:auto;white-space:nowrap}'
     + 'html.dtp-v2 .v3n-puce{border:0;background:none;color:var(--v3-doux, #8e8e98);font:600 10.5px/1 "Inter Tight",system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;padding:5px 7px;border-radius:3px;cursor:pointer}'
@@ -222,20 +233,23 @@
     // a les mêmes besoins qu'un téléphone).
     + 'html.dtp-v2 .v3n.est-etroit .v3n-lecteur{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t c" "v v"}html.dtp-v2 .v3n.est-etroit .v3n-titre{grid-area:t}html.dtp-v2 .v3n.est-etroit .v3n-cmd{grid-area:c}html.dtp-v2 .v3n.est-etroit .v3n-vol{grid-area:v;justify-content:flex-start}html.dtp-v2 .v3n.est-etroit .v3n-vol input{flex:1;width:auto}'
     + 'html.dtp-v2 .v3n.est-etroit .v3n-nb{display:none}html.dtp-v2 .v3n.est-etroit .v3n-filtres{gap:2px}html.dtp-v2 .v3n.est-etroit .v3n-puce{flex:1 1 auto;padding:6px 4px;font-size:10px;letter-spacing:.03em}'
-    + '@media (prefers-reduced-motion:reduce){html.dtp-v2 .v3n-ligne i s{animation:none!important}html.dtp-v2 .v3n-prog{transition:none}}';
+    + 'html.dtp-v2 .v3n.est-etroit .v3n-casque-p{display:none}'
+    + '@media (prefers-reduced-motion:reduce){html.dtp-v2 .v3n-ligne i s,html.dtp-v2 .v3n-etat.est-joue i{animation:none!important}html.dtp-v2 .v3n-prog{transition:none}}';
   function styles() { if (document.getElementById('v3n-css')) return; var s = document.createElement('style'); s.id = 'v3n-css'; s.textContent = CSS; document.head.appendChild(s); }
 
   function monter(host) {
     styles();
     var fam = '', dernierVol = M.vol || 0.75, raf = 0;
     host.innerHTML = '<div class="v3n">'
+      + '<div class="v3n-tete"><span class="v3n-nom">Neuro-ondes</span><span class="v3n-pil v3n-etat"><i></i><b>Prêt</b></span><span class="v3n-pil v3n-pil-fam" hidden></span>'
+      + '<span class="v3n-pil v3n-casque-p" title="Les battements binauraux naissent de l’écart entre les deux oreilles : ils ne s’entendent qu’au casque.">' + ICO.casque + 'Casque conseillé</span></div>'
       + '<div class="v3n-lecteur"><div class="v3n-titre"></div>'
       + '<div class="v3n-cmd"><button class="v3n-prec" title="Piste précédente" aria-label="Piste précédente">' + ICO.prec + '</button>'
       + '<button class="v3n-lire" title="Lecture" aria-label="Lecture">' + ICO.lire + '</button>'
       + '<button class="v3n-suiv" title="Piste suivante" aria-label="Piste suivante">' + ICO.suiv + '</button></div>'
       + '<div class="v3n-vol"><button class="v3n-muet" title="Couper le son" aria-label="Couper le son">' + ICO.vol + '</button>'
       + '<input type="range" min="0" max="100" step="1" aria-label="Volume" data-no-enhance="1"><em></em></div></div>'
-      + '<div class="v3n-onde"><canvas></canvas><span class="v3n-casque" title="Les battements binauraux naissent de l’écart entre les deux oreilles : ils ne s’entendent qu’au casque.">' + ICO.casque + 'Casque conseillé</span><span class="v3n-temps"></span><span class="v3n-prog"></span></div>'
+      + '<div class="v3n-onde"><canvas></canvas><span class="v3n-temps"></span><span class="v3n-prog"></span></div>'
       + '<div class="v3n-filtres"><span class="v3n-nb"></span>'
       + [['', 'Tout']].concat(FAMILLES.map(function (f) { return [f.k, f.nom]; })).map(function (c) { return '<button class="v3n-puce" data-f="' + c[0] + '">' + c[1] + '</button>'; }).join('')
       + '</div><div class="v3n-liste" role="list"></div></div>';
@@ -257,7 +271,11 @@
     function maj() {
       if (!host.isConnected) return;
       var p = M.piste, joue = !!p && !M.pause;
-      titre.innerHTML = p ? '<b>' + esc(p.nom) + '</b><span>' + p.famNom + ' · ' + p.bpm + ' BPM · ' + p.hz + ' Hz</span>' : '<b>Choisissez une piste</b><span>—</span>';
+      titre.innerHTML = p ? '<b>' + esc(p.nom) + '</b><span>' + p.famNom + ' · ' + p.bpm + ' BPM · ' + p.hz + ' Hz</span>'
+        : '<b>Aucune piste en cours</b><span>' + PISTES.length + ' pistes : concentration, créativité, relaxation</span>';
+      var et = host.querySelector('.v3n-etat'), pf = host.querySelector('.v3n-pil-fam');
+      if (et) { et.classList.toggle('est-joue', joue); et.querySelector('b').textContent = joue ? 'À l’écoute' : (p ? 'En pause' : 'Prêt'); }
+      if (pf) { pf.hidden = !p; pf.className = 'v3n-pil v3n-pil-fam' + (p ? ' v3n-fam-' + p.fam : ''); pf.innerHTML = p ? '<b>' + esc(p.famNom) + '</b>' + p.hz + ' Hz' : ''; }
       lire.innerHTML = joue ? ICO.pause : ICO.lire; lire.title = joue ? 'Pause' : 'Lecture'; lire.setAttribute('aria-label', lire.title);
       var v = Math.round(M.vol * 100);
       curseur.value = v; curseur.style.setProperty('--v', v + '%'); pct.textContent = v + '%';
@@ -294,7 +312,13 @@
         var n = tampon.length, amp = 0; for (var k = 0; k < n; k++) amp = Math.max(amp, Math.abs(tampon[k]));
         var gain = amp > 0 ? Math.min(6, 0.42 / amp) : 1;
         for (var i = 0; i < n; i++) { var x = i / (n - 1) * w, y = h / 2 + tampon[i] * gain * h * 0.9; if (i) g.lineTo(x, y); else g.moveTo(x, y); }
-      } else { g.moveTo(0, h / 2); g.lineTo(w, h / 2); }
+      } else {
+        // Au repos : l'onde de la piste choisie (ou d'une piste type), calme et pâle, au lieu d'un trait
+        // plat qui faisait croire à une carte vide. Rien ne bouge : c'est une silhouette, pas un signal.
+        var hz = (M.piste && M.piste.hz) || 10;
+        g.strokeStyle = 'rgba(227,178,58,.28)';
+        for (var j = 0; j <= 160; j++) { var xx = j / 160 * w, t = j / 160; var yy = h / 2 + Math.sin(t * Math.PI * 2 * (2 + hz / 8)) * h * 0.22 * Math.sin(t * Math.PI); if (j) g.lineTo(xx, yy); else g.moveTo(xx, yy); }
+      }
       g.stroke();
       if (!fige && M.piste && !M.pause && !document.hidden) raf = requestAnimationFrame(boucle);
     }

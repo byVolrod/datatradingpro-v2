@@ -648,12 +648,15 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
         const un2 = DTPWidgets.mountInto('v3-neuro', n);
         await new Promise(r => setTimeout(r, 200));
         o.neuro = n.querySelectorAll('.v3n-ligne').length; o.neuroCmd = n.querySelectorAll('.v3n-cmd button').length;
+        o.neuroTete = ((n.querySelector('.v3n-tete .v3n-nom') || {}).textContent || '') + '|' + ((n.querySelector('.v3n-etat b') || {}).textContent || '');
+        o.neuroVide = /Choisissez une piste/.test(n.textContent);
         un2 && un2(); n.remove();
         o.icones = document.querySelectorAll('.wdgt-tab .wdgt-tico--auto').length; o.chevrons = document.querySelectorAll('.wdgt-tab .wdgt-chv').length;
         return o;
       });
       v('Horaires des marchés : 4 places, pastilles d\'état, trait « maintenant »', hs.v3 && hs.pistes === 4 && hs.pastilles === 4 && hs.maintenant && !hs.nan, JSON.stringify(hs));
       v('Neuro-ondes : 48 pistes et les trois commandes', hs.neuro === 48 && hs.neuroCmd === 3, JSON.stringify(hs));
+      v('… et l\'en-tête V3 (nom + état « Prêt »), plus d\'accueil « Choisissez une piste — »', hs.neuroTete === 'Neuro-ondes|Prêt' && !hs.neuroVide, JSON.stringify(hs));
       // Sentiment de risque V3 (25/09, « le design ne reflète pas la V3 ») : jauge SVG, régime en français, moteurs.
       const rq = await page.evaluate(async () => {
         const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:760px;height:380px;z-index:99999';

@@ -263,6 +263,15 @@
   var CSS = ''
     + 'html.dtp-v2 .v3c{position:relative;display:flex;flex-direction:column;height:100%;min-height:0;background:var(--v3-fond, #08080a);font-family:"Inter Tight",system-ui,sans-serif;color:var(--v3-texte, #d6d6dc)}'
     + 'html.dtp-v2 .v3c-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 8px;border-bottom:1px solid var(--v3-ligne, #16161a);background:var(--v3-carte, #0c0c0e)}'
+    /* Le nom du widget en tête de barre, et « En direct » à droite (25/09) : même grammaire que toutes
+       les cartes V3 (.v3w-tete) — la carte était la seule à s'ouvrir sur une rangée de boutons anonymes. */
+    // Une seule rangée : au-delà, la barre défile (sans barre visible) au lieu de passer sur deux lignes.
+    + 'html.dtp-v2 .v3c-bar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}html.dtp-v2 .v3c-bar::-webkit-scrollbar{display:none}html.dtp-v2 .v3c-bar>*{flex:0 0 auto}'
+    + 'html.dtp-v2 .v3c-nom{font:600 12.5px/1 "Inter Tight",system-ui,sans-serif;color:var(--v3-titre, #f2f2f4);margin:0 4px 0 2px;white-space:nowrap}'
+    + 'html.dtp-v2 .v3c-live{margin-left:auto;display:inline-flex;align-items:center;gap:5px;color:var(--v3-doux, #8e8e98);font-size:10.5px;letter-spacing:.04em;white-space:nowrap}'
+    + 'html.dtp-v2 .v3c-live i{width:6px;height:6px;border-radius:50%;background:#00e676;animation:v3cPouls 2s ease-out infinite}'
+    + '@keyframes v3cPouls{0%{box-shadow:0 0 0 0 rgba(0,230,118,.55)}100%{box-shadow:0 0 0 7px rgba(0,230,118,0)}}'
+    + '@media (prefers-reduced-motion:reduce){html.dtp-v2 .v3c-live i{animation:none}}'
     + 'html.dtp-v2 .v3c-ch{border:1px solid var(--v3-bord, #24242a);background:transparent;color:var(--v3-doux, #8e8e98);font:500 11.5px/1 "Inter Tight",system-ui,sans-serif;padding:5px 9px;border-radius:4px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}'
     + 'html.dtp-v2 .v3c-ch:hover{color:var(--v3-titre, #ececf0);border-color:#34343c}'
     + 'html.dtp-v2 .v3c-ch.on{color:var(--v3-or-texte, #e3b23a);border-color:rgba(227,178,58,.55);background:rgba(227,178,58,.08)}'
@@ -326,7 +335,7 @@
     poserStyles();
     var etat = { couche: reglages.couche || 'actu', heures: +reglages.heures || 24, ress: reglages.ress || 'petrole', choix: null, vb: [0, 0, W, H], vivant: true };
     host.innerHTML = '<div class="v3c">'
-      + '<div class="v3c-bar">'
+      + '<div class="v3c-bar"><span class="v3c-nom">Carte du monde</span>'
       + '<button type="button" class="v3c-ch" data-c="actu">Actualité</button>'
       + '<button type="button" class="v3c-ch" data-c="bc">Banques centrales</button>'
       + '<button type="button" class="v3c-ch" data-c="passages">Points de passage</button>'
@@ -334,6 +343,7 @@
       + '<select class="v3c-sel" data-r="1" aria-label="Ressource">' + Object.keys(RESSOURCES).map(function (k) { return '<option value="' + k + '">' + esc(RESSOURCES[k].n) + '</option>'; }).join('') + '</select>'
       + '<span class="v3c-sep"></span>'
       + '<button type="button" class="v3c-ch" data-h="6">6 h</button><button type="button" class="v3c-ch" data-h="24">24 h</button><button type="button" class="v3c-ch" data-h="72">72 h</button>'
+      + '<span class="v3c-live"><i></i>EN DIRECT</span>'
       + '</div>'
       + '<div class="v3c-corps"><div class="v3c-vue"><div class="v3c-attente">Chargement du fond de carte…</div></div><aside class="v3c-fiche"></aside></div>'
       + '</div>';
