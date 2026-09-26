@@ -75,6 +75,10 @@
     var ck = document.createElement('script');
     ck.src = '/js/v2/crypto.js?v=' + VER; ck.defer = true;
     document.head.appendChild(ck);
+    // Finition V3 de la bibliothèque (lot 1) : Baromètre, Radar de biais, COT, Carte de chaleur.
+    var fi = document.createElement('script');
+    fi.src = '/js/v2/finition.js?v=' + VER; fi.defer = true;
+    document.head.appendChild(fi);
     // Neuro-ondes (V3) : ambiances sonores générées (battements binauraux), widget de la bibliothèque.
     var ne = document.createElement('script');
     ne.src = '/js/v2/neuro.js?v=' + VER; ne.defer = true;

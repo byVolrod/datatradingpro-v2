@@ -303,6 +303,8 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       lignes: [{ sym: 'BTC-USD', nom: 'Bitcoin', code: 'BTCUSD', ok: true, dernier: 64012.5, j1: 1.2, s1: -3.4, m1: 8.1, ytd: 20, vol30: 48 }, { sym: 'SOL-USD', nom: 'Solana', code: 'SOLUSD', ok: false }] });
     if (u === '/api/v2/grandes-valeurs') return j({ at: Date.now(), source: 'test', panier: { j1: 0.4, m1: 3, ytd: 18 },
       lignes: [{ sym: 'NVDA', nom: 'Nvidia', code: 'NVDA', ok: true, dernier: 181.2, j1: 2.4, m1: 6.2, ytd: 31 }], sp: { sym: '^GSPC', nom: 'S&P 500', code: 'US500', ok: true, dernier: 5956.3, j1: 0.3, m1: 1, ytd: 11 } });
+    if (u === '/api/cot') return j({ currencies: [{ key: 'EUR', longPct: 62, shortPct: 38, longPos: 62000, shortPos: 38000 }, { key: 'JPY', longPct: 22, shortPct: 78, longPos: 22000, shortPos: 78000 }, { key: 'NZD', longPct: 51, shortPct: 49, longPos: 51000, shortPos: 49000 }] });
+    if (u === '/api/smart-bias') return j({ currencies: ['USD', 'EUR', 'GBP', 'JPY'], rows: [], generatedAt: MAINT - 3600e3, conclusion: { USD: 'Bullish', EUR: 'Neutral', GBP: 'Very Bullish', JPY: 'Very Bearish' } });
     if (u === '/api/currency-strength') return j(FORCE);
     if (u === '/api/admin/data-health') return SC.role === 'admin' ? j(SANTE) : (rs.writeHead(403), rs.end());
     if (u === '/api/v2/briefing') return SC.role === 'admin' ? j(BRIEF) : (rs.writeHead(403), rs.end());
@@ -849,6 +851,21 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       });
       v('Marché crypto : ETH / BTC et lien avec le Nasdaq en tête, lus en clair', ck.reperes.length === 2 && /0,0385/.test(ck.reperes[0]) && /s’étend/.test(ck.reperes[0]) && /\+0,52/.test(ck.reperes[1]) && /Lien fort/.test(ck.reperes[1]), JSON.stringify(ck.reperes));
       v('… lignes signées, crypto muette « indisponible », aucun NaN, un clic ouvre la fiche', /Bitcoin.*\+1,20%.*−3,40%/.test(ck.lignes[0]) && /Solana indisponible/.test(ck.lignes[1]) && !ck.nan && ck.fiche === 'Bitcoin', JSON.stringify({ l: ck.lignes, f: ck.fiche }));
+      // Finition V3 de la bibliothèque, lot 1 (26/09) : la charte conservée là où elle fixe le dessin.
+      const fin = await page.evaluate(async () => {
+        const monte = async (id, o) => { const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:600px;height:380px;z-index:99999'; document.body.appendChild(h); const un = DTPWidgets.mountInto(id, h, o || {}); await new Promise(r => setTimeout(r, 1800)); const r = { tete: (h.querySelector('.v3f-tete') || {}).innerText || '', h }; return { r, fin: () => { un && un(); h.remove(); } }; };
+        const out = {};
+        let m = await monte('barometre'); out.baro = { tete: m.r.tete.replace(/\s+/g, ' '), cols: m.r.h.querySelectorAll('.v3f-corps .meter-col').length }; m.fin();
+        m = await monte('radar-biais'); out.radar = { tete: m.r.tete.replace(/\s+/g, ' '), matrice: !!m.r.h.querySelector('.v3f-corps .macro-wrap') }; m.fin();
+        m = await monte('cot-inst', { cat: 'lev_money' }); out.cot = { tete: m.r.tete.replace(/\s+/g, ' '), l: [...m.r.h.querySelectorAll('.v3f-cl')].map(x => x.innerText.replace(/\s+/g, ' ')) }; m.fin();
+        m = await monte('heatmap-seance'); out.mat = { tete: m.r.tete.replace(/\s+/g, ' '), cases: m.r.h.querySelectorAll('.v3f-mat td[data-p]').length, na: m.r.h.querySelectorAll('.v3f-mat td.na').length, nan: /NaN|undefined/.test(m.r.h.innerText) }; m.fin();
+        return out;
+      });
+      v('Baromètre V3 : l\'égaliseur de la charte (8 colonnes) sous un en-tête de chiffres clés', fin.baro.cols === 8 && /Plus forte/.test(fin.baro.tete) && /Paire la plus nette/.test(fin.baro.tete), JSON.stringify(fin.baro));
+      v('Radar de biais V3 : la matrice de la charte sous la lecture du jour', fin.radar.matrice && /haussière/.test(fin.radar.tete) && /GBP\/JPY/.test(fin.radar.tete), JSON.stringify(fin.radar));
+      v('COT V3 : barres acheteurs / vendeurs, rangées, position étirée signalée', fin.cot.l.length === 3 && /^EUR/.test(fin.cot.l[0]) && /JPY.*ÉTIRÉ/.test(fin.cot.l[2]) && /NEUTRE/i.test(fin.cot.l[1]) && /Fonds à effet de levier/.test(fin.cot.tete), JSON.stringify(fin.cot));
+      // Deux paires servies (EUR/USD, USD/JPY) : 4 cases pleines, et EUR face à JPY marquée ABSENTE, jamais lue comme zéro.
+      v('Carte de chaleur V3 : matrice des devises, case sans cotation marquée absente, aucun NaN', fin.mat.cases === 4 && fin.mat.na === 2 && /Paire la plus nette USD\/JPY/.test(fin.mat.tete) && !fin.mat.nan, JSON.stringify(fin.mat));
       v('Géants de la cote : valeur, moyenne des sept, S&P 500, et la lecture (ils mènent)', ck.g.length === 3 && /Nvidia/.test(ck.g[0]) && /Moyenne des sept/.test(ck.g[1]) && /S&P 500/.test(ck.g[2]) && /mènent la hausse/.test(ck.lec) && !ck.nanG, JSON.stringify(ck.g) + ' ' + ck.lec);
       const ix = await page.evaluate(async () => {
         const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:560px;height:380px;z-index:99999';
