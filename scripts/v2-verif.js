@@ -211,7 +211,9 @@ console.log('\n── 1 quater. Liste de suivi mixte : un réglage V3, servi par
   v('le serveur garde la liste entière (clé « actifs » dans _WDG_LISTES, sinon coupée à 32 caractères)', /_WDG_LISTES = new Set\(\[[^\]]*'actifs'/.test(SRV));
   // Bibliothèque : puce « Marché » (multi-actifs étape 3).
   const cl = eval('(' + (WJ.match(/var CLASSES_OF = (\{[\s\S]*?\});/) || [, '{}'])[1] + ')');
-  const ids = new Set([...WJ.matchAll(/id: '([a-z0-9-]+)', name: '/g), ...WJ.matchAll(/_vueDesk\('([a-z0-9-]+)'/g)].map(m => m[1]).concat(['v3-multi', 'v3-carte', 'v3-neuro']));
+  // Les widgets V3 s'enregistrent depuis leurs modules (public/js/v2/*.js) : on les y lit, sans liste à la main.
+  const V2IDS = fs.readdirSync(path.join(R, 'public/js/v2')).filter(f => f.endsWith('.js')).flatMap(f => [...fs.readFileSync(path.join(R, 'public/js/v2', f), 'utf8').matchAll(/id: '(v3-[a-z0-9-]+)', name: '/g)].map(m => m[1]));
+  const ids = new Set([...WJ.matchAll(/id: '([a-z0-9-]+)', name: '/g), ...WJ.matchAll(/_vueDesk\('([a-z0-9-]+)'/g)].map(m => m[1]).concat(V2IDS));
   v('bibliothèque V3 : chaque widget « Forex seulement » ou « hors Forex » existe au catalogue', Object.keys(cl).length >= 20 && Object.keys(cl).every(k => ids.has(k)), Object.keys(cl).filter(k => !ids.has(k)).join(','));
   v('… la puce « Marché » (Forex, Indices, Métaux, Énergie, Crypto) est masquée hors V3', /id="wdg-lib-classes"/.test(IDX) && ['fx', 'indices', 'metaux', 'energie', 'crypto'].every(k => IDX.includes('data-classe="' + k + '"'))
     && /\.wdg-lib-grp--classes \{ display: none; \}\s*html\.dtp-v2 \.wdg-lib-grp--classes \{ display: flex; \}/.test(fs.readFileSync(path.join(R, 'public/css/style.css'), 'utf8')));
@@ -291,6 +293,8 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       moteurs: [{ sym: '^NDX', nom: 'Nasdaq 100', taux: false, c60: 0.78, c20: 0.81, n: 60, sens: 1.12 }, { sym: '^VIX', nom: 'VIX', taux: false, c60: -0.61, c20: -0.12, n: 60, sens: -0.09 },
         { sym: '^TNX', nom: 'Taux US 10 ans', taux: true, c60: -0.34, c20: -0.3, n: 60, sens: -0.41 }, { sym: 'DX-Y.NYB', nom: 'Dollar index', taux: false, c60: 0.05, c20: 0.1, n: 60, sens: 0.03 }],
       source: 'Yahoo Finance, calculs DTP' });
+    if (u === '/api/v2/vix-structure') return j({ at: Date.now(), vix: { prix: 16.42, chg: -3.1 }, pente: 0.87, rang: 34, an: { haut: 38.6, bas: 11.9, moy: 17.2 }, source: 'Cboe via Yahoo Finance, calculs DTP',
+      terme: [{ sym: '^VIX9D', lbl: '9 jours', v: 14.8 }, { sym: '^VIX', lbl: '1 mois', v: 16.42 }, { sym: '^VIX3M', lbl: '3 mois', v: 18.9 }, { sym: '^VIX6M', lbl: '6 mois', v: 20.1 }] });
     if (u === '/api/currency-strength') return j(FORCE);
     if (u === '/api/admin/data-health') return SC.role === 'admin' ? j(SANTE) : (rs.writeHead(403), rs.end());
     if (u === '/api/v2/briefing') return SC.role === 'admin' ? j(BRIEF) : (rs.writeHead(403), rs.end());
@@ -774,6 +778,45 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       });
       v('bibliothèque V3 : « Indices » écarte les widgets Forex seulement et garde les universels', bib.visible && bib.nInd < bib.tous && !bib.indForce && bib.indCal && bib.indMulti, JSON.stringify(bib));
       v('… « Forex » garde la Force des Devises et écarte Multi-actifs', bib.fxForce && !bib.fxMulti, JSON.stringify(bib));
+      // Multi-actifs étape 5 (26/09) : widgets PROPRES aux indices, rangés sous « Indices » seulement.
+      const bibI = await page.evaluate(async () => {
+        DTPWidgets.openLib(); await new Promise(r => setTimeout(r, 200));
+        const noms = () => [...document.querySelectorAll('#wdg-lib-grid .wdg-lib-card .wdg-lib-name')].map(n => n.textContent);
+        DTPWidgets.filterClasse('indices'); await new Promise(r => setTimeout(r, 100)); const ind = noms();
+        DTPWidgets.filterClasse('metaux'); await new Promise(r => setTimeout(r, 100)); const met = noms();
+        DTPWidgets.filterClasse(''); DTPWidgets.closeLib();
+        return { ind: ind.filter(n => /Indices mondiaux|Régime de volatilité/.test(n)), met: met.filter(n => /Indices mondiaux|Régime de volatilité/.test(n)) };
+      });
+      v('bibliothèque : « Indices mondiaux » et « Régime de volatilité » sous « Indices », pas sous « Métaux »', bibI.ind.length === 2 && !bibI.met.length, JSON.stringify(bibI));
+      const ix = await page.evaluate(async () => {
+        const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:560px;height:380px;z-index:99999';
+        document.body.appendChild(h);
+        const un = DTPWidgets.mountInto('v3-indices', h);
+        await new Promise(r => setTimeout(r, 1200));
+        const t = h.querySelector('.v3i-t[data-code]');
+        const o = { regions: [...h.querySelectorAll('.v3i-reg h6')].map(x => x.textContent), tuile: t ? t.innerText.replace(/\s+/g, ' ') : '', fond: t ? t.style.background : '', large: (h.querySelector('.v3i-large') || {}).innerText || '', etat: t ? /Ferme dans \d|Ouvre dans \d|Pause de midi · \d/.test(t.innerText) : false, nan: /NaN|undefined/.test(h.innerText) };
+        if (t) t.click();
+        await new Promise(r => setTimeout(r, 300));
+        o.fiche = (document.querySelector('#v3a-fiche .v3a-fiche-t b') || {}).textContent || '';
+        const f = document.getElementById('v3a-fiche'); if (f) f.remove();
+        un && un(); h.remove();
+        return o;
+      });
+      v('Indices mondiaux : rangés par région, variation signée, tuile teintée selon le sens', JSON.stringify(ix.regions) === '["Amériques"]' && /Nasdaq 100/.test(ix.tuile) && /−0,41%/.test(ix.tuile) && /255, 61, 0/.test(ix.fond), JSON.stringify(ix));
+      v('… état de séance dit en clair, largeur du mouvement en tête, aucun NaN', ix.etat && /0 en hausse · 1 en baisse/.test(ix.large) && !ix.nan, JSON.stringify(ix));
+      v('… un clic sur une tuile ouvre la fiche de l\'indice', ix.fiche === 'Nasdaq 100', ix.fiche);
+      const vx = await page.evaluate(async () => {
+        const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:520px;height:360px;z-index:99999';
+        document.body.appendChild(h);
+        const un = DTPWidgets.mountInto('v3-vix', h);
+        await new Promise(r => setTimeout(r, 1200));
+        const o = { niv: (h.querySelector('.v3x-niv strong') || {}).textContent, pil: (h.querySelector('.v3x-pil') || {}).textContent, pts: h.querySelectorAll('.v3x-courbe circle').length,
+          lec: (h.querySelector('.v3x-lec') || {}).textContent || '', txt: h.innerText.replace(/\s+/g, ' '), nan: /NaN|undefined/.test(h.innerText) };
+        un && un(); h.remove();
+        return o;
+      });
+      v('Régime de volatilité : niveau, régime en français, courbe à terme en 4 points', vx.niv === '16,42' && vx.pil === 'Normal' && vx.pts === 4, JSON.stringify(vx).slice(0, 300));
+      v('… lecture de la forme (courbe normale, sous 1) et rang sur un an, aucun NaN', /forme normale/.test(vx.lec) && /rang 34%/.test(vx.txt) && /sous 1 : courbe normale/.test(vx.txt) && !vx.nan, JSON.stringify(vx).slice(0, 400));
       await ctx.close();
     }
   } catch (e) { v('le banc se termine', false, e.message); }

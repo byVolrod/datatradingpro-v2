@@ -32571,7 +32571,7 @@ setInterval(_dmxHistRelever, 60 * 60e3);
 const _MULTI_CLASSES = [
   { k: 'metaux', n: 'Métaux', items: [['GC=F', 'Or', 'XAU/USD', 2], ['SI=F', 'Argent', 'XAG/USD', 3], ['PL=F', 'Platine', 'XPT/USD', 1], ['PA=F', 'Palladium', 'XPD/USD', 1], ['HG=F', 'Cuivre', 'HG', 4]] },
   { k: 'energie', n: 'Énergie', items: [['CL=F', 'Pétrole WTI', 'WTI', 2], ['BZ=F', 'Pétrole Brent', 'Brent', 2], ['NG=F', 'Gaz naturel', 'NG', 3]] },
-  { k: 'indices', n: 'Indices', items: [['^GSPC', 'S&P 500', 'SPX', 1], ['^NDX', 'Nasdaq 100', 'NDX', 1], ['^DJI', 'Dow Jones', 'DJI', 0], ['^GDAXI', 'DAX', 'DAX', 0], ['^FCHI', 'CAC 40', 'CAC', 0], ['^FTSE', 'FTSE 100', 'UKX', 0], ['^N225', 'Nikkei 225', 'NKY', 0], ['^HSI', 'Hang Seng', 'HSI', 0]] },
+  { k: 'indices', n: 'Indices', items: [['^GSPC', 'S&P 500', 'SPX', 1], ['^NDX', 'Nasdaq 100', 'NDX', 1], ['^DJI', 'Dow Jones', 'DJI', 0], ['^GDAXI', 'DAX', 'DAX', 0], ['^FCHI', 'CAC 40', 'CAC', 0], ['^FTSE', 'FTSE 100', 'UKX', 0], ['^N225', 'Nikkei 225', 'NKY', 0], ['^HSI', 'Hang Seng', 'HSI', 0], ['^STOXX50E', 'Euro Stoxx 50', 'SX5E', 0]] },
   { k: 'crypto', n: 'Crypto', items: [['BTC-USD', 'Bitcoin', 'BTC/USD', 0], ['ETH-USD', 'Ethereum', 'ETH/USD', 1], ['SOL-USD', 'Solana', 'SOL/USD', 2], ['XRP-USD', 'XRP', 'XRP/USD', 4]] },
   { k: 'taux', n: 'Taux et volatilité', items: [['^IRX', 'US 3 mois', 'US3M', 2, 1], ['^FVX', 'US 5 ans', 'US5Y', 2, 1], ['^TNX', 'US 10 ans', 'US10Y', 2, 1], ['^TYX', 'US 30 ans', 'US30Y', 2, 1], ['DX-Y.NYB', 'Dollar index', 'DXY', 2], ['^VIX', 'VIX', 'VIX', 2]] },
 ];
@@ -32780,6 +32780,61 @@ app.get('/api/v2/actif-profil', requireAdmin, async (req, res) => {
     if (!d) return res.status(502).json({ error: 'historique indisponible' });
     res.json(d);
   } catch (e) { res.status(502).json({ error: 'historique indisponible' }); }
+});
+
+/* ═══ V3 · RÉGIME DE VOLATILITÉ : LE VIX ET SA COURBE À TERME (26/09, multi-actifs étape 5) ═══════
+   Widget « Régime de volatilité » (indices). Quatre indices du Cboe : VIX 9 jours, VIX (30 jours),
+   VIX 3 mois, VIX 6 mois — le dernier cours de chacun (même lecture que Multi-actifs) — et un an de
+   clôtures du VIX (série partagée avec la fiche actif) pour le situer face à sa propre année.
+   Le rapport VIX / VIX 3 mois résume la forme : sous 1 la courbe monte (normale), au-dessus elle est
+   inversée (stress immédiat). Cache 5 min, UNE lecture à la fois. */
+const _VIX_TERME = [['^VIX9D', '9 jours'], ['^VIX', '1 mois'], ['^VIX3M', '3 mois'], ['^VIX6M', '6 mois']];
+let _vixCache = { at: 0, data: null }, _vixVol = null;
+function _vixCalc(derniers, serie) {
+  const v = derniers['^VIX'];
+  if (!v || v.prix == null) return null;
+  const cl = (serie || []).map(p => p.c);
+  let rang = null, an = null;
+  if (cl.length >= 20) {
+    rang = Math.round(100 * cl.filter(x => x <= v.prix).length / cl.length);
+    an = { haut: +Math.max(...cl).toFixed(2), bas: +Math.min(...cl).toFixed(2), moy: +(cl.reduce((a, b) => a + b, 0) / cl.length).toFixed(2) };
+  }
+  const v3 = derniers['^VIX3M'];
+  return {
+    at: Date.now(),
+    vix: { prix: v.prix, chg: v.chg },
+    terme: _VIX_TERME.map(([s, lbl]) => ({ sym: s, lbl, v: derniers[s] ? derniers[s].prix : null })),
+    pente: v3 && v3.prix ? +(v.prix / v3.prix).toFixed(3) : null,
+    rang, an,
+    source: 'Cboe via Yahoo Finance, calculs DTP',
+  };
+}
+async function _vixLire() {
+  const derniers = {};
+  await Promise.all(_VIX_TERME.map(async ([s]) => {
+    try {
+      const { raw } = await _yfChart(s, '5m', '1d');
+      const m = raw && raw.chart && raw.chart.result && raw.chart.result[0] && raw.chart.result[0].meta;
+      const prix = m && m.regularMarketPrice, prec = m && (m.chartPreviousClose ?? m.previousClose);
+      if (prix != null && isFinite(prix)) derniers[s] = { prix: +(+prix).toFixed(2), chg: prec ? +((prix / prec - 1) * 100).toFixed(2) : null };
+    } catch (e) {}
+  }));
+  const serie = await _actifSerie('^VIX').catch(() => []);
+  return _vixCalc(derniers, serie);
+}
+app.get('/api/v2/vix-structure', requireAdmin, async (req, res) => {
+  if (!_v2Actif()) return res.status(404).end();
+  if (_vixCache.data && Date.now() - _vixCache.at < 5 * 60e3) return res.json(_vixCache.data);
+  try {
+    if (!_vixVol) _vixVol = _vixLire().finally(() => { _vixVol = null; });
+    const d = await _vixVol;
+    if (d) _vixCache = { at: Date.now(), data: d };
+    if (_vixCache.data) return res.json(_vixCache.data);
+    res.status(502).json({ error: 'volatilité indisponible' });
+  } catch (e) {
+    if (_vixCache.data) return res.json(_vixCache.data);
+    res.status(502).json({ error: 'volatilité indisponible' });
+  }
 });
 
 app.get('/api/v2/particuliers-historique', requireAdmin, async (req, res) => {

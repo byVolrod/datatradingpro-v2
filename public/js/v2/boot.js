@@ -63,6 +63,10 @@
     var ra = document.createElement('script');
     ra.src = '/js/v2/recherche-actifs.js?v=' + VER; ra.defer = true;
     document.head.appendChild(ra);
+    // Widgets des indices (V3, multi-actifs étape 5) : Indices mondiaux et Régime de volatilité.
+    var ix = document.createElement('script');
+    ix.src = '/js/v2/indices.js?v=' + VER; ix.defer = true;
+    document.head.appendChild(ix);
     // Neuro-ondes (V3) : ambiances sonores générées (battements binauraux), widget de la bibliothèque.
     var ne = document.createElement('script');
     ne.src = '/js/v2/neuro.js?v=' + VER; ne.defer = true;

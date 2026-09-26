@@ -10296,6 +10296,8 @@
     'saison': ['fx'], 'saison-courbe': ['fx'], 'vol-horaire': ['fx'], 'amplitude-seance': ['fx'], 'distribution-variations': ['fx'], 'stats-volatilite': ['fx'],
     'amplitude-jour': ['fx'], 'hauts-bas': ['fx'], 'frequence-amplitude': ['fx'], 'vue-fxlist': ['fx'], 'vue-bias': ['fx'], 'vue-bank': ['fx'],
     'indices-matieres': ['indices', 'metaux', 'energie'], 'v3-multi': ['indices', 'metaux', 'energie', 'crypto'],
+    // Widgets propres à une classe (multi-actifs étape 5).
+    'v3-indices': ['indices'], 'v3-vix': ['indices'],
   };
   // La Liste de suivi n'est « Forex seulement » que hors V3 : en V3 elle suit aussi les autres marchés.
   function _classesDe(id) { return id === 'ticklist' && !_estV3() ? ['fx'] : (CLASSES_OF[id] || null); }
