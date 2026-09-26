@@ -32837,6 +32837,59 @@ app.get('/api/v2/vix-structure', requireAdmin, async (req, res) => {
   }
 });
 
+/* ═══ V3 · RATIOS DES MÉTAUX (26/09, multi-actifs étape 5, métaux) ═════════════════════════════════
+   Widget « Ratios des métaux ». Trois rapports que les traders de métaux lisent avant les prix :
+   · Or / Argent : combien d'onces d'argent pour une once d'or. Haut = argent bon marché, marché
+     prudent ; bas = l'argent (plus industriel, plus spéculatif) mène.
+   · Cuivre / Or : le baromètre de croissance (le cuivre suit l'industrie, l'or la prudence).
+   · Or / Platine : l'écart entre la valeur refuge et le métal industriel.
+   Même série d'un an que la fiche actif (_actifSerie : cache 30 min, une lecture par symbole),
+   alignée sur les séances COMMUNES aux deux contrats. Cache 10 min, une lecture à la fois. */
+const _RATIOS_METAUX = [
+  { k: 'or-argent', nom: 'Or / Argent', a: 'GC=F', b: 'SI=F', f: 1, dec: 1 },
+  { k: 'cuivre-or', nom: 'Cuivre / Or', a: 'HG=F', b: 'GC=F', f: 1000, dec: 3, note: '× 1 000' },
+  { k: 'or-platine', nom: 'Or / Platine', a: 'GC=F', b: 'PL=F', f: 1, dec: 2 },
+];
+let _ratiosCache = { at: 0, data: null }, _ratiosVol = null;
+function _ratioCalc(def, sa, sb) {
+  const m = new Map(sb.map(p => [p.d, p.c]));
+  const r = sa.filter(p => m.has(p.d) && m.get(p.d) > 0).map(p => [p.d, p.c / m.get(p.d) * def.f]);
+  if (r.length < 30) return null;
+  const vs = r.map(x => x[1]), n = vs.length, der = vs[n - 1];
+  const lim = Date.parse(r[n - 1][0] + 'T00:00:00Z') - 30 * 86400e3;
+  let ref = null; for (let i = n - 1; i >= 0; i--) if (Date.parse(r[i][0] + 'T00:00:00Z') <= lim) { ref = vs[i]; break; }
+  const pas = Math.max(1, Math.ceil(n / 70));
+  return {
+    k: def.k, nom: def.nom, note: def.note || null, dec: def.dec,
+    dernier: +der.toFixed(def.dec + 1), date: r[n - 1][0],
+    m1: ref ? +((der / ref - 1) * 100).toFixed(2) : null,
+    haut: +Math.max(...vs).toFixed(def.dec + 1), bas: +Math.min(...vs).toFixed(def.dec + 1),
+    rang: Math.round(100 * vs.filter(x => x <= der).length / n),
+    serie: r.filter((_, i) => i % pas === 0 || i === n - 1).map(x => [x[0], +x[1].toFixed(def.dec + 2)]),
+  };
+}
+async function _ratiosLire() {
+  const syms = [...new Set(_RATIOS_METAUX.flatMap(d => [d.a, d.b]))];
+  const S = {};
+  await Promise.all(syms.map(async s => { S[s] = await _actifSerie(s).catch(() => []); }));
+  const ratios = _RATIOS_METAUX.map(d => _ratioCalc(d, S[d.a] || [], S[d.b] || [])).filter(Boolean);
+  return ratios.length ? { at: Date.now(), ratios, source: 'Contrats à terme COMEX / NYMEX via Yahoo Finance, calculs DTP' } : null;
+}
+app.get('/api/v2/ratios-metaux', requireAdmin, async (req, res) => {
+  if (!_v2Actif()) return res.status(404).end();
+  if (_ratiosCache.data && Date.now() - _ratiosCache.at < 10 * 60e3) return res.json(_ratiosCache.data);
+  try {
+    if (!_ratiosVol) _ratiosVol = _ratiosLire().finally(() => { _ratiosVol = null; });
+    const d = await _ratiosVol;
+    if (d) _ratiosCache = { at: Date.now(), data: d };
+    if (_ratiosCache.data) return res.json(_ratiosCache.data);
+    res.status(502).json({ error: 'ratios indisponibles' });
+  } catch (e) {
+    if (_ratiosCache.data) return res.json(_ratiosCache.data);
+    res.status(502).json({ error: 'ratios indisponibles' });
+  }
+});
+
 app.get('/api/v2/particuliers-historique', requireAdmin, async (req, res) => {
   if (!_v2Actif()) return res.status(404).end();
   const p = String(req.query.pair || '').toUpperCase().replace(/[^A-Z]/g, '');

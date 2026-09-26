@@ -295,6 +295,10 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       source: 'Yahoo Finance, calculs DTP' });
     if (u === '/api/v2/vix-structure') return j({ at: Date.now(), vix: { prix: 16.42, chg: -3.1 }, pente: 0.87, rang: 34, an: { haut: 38.6, bas: 11.9, moy: 17.2 }, source: 'Cboe via Yahoo Finance, calculs DTP',
       terme: [{ sym: '^VIX9D', lbl: '9 jours', v: 14.8 }, { sym: '^VIX', lbl: '1 mois', v: 16.42 }, { sym: '^VIX3M', lbl: '3 mois', v: 18.9 }, { sym: '^VIX6M', lbl: '6 mois', v: 20.1 }] });
+    if (u === '/api/v2/ratios-metaux') { const sr = (b, p) => Array.from({ length: 60 }, (_, i) => ['2026-' + String(1 + Math.floor(i / 6)).padStart(2, '0') + '-' + String(1 + (i % 6) * 4).padStart(2, '0'), +(b + Math.sin(i / p) * b * 0.04).toFixed(3)]);
+      return j({ at: Date.now(), source: 'test', ratios: [{ k: 'or-argent', nom: 'Or / Argent', dec: 1, dernier: 86.4, m1: 2.3, haut: 91.2, bas: 71.8, rang: 88, serie: sr(84, 6) },
+        { k: 'cuivre-or', nom: 'Cuivre / Or', note: '× 1 000', dec: 3, dernier: 1.712, m1: -3.4, haut: 2.05, bas: 1.66, rang: 12, serie: sr(1.8, 9) },
+        { k: 'or-platine', nom: 'Or / Platine', dec: 2, dernier: 2.64, m1: 0.4, haut: 2.9, bas: 2.2, rang: 55, serie: sr(2.6, 7) }] }); }
     if (u === '/api/currency-strength') return j(FORCE);
     if (u === '/api/admin/data-health') return SC.role === 'admin' ? j(SANTE) : (rs.writeHead(403), rs.end());
     if (u === '/api/v2/briefing') return SC.role === 'admin' ? j(BRIEF) : (rs.writeHead(403), rs.end());
@@ -788,6 +792,33 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
         return { ind: ind.filter(n => /Indices mondiaux|Régime de volatilité/.test(n)), met: met.filter(n => /Indices mondiaux|Régime de volatilité/.test(n)) };
       });
       v('bibliothèque : « Indices mondiaux » et « Régime de volatilité » sous « Indices », pas sous « Métaux »', bibI.ind.length === 2 && !bibI.met.length, JSON.stringify(bibI));
+      const bibM = await page.evaluate(async () => {
+        DTPWidgets.openLib(); await new Promise(r => setTimeout(r, 200));
+        const noms = () => [...document.querySelectorAll('#wdg-lib-grid .wdg-lib-card .wdg-lib-name')].map(n => n.textContent);
+        DTPWidgets.filterClasse('metaux'); await new Promise(r => setTimeout(r, 100)); const met = noms().includes('Ratios des métaux');
+        DTPWidgets.filterClasse('indices'); await new Promise(r => setTimeout(r, 100)); const ind = noms().includes('Ratios des métaux');
+        DTPWidgets.filterClasse(''); DTPWidgets.closeLib();
+        return { met, ind };
+      });
+      v('bibliothèque : « Ratios des métaux » sous « Métaux », pas sous « Indices »', bibM.met && !bibM.ind, JSON.stringify(bibM));
+      const rm = await page.evaluate(async () => {
+        const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:560px;height:360px;z-index:99999';
+        document.body.appendChild(h);
+        const un = DTPWidgets.mountInto('v3-ratios', h);
+        await new Promise(r => setTimeout(r, 1200));
+        const l = [...h.querySelectorAll('.v3r-l')].map(x => x.innerText.replace(/\s+/g, ' '));
+        const sp = h.querySelector('.v3r-sp'), svg = sp && sp.querySelector('svg');
+        const r = sp.getBoundingClientRect();
+        sp.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + r.width * 0.5, clientY: r.top + 10 }));
+        await new Promise(z => setTimeout(z, 50));
+        const bul = sp.querySelector('.v3r-bul');
+        const o = { l, net: !!svg && Math.abs(+svg.getAttribute('width') - sp.clientWidth) <= 1, bulle: bul && !bul.hidden ? bul.textContent : '', nan: /NaN|undefined/.test(h.innerText) };
+        un && un(); h.remove();
+        return o;
+      });
+      v('Ratios des métaux : trois ratios, niveau, mois écoulé signé, rang sur un an', rm.l.length === 3 && /Or \/ Argent.*86,4.*\+2,3%.*rang 88%/.test(rm.l[0]) && /Cuivre \/ Or.*× 1 000.*1,712.*−3,4%/.test(rm.l[1]), JSON.stringify(rm.l));
+      v('… une lecture en clair par ratio (prudence, croissance), aucun NaN', /prudent/.test(rm.l[0]) && /prudence sur la croissance/.test(rm.l[1]) && /Milieu de sa fourchette/.test(rm.l[2]) && !rm.nan, JSON.stringify(rm.l));
+      v('… courbe d\'un an à la taille réelle de son cadre, lisible au survol', rm.net && /\d/.test(rm.bulle), JSON.stringify({ net: rm.net, bulle: rm.bulle }));
       const ix = await page.evaluate(async () => {
         const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:560px;height:380px;z-index:99999';
         document.body.appendChild(h);

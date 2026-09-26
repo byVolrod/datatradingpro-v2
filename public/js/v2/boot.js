@@ -67,6 +67,10 @@
     var ix = document.createElement('script');
     ix.src = '/js/v2/indices.js?v=' + VER; ix.defer = true;
     document.head.appendChild(ix);
+    // Widget des métaux (V3, multi-actifs étape 5) : Ratios des métaux.
+    var mx = document.createElement('script');
+    mx.src = '/js/v2/metaux.js?v=' + VER; mx.defer = true;
+    document.head.appendChild(mx);
     // Neuro-ondes (V3) : ambiances sonores générées (battements binauraux), widget de la bibliothèque.
     var ne = document.createElement('script');
     ne.src = '/js/v2/neuro.js?v=' + VER; ne.defer = true;
