@@ -276,6 +276,7 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       let corps = ''; rq.on('data', c => { corps += c; }); rq.on('end', () => { (global.__envois = global.__envois || []).push({ u, corps });
         j(u === '/api/auth/me/profile' ? { ok: true, name: (JSON.parse(corps || '{}').name || '') } : { ok: true }); }); return; }
     if (u === '/api/risk-sentiment') return j(RISQUE);
+    if (u === '/api/risk-history') return j({ series: [-12, -4, 3, 9, 14, 6, -2, 12.4].map((pct, i) => ({ date: '2026-09-' + (10 + i), pct })) });
     // Liste de suivi mixte (V3) : deux sources, deux horizons.
     // (Champs complets : la vue Liste FX du desk lit aussi ce flux, et plante sur une paire incomplète.)
     if (u === '/api/fxlist') { const px = (symbol, base, quote, last, changePct, sparkLast) => ({ symbol, base, quote, last, changePct, ret1M: 0.8, ret3M: 1.4, ret12M: 2.1, sparkLast, trend: sparkLast, pattern: sparkLast, seasonal: [], dmx: 55, strength: 0.4 });
@@ -761,12 +762,20 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
         const o = { v3: !!h.querySelector('.v3w'), jauge: !!h.querySelector('.v3r-jauge svg'), regime: (h.querySelector('.v3r-reg') || {}).textContent || '',
           moteurs: h.querySelectorAll('.v3r-mot').length, rot: aig ? aig.style.transform : '', direct: !!h.querySelector('.v3w-live'),
           nan: /NaN|undefined/.test(h.textContent), deborde: h.scrollWidth > h.clientWidth + 1 };
+        // 26/09 « mets bien au centre la jauge » : le pivot de l'aiguille au milieu de la scène, et le
+        // badge du régime DANS la scène (il ne chevauche ni les pastilles ni l'historique).
+        const sc = h.querySelector('.v3r-scene'), bd = h.querySelector('.v3r-badge'), rs = sc.getBoundingClientRect(), rb = bd.getBoundingClientRect();
+        const ox = aig ? parseFloat(aig.style.transformOrigin) : NaN;
+        o.centre = Math.abs(ox - sc.clientWidth / 2) < 1.5; o.badgeDedans = rb.bottom <= rs.bottom + 1 && rb.top >= rs.top;
+        o.bande = ((h.querySelector('.v3r-bande') || {}).textContent || '').replace(/\s+/g, ' ');
+        o.barres = h.querySelectorAll('.v3r-histo rect').length;
         un && un(); h.remove();
         return o;
       });
       v('Sentiment de risque V3 : jauge dessinée, régime EN FRANÇAIS, les 4 moteurs, EN DIRECT',
         rq.v3 && rq.jauge && rq.regime === 'Léger appétit' && rq.moteurs === 4 && rq.direct, JSON.stringify(rq));
       v('… l\'aiguille tourne jusqu\'au score (+12,4 → 11,2°), sans NaN ni débordement', /rotate\(11\.16\d*deg\)/.test(rq.rot) && !rq.nan && !rq.deborde, JSON.stringify(rq));
+      v('… comme l\'ancien : jauge CENTRÉE, badge du régime sous l\'arc sans chevauchement, bandeau en tête, historique en barres', rq.centre && rq.badgeDedans && /^Léger appétit : /.test(rq.bande.trim()) && rq.barres > 1, JSON.stringify(rq));
       // Liste de suivi MIXTE (26/09, multi-actifs étape 2) : Forex + autres marchés, groupés, horizons annoncés.
       const ls = await page.evaluate(async () => {
         const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:640px;height:420px;z-index:99999';
@@ -865,13 +874,15 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
         const out = {};
         let m = await monte('barometre'); out.baro = { tete: m.r.tete.replace(/\s+/g, ' '), cols: m.r.h.querySelectorAll('.v3f-corps .meter-col').length }; m.fin();
         m = await monte('radar-biais'); out.radar = { tete: m.r.tete.replace(/\s+/g, ' '), matrice: !!m.r.h.querySelector('.v3f-corps .macro-wrap') }; m.fin();
-        m = await monte('cot-inst', { cat: 'lev_money' }); out.cot = { tete: m.r.tete.replace(/\s+/g, ' '), l: [...m.r.h.querySelectorAll('.v3f-cl')].map(x => x.innerText.replace(/\s+/g, ' ')) }; m.fin();
+        m = await monte('cot-inst', { cat: 'lev_money' }); out.cot = { tete: m.r.tete.replace(/\s+/g, ' '), cartes: [...m.r.h.querySelectorAll('.v3f-corps .cot-cell')].map(x => x.innerText.replace(/\s+/g, ' ')), anneaux: m.r.h.querySelectorAll('.v3f-corps .cot-ring').length, barres: m.r.h.querySelectorAll('.v3f-cl').length, casse: (m.r.h.querySelector('.cot-badge') ? getComputedStyle(m.r.h.querySelector('.cot-badge')).textTransform : '') }; m.fin();
         m = await monte('heatmap-seance'); out.mat = { tete: m.r.tete.replace(/\s+/g, ' '), cases: m.r.h.querySelectorAll('.v3f-mat td[data-p]').length, na: m.r.h.querySelectorAll('.v3f-mat td.na').length, nan: /NaN|undefined/.test(m.r.h.innerText) }; m.fin();
         return out;
       });
       v('Baromètre V3 : l\'égaliseur de la charte (8 colonnes) sous un en-tête de chiffres clés', fin.baro.cols === 8 && /Plus forte/.test(fin.baro.tete) && /Paire la plus nette/.test(fin.baro.tete), JSON.stringify(fin.baro));
       v('Radar de biais V3 : la matrice de la charte sous la lecture du jour', fin.radar.matrice && /haussière/.test(fin.radar.tete) && /GBP\/JPY/.test(fin.radar.tete), JSON.stringify(fin.radar));
-      v('COT V3 : barres acheteurs / vendeurs, rangées, position étirée signalée', fin.cot.l.length === 3 && /^EUR/.test(fin.cot.l[0]) && /JPY.*ÉTIRÉ/.test(fin.cot.l[2]) && /NEUTRE/i.test(fin.cot.l[1]) && /Fonds à effet de levier/.test(fin.cot.tete), JSON.stringify(fin.cot));
+      // 26/09 : « refais comme l'ancien » — les cartes à anneau du widget client, dans le cadre V3 (plus de barres).
+      v('COT V3 : les cartes à anneau d\'origine (une par devise), sous l\'en-tête V3', fin.cot.cartes.length === 3 && fin.cot.anneaux === 3 && fin.cot.barres === 0 && /Fonds à effet de levier/.test(fin.cot.tete) && /Plus achetée/.test(fin.cot.tete), JSON.stringify(fin.cot));
+      v('… verdict en casse normale et volumes lus (Longs · Net · Courts)', fin.cot.casse === 'none' && fin.cot.cartes.every(t => /Longs.*Net.*Courts/.test(t)), JSON.stringify(fin.cot));
       // Deux paires servies (EUR/USD, USD/JPY) : 4 cases pleines, et EUR face à JPY marquée ABSENTE, jamais lue comme zéro.
       v('Carte de chaleur V3 : matrice des devises, case sans cotation marquée absente, aucun NaN', fin.mat.cases === 4 && fin.mat.na === 2 && /Paire la plus nette USD\/JPY/.test(fin.mat.tete) && !fin.mat.nan, JSON.stringify(fin.mat));
       v('Géants de la cote : valeur, moyenne des sept, S&P 500, et la lecture (ils mènent)', ck.g.length === 3 && /Nvidia/.test(ck.g[0]) && /Moyenne des sept/.test(ck.g[1]) && /S&P 500/.test(ck.g[2]) && /mènent la hausse/.test(ck.lec) && !ck.nanG, JSON.stringify(ck.g) + ' ' + ck.lec);

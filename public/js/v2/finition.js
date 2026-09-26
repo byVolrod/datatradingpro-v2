@@ -175,21 +175,27 @@
     }).join('') + '</div>';
     return { tete: tete, corps: corps };
   }
+  /* ⚠️ 26/09, capture utilisateur : « c'est quoi ça, j'aime pas ; refais comme l'ancien mais améliore les
+     finitions, de même pour le COT ». La version du 25/09 remplaçait les cartes à anneau du widget
+     client par des barres horizontales. On rend donc le CORPS au widget client (ses cartes par devise :
+     en-tête drapeau + verdict, anneau acheteurs / vendeurs, longs · net · courts), et la V3 garde ce
+     qu'elle ajoutait d'utile : l'en-tête à puces (catégorie, devise la plus achetée, la plus vendue).
+     Les finitions de ces cartes (trait, anneau, typographie) vivent dans desk.css, sous html.dtp-v2. */
   function cot(host, it, repli, O) {
     var W = this, c = cadre(host), vivant = true, cat = O.opt(it, W, 'cat') || 'lev_money';
-    c.corps.innerHTML = '<div class="v3f-vide">Lecture du positionnement…</div>';
+    host.classList.add('v3f-cot-anneaux');
+    var un = null; try { un = W._v3Orig.call(W, c.corps, it); } catch (e) { repli(); return null; }
     function charger() {
       if (!vivant || !host.isConnected) return;
       lire('/api/cot?type=' + encodeURIComponent(cat)).then(function (d) {
         if (!vivant) return;
         var r = rendreCot(d, cat);
-        if (!r) { if (!c.corps.querySelector('.v3f-cot')) c.corps.innerHTML = '<div class="v3f-vide">Positionnement indisponible pour le moment : nouvel essai automatique.</div>'; return; }
-        c.tete.innerHTML = r.tete; c.corps.innerHTML = r.corps;
+        c.tete.innerHTML = r ? r.tete : '<span class="v3f-maj">Positionnement indisponible pour le moment : nouvel essai automatique.</span>';
       });
     }
     charger();
     var t = setInterval(charger, 30 * 60000);   // hebdomadaire : ce rythme sert à se réparer
-    return function () { vivant = false; clearInterval(t); };
+    return function () { vivant = false; clearInterval(t); try { if (typeof un === 'function') un(); } catch (e) {} };
   }
 
   /* ── 4. CARTE DE CHALEUR FX : la matrice 8 × 8 ──────────────────────────────────────────────── */

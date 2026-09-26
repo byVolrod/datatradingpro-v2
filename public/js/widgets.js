@@ -10776,8 +10776,12 @@ function _spansAffiches(lay) {
         clearTimeout(API._v3Rendu);
         API._v3Rendu = setTimeout(function () { try { renderGrid(); } catch (e) {} }, 60);
       }
+      // Les écrans qui montent des widgets HORS de la grille (l'accueil) remontent le leur.
+      try { document.dispatchEvent(new CustomEvent('dtp:v3-montage', { detail: { id: id } })); } catch (e) {}
       return true;
     },
+    // Icône V3 d'un widget (celle de sa rangée d'onglets) ; chaîne vide hors V3.
+    iconeV3: function (id) { var w = byId(id); return w ? _tabIconV3(w, false) : ''; },
     // MONTER UN VRAI WIDGET DU DESK dans n'importe quel conteneur (l'espace d'accueil s'en sert).
     // C'est EXACTEMENT le widget du desk — même code, mêmes données, mêmes états de chargement et
     // d'erreur : aucune ré-implémentation à maintenir en parallèle. Renvoie la fonction de nettoyage

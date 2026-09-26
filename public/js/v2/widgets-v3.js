@@ -579,41 +579,62 @@
   }
 
 
-  /* ══ 6. SENTIMENT DE RISQUE (25/09, « le design ne reflète pas la V3 », capture) ═════════════════════
-     Même source que la jauge du desk (instantané partagé `dtp-risk`, sinon /api/risk-sentiment), et
-     l'historique 60 jours du desk (/api/risk-history). Présentation V3 : une jauge tracée en SVG (pas
-     de moteur de graphique à charger), l'aiguille qui glisse jusqu'au score, le régime en toutes
-     lettres, puis les MOTEURS : chaque actif suivi, sa variation, et le sens où il pousse (vers le
-     risk-on ou le risk-off). En bas, la trace des 60 dernières séances, zéro marqué. */
+  /* ══ 6. SENTIMENT DE RISQUE ═══════════════════════════════════════════════════════════════════════
+     26/09, capture utilisateur sur la version du 25/09 : « c'est quoi ça, j'aime pas, ce n'est pas bien
+     incorporé ; mets bien au centre la jauge ; refais comme l'ancien mais améliore les finitions ».
+     La version du 25/09 coupait la carte en deux colonnes (jauge collée en haut à gauche, liste de
+     moteurs à droite) : la jauge flottait au-dessus d'un grand vide et son score chevauchait l'aiguille.
+     On revient donc à la DISPOSITION DU WIDGET CLIENT, dans l'ordre où il se lit :
+       · le bandeau teinté (le régime en une phrase, et le VIX) ;
+       · la jauge au CENTRE de la carte, dans les deux sens : arc à sept teintes du rouge au vert, aiguille
+         en triangle teintée par l'arc sous elle, graduations, et le badge du régime sous l'arc ;
+       · l'historique des 60 séances en barres (vert = risk-on, rouge = risk-off).
+     Les finitions V3 s'ajoutent sans rien déplacer : l'en-tête à puces (régime, score, décompte des
+     facteurs, direct), les moteurs en pastilles compactes sous la jauge, l'aiguille qui glisse jusqu'au
+     score. Mêmes données que le desk (instantané partagé `dtp-risk`, /api/risk-sentiment, /api/risk-history).
+     Dessinée en SVG : aucun moteur de graphique à charger, et une jauge que les bancs peuvent mesurer. */
   var RISQUE_FR = { 'STRONG RISK-ON': 'Fort appétit', 'RISK-ON': 'Appétit', 'WEAK RISK-ON': 'Léger appétit', 'NEUTRAL': 'Neutre', 'WEAK RISK-OFF': 'Légère aversion', 'RISK-OFF': 'Aversion', 'STRONG RISK-OFF': 'Forte aversion' };
-  var teinteRisque = function (p) { return p >= 15 ? VERT : p <= -15 ? ROUGE : OR; };
+  // Ce que le régime VEUT DIRE, sans le répéter (le bandeau disait « Fort appétit : Fort appétit pour le risque »).
+  var RISQUE_PHRASE = { 'STRONG RISK-ON': 'actifs risqués recherchés sur toute la ligne, valeurs refuges délaissées.', 'RISK-ON': 'actions et devises cycliques soutenues, refuges sous légère pression.',
+    'WEAK RISK-ON': 'l’appétit pour le risque s’améliore progressivement.', 'NEUTRAL': 'signaux partagés, marchés en consolidation.', 'WEAK RISK-OFF': 'la prudence s’installe, les refuges trouvent un appui.',
+    'RISK-OFF': 'les capitaux se replient vers les valeurs refuges.', 'STRONG RISK-OFF': 'fuite vers la sécurité : obligations, or, yen et franc suisse demandés.' };
+  // Les sept teintes de l'arc du widget client, de −100 (aversion) à +100 (appétit).
+  var ARC = [0xc63430, 0xdb5a2c, 0xe88a28, 0xddb23a, 0xa9c64a, 0x5cb060, 0x2a9e60];
+  function couleurArc(v) {
+    var t = (Math.max(-100, Math.min(100, v)) + 100) / 200 * (ARC.length - 1), i = Math.min(ARC.length - 2, Math.floor(t)), f = t - i;
+    var a = ARC[i], b = ARC[i + 1], c = function (sh) { return Math.round(((a >> sh) & 255) + (((b >> sh) & 255) - ((a >> sh) & 255)) * f); };
+    return '#' + [16, 8, 0].map(function (sh) { var x = c(sh).toString(16); return x.length < 2 ? '0' + x : x; }).join('');
+  }
+  var hex = function (n) { var x = n.toString(16); while (x.length < 6) x = '0' + x; return '#' + x; };
   function stylesR() {
     if (document.getElementById('v3r-css')) return;
     var st = document.createElement('style'); st.id = 'v3r-css';
     st.textContent = ''
-      + 'html.dtp-v2 .v3r-duo{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1px;background:var(--v3-ligne, #15151a)}'
-      + 'html.dtp-v2 .v3r-duo>div{position:relative;background:var(--v3-carte, #0a0a0c);display:flex;flex-direction:column;min-height:0}'
-      + 'html.dtp-v2 .v3r-jauge{flex:1;min-height:90px;position:relative}'
+      + 'html.dtp-v2 .v3r-bande{display:flex;align-items:baseline;gap:8px;margin:8px 10px 0;padding:7px 11px;border:1px solid;border-radius:4px;font-size:11.5px;line-height:1.4;transition:background .4s,border-color .4s,color .4s}'
+      + 'html.dtp-v2 .v3r-bande i{flex:0 0 auto;width:6px;height:6px;border-radius:50%;transform:translateY(-1px)}'
+      + 'html.dtp-v2 .v3r-bande b{font-weight:700}'
+      + 'html.dtp-v2 .v3r-scene{position:relative;flex:1;min-height:120px}'
+      + 'html.dtp-v2 .v3r-jauge{position:absolute;inset:0}'
       + 'html.dtp-v2 .v3r-jauge svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}'
-      + 'html.dtp-v2 .v3r-aig{transition:transform 1s cubic-bezier(.2,.8,.2,1);transform-box:view-box}'
-      + 'html.dtp-v2 .v3r-score{font:700 22px/1 "Inter Tight",system-ui,sans-serif;fill:var(--v3-titre, #f2f2f4)}'
-      + 'html.dtp-v2 .v3r-regime{font:600 11px/1 "Inter Tight",system-ui,sans-serif;letter-spacing:.04em;text-transform:uppercase}'
-      + 'html.dtp-v2 .v3r-mot{display:grid;grid-template-columns:minmax(64px,1fr) 60px minmax(60px,1.2fr);align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--v3-ligne, #141417)}'
-      + 'html.dtp-v2 .v3r-mot b{font-weight:600;color:var(--v3-titre, #ececf0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
-      + 'html.dtp-v2 .v3r-mot span{text-align:right;font-variant-numeric:tabular-nums}'
-      + 'html.dtp-v2 .v3r-barre{position:relative;height:6px;border-radius:3px;background:var(--v3-tete, #121215)}'
-      + 'html.dtp-v2 .v3r-barre::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--v3-bord, #2a2a31)}'
-      + 'html.dtp-v2 .v3r-barre i{position:absolute;top:0;bottom:0;border-radius:3px;transition:width .6s cubic-bezier(.2,.8,.2,1)}'
-      + 'html.dtp-v2 .v3r-liste{flex:1;min-height:0;overflow-y:auto}'
-      + 'html.dtp-v2 .v3r-histo{height:74px;flex:0 0 74px;position:relative;border-top:1px solid var(--v3-ligne, #15151a)}'
+      + 'html.dtp-v2 .v3r-aig{transition:transform 1.1s cubic-bezier(.2,.8,.2,1),fill .6s}'
+      + 'html.dtp-v2 .v3r-score{font-family:"Inter Tight",system-ui,sans-serif;font-weight:700;fill:var(--v3-titre, #f4f4f6);letter-spacing:-.01em}'
+      + 'html.dtp-v2 .v3r-bout{font:600 10px "Inter Tight",system-ui,sans-serif;fill:#6f6f78;letter-spacing:.02em}'
+      + 'html.dtp-v2 .v3r-badge{position:absolute;left:50%;transform:translateX(-50%);padding:7px 18px;border:1px solid;border-radius:4px;font:700 12.5px/1 "Inter Tight",system-ui,sans-serif;letter-spacing:.06em;white-space:nowrap;transition:color .4s,border-color .4s,background .4s}'
+      + 'html.dtp-v2 .v3r-moteurs{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:4px 10px 10px}'
+      + 'html.dtp-v2 .v3r-mot{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border:1px solid var(--v3-bord, #22222a);border-radius:3px;background:var(--v3-tete, #0f0f12);font-size:11px;white-space:nowrap}'
+      + 'html.dtp-v2 .v3r-mot b{font-weight:600;color:var(--v3-titre, #e6e6ea)}'
+      + 'html.dtp-v2 .v3r-mot em{font-style:normal;font-variant-numeric:tabular-nums}'
+      + 'html.dtp-v2 .v3r-mot i{width:5px;height:5px;border-radius:50%}'
+      + 'html.dtp-v2 .v3r-histo{height:78px;flex:0 0 78px;position:relative;border-top:1px solid var(--v3-ligne, #15151a)}'
       + 'html.dtp-v2 .v3r-histo svg{position:absolute;inset:0;width:100%;height:100%}'
-      + '@container (max-width:520px){html.dtp-v2 .v3r-duo{grid-template-columns:1fr;grid-auto-rows:minmax(0,1fr)}}'
-      + '@media (prefers-reduced-motion:reduce){html.dtp-v2 .v3r-aig,html.dtp-v2 .v3r-barre i{transition:none}}';
+      + 'html.dtp-v2 .v3w.v3r-bas .v3r-moteurs{display:none}'
+      + 'html.dtp-v2 .v3w.v3r-tres-bas .v3r-histo,html.dtp-v2 .v3w.v3r-tres-bas .v3r-bande{display:none}'
+      + '@media (prefers-reduced-motion:reduce){html.dtp-v2 .v3r-aig{transition:none}}';
     document.head.appendChild(st);
   }
   function risque(host, it, orig, O) {
     styles(); stylesR(); O.skel(host, 4);
-    var dernier = null, histo = null;
+    var dernier = null, histo = null, dernierD = null, angle = 0;
     function lireHisto() {
       if (histo) return Promise.resolve(histo);
       return fetch('/api/risk-history?days=60', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; })
@@ -626,71 +647,116 @@
         .then(function (d) { if (!d || d.error || !d.label) throw new Error('sentiment indisponible'); return d; })
         .catch(function (e) { if (window._dtpRisk && window._dtpRisk.label) return window._dtpRisk; throw e; });
     }
-    function jauge(z, pct) {
-      var t = taille(z), W = t.w, H = t.h;
-      var r = Math.max(30, Math.min(W / 2 - 18, H - 30)), cx = W / 2, cy = Math.min(H - 16, r + 18);
-      var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'none' });
-      var defs = el('defs', {}, svg), g = el('linearGradient', { id: 'v3r-grad', x1: '0', x2: '1', y1: '0', y2: '0' }, defs);
-      [[0, ROUGE], [.35, '#e88a28'], [.5, OR], [.65, '#a9c64a'], [1, VERT]].forEach(function (s) { el('stop', { offset: s[0], 'stop-color': s[1] }, g); });
+    /* LA JAUGE, CENTRÉE DANS LES DEUX SENS. Le bloc « arc + badge » est mesuré puis posé au milieu de la
+       scène : plus de jauge collée en haut au-dessus d'un vide. Le rayon suit la plus contraignante des
+       deux dimensions. L'aiguille est dessinée vers le haut puis TOURNÉE (la transition la fait glisser). */
+    function jauge(scene, pct) {
+      var z = scene.querySelector('.v3r-jauge'), badge = scene.querySelector('.v3r-badge');
+      /* Hauteur du bloc, du haut des graduations au bas du badge : 11 (graduations) + r + ep/2 au-dessus
+         du centre ; ep/2 + 22 (libellés des bouts) + 28 (badge) au-dessous. On en tire le plus grand
+         rayon qui tient dans la scène, puis on centre le bloc. */
+      var t = taille(z), W = t.w, H = t.h, BORD = 26, K = 0.13, SOUS = 50, SUR = 11;
+      var r = Math.max(36, Math.min((W / 2 - BORD) / (1 + K / 2), (H - SOUS - SUR - 10) / (1 + K)));
+      var ep = Math.max(8, Math.min(34, r * K));                        // épaisseur de l'arc
+      var bloc = SUR + r + ep + SOUS;
+      var cx = W / 2, cy = Math.max(0, (H - bloc) / 2) + SUR + r + ep / 2;
+      var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H });
+      var defs = el('defs', {}, svg), g = el('linearGradient', { id: 'v3r-grad', gradientUnits: 'userSpaceOnUse', x1: cx - r, x2: cx + r, y1: 0, y2: 0 }, defs);
+      ARC.forEach(function (c, i) { el('stop', { offset: i / (ARC.length - 1), 'stop-color': hex(c) }, g); });
       var pt = function (v, rr) { var a = Math.PI * (1 - (v + 100) / 200); return [cx + rr * Math.cos(a), cy - rr * Math.sin(a)]; };
       var a0 = pt(-100, r), a1 = pt(100, r);
-      el('path', { d: 'M' + a0[0] + ',' + a0[1] + ' A' + r + ',' + r + ' 0 0 1 ' + a1[0] + ',' + a1[1], fill: 'none', stroke: 'url(#v3r-grad)', 'stroke-width': Math.max(6, r * .13), 'stroke-linecap': 'round', opacity: .9 }, svg);
+      // Piste éteinte sous l'arc : l'arc garde un contour lisible même à faible luminosité.
+      el('path', { d: 'M' + a0[0] + ',' + a0[1] + ' A' + r + ',' + r + ' 0 0 1 ' + a1[0] + ',' + a1[1], fill: 'none', stroke: '#141418', 'stroke-width': ep + 4 }, svg);
+      el('path', { d: 'M' + a0[0] + ',' + a0[1] + ' A' + r + ',' + r + ' 0 0 1 ' + a1[0] + ',' + a1[1], fill: 'none', stroke: 'url(#v3r-grad)', 'stroke-width': ep }, svg);
       [-100, -50, 0, 50, 100].forEach(function (v) {
-        var p1 = pt(v, r + Math.max(6, r * .13) / 2 + 3), p2 = pt(v, r + Math.max(6, r * .13) / 2 + 8);
-        el('line', { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1], stroke: TXT, 'stroke-width': 1 }, svg);
+        var p1 = pt(v, r + ep / 2 + 4), p2 = pt(v, r + ep / 2 + (v === 0 ? 11 : 8));
+        el('line', { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1], stroke: v === 0 ? '#8e8e98' : '#4a4a52', 'stroke-width': 1 }, svg);
       });
-      // L'aiguille est dessinée à zéro puis TOURNÉE : la transition CSS la fait glisser jusqu'au score.
-      var ai = el('g', { class: 'v3r-aig', style: 'transform-origin:' + cx + 'px ' + cy + 'px;transform:rotate(0deg)' }, svg);
-      el('path', { d: 'M' + (cx - 4) + ',' + cy + ' L' + cx + ',' + (cy - r * .78) + ' L' + (cx + 4) + ',' + cy + ' Z', fill: teinteRisque(pct) }, ai);
-      el('circle', { cx: cx, cy: cy, r: 5, fill: 'var(--v3-carte, #0a0a0c)', stroke: teinteRisque(pct), 'stroke-width': 2 }, svg);
-      var sc = el('text', { x: cx, y: cy - r * .34, 'text-anchor': 'middle', class: 'v3r-score' }, svg); sc.textContent = signe(pct, 1);
+      var bg = el('text', { x: a0[0], y: cy + ep / 2 + 14, 'text-anchor': 'middle', class: 'v3r-bout' }, svg); bg.textContent = 'Aversion';
+      var bd = el('text', { x: a1[0], y: cy + ep / 2 + 14, 'text-anchor': 'middle', class: 'v3r-bout' }, svg); bd.textContent = 'Appétit';
+      // Aiguille : un triangle qui flotte entre 44 % et 68 % du rayon, comme celle du widget client.
+      var coul = couleurArc(pct), base = Math.max(9, r * 0.1);
+      var ai = el('path', { class: 'v3r-aig', d: 'M' + (cx - base) + ',' + (cy - r * 0.44) + ' L' + cx + ',' + (cy - r * 0.7) + ' L' + (cx + base) + ',' + (cy - r * 0.44) + ' Z',
+        fill: coul, style: 'transform-origin:' + cx + 'px ' + cy + 'px;transform:rotate(' + angle + 'deg)' }, svg);
+      var fs = Math.max(18, Math.min(40, r * 0.28));
+      var sc = el('text', { x: cx, y: cy - r * 0.08, 'text-anchor': 'middle', class: 'v3r-score v3r-sc', 'font-size': fs }, svg); sc.textContent = signe(pct, 1);
       z.innerHTML = ''; z.appendChild(svg);
-      requestAnimationFrame(function () { ai.style.transform = 'rotate(' + (pct / 100 * 90) + 'deg)'; });
+      badge.style.top = (cy + ep / 2 + 22) + 'px';
+      // L'aiguille repart de sa DERNIÈRE position : un nouveau score la fait glisser, un redimensionnement
+      // ne la fait pas rejouer depuis zéro.
+      var cible = pct / 100 * 90;
+      requestAnimationFrame(function () { ai.style.transform = 'rotate(' + cible + 'deg)'; });
+      angle = cible;
     }
+    // Historique : une barre par séance, au-dessus du zéro en risk-on, au-dessous en risk-off.
     function tracerHisto(z, serie) {
-      if (!z || !serie || serie.length < 2) { if (z) z.innerHTML = '<div class="v3w-vide">Historique indisponible.</div>'; return; }
-      var t = taille(z), W = t.w, H = t.h, pad = 8;
-      var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'none' });
-      var x = function (i) { return pad + i * (W - 2 * pad) / (serie.length - 1); }, y = function (v) { return H / 2 - v / 100 * (H / 2 - 6); };
-      el('line', { x1: pad, x2: W - pad, y1: y(0), y2: y(0), stroke: GRILLE, 'stroke-width': 1 }, svg);
-      var d = serie.map(function (e, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(e.pct).toFixed(1); }).join('');
-      el('path', { d: d + 'L' + x(serie.length - 1) + ',' + y(0) + 'L' + x(0) + ',' + y(0) + 'Z', fill: OR, opacity: .08 }, svg);
-      el('path', { d: d, fill: 'none', stroke: OR, 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke' }, svg);
-      var dz = serie[serie.length - 1];
-      el('circle', { cx: x(serie.length - 1), cy: y(dz.pct), r: 3, fill: teinteRisque(dz.pct) }, svg);
-      var lb = el('text', { x: pad, y: 11, class: 'v3w-ax' }, svg); lb.textContent = '60 séances';
+      if (!z) return;
+      if (!serie || serie.length < 2) { z.innerHTML = '<div class="v3w-vide">Historique indisponible.</div>'; return; }
+      var t = taille(z), W = t.w, H = t.h, pad = 10, haut = 14;
+      var n = serie.length, pas = (W - 2 * pad) / n, bw = Math.max(1, pas - (pas > 4 ? 1.5 : 0.5));
+      var mx = serie.reduce(function (m, e) { return Math.max(m, Math.abs(e.pct)); }, 1);
+      var y0 = haut + (H - haut - 6) / 2, amp = (H - haut - 6) / 2 - 2;
+      var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H });
+      el('line', { x1: pad, x2: W - pad, y1: y0, y2: y0, stroke: '#23232a', 'stroke-width': 1 }, svg);
+      serie.forEach(function (e, i) {
+        var h = Math.max(1, Math.abs(e.pct) / mx * amp), x = pad + i * pas;
+        el('rect', { x: x.toFixed(1), y: (e.pct >= 0 ? y0 - h : y0).toFixed(1), width: bw.toFixed(1), height: h.toFixed(1), rx: bw > 3 ? 1 : 0,
+          fill: e.pct >= 0 ? VERT : ROUGE, opacity: i === n - 1 ? 1 : 0.55 }, svg);
+      });
+      var lb = el('text', { x: pad, y: 10, class: 'v3w-ax' }, svg); lb.textContent = n + ' séances';
+      var dz = serie[n - 1], ld = el('text', { x: W - pad, y: 10, 'text-anchor': 'end', class: 'v3w-ax', fill: dz.pct >= 0 ? VERT : ROUGE }, svg);
+      ld.textContent = 'dernière : ' + signe(dz.pct, 1);
       z.innerHTML = ''; z.appendChild(svg);
+    }
+    function palier() {
+      var c = host.querySelector('.v3w'); if (!c) return;
+      var hh = host.clientHeight || 0;
+      c.classList.toggle('v3r-bas', hh > 0 && hh < 400);
+      c.classList.toggle('v3r-tres-bas', hh > 0 && hh < 260);
     }
     function dessinerAvec(d) { return Promise.all([Promise.resolve(d), lireHisto()]).then(rendre).catch(function () {}); }
     function dessiner(redim) { return Promise.all([lireRisque(), lireHisto()]).then(function (r) { return rendre(r, redim); }); }
     function rendre(r, redim) {
-        if (!host.isConnected) return;
-        var d = r[0], serie = r[1];
-        var pct = Math.max(-100, Math.min(100, typeof d.pct === 'number' ? d.pct : (d.score || 0) * 50));
-        var teinte = teinteRisque(pct), on = 0, off = 0;
-        var mots = (Array.isArray(d.assets) ? d.assets : []).filter(function (a) { return a && typeof a.chg === 'number'; })
-          .map(function (a) { var s = a.chg * (+a.dir || 0); if (s > 0) on++; else if (s < 0) off++; return { nom: a.label, chg: a.chg, s: s }; })
-          .sort(function (a, b) { return Math.abs(b.s) - Math.abs(a.s); });
-        var maxS = mots.reduce(function (m, a) { return Math.max(m, Math.abs(a.s)); }, 0.01);
-        if (!redim || !host.querySelector('.v3r-duo')) {
-          host.innerHTML = '<div class="v3w" style="container-type:inline-size"><div class="v3w-tete"><span class="v3w-nom">Sentiment de risque</span>'
-            + '<span class="v3w-puce v3r-reg" style="color:' + teinte + ';border-color:' + teinte + '55"><b style="color:' + teinte + '">' + esc(RISQUE_FR[d.label] || d.label) + '</b></span>'
-            + '<span class="v3w-puce">Score <b class="v3r-sc">' + signe(pct, 1) + '</b></span>'
-            + '<span class="v3w-puce v3w-h">Risk-on <b>' + on + '</b></span><span class="v3w-puce v3w-b">Risk-off <b>' + off + '</b></span>'
-            + enDirect(Date.now()) + '</div>'
-            + '<div class="v3w-corps"><div class="v3r-duo"><div><div class="v3w-st">Jauge</div><div class="v3r-jauge"></div></div>'
-            + '<div><div class="v3w-st">Moteurs du jour</div><div class="v3r-liste">' + (mots.length ? mots.map(function (a) {
-              var w = Math.round(Math.abs(a.s) / maxS * 50), c = a.s > 0 ? VERT : a.s < 0 ? ROUGE : TXT;
-              return '<div class="v3r-mot" title="' + esc(a.nom) + ' : ' + (a.s > 0 ? 'pousse vers le risk-on' : a.s < 0 ? 'pousse vers le risk-off' : 'neutre') + '"><b>' + esc(a.nom) + '</b>'
-                + '<span style="color:' + (a.chg >= 0 ? VERT : ROUGE) + '">' + signe(a.chg, 2) + '%</span>'
-                + '<div class="v3r-barre"><i style="background:' + c + ';' + (a.s >= 0 ? 'left:50%' : 'right:50%') + ';width:' + w + '%"></i></div></div>';
-            }).join('') : '<div class="v3w-vide">Aucun moteur relu pour le moment.</div>') + '</div></div></div>'
-            + '<div class="v3r-histo"></div></div></div>';
-        }
-        jauge(host.querySelector('.v3r-jauge'), pct);
-        tracerHisto(host.querySelector('.v3r-histo'), serie);
-        clignoter(host, '.v3r-sc', dernier, pct);
-        dernier = pct;
+      if (!host.isConnected) return;
+      var d = r[0], serie = r[1]; dernierD = d;
+      var pct = Math.max(-100, Math.min(100, typeof d.pct === 'number' ? d.pct : (d.score || 0) * 50));
+      var coul = couleurArc(pct), on = 0, off = 0, vix = null;
+      var mots = (Array.isArray(d.assets) ? d.assets : []).filter(function (a) { return a && typeof a.chg === 'number'; })
+        .map(function (a) { var s = a.chg * (+a.dir || 0); if (s > 0) on++; else if (s < 0) off++; if (/VIX/i.test(a.label || '')) vix = a.chg; return { nom: a.label, chg: a.chg, s: s }; })
+        .sort(function (a, b) { return Math.abs(b.s) - Math.abs(a.s); });
+      var regime = RISQUE_FR[d.label] || d.label;
+      var court = function (nom) { return String(nom || '').replace(/\s*\(.*\)\s*$/, ''); };
+      if (!redim || !host.querySelector('.v3r-scene')) {
+        host.innerHTML = '<div class="v3w"><div class="v3w-tete"><span class="v3w-nom">Sentiment de risque</span>'
+          + '<span class="v3w-puce v3r-reg"></span>'
+          + '<span class="v3w-puce">Score <b class="v3r-sc-p"></b></span>'
+          + '<span class="v3w-puce v3w-h">Risk-on <b class="v3r-on"></b></span><span class="v3w-puce v3w-b">Risk-off <b class="v3r-off"></b></span>'
+          + enDirect(Date.now()) + '</div>'
+          + '<div class="v3w-corps"><div class="v3r-bande"><i></i><span></span></div>'
+          + '<div class="v3r-scene"><div class="v3r-jauge"></div><div class="v3r-badge"></div></div>'
+          + '<div class="v3r-moteurs"></div><div class="v3r-histo"></div></div></div>';
+      }
+      var q = function (sel) { return host.querySelector(sel); };
+      var reg = q('.v3r-reg'); reg.textContent = regime; reg.style.color = coul; reg.style.borderColor = coul + '66';
+      q('.v3r-sc-p').textContent = signe(pct, 1); q('.v3r-on').textContent = on; q('.v3r-off').textContent = off;
+      var bande = q('.v3r-bande');
+      bande.style.background = 'color-mix(in oklab, ' + coul + ' 12%, #0c0e13)'; bande.style.borderColor = 'color-mix(in oklab, ' + coul + ' 32%, transparent)';
+      bande.style.color = 'color-mix(in oklab, ' + coul + ' 45%, #c7cacc)';
+      bande.querySelector('i').style.background = coul;
+      bande.querySelector('span').innerHTML = '<b style="color:' + coul + '">' + esc(regime) + ' :</b> ' + esc(RISQUE_PHRASE[d.label] || d.description || '')
+        + (vix != null ? ' VIX ' + signe(vix, 1) + '%.' : '');
+      var badge = q('.v3r-badge'); badge.textContent = regime; badge.style.color = coul; badge.style.borderColor = coul;
+      badge.style.background = 'color-mix(in oklab, ' + coul + ' 14%, #0c0e13)';
+      q('.v3r-moteurs').innerHTML = mots.slice(0, 6).map(function (a) {
+        var c = a.s > 0 ? VERT : a.s < 0 ? ROUGE : TXT;
+        return '<span class="v3r-mot" title="' + esc(court(a.nom)) + ' : ' + (a.s > 0 ? 'vers le risk-on' : a.s < 0 ? 'vers le risk-off' : 'neutre') + '"><i style="background:' + c + '"></i><b>' + esc(court(a.nom)) + '</b>'
+          + '<em style="color:' + (a.chg >= 0 ? VERT : ROUGE) + '">' + signe(a.chg, 2) + '%</em></span>';
+      }).join('');
+      palier();
+      jauge(q('.v3r-scene'), pct);
+      tracerHisto(q('.v3r-histo'), serie);
+      clignoter(host, '.v3r-sc-p', dernier, pct);
+      dernier = pct;
     }
     var stop = carte(host, orig, 60000, dessiner);
     // Le desk pousse chaque nouvel instantané : on redessine tout de suite, sans attendre la minute.

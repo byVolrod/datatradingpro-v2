@@ -254,3 +254,98 @@
   html.dtp-v2[data-theme="light"]:not(.dtp-app) .wdg-tip, html.dtp-v2[data-theme="light"]:not(.dtp-app) .wdg-tooltip { box-shadow: 0 14px 30px -14px rgba(20, 24, 32, .35); }
   html.dtp-v2[data-theme="light"]:not(.dtp-app) .custom-scrollbar::-webkit-scrollbar-thumb, html.dtp-v2[data-theme="light"]:not(.dtp-app) .wdg-body ::-webkit-scrollbar-thumb { background: #cfd3da; }
 }
+
+/* ═══ V3 · ESPACE D'ACCUEIL (26/09, demande user : « améliore les finitions d'ici aussi, comme tu as
+   pu faire ») : même grammaire que le desk V3. Cadres COLLÉS par un trait d'un pixel (la grille
+   devient la couleur du trait), en-têtes compacts en casse normale portant l'icône du widget, le
+   liseré d'or qui s'allume au survol, plus aucun ornement sans information (le filet fuyant des
+   en-têtes, les ombres portées). Même bornage que le reste de la feuille : sans `html.dtp-v2`,
+   l'accueil des clients reste au pixel près celui d'aujourd'hui. */
+@media (min-width: 821px), not all and (pointer: coarse) {
+  html.dtp-v2 #dtp-home.home-overlay { background: radial-gradient(1100px 380px at 12% -140px, rgba(227,178,58,.07), transparent 70%), var(--v3-fond, #08080a); }
+  html.dtp-v2 #dtp-home .home-decor { opacity: .45; }
+  html.dtp-v2 #dtp-home .home-inner { padding: 14px 18px 16px; }
+  /* Grille : 1 px de trait entre les cadres, comme les cartes du desk. */
+  html.dtp-v2 #dtp-home .home-grid { gap: 1px; margin-top: 0; background: var(--v3-ligne, #16161a); border: 1px solid var(--v3-ligne, #16161a); }
+  html.dtp-v2 #dtp-home .home-zone { border: 0; border-radius: 0; box-shadow: none; animation: v3Carte .42s cubic-bezier(.2,.8,.2,1) both; }
+  /* Le héros garde sa matière d'or ; les autres cadres prennent le fond des cartes du desk. */
+  html.dtp-v2 #dtp-home .home-zone:not(.home-zone--hero) { background: var(--v3-carte, #0c0c0e); }
+  html.dtp-v2 #dtp-home .home-zone:nth-child(2) { animation-delay: 45ms; }
+  html.dtp-v2 #dtp-home .home-zone:nth-child(3) { animation-delay: 90ms; }
+  html.dtp-v2 #dtp-home .home-zone:nth-child(4) { animation-delay: 135ms; }
+  html.dtp-v2 #dtp-home .home-zone:nth-child(5) { animation-delay: 180ms; }
+  html.dtp-v2 #dtp-home .home-zone:nth-child(6) { animation-delay: 225ms; }
+  html.dtp-v2 #dtp-home .home-zone:not(.home-zone--hero)::after { content: ''; display: block; position: absolute; left: 0; right: 0; top: 0; height: 1px; z-index: 3; opacity: 0; pointer-events: none;
+    background: linear-gradient(90deg, transparent, #e3b23a 30%, #f6d77b 50%, #e3b23a 70%, transparent); transform: scaleX(0); transform-origin: 50% 0;
+    transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .2s; }
+  html.dtp-v2 #dtp-home .home-zone:hover { border: 0; box-shadow: none; }
+  html.dtp-v2 #dtp-home .home-zone:not(.home-zone--hero):hover::after { transform: scaleX(1); opacity: 1; }
+  /* En-tête : celui des cartes V3 (32 px, casse normale, icône du widget). */
+  html.dtp-v2 #dtp-home .home-panel-head { height: 32px; min-height: 32px; padding: 0 10px; gap: 8px; background: var(--v3-tete, #0e0e11); border-bottom: 1px solid var(--v3-ligne, #17171b); }
+  html.dtp-v2 #dtp-home .home-panel-t { text-transform: none; letter-spacing: 0; font: 600 13px/1 'Inter Tight', system-ui, sans-serif; color: var(--v3-titre, #f0f0f3); }
+  html.dtp-v2 #dtp-home .home-panel-fill { background: none; }
+  html.dtp-v2 #dtp-home .home-panel-ico:empty { display: none; }
+  html.dtp-v2 #dtp-home .home-panel-ico { display: inline-flex; align-items: center; color: var(--v3-or-texte, #e3b23a); opacity: .9; }
+  html.dtp-v2 #dtp-home .home-panel-ico svg { width: 15px; height: 15px; }
+  html.dtp-v2 #dtp-home .home-desks-new, html.dtp-v2 #dtp-home .home-desks-tri { border-radius: 4px; text-transform: none; letter-spacing: 0; font: 500 11.5px/1 'Inter Tight', system-ui, sans-serif; }
+  html.dtp-v2 #dtp-home .home-desks-count { font: 500 11px/1 'Inter Tight', system-ui, sans-serif; color: var(--v3-pale, #75757f); }
+  /* Héros : la même matière d'or, mais tenue ; le bouton devient l'action principale de l'écran. */
+  html.dtp-v2 #dtp-home .home-zone--hero .home-zone-body { padding: 22px 24px; justify-content: center; }
+  html.dtp-v2 #dtp-home .home-eyebrow { letter-spacing: .16em; color: var(--v3-or-texte, #e3b23a); }
+  html.dtp-v2 #dtp-home .home-title { font-size: 30px; line-height: 1.12; }
+  html.dtp-v2 #dtp-home .home-sub { font: 500 12px/1.4 'Inter Tight', system-ui, sans-serif; color: var(--v3-doux, #8e8e98); text-transform: none; letter-spacing: 0; }
+  /* « samedi 26 septembre » → « Samedi 26 septembre » : seule la première lettre (un mois ne prend pas de capitale). */
+  html.dtp-v2 #dtp-home .home-sub-date { display: inline-block; text-transform: none; color: var(--v3-titre, #e6e6ea); letter-spacing: 0; }
+  html.dtp-v2 #dtp-home .home-sub-date::first-letter { text-transform: uppercase; }
+  html.dtp-v2 #dtp-home .home-zone--hero .home-skip { margin-top: 18px; width: auto; align-self: flex-start; padding: 9px 16px; border-radius: 4px; text-transform: none; letter-spacing: 0;
+    font: 600 12.5px/1 'Inter Tight', system-ui, sans-serif; color: #111; background: linear-gradient(180deg, #f0c85a, #e3b23a); border: 1px solid #e3b23a;
+    transition: filter .15s, transform .12s; }
+  html.dtp-v2 #dtp-home .home-zone--hero .home-skip:hover { filter: brightness(1.08); color: #111; }
+  html.dtp-v2 #dtp-home .home-zone--hero .home-skip:active { transform: scale(.98); }
+  /* Cartes des desks : angles vifs du desk V3, trait fin, or au survol. */
+  html.dtp-v2 #dtp-home .home-card { border-radius: 4px; border-color: var(--v3-bord, #22222a); background: var(--v3-tete, #0e0e11); box-shadow: none; }
+  html.dtp-v2 #dtp-home .home-card:hover { border-color: rgba(227,178,58,.55); transform: translateY(-1px); box-shadow: 0 8px 22px -12px rgba(0,0,0,.7); }
+  html.dtp-v2 #dtp-home .home-card--ghost { border-style: dashed; background: transparent; }
+  html.dtp-v2 #dtp-home .home-ghost-lbl { text-transform: none; letter-spacing: 0; font: 600 12.5px/1.2 'Inter Tight', system-ui, sans-serif; }
+  /* Bandeau des cours : matière de la barre du haut, sans fondu criard. */
+  html.dtp-v2 #dtp-home .home-ticker { background: var(--v3-tete, #0e0e11); border-bottom: 1px solid var(--v3-ligne, #17171b); }
+  html.dtp-v2 #dtp-home .home-ticker::before { background: linear-gradient(90deg, var(--v3-tete, #0e0e11), transparent); }
+  html.dtp-v2 #dtp-home .home-ticker::after { background: linear-gradient(-90deg, var(--v3-tete, #0e0e11), transparent); }
+  html.dtp-v2 #dtp-home .home-tk.up, html.dtp-v2 #dtp-home .home-tk.down { background: transparent; }
+  html.dtp-v2 #dtp-home .home-tk { border-right: 1px solid var(--v3-ligne, #17171b); font-family: 'Inter Tight', system-ui, sans-serif; }
+  html.dtp-v2 #dtp-home .home-tk b { color: var(--v3-titre, #e6e6ea); letter-spacing: .02em; }
+  html.dtp-v2 #dtp-home .home-tk-chg.up { color: #00e676; }
+  html.dtp-v2 #dtp-home .home-tk-chg.down { color: #ff3d00; }
+  @media (prefers-reduced-motion: reduce) { html.dtp-v2 #dtp-home .home-zone { animation: none; } }
+}
+
+/* ═══ V3 · POSITIONNEMENT COT : LES CARTES À ANNEAU D'ORIGINE, FINIES V3 (26/09) ══════════════════════
+   « Refais comme l'ancien mais améliore les finitions » : le corps est le widget client (une carte par
+   devise, anneau acheteurs / vendeurs, longs · net · courts). Ici, seulement l'apparence : cartes
+   collées par un trait, en-tête compact en casse normale, verdict sobre, anneau plus net avec un halo
+   de la couleur du camp dominant, chiffres en Inter Tight tabulaire, apparition douce. */
+@media (min-width: 821px), not all and (pointer: coarse) {
+  html.dtp-v2 .v3f-cot-anneaux .cot-grid { gap: 1px; background: var(--v3-ligne, #16161a); padding: 0; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-cell { background: var(--v3-carte, #0c0c0e); position: relative; box-shadow: none; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-cell::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; z-index: 2; pointer-events: none;
+    background: linear-gradient(90deg, transparent, #e3b23a 30%, #f6d77b 50%, #e3b23a 70%, transparent); transform: scaleX(0); opacity: 0; transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .2s; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-cell:hover { box-shadow: none; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-cell:hover::after { transform: scaleX(1); opacity: 1; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-head { height: 32px; padding: 0 10px; gap: 7px; background: var(--v3-tete, #0e0e11); background-image: none; border-bottom: 1px solid var(--v3-ligne, #17171b); }
+  html.dtp-v2 .v3f-cot-anneaux .cot-ccy { font: 600 13px/1 'Inter Tight', system-ui, sans-serif; letter-spacing: .01em; color: var(--v3-titre, #f0f0f3); }
+  html.dtp-v2 .v3f-cot-anneaux .cot-badge { text-transform: none; letter-spacing: .01em; font: 600 11px/1.35 'Inter Tight', system-ui, sans-serif; padding: 2px 8px; border-radius: 3px; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-split { padding: 6px 10px 4px; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-ring { max-width: 116px; max-height: 116px; animation: v3CotIn .5s cubic-bezier(.2,.8,.2,1) both; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-ring-bg { stroke: #16161b; stroke-width: 7; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-ring-s, html.dtp-v2 .v3f-cot-anneaux .cot-ring-l { stroke-width: 7; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-cell--bull .cot-ring { filter: drop-shadow(0 0 7px rgba(0,230,118,.16)); }
+  html.dtp-v2 .v3f-cot-anneaux .cot-cell--bear .cot-ring { filter: drop-shadow(0 0 7px rgba(255,61,0,.16)); }
+  html.dtp-v2 .v3f-cot-anneaux .cot-ring-v { font-family: 'Inter Tight', system-ui, sans-serif; font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-foot2 { padding: 0 10px 10px; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-side { text-transform: none; letter-spacing: 0; font: 500 10.5px/1.2 'Inter Tight', system-ui, sans-serif; color: var(--v3-pale, #75757f); gap: 3px; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-side b { font: 600 14px/1 'Inter Tight', system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+  html.dtp-v2 .v3f-cot-anneaux .cot-side--n { color: var(--v3-or-texte, #e3b23a); }
+  html.dtp-v2 .v3f-cot-anneaux .cot-side--n b { color: var(--v3-titre, #f0f0f3); }
+  @keyframes v3CotIn { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { html.dtp-v2 .v3f-cot-anneaux .cot-ring { animation: none; } }
+}

@@ -188,6 +188,8 @@
   function panneau(p) {
     return '<section class="home-zone" style="--c:' + (p.col || 4) + '">'
       + '<div class="home-panel-head">'
+      // Icône du widget (V3 seulement, posée au montage : widgets.js la connaît, pas cet écran).
+      +   '<span class="home-panel-ico" data-w="' + esc(p.id) + '" aria-hidden="true"></span>'
       +   '<span class="home-panel-t">' + esc(p.titre) + '</span>'
       +   '<span class="home-panel-fill"></span>'
       + '</div>'
@@ -361,18 +363,38 @@
     // cache) ; une simple garde `window.DTPWidgets && …` sautait alors le montage EN SILENCE, d'où
     // quatre cadres vides. (2) Le conteneur doit être MIS EN PAGE : amCharts et Leaflet mesurent 0×0
     // dans un cadre pas encore posé et rendraient une carte blanche — d'où les deux frames d'attente.
-    var _monte = false;
+    var _monte = false, _montes = {};
+    function icones() {
+      if (!(window.DTPWidgets && DTPWidgets.iconeV3)) return;
+      document.querySelectorAll('#dtp-home .home-panel-ico[data-w]').forEach(function (s) { if (!s.innerHTML) s.innerHTML = DTPWidgets.iconeV3(s.dataset.w) || ''; });
+    }
+    function monterUn(p) {
+      var host = document.getElementById('home-w-' + p.id); if (!host) return;
+      try { var un = DTPWidgets.mountInto(p.id, host, p.cfg); _montes[p.id] = un || null; } catch (e) {}
+    }
+    /* ⚠️ EN V3, L'ACCUEIL MONTAIT LES WIDGETS D'AVANT (26/09, demande user : « améliore les finitions
+       d'ici aussi »). Les présentations V3 arrivent par des scripts chargés APRÈS cet écran : les
+       quatre panneaux étaient déjà montés dans leur version cliente — la carte des sessions affichait
+       même « Carte indisponible » quand la version V3, elle, n'a besoin d'aucune carte. Chaque
+       présentation V3 s'annonce (`dtp:v3-montage`) : on remonte alors le seul panneau concerné. */
+    function surV3(e) {
+      var id = e && e.detail && e.detail.id, p = PANNEAUX.filter(function (x) { return x.id === id; })[0];
+      if (!p || !_monte || !document.getElementById('dtp-home')) return;
+      try { if (typeof _montes[id] === 'function') _montes[id](); } catch (err) {}
+      var host = document.getElementById('home-w-' + id); if (host) host.innerHTML = '';
+      monterUn(p);
+    }
+    document.addEventListener('dtp:v3-montage', surV3);
+    _menage.push(function () { document.removeEventListener('dtp:v3-montage', surV3); Object.keys(_montes).forEach(function (k) { try { if (typeof _montes[k] === 'function') _montes[k](); } catch (e) {} }); });
     // MONTAGE ÉTALÉ. Ces quatre panneaux sont lourds (carte Leaflet, graphes amCharts, table du
     // calendrier) : les monter dans la MÊME tâche, par-dessus le démarrage du desk, sature le fil
     // principal — et un fil bloqué fige tout, y compris le voile d'initialisation. Un widget toutes
     // les 120 ms rend la main entre chaque : le navigateur peut peindre et répondre.
     function monterTout() {
       if (_monte) return; _monte = true;
+      icones();
       PANNEAUX.forEach(function (p, i) {
-        var t = setTimeout(function () {
-          var host = document.getElementById('home-w-' + p.id); if (!host) return;
-          try { var un = DTPWidgets.mountInto(p.id, host, p.cfg); if (un) _menage.push(un); } catch (e) {}
-        }, i * 120);
+        var t = setTimeout(function () { monterUn(p); }, i * 120);
         _menage.push(function () { clearTimeout(t); });   // fermeture avant la fin : rien ne se monte après
       });
     }
