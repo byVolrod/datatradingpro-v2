@@ -1138,9 +1138,12 @@ function _widgetImg(type, eyebrow, maxW, period, ccy, opts) {
   // `opts.alt` : quand l'image PORTE l'information, son texte de remplacement doit la porter aussi.
   // Beaucoup de messageries bloquent les images par défaut : sans alt parlant, l'info disparaît.
   const sup = (opts && opts.params) ? String(opts.params) : '';
+  // `opts.h` : hauteur connue du rendu à cette largeur. Posée en attribut, elle réserve la place et
+  // donne à la messagerie les proportions de l'image avant même son téléchargement.
+  const hAttr = (opts && +opts.h > 0) ? ` height="${Math.round(+opts.h)}"` : '';
   const alt = (opts && opts.alt) ? _esc(opts.alt)
     : (ccy ? `Force du ${String(ccy).toUpperCase()} DataTradingPro` : `${lbl} DataTradingPro`);
-  return `<img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}${per}${cc}${sup}" width="${maxW}" alt="${alt}" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:16px 0;">`;
+  return `<img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}${per}${cc}${sup}" width="${maxW}"${hAttr} alt="${alt}" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:16px 0;">`;
 }
 // AGENDA en HTML (table facon calendrier du desk) construit a partir des MEMES evenements que le texte du mail
 // (context.upcoming) -> COHERENCE garantie : l'evenement annonce dans l'accroche figure toujours dans l'agenda.
@@ -1280,7 +1283,9 @@ async function _sendWithInlineWidgets(to, subject, html, types, replis) {
           if (png && png.length > 2000) {    // > placeholder 1x1 → vraie image
             const suff = extra ? '-' + extra.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) : '';
             const cid = wt + (period ? '-' + period : '') + suff + '@datatradingpro';
-            att.push({ filename: wt + (period ? '-' + period : '') + suff + '.png', content: png, cid, contentType: 'image/png' });
+            // Le type suit le CONTENU : certains widgets sont rendus en JPEG (emailWidget, SPECS.jpeg).
+            const mime = typeof ew.mimeDe === 'function' ? ew.mimeDe(png) : 'image/png';
+            att.push({ filename: wt + (period ? '-' + period : '') + suff + (mime === 'image/jpeg' ? '.jpg' : '.png'), content: png, cid, contentType: mime });
             html = html.split(u).join('cid:' + cid);   // remplacement EXACT de cette URL (pas la regex : elle avalerait les sœurs)
           } else {
             /* Rendu impossible : on ÔTE la balise entière (pas seulement son `src`), sinon il reste
@@ -2058,7 +2063,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
        le VRAI widget en PNG, période SEMAINE, courbe isolée de LA devise (le paramètre ccy existait
        pour ça depuis le 15/08). Embarquée inline à l'envoi, une image PAR devise. */
     const forceImg = _widgetImg('strength', 'Force du ' + c, 532, 'week', c,
-      { alt: `Courbe de force du ${c} sur la semaine (source desk DataTradingPro)` });
+      { alt: `Courbe de force du ${c} sur la semaine (source desk DataTradingPro)`, h: Math.round(532 * 336 / 600) });
     return tete + exec + forceImg + suite;
   }).join('');
 

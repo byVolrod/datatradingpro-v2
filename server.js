@@ -1393,6 +1393,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260926-notifs-coherentes', ts: Date.UTC(2026, 8, 26, 9, 6), title: 'Notifications : le nom exact du rapport, et un toucher qui l’ouvre', desc: 'Les notifications de l’onglet Analystes portent désormais exactement le nom du rapport tel qu’il apparaît dans la liste : Récap Quotidien, Récap Hebdo des Marchés, Récap Éco des Marchés, et pour les récaps de séance, la séance elle-même (Récap Séance Asie-Pacifique, Londres ou New York). Un récap de séance attend son titre français avant de sonner, au lieu d’un texte générique. Toucher la notification ouvre ce rapport, même s’il vient tout juste de paraître. Dans le mail du Récap Hebdo, les courbes de force de chaque devise sont plus légères, pour s’afficher sur téléphone.' },
   { id: 'dtpu-20260926-titres-hebdo', ts: Date.UTC(2026, 8, 26, 6, 48), title: 'Récaps hebdo : des titres entièrement en français', desc: 'Dans l’onglet Analystes, le titre du récap hebdo des marchés et celui du récap éco pouvaient garder une partie en anglais : le sujet de la semaine ou l’intitulé d’un événement, et la semaine couverte (« Week of 21–25 September »). Ils s’affichent désormais en français, y compris pour les récaps déjà publiés.' },
   { id: 'dtpu-20260925-drapeaux-mobile', ts: Date.UTC(2026, 8, 25, 23, 28), title: 'Calendrier sur téléphone : des drapeaux bien ronds', desc: 'Sur téléphone, le drapeau de chaque ligne du calendrier flottait, trop petit, au milieu de son cercle. Il remplit désormais tout le cercle, comme sur ordinateur, dans le calendrier comme dans la Semaine à venir et le récap quotidien.' },
   { id: 'dtpu-20260925-calendrier-aide', ts: Date.UTC(2026, 8, 25, 22, 41), title: 'Calendrier : une aide qui répond, et des icônes harmonisées', desc: 'Dans la barre du calendrier économique, le point d’interrogation ouvre désormais une courte aide : ce que montre chaque ligne, comment lire l’impact attendu, et jusqu’où remontent les flèches. Les icônes de cette barre et les flèches de navigation reprennent le dessin de celles des cartes de Mon Desk, pour que tout le desk parle le même langage visuel.' },
@@ -2663,7 +2664,7 @@ async function _pushFrLot(textes, valide) {
    marque d'une autre langue ; sans traduction, la notification dit EN FRANÇAIS ce qui est paru.
    C'est la règle des dépêches (« français ou rien »), adaptée : un rapport paru mérite d'être
    signalé même sans son titre, une dépêche non. */
-const _PUSH_REPLI_FR = { banques: 'Nouvelle note de recherche, à lire dans l’onglet Banques.', analystes: 'Nouveau récap de séance, à lire dans l’onglet Analystes.' };
+const _PUSH_REPLI_FR = { banques: 'Nouvelle note de recherche, à lire dans l’onglet Banques.', analystes: 'Nouveau rapport, à lire dans l’onglet Analystes.' };
 async function _pushFrNotif(texte, cat) {
   const src = String(texte || '').replace(/\s+/g, ' ').trim();
   if (!src) return _PUSH_REPLI_FR[cat] || '';
@@ -2801,8 +2802,27 @@ function _pushNouveaux(cle, liste, idDe) {
 // notif ») : le desk et l'app lisent ?ouvrir=<type>&id=<élément> et vont directement à l'élément.
 const _pushLien = (type, id) => '/?ouvrir=' + encodeURIComponent(type) + (id != null && id !== '' ? '&id=' + encodeURIComponent(String(id)) : '');
 const _pushCourt = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
-const _PUSH_RAPPORTS_FR = { 'Weekly Market Recap': 'Récap hebdo des marchés', 'FX Daily Recap': 'Récap quotidien', 'Global Economic Weekly': 'Récap éco des marchés',
-  'Asia Session Recap': 'Récap séance asiatique', 'London Session Recap': 'Récap séance de Londres', 'US Session Recap': 'Récap séance de New York' };
+/* ⚠️ LES NOMS DE L'ONGLET ANALYSTES, À LA LETTRE (26/09, capture : « Récap de séance » sans dire
+   laquelle, « Daily Event Review », « Récap éco des marchés » en minuscules). Une notification porte
+   EXACTEMENT le libellé de la ligne qu'elle ouvre (_ARL_PREFIX_FR côté serveur, REPORT_PREFIX_FR côté
+   desk) : on doit reconnaître d'un coup d'œil le rapport annoncé dans la liste. */
+const _PUSH_RAPPORTS_FR = { 'Weekly Market Recap': 'Récap Hebdo des Marchés', 'FX Daily Recap': 'Récap Quotidien', 'Global Economic Weekly': 'Récap Éco des Marchés' };
+// La séance d'un récap de séance, lue comme le desk la lit (_arlWrapSessionPrefix) : session, puis titre.
+function _pushSeanceNom(w) {
+  const s = ((w && w.session) || '') + ' ' + ((w && (w.headline || w.title)) || '');
+  if (/asia|pacific|asie/i.test(s)) return 'Récap Séance Asie-Pacifique';
+  if (/europe|london|londres/i.test(s)) return 'Récap Séance Londres';
+  if (/americ|new york|north america|\bus\b|wall/i.test(s)) return 'Récap Séance New York';
+  return 'Récap de Séance';
+}
+/* UN RÉCAP DE SÉANCE ATTEND SON TITRE FRANÇAIS (26/09, capture : « Nouveau récap de séance, à lire dans
+   l'onglet Analystes »). Le récap est repéré dès sa parution ; son titre français, lui, est rédigé en
+   tâche de fond quelques minutes plus tard. Annoncé tout de suite, il n'avait que le titre anglais du
+   site source, dont la traduction échouait parfois : la notification retombait sur le texte générique.
+   Il attend donc son titre français, au plus 20 minutes ; passé ce délai, il part quand même, sous son
+   nom (« Récap Séance Londres disponible… »), jamais en anglais. Un récap déjà là au démarrage est
+   appris, jamais annoncé. */
+const _pushSwAttente = new Map();
 /* ⚠️ ON NE NOTIFIE QUE CE QUE L'ONGLET ANALYSTES MONTRE (25/09, capture user : « Analystes · Daily
    Market Recap », « la notif est arrivée mais je vois pas »). Le guetteur prenait TOUT rapport interne
    du fil (`_briefing`) : le « Daily Market Recap » de 22 h, la « Daily Event Review », les préparations
@@ -2900,15 +2920,31 @@ function _pushRdv(e) {
 }
 function _pushGuetter() {
   const ev = [], frais = x => Date.now() - (+(x && x.timestamp) || 0) < 12 * 3600e3;
-  _pushNouveaux('sw', Array.isArray(_swCache) ? _swCache : [], x => x && (x.id || x.url || x.link)).filter(frais).slice(0, 2)
-    .forEach(w => { const t = _pushSansAmorce(w.aiTitle || w.title || w.headline); ev.push({ cat: 'analystes', rythme: 'quotidien', id: 'sw:' + (w.id || w.url || w.link), url: _pushLien('analystes', w.id || w.url || w.link), title: 'Analystes · Récap de séance', court: _pushCourt(t, 60), body: _pushCourt(t, 170), trad: true, courtFr: true }); });
+  const swListe = Array.isArray(_swCache) ? _swCache : [], swId = x => x && (x.id || x.url || x.link);
+  _pushNouveaux('sw', swListe, swId).filter(frais).forEach(w => { if (!_pushSwAttente.has(swId(w))) _pushSwAttente.set(swId(w), { w, depuis: Date.now() }); });
+  const swPrets = [];
+  _pushSwAttente.forEach((v, k) => {
+    const w = swListe.find(x => swId(x) === k) || v.w;
+    const titreFr = !!(w.aiTitle && w.aiTitleV && w.aiTitleV !== 'h');   // 'h' = titre de secours heuristique, pas une rédaction
+    if (titreFr || Date.now() - v.depuis > 20 * 60e3) { swPrets.push({ w, titreFr }); _pushSwAttente.delete(k); }
+  });
+  swPrets.slice(0, 2).forEach(({ w, titreFr }) => {
+    const nom = _pushSeanceNom(w), t = titreFr ? _pushSansAmorce(w.aiTitle) : '';
+    ev.push({ cat: 'analystes', rythme: 'quotidien', id: 'sw:' + swId(w), url: _pushLien('analystes', swId(w)), title: 'Analystes · ' + nom, court: nom,
+      body: t ? _pushCourt(t, 170) : nom + ' disponible, à lire dans l’onglet Analystes.', trad: !!t, nom });
+  });
   _pushNouveaux('dtp', (Array.isArray(allNews) ? allNews : []).filter(i => i && i._briefing && _PUSH_RAPPORTS_LISTE.has(i._reportType)), _pushCleRapport).filter(frais).slice(0, 2)
     .forEach(r => {
       const nom = _PUSH_RAPPORTS_FR[r._reportType] || r._reportType, cle = _pushCleRapport(r);
       ev.push({ cat: 'analystes', rythme: /weekly|hebdo/i.test(r._reportType) ? 'hebdo' : 'quotidien', id: 'rap:' + cle, url: _pushLien('analystes', cle),
         // Le titre porte parfois le nom anglais du rapport en préfixe (« FX Daily Recap: Le Dow Jones… ») :
         // le titre de la notification dit déjà « Récap quotidien », le corps ne garde que le sujet.
-        title: 'Analystes · ' + nom, court: nom, body: _pushCourt(_pushSansAmorce(r._titreFr || r.headline).replace(/^\s*(?:FX Daily Recap|Weekly Market Recap|Global Economic Weekly|R[ée]cap (?:Quotidien|FX quotidien|Hebdo(?:madaire)?(?: des March[ée]s)?|[ÉE]co des March[ée]s))\s*[:—–-]\s*/i, ''), 170) || nom, trad: true, nom });
+        // Le corps ne garde que le SUJET : ni le nom du rapport (déjà dans le titre), ni la semaine couverte
+        // (« Week of 21–25 September »), ni la formule « la décision de la semaine écoulée » du récap éco.
+        title: 'Analystes · ' + nom, court: nom, body: _pushCourt(_pushSansAmorce(r._titreFr || r.headline)
+          .replace(/^\s*(?:FX Daily Recap|Weekly Market Recap|Global Economic Weekly|R[ée]cap (?:Quotidien|FX quotidien|Hebdo(?:madaire)?(?: des March[ée]s)?|[ÉE]co des March[ée]s))\s*[:—–-]\s*/i, '')
+          .replace(/\s*(?:Week Ending:.*|:\s*(?:Week of|semaine du)\b.*)$/i, '')
+          .replace(/\s*:\s*la décision de la semaine écoulée\s*$/i, '').trim(), 170) || nom, trad: true, nom });
     });
   _pushNouveaux('br', Array.isArray(_brCache) ? _brCache : [], x => x && (x.id || x.url)).filter(frais).slice(0, 3)
     .forEach(b => { const inst = _pushCourt(b.institution || b.source || 'Recherche bancaire', 40); ev.push({ cat: 'banques', banque: String(b.institution || b.source || '').trim(), id: 'br:' + (b.id || b.url), url: _pushLien('banques', b.id || b.url), title: 'Banques · ' + inst, court: inst, body: _pushCourt(b._titreFr || b.title || b.headline, 170), trad: true }); });
@@ -31114,7 +31150,7 @@ app.get('/api/email-widget/:type.png', async (req, res) => {
     // renderWidgetPngSafe ne jette JAMAIS : cache frais → derniere bonne image (disque) → placeholder.
     // `ccy` (15/08) : sert la courbe d'UNE devise, comme sous chaque bloc devise du Récap Hebdo.
     const png = await emailWidget.renderWidgetPngSafe(req.params.type, { period: req.query.period, ccy: req.query.ccy });
-    res.set('Content-Type', 'image/png');
+    res.set('Content-Type', typeof emailWidget.mimeDe === 'function' ? emailWidget.mimeDe(png) : 'image/png');   // certains widgets sont rendus en JPEG
     res.set('Cache-Control', 'public, max-age=600, stale-while-revalidate=86400');   // les proxys mail servent l'ancienne pendant le refresh
     res.send(png);
   } catch (e) {

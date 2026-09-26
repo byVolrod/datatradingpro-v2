@@ -12763,14 +12763,21 @@ if (typeof window !== 'undefined') {
 function _dtpOuvrirCible(type, id) {
   if (!type) return;
   let n = 0;
+  /* Le rapport notifié vient souvent de paraître : la liste en mémoire ne le connaît pas encore. On la
+     relit une fois, tout de suite (26/09, « quand je clique sur la notif, ça doit ouvrir le récap »),
+     et on laisse 12 s à la relecture avant de se rabattre sur l'onglet. */
+  try {
+    if (type === 'analystes' && typeof loadAnalystView === 'function') loadAnalystView();
+    else if (type === 'banques' && typeof _loadBrArticles === 'function') _loadBrArticles(0);
+  } catch (e) {}
   const essai = () => {
     n++;
     try {
       if (document.documentElement.classList.contains('dtp-app') && typeof window._v2aOuvrirCible === 'function') {
-        if (window._v2aOuvrirCible(type, id, n >= 16)) return;
-      } else if (_dtpOuvrirDesk(type, id, n >= 16)) return;
+        if (window._v2aOuvrirCible(type, id, n >= 24)) return;
+      } else if (_dtpOuvrirDesk(type, id, n >= 24)) return;
     } catch (e) {}
-    if (n < 16) setTimeout(essai, 500);
+    if (n < 24) setTimeout(essai, 500);
   };
   essai();
 }

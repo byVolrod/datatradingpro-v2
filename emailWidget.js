@@ -54,7 +54,7 @@ const _lastGood = new Map();      // wk -> { png, ts } — l'âge est porté et 
    `/internal/email-widget/*` de server.js, ou les dimensions de `SPECS` ci-dessus. Ce n'est pas une
    consigne qu'on se rappelle : `scripts/widget-cache-verif.js` empreinte ces gabarits et rougit si
    l'empreinte bouge sans que ce nombre bouge. */
-const WIDGET_VER = 3;   // v3 (03/09) : le selecteur de periode passe du coin arrondi au coin carre (4 px), aligne sur le desk — le dessin change, donc les images en cache doivent expirer tout de suite.
+const WIDGET_VER = 4;   // v4 (26/09) : la courbe de force passe en JPEG (poids du mail récap hebdo). v3 (03/09) : le selecteur de periode passe du coin arrondi au coin carre (4 px), aligne sur le desk — le dessin change, donc les images en cache doivent expirer tout de suite.
 function _wk(type, period) { return (String(type) + '_v' + WIDGET_VER + '_' + String(period)).replace(/[^a-z0-9]+/gi, '_'); }
 function _diskPath(wk) { return _path.join(_WCACHE_DIR, wk + '.png'); }
 try { for (const f of _fs.readdirSync(_WCACHE_DIR)) if (f.endsWith('.png')) { try { const p = _path.join(_WCACHE_DIR, f); _lastGood.set(f.slice(0, -4), { png: _fs.readFileSync(p), ts: _fs.statSync(p).mtimeMs }); } catch {} } } catch {}
@@ -76,7 +76,11 @@ const _FALLBACK_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCA
 
 // Catalogue des widgets rendus (chaque type = une route de rendu + un sélecteur + une taille logique).
 const SPECS = {
-  strength:            { path: '/internal/email-widget/strength',          sel: '#stwrap',       w: 600, h: 336 },
+  // `jpeg` (26/09, capture : courbes par devise du Récap Hebdo affichées « ? » sur iPhone) : le mail
+  // en porte HUIT. En PNG haute définition, le message devenait assez lourd pour que la messagerie
+  // de l'iPhone ne télécharge pas les images intégrées (carré « ? »). En JPEG, sur fond sombre, la
+  // même courbe pèse plusieurs fois moins, sans perte visible à cette taille.
+  strength:            { path: '/internal/email-widget/strength',          sel: '#stwrap',       w: 600, h: 336, jpeg: true },
   meter:               { path: '/internal/email-widget/meter',             sel: '#meter-wrap',   w: 640, h: 440 },
   regime:              { path: '/internal/email-widget/regime',            sel: '#risk-widget',  w: 600, h: 360 },
   'strength-snapshot': { path: '/internal/email-widget/strength-snapshot', sel: '#box',          w: 600, h: 380 },
@@ -131,6 +135,10 @@ function _extraSain(s) {
     .filter(p => /^[A-Za-z0-9_.~-]{1,24}=[A-Za-z0-9_.%~+-]{0,160}$/.test(p))
     .slice(0, 4).join('&');
 }
+// Format de capture : PNG par défaut, JPEG pour les widgets marqués `jpeg` (voir SPECS).
+function _format(spec) { return spec && spec.jpeg ? { type: 'jpeg', quality: 86 } : { type: 'png' }; }
+// Le type MIME d'une image rendue, lu dans ses premiers octets (une image « png » peut être un JPEG).
+function mimeDe(buf) { return buf && buf.length > 3 && buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF ? 'image/jpeg' : 'image/png'; }
 async function renderWidgetPng(type, opts = {}) {
   const spec = SPECS[type];
   if (!spec) throw new Error('widget inconnu: ' + type);
@@ -179,10 +187,10 @@ async function renderWidgetPng(type, opts = {}) {
           return { x: Math.max(0, r.x), y: Math.max(0, r.y), width: Math.max(1, r.width), height: Math.max(40, bottom - r.y + 16) };
         }, spec.sel, spec.clipLast);
         shot = clip
-          ? await page.screenshot({ type: 'png', clip, captureBeyondViewport: true })
-          : await el.screenshot({ type: 'png' });
+          ? await page.screenshot(Object.assign({ clip, captureBeyondViewport: true }, _format(spec)))
+          : await el.screenshot(_format(spec));
       } else {
-        shot = await el.screenshot({ type: 'png' });
+        shot = await el.screenshot(_format(spec));
       }
       const png = Buffer.from(shot);
       _cache.set(key, { png, ts: Date.now() });
@@ -232,4 +240,4 @@ async function prewarm(types) {
     try { await renderWidgetPng(t, {}); } catch (e) { console.warn('[widget prewarm]', t, ':', e && e.message); }
   }
 }
-module.exports = { renderWidgetPng, renderWidgetPngSafe, prewarm, SPECS, CHROME_PATH, WIDGET_VER };
+module.exports = { renderWidgetPng, renderWidgetPngSafe, prewarm, mimeDe, SPECS, CHROME_PATH, WIDGET_VER };

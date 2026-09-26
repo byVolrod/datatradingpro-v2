@@ -101,7 +101,8 @@ console.log('\n── Guetteur des publications par catégorie (tranche réelle 
   env._swCache = [{ id: 'w1', title: 'Ancien récap', timestamp: n - 3600e3 }];
   env._brCache = [{ id: 'b1', title: 'Old note', institution: 'ING', timestamp: n - 3600e3 }];
   t('premier passage : il apprend l’existant, rien ne part (un redémarrage ne spamme pas)', G.passe().length === 0);
-  env._swCache = [{ id: 'w2', aiTitle: 'Wall Street finit en hausse', timestamp: n }, ...env._swCache];
+  // Un récap de séance au titre français RÉDIGÉ (aiTitleV) part ; un autre, encore sans titre français, attend.
+  env._swCache = [{ id: 'w2', session: 'Americas', aiTitle: 'Wall Street finit en hausse', aiTitleV: 3, timestamp: n }, { id: 'w3', session: 'Europe', title: 'European equity close', timestamp: n }, ...env._swCache];
   env._brCache = [{ id: 'b2', title: 'EUR/USD : vers 1,20', institution: 'Goldman Sachs', timestamp: n }, { id: 'b0', title: 'Archive', institution: 'X', timestamp: n - 40 * 3600e3 }, ...env._brCache];
   // Le Récap quotidien (dans l'onglet Analystes) sonne ; le « Daily Market Recap » (absent de l'onglet) non.
   env.allNews = [{ id: 'r1', _briefing: true, _reportType: 'FX Daily Recap', _fxr: { day: '2026-09-25' }, headline: 'FX Daily Recap: Le dollar recule', timestamp: n },
@@ -118,8 +119,11 @@ console.log('\n── Guetteur des publications par catégorie (tranche réelle 
   t('… le chiffre du calendrier porte réel et prévision, à la française', /^Publié 0,4% · attendu 0,3%\./.test(cal.body || ''), cal.body);
   t('… et dit s’il bat le consensus', /Au-dessus du consensus\./.test(cal.body || ''), cal.body);
   t('… sous un titre rédigé', /^Calendrier économique · /.test(cal.title || ''), cal.title);
+  const sw = ev.find(e => e.id === 'sw:w2') || {};
+  t('… le récap de séance porte le nom de SA séance, comme dans l’onglet Analystes', sw.title === 'Analystes · Récap Séance New York' && sw.body === 'Wall Street finit en hausse', sw.title + ' / ' + sw.body);
+  t('… un récap de séance sans titre français attend (ni anglais, ni texte générique)', !ev.some(e => e.id === 'sw:w3'));
   const dtp = ev.find(e => e.id === 'rap:fxr:2026-09-25') || {};
-  t('… le Récap quotidien est nommé en français', dtp.title === 'Analystes · Récap quotidien', dtp.title);
+  t('… le Récap Quotidien porte le nom de l’onglet Analystes', dtp.title === 'Analystes · Récap Quotidien', dtp.title);
   t('… son lien vise la clé STABLE du jour (le rapport est réécrit à 22 h 30 sous un autre identifiant)', dtp.url === '/?ouvrir=analystes&id=fxr%3A2026-09-25', dtp.url);
   t('… et son corps ne répète pas le nom anglais du rapport (« FX Daily Recap: »)', dtp.body === 'Le dollar recule', dtp.body);
   t('… le « Daily Market Recap », absent de l’onglet Analystes, ne sonne pas', !ev.some(e => /Daily Market|Fed holds/.test((e.title || '') + (e.body || ''))));

@@ -306,13 +306,15 @@ console.log('\n── 4 quater. Rapports de banques et récaps de séance : en f
     const rate = await ident('Asia FX Weekly', 'banques');
     v('traducteur muet (renvoie l’anglais) : deux essais, puis une phrase française, jamais l’anglais', rate === 'Nouvelle note de recherche, à lire dans l’onglet Banques.' && appels === 2, rate + ' · ' + appels);
     const ita = await fabrique(async () => 'Le esportazioni della Corea sono in aumento')('Korea exports rise', 'analystes');
-    v('une traduction dans une AUTRE langue est refusée', ita === 'Nouveau récap de séance, à lire dans l’onglet Analystes.', ita);
+    v('une traduction dans une AUTRE langue est refusée', ita === 'Nouveau rapport, à lire dans l’onglet Analystes.', ita);
     const panne = await fabrique(async () => { throw new Error('quota'); })('USD/JPY falls below 158.00 as Takaichi says Trump flagged weak yen', 'analystes');
-    v('traducteur en panne : phrase française aussi', panne === 'Nouveau récap de séance, à lire dans l’onglet Analystes.', panne);
+    v('traducteur en panne : phrase française aussi', panne === 'Nouveau rapport, à lire dans l’onglet Analystes.', panne);
   })().catch(e => v('4 quater se termine', false, e.message)));
   v('le diffuseur passe TOUT ce qui est marqué « à traduire » par _pushFrNotif', /_pushFrNotif\(e\.body, e\.cat\)/.test(fn(SRV, '_pushDiffuser') || ''));
   const guet = fn(SRV, '_pushGuetter') || '';
-  v('les récaps de séance sont marqués « à traduire » (titre et libellé court)', /title: 'Analystes · Récap de séance'[^\n]*trad: true, courtFr: true/.test(guet));
+  // 26/09 : un récap de séance porte le nom de sa séance ; son titre français est traduit s'il en a un,
+  // sinon la notification dit son nom (jamais l'anglais, jamais le texte générique).
+  v('les récaps de séance portent leur séance et passent par la traduction', /title: 'Analystes · ' \+ nom, court: nom,/.test(guet) && /trad: !!t, nom \}/.test(guet) && /nom \+ ' disponible, à lire dans l’onglet Analystes\.'/.test(guet));
   v('… les notes de banques aussi', /title: 'Banques · ' \+ inst[^\n]*trad: true/.test(guet));
 }
 
@@ -353,10 +355,13 @@ console.log('\n── 4 quinquies. Ce qui sonne (25/09) : calendrier de la fiche
   v('… « PRIMER: London Session Recap » aussi', sa('PRIMER: London Session Recap') === 'London Session Recap');
   v('… un titre ordinaire reste intact', sa('Le dollar recule avant le NFP') === 'Le dollar recule avant le NFP');
   const R = eval('(' + cstBloc(SRV, '_PUSH_RAPPORTS_FR') + ')');
-  v('les récaps de séance portent un nom français', R['London Session Recap'] === 'Récap séance de Londres' && R['Asia Session Recap'] && R['US Session Recap']);
+  // 26/09 : les noms de l'onglet Analystes à la lettre, séance précisée.
+  const sn = new Function(fn(SRV, '_pushSeanceNom') + '\nreturn _pushSeanceNom;')();
+  v('les récaps de séance portent le nom de LEUR séance, celui de l’onglet Analystes', sn({ session: 'Asia' }) === 'Récap Séance Asie-Pacifique' && sn({ session: 'Europe' }) === 'Récap Séance Londres' && sn({ session: 'Americas' }) === 'Récap Séance New York');
+  v('… et les rapports du desk aussi (Récap Quotidien, Hebdo des Marchés, Éco des Marchés)', R['FX Daily Recap'] === 'Récap Quotidien' && R['Weekly Market Recap'] === 'Récap Hebdo des Marchés' && R['Global Economic Weekly'] === 'Récap Éco des Marchés');
   v('le diffuseur retire l’étiquette après traduction', /_pushSansAmorce\(await _pushFrNotif\(e\.body, e\.cat\)\)/.test(fn(SRV, '_pushDiffuser') || ''));
   // « Daily Market Recap » (capture du 25/09) : seul ce que l'onglet Analystes montre sonne, sous son nom français.
-  v('le Récap quotidien s’appelle « Récap quotidien », comme dans l’onglet', R['FX Daily Recap'] === 'Récap quotidien' && !R['Daily Market Recap'] && !R['DTP Daily']);
+  v('le Récap Quotidien s’appelle comme dans l’onglet, et les rapports absents de l’onglet ne sonnent pas', R['FX Daily Recap'] === 'Récap Quotidien' && !R['Daily Market Recap'] && !R['DTP Daily'] && !R['Daily Event Review']);
   const cleS = new Function(fn(SRV, '_pushCleRapport') + '\nreturn _pushCleRapport;')();
   const cleC = new Function(fn(APP, '_dtpCleRapport') + '\nreturn _dtpCleRapport;')();
   const ech = [{ id: 'a1', _reportType: 'FX Daily Recap', _fxr: { day: '2026-09-25' } }, { id: 'a2', _reportType: 'Weekly Market Recap', _weekly: { weekEnding: '2026-09-26' } },
