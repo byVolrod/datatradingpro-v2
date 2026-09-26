@@ -299,6 +299,10 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       return j({ at: Date.now(), source: 'test', ratios: [{ k: 'or-argent', nom: 'Or / Argent', dec: 1, dernier: 86.4, m1: 2.3, haut: 91.2, bas: 71.8, rang: 88, serie: sr(84, 6) },
         { k: 'cuivre-or', nom: 'Cuivre / Or', note: '× 1 000', dec: 3, dernier: 1.712, m1: -3.4, haut: 2.05, bas: 1.66, rang: 12, serie: sr(1.8, 9) },
         { k: 'or-platine', nom: 'Or / Platine', dec: 2, dernier: 2.64, m1: 0.4, haut: 2.9, bas: 2.2, rang: 55, serie: sr(2.6, 7) }] }); }
+    if (u === '/api/v2/crypto-tableau') return j({ at: Date.now(), source: 'test', ethBtc: { dernier: 0.0385, m1: 4.2, rang: 40 }, lienNdx: { c60: 0.52, c20: 0.6, n: 60, sens: 1.4 },
+      lignes: [{ sym: 'BTC-USD', nom: 'Bitcoin', code: 'BTCUSD', ok: true, dernier: 64012.5, j1: 1.2, s1: -3.4, m1: 8.1, ytd: 20, vol30: 48 }, { sym: 'SOL-USD', nom: 'Solana', code: 'SOLUSD', ok: false }] });
+    if (u === '/api/v2/grandes-valeurs') return j({ at: Date.now(), source: 'test', panier: { j1: 0.4, m1: 3, ytd: 18 },
+      lignes: [{ sym: 'NVDA', nom: 'Nvidia', code: 'NVDA', ok: true, dernier: 181.2, j1: 2.4, m1: 6.2, ytd: 31 }], sp: { sym: '^GSPC', nom: 'S&P 500', code: 'US500', ok: true, dernier: 5956.3, j1: 0.3, m1: 1, ytd: 11 } });
     if (u === '/api/currency-strength') return j(FORCE);
     if (u === '/api/admin/data-health') return SC.role === 'admin' ? j(SANTE) : (rs.writeHead(403), rs.end());
     if (u === '/api/v2/briefing') return SC.role === 'admin' ? j(BRIEF) : (rs.writeHead(403), rs.end());
@@ -819,6 +823,33 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       v('Ratios des métaux : trois ratios, niveau, mois écoulé signé, rang sur un an', rm.l.length === 3 && /Or \/ Argent.*86,4.*\+2,3%.*rang 88%/.test(rm.l[0]) && /Cuivre \/ Or.*× 1 000.*1,712.*−3,4%/.test(rm.l[1]), JSON.stringify(rm.l));
       v('… une lecture en clair par ratio (prudence, croissance), aucun NaN', /prudent/.test(rm.l[0]) && /prudence sur la croissance/.test(rm.l[1]) && /Milieu de sa fourchette/.test(rm.l[2]) && !rm.nan, JSON.stringify(rm.l));
       v('… courbe d\'un an à la taille réelle de son cadre, lisible au survol', rm.net && /\d/.test(rm.bulle), JSON.stringify({ net: rm.net, bulle: rm.bulle }));
+      // Crypto et Actions : la puce « Actions » existe, chaque widget sous SA classe, clic → fiche.
+      const bibC = await page.evaluate(async () => {
+        DTPWidgets.openLib(); await new Promise(r => setTimeout(r, 200));
+        const noms = () => [...document.querySelectorAll('#wdg-lib-grid .wdg-lib-card .wdg-lib-name')].map(n => n.textContent);
+        const puce = !!document.querySelector('#wdg-lib-classes [data-classe="actions"]');
+        DTPWidgets.filterClasse('crypto'); await new Promise(r => setTimeout(r, 100)); const cr = noms();
+        DTPWidgets.filterClasse('actions'); await new Promise(r => setTimeout(r, 100)); const ac = noms();
+        DTPWidgets.filterClasse(''); DTPWidgets.closeLib();
+        return { puce, crC: cr.includes('Marché crypto'), crG: cr.includes('Géants de la cote'), acG: ac.includes('Géants de la cote'), acC: ac.includes('Marché crypto'), acForce: ac.includes('Force des Devises') };
+      });
+      v('bibliothèque : puce « Actions » ; Marché crypto sous Crypto, Géants de la cote sous Actions', bibC.puce && bibC.crC && !bibC.crG && bibC.acG && !bibC.acC && !bibC.acForce, JSON.stringify(bibC));
+      const ck = await page.evaluate(async () => {
+        const monte = async (id) => { const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:560px;height:380px;z-index:99999'; document.body.appendChild(h); const un = DTPWidgets.mountInto(id, h); await new Promise(r => setTimeout(r, 1200)); return { h, un }; };
+        const a = await monte('v3-crypto');
+        const o = { reperes: [...a.h.querySelectorAll('.v3k-rep')].map(x => x.innerText.replace(/\s+/g, ' ')), lignes: [...a.h.querySelectorAll('tbody tr')].map(x => x.innerText.replace(/\s+/g, ' ')), nan: /NaN|undefined/.test(a.h.innerText) };
+        const tr = a.h.querySelector('tr[data-code]'); if (tr) tr.click(); await new Promise(r => setTimeout(r, 300));
+        o.fiche = (document.querySelector('#v3a-fiche .v3a-fiche-t b') || {}).textContent || '';
+        const f = document.getElementById('v3a-fiche'); if (f) f.remove();
+        a.un && a.un(); a.h.remove();
+        const b = await monte('v3-geants');
+        o.g = [...b.h.querySelectorAll('tbody tr')].map(x => x.innerText.replace(/\s+/g, ' ')); o.lec = (b.h.querySelector('.v3k-lec') || {}).textContent || ''; o.nanG = /NaN|undefined/.test(b.h.innerText);
+        b.un && b.un(); b.h.remove();
+        return o;
+      });
+      v('Marché crypto : ETH / BTC et lien avec le Nasdaq en tête, lus en clair', ck.reperes.length === 2 && /0,0385/.test(ck.reperes[0]) && /s’étend/.test(ck.reperes[0]) && /\+0,52/.test(ck.reperes[1]) && /Lien fort/.test(ck.reperes[1]), JSON.stringify(ck.reperes));
+      v('… lignes signées, crypto muette « indisponible », aucun NaN, un clic ouvre la fiche', /Bitcoin.*\+1,20%.*−3,40%/.test(ck.lignes[0]) && /Solana indisponible/.test(ck.lignes[1]) && !ck.nan && ck.fiche === 'Bitcoin', JSON.stringify({ l: ck.lignes, f: ck.fiche }));
+      v('Géants de la cote : valeur, moyenne des sept, S&P 500, et la lecture (ils mènent)', ck.g.length === 3 && /Nvidia/.test(ck.g[0]) && /Moyenne des sept/.test(ck.g[1]) && /S&P 500/.test(ck.g[2]) && /mènent la hausse/.test(ck.lec) && !ck.nanG, JSON.stringify(ck.g) + ' ' + ck.lec);
       const ix = await page.evaluate(async () => {
         const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:560px;height:380px;z-index:99999';
         document.body.appendChild(h);

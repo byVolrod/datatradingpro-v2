@@ -71,6 +71,10 @@
     var mx = document.createElement('script');
     mx.src = '/js/v2/metaux.js?v=' + VER; mx.defer = true;
     document.head.appendChild(mx);
+    // Widgets crypto et actions (V3, multi-actifs étape 5) : Marché crypto, Géants de la cote.
+    var ck = document.createElement('script');
+    ck.src = '/js/v2/crypto.js?v=' + VER; ck.defer = true;
+    document.head.appendChild(ck);
     // Neuro-ondes (V3) : ambiances sonores générées (battements binauraux), widget de la bibliothèque.
     var ne = document.createElement('script');
     ne.src = '/js/v2/neuro.js?v=' + VER; ne.defer = true;

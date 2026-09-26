@@ -32890,6 +32890,89 @@ app.get('/api/v2/ratios-metaux', requireAdmin, async (req, res) => {
   }
 });
 
+/* ═══ V3 · CRYPTO ET GRANDES VALEURS (26/09, multi-actifs étape 5, actions et crypto) ═════════════
+   Deux widgets de classe, sur la même série d'un an que la fiche actif (_actifSerie) :
+   · Marché crypto : Bitcoin, Ethereum, Solana, XRP, BNB, Cardano, Dogecoin — 24 h, 7 jours,
+     30 jours et volatilité 30 jours ; ETH / BTC (l'appétit pour les « altcoins ») ; et le lien du
+     Bitcoin avec le Nasdaq sur 60 séances communes (la crypto se traite-t-elle comme de la tech ?).
+   · Géants de la cote : les sept grandes valeurs américaines, séance, mois et depuis janvier, face
+     au S&P 500 — mènent-elles le marché ou le freinent-elles ?
+   Cache 10 min chacun, UNE lecture à la fois. */
+const _CRYPTO_TABLEAU = [['BTC-USD', 'Bitcoin', 'BTCUSD'], ['ETH-USD', 'Ethereum', 'ETHUSD'], ['SOL-USD', 'Solana', 'SOLUSD'], ['XRP-USD', 'XRP', 'XRPUSD'],
+  ['BNB-USD', 'BNB', 'BNBUSD'], ['ADA-USD', 'Cardano', 'ADAUSD'], ['DOGE-USD', 'Dogecoin', 'DOGEUSD']];
+const _GRANDES_VALEURS = [['AAPL', 'Apple'], ['MSFT', 'Microsoft'], ['NVDA', 'Nvidia'], ['AMZN', 'Amazon'], ['GOOGL', 'Alphabet'], ['META', 'Meta'], ['TSLA', 'Tesla']];
+let _cryptoCache = { at: 0, data: null }, _cryptoVol = null, _geantsCache = { at: 0, data: null }, _geantsVol = null;
+// Une ligne de tableau : dernier cours et horizons, lus sur la série d'un an (mêmes calculs que la fiche).
+function _tableauLigne(sym, nom, code, s) {
+  if (!s || s.length < 22) return { sym, nom, code, ok: false };
+  const P = Object.fromEntries(_actifPerf(s).map(h => [h.k, h.v]));
+  const n = s.length, ret = [];
+  for (let i = Math.max(1, n - 30); i < n; i++) ret.push(Math.log(s[i].c / s[i - 1].c));
+  return { sym, nom, code, ok: true, dernier: s[n - 1].c, date: s[n - 1].d, j1: P['1J'], s1: P['1S'], m1: P['1M'], ytd: P['YTD'],
+    vol30: ret.length >= 20 ? +(_actifEcartType(ret) * Math.sqrt(365) * 100).toFixed(1) : null };
+}
+// Un rapport entre deux séries (dates communes) : dernier niveau, un mois, rang sur un an.
+function _rapportSeries(sa, sb) {
+  const m = new Map(sb.map(p => [p.d, p.c]));
+  const r = sa.filter(p => m.has(p.d) && m.get(p.d) > 0).map(p => [p.d, p.c / m.get(p.d)]);
+  if (r.length < 30) return null;
+  const vs = r.map(x => x[1]), n = vs.length, der = vs[n - 1];
+  const lim = Date.parse(r[n - 1][0] + 'T00:00:00Z') - 30 * 86400e3;
+  let ref = null; for (let i = n - 1; i >= 0; i--) if (Date.parse(r[i][0] + 'T00:00:00Z') <= lim) { ref = vs[i]; break; }
+  return { dernier: +der.toFixed(5), m1: ref ? +((der / ref - 1) * 100).toFixed(2) : null, rang: Math.round(100 * vs.filter(x => x <= der).length / n) };
+}
+async function _cryptoLire() {
+  const S = {};
+  await Promise.all(_CRYPTO_TABLEAU.map(c => c[0]).concat(['^NDX']).map(async s => { S[s] = await _actifSerie(s).catch(() => []); }));
+  const lignes = _CRYPTO_TABLEAU.map(([s, nom, code]) => _tableauLigne(s, nom, code, S[s]));
+  if (!lignes.some(l => l.ok)) return null;
+  const btc = S['BTC-USD'] || [], ndx = S['^NDX'] || [];
+  return { at: Date.now(), lignes, ethBtc: _rapportSeries(S['ETH-USD'] || [], btc),
+    lienNdx: btc.length >= 21 && ndx.length >= 21 ? _actifLien(btc, ndx, false) : null,
+    source: 'Yahoo Finance (paires en dollar), calculs DTP' };
+}
+async function _geantsLire() {
+  const S = {};
+  await Promise.all(_GRANDES_VALEURS.map(c => c[0]).concat(['^GSPC']).map(async s => { S[s] = await _actifSerie(s).catch(() => []); }));
+  const lignes = _GRANDES_VALEURS.map(([s, nom]) => _tableauLigne(s, nom, s, S[s]));
+  const ok = lignes.filter(l => l.ok);
+  if (!ok.length) return null;
+  // Panier ÉQUIPONDÉRÉ : la moyenne simple des sept, sans poids de capitalisation (que Yahoo ne
+  // donne pas de façon fiable ici) — dit comme tel à l'écran.
+  const moy = k => { const v = ok.map(l => l[k]).filter(x => x != null); return v.length ? +(v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) : null; };
+  return { at: Date.now(), lignes, panier: { j1: moy('j1'), m1: moy('m1'), ytd: moy('ytd') },
+    sp: _tableauLigne('^GSPC', 'S&P 500', 'US500', S['^GSPC']),
+    source: 'Yahoo Finance (actions au comptant, dernière séance), calculs DTP' };
+}
+app.get('/api/v2/crypto-tableau', requireAdmin, async (req, res) => {
+  if (!_v2Actif()) return res.status(404).end();
+  if (_cryptoCache.data && Date.now() - _cryptoCache.at < 10 * 60e3) return res.json(_cryptoCache.data);
+  try {
+    if (!_cryptoVol) _cryptoVol = _cryptoLire().finally(() => { _cryptoVol = null; });
+    const d = await _cryptoVol;
+    if (d) _cryptoCache = { at: Date.now(), data: d };
+    if (_cryptoCache.data) return res.json(_cryptoCache.data);
+    res.status(502).json({ error: 'crypto indisponible' });
+  } catch (e) {
+    if (_cryptoCache.data) return res.json(_cryptoCache.data);
+    res.status(502).json({ error: 'crypto indisponible' });
+  }
+});
+app.get('/api/v2/grandes-valeurs', requireAdmin, async (req, res) => {
+  if (!_v2Actif()) return res.status(404).end();
+  if (_geantsCache.data && Date.now() - _geantsCache.at < 10 * 60e3) return res.json(_geantsCache.data);
+  try {
+    if (!_geantsVol) _geantsVol = _geantsLire().finally(() => { _geantsVol = null; });
+    const d = await _geantsVol;
+    if (d) _geantsCache = { at: Date.now(), data: d };
+    if (_geantsCache.data) return res.json(_geantsCache.data);
+    res.status(502).json({ error: 'grandes valeurs indisponibles' });
+  } catch (e) {
+    if (_geantsCache.data) return res.json(_geantsCache.data);
+    res.status(502).json({ error: 'grandes valeurs indisponibles' });
+  }
+});
+
 app.get('/api/v2/particuliers-historique', requireAdmin, async (req, res) => {
   if (!_v2Actif()) return res.status(404).end();
   const p = String(req.query.pair || '').toUpperCase().replace(/[^A-Z]/g, '');

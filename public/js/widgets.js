@@ -10289,7 +10289,7 @@
      paires de devises (force des devises, COT, particuliers, volatilité par paire…). La puce « Marché »
      ne garde que ce qui sert au marché choisi. Par défaut un widget est UNIVERSEL (calendrier, fil,
      risque, taux, outils) : on ne liste ici que les exceptions, et le banc vérifie que chaque id existe. */
-  var _libClasse = '';                       // '' = tous les marchés · 'fx' · 'indices' · 'metaux' · 'energie' · 'crypto'
+  var _libClasse = '';                       // '' = tous les marchés · 'fx' · 'indices' · 'actions' · 'metaux' · 'energie' · 'crypto'
   var CLASSES_OF = {
     'force-devises': ['fx'], 'barometre': ['fx'], 'radar-biais': ['fx'], 'taux-diff': ['fx'], 'correlations': ['fx'], 'perf-semaine': ['fx'],
     'cot-inst': ['fx'], 'cot-devise': ['fx'], 'heatmap-seance': ['fx'], 'matrice-croisee': ['fx'], 'dmx-paire': ['fx'], 'dmx-stats': ['fx'], 'dmx-retail': ['fx'],
@@ -10297,7 +10297,7 @@
     'amplitude-jour': ['fx'], 'hauts-bas': ['fx'], 'frequence-amplitude': ['fx'], 'vue-fxlist': ['fx'], 'vue-bias': ['fx'], 'vue-bank': ['fx'],
     'indices-matieres': ['indices', 'metaux', 'energie'], 'v3-multi': ['indices', 'metaux', 'energie', 'crypto'],
     // Widgets propres à une classe (multi-actifs étape 5).
-    'v3-indices': ['indices'], 'v3-vix': ['indices'], 'v3-ratios': ['metaux'],
+    'v3-indices': ['indices'], 'v3-vix': ['indices'], 'v3-ratios': ['metaux'], 'v3-crypto': ['crypto'], 'v3-geants': ['actions'],
   };
   // La Liste de suivi n'est « Forex seulement » que hors V3 : en V3 elle suit aussi les autres marchés.
   function _classesDe(id) { return id === 'ticklist' && !_estV3() ? ['fx'] : (CLASSES_OF[id] || null); }
