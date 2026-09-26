@@ -334,5 +334,28 @@ console.log('\n── Copilote Macro : réponse coupée gardée, repli en franç
   v('… et la réponse bufferisée n\'est plus jetée pour une coupure', /answer = _aiChatCouper\(answer\) \|\| null;/.test(SRV));
 }
 
+console.log('\n── Titres des récaps hebdo en français (capture du 26/09) ──');
+{
+  const a = SRV.indexOf('const _MOIS_EN_FR = '), b = SRV.indexOf('// Au démarrage : les rapports déjà publiés');
+  v('la tranche des titres est extractible', a > 0 && b > a);
+  let appels = 0;
+  const sync = v2 => ({ then: f => { f(v2); return { catch: () => ({ finally: g => g() }) }; } });
+  const T = new Function('_looksFr', '_traduireLot', '_RX_NON_FR', SRV.slice(a, b) + '\nreturn _rapTitreFr;')(
+    s => /[àâçéèêëîïôùûüœ]/i.test(s) || /\b(le|la|les|des|une?|du|au|aux|est|sur|dans)\b/i.test(s),
+    texts => { appels++; return sync({ translations: [{ 'Iran hopes spring eternal': 'L’espoir iranien ne faiblit pas', 'Eurozone ECB President Lagarde Speaks': 'Zone euro : discours de Christine Lagarde (BCE)' }[texts[0]] || texts[0]] }); },
+    /\b(the|and|of)\b/i);
+  const wmr = { _reportType: 'Weekly Market Recap', headline: 'Weekly Market Recap: Iran hopes spring eternal Week Ending: 2026-09-26' };
+  T(wmr); T(wmr);
+  v('récap hebdo : le sujet anglais est remplacé par sa traduction (« Week Ending » gardé pour le desk)', wmr.headline === 'Weekly Market Recap: L’espoir iranien ne faiblit pas Week Ending: 2026-09-26', wmr.headline);
+  const gew = { _reportType: 'Global Economic Weekly', headline: 'Global Economic Weekly: Eurozone ECB President Lagarde Speaks : la décision de la semaine écoulée : Week of 21–25 September 2026' };
+  T(gew); T(gew);
+  v('récap éco : l’événement traduit et la semaine en français', gew.headline === 'Global Economic Weekly: Zone euro : discours de Christine Lagarde (BCE) : la décision de la semaine écoulée : semaine du 21 au 25 septembre 2026', gew.headline);
+  const n0 = appels; T(wmr); T({ _reportType: 'Weekly Market Recap', headline: 'Weekly Market Recap: Le dollar reprend la main Week Ending: 2026-09-19' });
+  v('un titre déjà français ne repart jamais à la traduction', appels === n0, 'appels ' + n0 + ' → ' + appels);
+  const fil = { headline: 'Gold rises', _reportType: undefined }; T(fil);
+  v('un titre du fil n’est jamais touché (seuls les deux récaps hebdo le sont)', fil.headline === 'Gold rises');
+  v('la route des rapports hebdo applique la traduction avant de répondre', /items\.forEach\(_rapTitreFr\);[^\n]*\n\s*res\.json\(\{ items, generating \}\)/.test(SRV));
+}
+
 console.log(`\n${ko === 0 ? '✅' : '❌'} repli-francais-verif : ${ok} contrôle(s) vert(s), ${ko} échec(s).`);
 process.exit(ko === 0 ? 0 : 1);

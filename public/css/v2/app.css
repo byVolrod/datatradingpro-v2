@@ -475,7 +475,6 @@ html.dtp-app .v2a-lien { display: flex; align-items: center; justify-content: ce
 .v2a-rapport.v2a-lu .v2a-rapport-t { color: #b9b9c0; }
 .v2a-rapport-d { font: 600 14px/1 'Inter', sans-serif; color: var(--v2a-or); }
 .v2a-rapport-s { font: italic 13.5px/1.55 'Inter', sans-serif; color: #7c7c86; }
-.v2a-badge-ia { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid rgba(227,178,58,.45); border-radius: 7px; background: rgba(227,178,58,.08); color: var(--v2a-or); font: 600 12px/1 'Inter', sans-serif; }
 
 /* ── Banques : cartes ── */
 .v2a-cartes { display: flex; flex-direction: column; gap: 14px; }
@@ -613,7 +612,6 @@ html.dtp-app .v2a-rapport { padding: 16px; gap: 8px; }
 html.dtp-app .v2a-rapport-t { font: 500 15.5px/1.45 'Inter Tight', system-ui, sans-serif; }
 html.dtp-app .v2a-rapport-d { font: 600 12.5px/1 'Inter Tight', system-ui, sans-serif; }
 html.dtp-app .v2a-rapport-s { font: italic 12.5px/1.5 'Inter Tight', system-ui, sans-serif; }
-html.dtp-app .v2a-badge-ia { padding: 4px 8px; font-size: 11px; border-radius: 4px; }
 html.dtp-app .v2a-cartes { gap: 0; }
 html.dtp-app .v2a-banque { border-radius: 0; border-width: 0 0 1px; background: transparent; padding: 16px; gap: 10px; }
 html.dtp-app .v2a-banque-logo { width: 30px; height: 30px; border-radius: 8px; font-size: 13px; }

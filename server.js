@@ -1393,6 +1393,7 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260926-titres-hebdo', ts: Date.UTC(2026, 8, 26, 6, 48), title: 'Récaps hebdo : des titres entièrement en français', desc: 'Dans l’onglet Analystes, le titre du récap hebdo des marchés et celui du récap éco pouvaient garder une partie en anglais : le sujet de la semaine ou l’intitulé d’un événement, et la semaine couverte (« Week of 21–25 September »). Ils s’affichent désormais en français, y compris pour les récaps déjà publiés.' },
   { id: 'dtpu-20260925-drapeaux-mobile', ts: Date.UTC(2026, 8, 25, 23, 28), title: 'Calendrier sur téléphone : des drapeaux bien ronds', desc: 'Sur téléphone, le drapeau de chaque ligne du calendrier flottait, trop petit, au milieu de son cercle. Il remplit désormais tout le cercle, comme sur ordinateur, dans le calendrier comme dans la Semaine à venir et le récap quotidien.' },
   { id: 'dtpu-20260925-calendrier-aide', ts: Date.UTC(2026, 8, 25, 22, 41), title: 'Calendrier : une aide qui répond, et des icônes harmonisées', desc: 'Dans la barre du calendrier économique, le point d’interrogation ouvre désormais une courte aide : ce que montre chaque ligne, comment lire l’impact attendu, et jusqu’où remontent les flèches. Les icônes de cette barre et les flèches de navigation reprennent le dessin de celles des cartes de Mon Desk, pour que tout le desk parle le même langage visuel.' },
   { id: 'dtpu-20260925-notif-recap-quotidien', ts: Date.UTC(2026, 8, 25, 22, 38), title: 'Notifications : le Récap quotidien s’annonce en français et s’ouvre d’un geste', desc: 'Une notification « Daily Market Recap » pouvait arriver en anglais, pour un rapport qui ne figurait pas dans l’onglet Analystes. Les notifications de rapports ne concernent plus que ce que l’onglet Analystes affiche : le Récap quotidien, le récap hebdo des marchés, le récap éco et les récaps de séance, sous leur nom français. Toucher la notification ouvre le rapport lui-même, même s’il a été mis à jour dans la soirée, et le Récap quotidien apparaît dans la liste dès sa parution, sans avoir à recharger la page.' },
@@ -8258,6 +8259,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
     }
   }
   items.forEach(_cleanItemMd);   // recap/GEW/FX : titres sans markdown brut, même pour un JS en cache
+  items.forEach(_rapTitreFr);    // titres des récaps hebdo en français (sujet traduit, plage de dates en français)
   res.json({ items, generating });
 });
 
@@ -13947,6 +13949,46 @@ function _noDashDeep(o) {
 // markdown brut. Appelé AU SERVE des endpoints → la donnée envoyée au client est toujours propre,
 // quelle que soit la version du JS en cache, et corrige rétroactivement les rapports DÉJÀ stockés
 // avec des ** (générés avant le nettoyage à la source). La mutation purge aussi la RAM partagée.
+/* ═══ TITRES DES RÉCAPS HEBDO EN FRANÇAIS (26/09, capture : « Récap Hebdo des Marchés: Iran hopes
+   spring eternal », « Récap Éco des Marchés: Eurozone ECB President Lagarde Speaks : … Week of 21–25
+   September 2026 ») ════════════════════════════════════════════════════════════════════════════
+   Deux sources d'anglais : le titre que l'IA rend parfois en anglais pour le récap hebdo, et, pour le
+   récap éco, l'intitulé BRUT de l'événement du calendrier plus la plage de dates construite avec des
+   mois anglais. La plage se traduit ici mot pour mot ; le sujet non français part à la traduction
+   (une fois par titre, mis en mémoire) et remplace l'anglais dès son retour. Tant qu'il n'est pas
+   revenu, le titre reste tel quel : on n'invente jamais un titre. Appliqué aux rapports servis ET
+   aux rapports déjà publiés, sans les régénérer. */
+const _MOIS_EN_FR = { January: 'janvier', February: 'février', March: 'mars', April: 'avril', May: 'mai', June: 'juin', July: 'juillet', August: 'août', September: 'septembre', October: 'octobre', November: 'novembre', December: 'décembre' };
+const _rapTrad = new Map(), _rapTradEnCours = new Set(), _rapDejaFr = new Set(), _rapEchec = new Map();
+function _rapTitreFr(it) {
+  if (!it || typeof it.headline !== 'string' || !/^(Weekly Market Recap|Global Economic Weekly)$/.test(it._reportType || '')) return it;
+  let h = it.headline.replace(/Week of (\d+)\s*[–-]\s*(\d+) ([A-Za-z]+) (\d{4})/, (m, a, b, mo, y) => 'semaine du ' + a + ' au ' + b + ' ' + (_MOIS_EN_FR[mo] || mo) + ' ' + y);
+  const m = h.match(/^(Weekly Market Recap|Global Economic Weekly)\s*:\s*(.+?)(\s+Week Ending:.*|\s+:\s+semaine du .*)?$/);
+  if (m) {
+    let suj = m[2], queue = '';
+    const q = suj.match(/^(.+?)(\s*:\s*la décision de la semaine écoulée)$/);
+    if (q) { suj = q[1]; queue = q[2]; }
+    // Une traduction déjà posée peut ne pas « ressembler » au français pour _looksFr (« L’espoir iranien
+    // ne faiblit pas » n'a ni accent ni petit mot de sa liste) : on la reconnaît, sans quoi elle
+    // repartirait à la traduction à chaque lecture. Un échec n'est retenté qu'au bout de 30 min.
+    if (!_looksFr(suj) && !_rapDejaFr.has(suj)) {
+      const fr = _rapTrad.get(suj);
+      if (fr) { h = m[1] + ': ' + fr + queue + (m[3] || ''); _rapDejaFr.add(fr); }
+      else if (!_rapTradEnCours.has(suj) && Date.now() - (_rapEchec.get(suj) || 0) > 30 * 60e3 && typeof _traduireLot === 'function') {
+        _rapTradEnCours.add(suj);
+        _traduireLot([suj], { priority: 'user' })
+          .then(r => { const t = r && Array.isArray(r.translations) ? String(r.translations[0] || '').trim() : ''; if (t && t !== suj && !(typeof _RX_NON_FR !== 'undefined' && _RX_NON_FR.test(t))) _rapTrad.set(suj, t); else _rapEchec.set(suj, Date.now()); })
+          .catch(() => { _rapEchec.set(suj, Date.now()); })
+          .finally(() => _rapTradEnCours.delete(suj));
+      }
+    }
+  }
+  it.headline = h;
+  return it;
+}
+// Au démarrage : les rapports déjà publiés partent à la traduction, puis la reçoivent.
+setTimeout(() => { try { allNews.forEach(_rapTitreFr); } catch (e) {} }, 90 * 1000);
+setTimeout(() => { try { allNews.forEach(_rapTitreFr); } catch (e) {} }, 240 * 1000);
 function _cleanItemMd(it) {
   if (!it || typeof it !== 'object') return it;
   if (typeof it.title === 'string')    it.title    = _stripMd(_dedupTitle(it.title)).replace(/\s*\(opens in a new window\)\s*/gi, ' ').trim();    // + dédup « PHRASE date PHRASE » + retrait du « (Opens in a new window) » scrapé (ex. Standard Chartered)

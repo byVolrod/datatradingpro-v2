@@ -827,9 +827,10 @@
     e.innerHTML = (puces.length > 2 ? '<div class="v2a-puces v2a-puces-an">' + puces.map(function (t) { return '<button type="button" data-type="' + t[0] + '"' + (t[0] === typeRapport ? ' class="v2a-puce-on"' : '') + '>' + esc(t[1]) + '</button>'; }).join('') + '</div>' : '')
       + '<div class="v2a-liste">' + items.map(function (it, i) {
       var dejaLu = false; try { dejaLu = typeof lu === 'function' && typeof rk === 'function' && lu(rk(it)); } catch (x) {}
-      var ia = estDtp(it), lib = libelleType(typeDe(it));
+      var lib = libelleType(typeDe(it));
       return '<button type="button" class="v2a-rapport' + (dejaLu ? ' v2a-lu' : '') + '" data-i="' + i + '">'
-        + (ia ? '<span class="v2a-badge-ia">' + svg('M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z', 13, 1.6) + 'Rédigé par le desk DTP</span>' : '')
+        // (Étiquette « Rédigé par le desk DTP » retirée le 26/09, demande user : la liste ne garde que
+        //  le titre, la date et le type de rapport, comme au desk.)
         + '<span class="v2a-rapport-t">' + esc(titreRapport(it)) + '</span>'
         + '<span class="v2a-rapport-d">' + esc(dateCourte(it.timestamp)) + '</span>'
         + (lib ? '<span class="v2a-rapport-s">' + esc(lib) + '</span>' : '')

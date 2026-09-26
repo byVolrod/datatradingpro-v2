@@ -183,6 +183,7 @@ console.log('\n── 1 ter. Les barres d\'en-tête des écrans du desk dans l\'
     && /function remonter\(v\)/.test(AM) && /if \(v === 'calendar'\)[^\n]*_refreshCalendarData/.test(AM) && /else if \(v === 'banques'\) appel\('_loadBrArticles', 0\)/.test(AM));
   v('Analystes (app) : la liste se relit à chaque entrée (hebdos, Récap quotidien du jour), bornée à une fois par minute',
     /if \(Date\.now\(\) - \(RENDUS\.analystes\._lu \|\| 0\) > 60000\) \{ RENDUS\.analystes\._lu = Date\.now\(\); appel\('loadAnalystView'\); \}/.test(AM));
+  v('Analystes (app) : plus d\'étiquette « Rédigé par le desk DTP » (demande du 26/09)', !/Rédigé par le desk DTP<\/span>/.test(AM) && !/v2a-badge-ia/.test(fs.readFileSync(path.join(R, 'public/css/v2/app.css'), 'utf8')));
   v('Analystes (app) : la puce « Récap hebdomadaire » est toujours proposée', /t\[0\] === 'all' \|\| t\[0\] === 'weekly' \|\| presents\[t\[0\]\]/.test(AM) && /\['weekly', 'Récap hebdomadaire'\]/.test(AM));
   v('Notifications (app) : les banques en UNE ligne-résumé qui ouvre une page à cocher (plus vingt pastilles)',
     !/v2a-segs--b/.test(AM) && /data-act="page:banques"/.test(AM) && /sousCompte === 'banques'/.test(AM) && /PARENT_COMPTE = \{ banques: 'notifs' \}/.test(AM));
@@ -208,6 +209,12 @@ console.log('\n── 1 quater. Liste de suivi mixte : un réglage V3, servi par
   v('le réglage « Autres marchés » est marqué V3 et masqué hors V3 (réglages ET aide)', !!bloc && /!o\.v3 \|\| _estV3\(\)/.test(WJ) && /!o2\.v3 \|\| _estV3\(\)/.test(WJ));
   v('chaque marché proposé a sa cotation servie par /api/v2/multi-actifs', codes.length >= 20 && codes.every(c => yf[c] && serveurYF.includes(yf[c])), codes.filter(c => !(yf[c] && serveurYF.includes(yf[c]))).join(','));
   v('le serveur garde la liste entière (clé « actifs » dans _WDG_LISTES, sinon coupée à 32 caractères)', /_WDG_LISTES = new Set\(\[[^\]]*'actifs'/.test(SRV));
+  // Bibliothèque : puce « Marché » (multi-actifs étape 3).
+  const cl = eval('(' + (WJ.match(/var CLASSES_OF = (\{[\s\S]*?\});/) || [, '{}'])[1] + ')');
+  const ids = new Set([...WJ.matchAll(/id: '([a-z0-9-]+)', name: '/g), ...WJ.matchAll(/_vueDesk\('([a-z0-9-]+)'/g)].map(m => m[1]).concat(['v3-multi', 'v3-carte', 'v3-neuro']));
+  v('bibliothèque V3 : chaque widget « Forex seulement » ou « hors Forex » existe au catalogue', Object.keys(cl).length >= 20 && Object.keys(cl).every(k => ids.has(k)), Object.keys(cl).filter(k => !ids.has(k)).join(','));
+  v('… la puce « Marché » (Forex, Indices, Métaux, Énergie, Crypto) est masquée hors V3', /id="wdg-lib-classes"/.test(IDX) && ['fx', 'indices', 'metaux', 'energie', 'crypto'].every(k => IDX.includes('data-classe="' + k + '"'))
+    && /\.wdg-lib-grp--classes \{ display: none; \}\s*html\.dtp-v2 \.wdg-lib-grp--classes \{ display: flex; \}/.test(fs.readFileSync(path.join(R, 'public/css/style.css'), 'utf8')));
 }
 
 console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (même échelle) ──');
@@ -709,6 +716,20 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       v('Liste de suivi (V3) : Forex ET autres marchés dans une seule liste, groupés par classe', ls.v3 && ls.lignes === 6 && JSON.stringify(ls.groupes) === JSON.stringify(['Forex', 'Métaux', 'Indices', 'Crypto', 'Taux et volatilité']), JSON.stringify(ls));
       v('… chaque groupe dit l\'horizon de SA courbe (Forex ~6 semaines, autres marchés : séance)', ls.fx6s && ls.seance, JSON.stringify(ls));
       v('… un taux varie en points de base, un actif muet reste affiché « indisponible », aucun NaN', ls.pb && ls.ko && !ls.nan, JSON.stringify(ls));
+      const bib = await page.evaluate(async () => {
+        DTPWidgets.openLib(); await new Promise(r => setTimeout(r, 200));
+        const noms = () => [...document.querySelectorAll('#wdg-lib-grid .wdg-lib-card .wdg-lib-name')].map(n => n.textContent);
+        const tous = noms().length;
+        DTPWidgets.filterClasse('indices'); await new Promise(r => setTimeout(r, 100));
+        const ind = noms();
+        DTPWidgets.filterClasse('fx'); await new Promise(r => setTimeout(r, 100));
+        const fx = noms();
+        const visible = getComputedStyle(document.querySelector('.wdg-lib-grp--classes')).display !== 'none';
+        DTPWidgets.closeLib();
+        return { tous, nInd: ind.length, indForce: ind.includes('Force des Devises'), indCal: ind.includes('Calendrier économique'), indMulti: ind.some(n => /Multi-actifs/.test(n)), fxForce: fx.includes('Force des Devises'), fxMulti: fx.some(n => /Multi-actifs/.test(n)), visible };
+      });
+      v('bibliothèque V3 : « Indices » écarte les widgets Forex seulement et garde les universels', bib.visible && bib.nInd < bib.tous && !bib.indForce && bib.indCal && bib.indMulti, JSON.stringify(bib));
+      v('… « Forex » garde la Force des Devises et écarte Multi-actifs', bib.fxForce && !bib.fxMulti, JSON.stringify(bib));
       await ctx.close();
     }
   } catch (e) { v('le banc se termine', false, e.message); }

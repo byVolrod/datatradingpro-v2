@@ -10284,6 +10284,23 @@
   };
   var _libQ = '';                            // filtre de recherche de la bibliothèque (volatil)
   var _libFam = '';                          // puce de catégorie active ('' = Tous · 'Analyse de marché' · 'Fonctions' · '_tpl' = modèles)
+  /* ── MARCHÉ COMPATIBLE (V3, 26/09, feuille de route multi-actifs étape 3) ──────────────────────────
+     Un trader d'indices qui ouvre la bibliothèque voyait 45 widgets dont la moitié ne parlent que de
+     paires de devises (force des devises, COT, particuliers, volatilité par paire…). La puce « Marché »
+     ne garde que ce qui sert au marché choisi. Par défaut un widget est UNIVERSEL (calendrier, fil,
+     risque, taux, outils) : on ne liste ici que les exceptions, et le banc vérifie que chaque id existe. */
+  var _libClasse = '';                       // '' = tous les marchés · 'fx' · 'indices' · 'metaux' · 'energie' · 'crypto'
+  var CLASSES_OF = {
+    'force-devises': ['fx'], 'barometre': ['fx'], 'radar-biais': ['fx'], 'taux-diff': ['fx'], 'correlations': ['fx'], 'perf-semaine': ['fx'],
+    'cot-inst': ['fx'], 'cot-devise': ['fx'], 'heatmap-seance': ['fx'], 'matrice-croisee': ['fx'], 'dmx-paire': ['fx'], 'dmx-stats': ['fx'], 'dmx-retail': ['fx'],
+    'saison': ['fx'], 'saison-courbe': ['fx'], 'vol-horaire': ['fx'], 'amplitude-seance': ['fx'], 'distribution-variations': ['fx'], 'stats-volatilite': ['fx'],
+    'amplitude-jour': ['fx'], 'hauts-bas': ['fx'], 'frequence-amplitude': ['fx'], 'vue-fxlist': ['fx'], 'vue-bias': ['fx'], 'vue-bank': ['fx'],
+    'indices-matieres': ['indices', 'metaux', 'energie'], 'v3-multi': ['indices', 'metaux', 'energie', 'crypto'],
+  };
+  // La Liste de suivi n'est « Forex seulement » que hors V3 : en V3 elle suit aussi les autres marchés.
+  function _classesDe(id) { return id === 'ticklist' && !_estV3() ? ['fx'] : (CLASSES_OF[id] || null); }
+  window._wdgClassesDe = function (id) { return _classesDe(id); };
+  function _compatible(w) { if (!_libClasse || !_estV3()) return true; var c = _classesDe(w.id); return !c || c.indexOf(_libClasse) >= 0; }
   var _pickIdx = null;                       // emplacement ('slot') en cours de remplissage depuis la bibliothèque
   var _pickTab = null;                       // index d'item « Panneau à onglets » en cours d'ajout d'onglet
   var _pickTabAt = null;                     // position d'un ONGLET VIDE à remplir (sinon null = ajout en fin)
@@ -10326,7 +10343,7 @@
     var lay = activeLayout(), used = {};
     (lay ? lay.items : []).forEach(function (i) { used[i.w] = (used[i.w] || 0) + 1; });
     var q = _libQ.toLowerCase();
-    var match = function (w) { return !q || (w.name + ' ' + w.desc + ' ' + w.cat).toLowerCase().indexOf(q) !== -1; };
+    var match = function (w) { return _compatible(w) && (!q || (w.name + ' ' + w.desc + ' ' + w.cat).toLowerCase().indexOf(q) !== -1); };
     // BIBLIOTHÈQUE PAR FAMILLES (23/07) : deux rails, parce qu'un trader ne cherche pas un widget
     // par son nom mais par ce qu'il vient y faire. « Fonctions » = panneaux de données et outils
     // qu'on consulte ; « Analyse de marché » = panneaux qui portent une lecture du marché.
@@ -11301,11 +11318,17 @@ function _spansAffiches(lay) {
       var d = document.getElementById('wdg-lib'); if (!d) return;
       d.classList.add('open'); _libQ = ''; _oublieCibles();
       var s = document.getElementById('wdg-lib-search'); if (s) { s.value = ''; setTimeout(function () { s.focus(); }, 60); }
+      _libClasse = ''; document.querySelectorAll('#wdg-lib-classes .wdg-chip').forEach(function (b) { b.classList.toggle('on', !b.getAttribute('data-classe')); });
       API.filterFam('');                                        // repart sur « Tous » (chips + rendu)
     },
     closeLib: function () {
       var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); _oublieCibles(); },
     filterLib: function (q) { _libQ = String(q || '').trim(); renderLib(); },
+    filterClasse: function (k) {                                // V3 : puces « Marché » (Tous · Forex · Indices · Métaux · Énergie · Crypto)
+      _libClasse = String(k || '');
+      document.querySelectorAll('#wdg-lib-classes .wdg-chip').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-classe') === _libClasse); });
+      renderLib();
+    },
     filterFam: function (f) {                                   // puces de catégories (Tous · Analyse · Données · Modèles)
       _libFam = String(f || '');
       document.querySelectorAll('#wdg-lib-chips .wdg-chip').forEach(function (b) {
