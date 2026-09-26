@@ -32626,6 +32626,162 @@ app.get('/api/v2/multi-actifs', requireAdmin, async (req, res) => {
   }
 });
 
+/* ═══ V3 · FICHE D'UN ACTIF : PERFORMANCE ET MOTEURS (26/09, multi-actifs étape 4) ════════════════
+   La fiche d'un actif (recherche du desk) se range en sous-onglets propres à sa classe. Deux d'entre
+   eux ont besoin d'un an d'historique : « Performance » (horizons, fourchette sur un an, tendance,
+   volatilité) et « Moteurs » (ce avec quoi l'actif a bougé ces dernières semaines : dollar, taux,
+   VIX…, choisis PAR CLASSE). Une route, une série quotidienne d'un an par instrument, lue par la
+   porte unique _yfChart (session, puis repli sans session).
+   LISTE FERMÉE : seuls les symboles du catalogue de la recherche (et leurs moteurs) sont lus, jamais
+   un symbole arbitraire venu de la requête. Le banc vérifie que les deux listes restent alignées.
+   Anti-OOM : séries en cache 30 min (60 au plus, la plus ancienne sort), UNE lecture par symbole à
+   la fois, profil calculé en cache 10 min. Une série fait ~250 points : quelques Ko. */
+const _ACTIF_YF = {
+  'GC=F': 'metaux', 'SI=F': 'metaux', 'PL=F': 'metaux', 'PA=F': 'metaux', 'HG=F': 'metaux',
+  'CL=F': 'energie', 'BZ=F': 'energie', 'NG=F': 'energie',
+  '^GSPC': 'indices', '^NDX': 'indices', '^DJI': 'indices', '^GDAXI': 'indices', '^FCHI': 'indices', '^FTSE': 'indices',
+  '^N225': 'indices', '^HSI': 'indices', '^STOXX50E': 'indices', 'DX-Y.NYB': 'indices', '^VIX': 'indices',
+  'BTC-USD': 'crypto', 'ETH-USD': 'crypto', 'SOL-USD': 'crypto', 'XRP-USD': 'crypto', 'BNB-USD': 'crypto', 'ADA-USD': 'crypto', 'DOGE-USD': 'crypto',
+  'AAPL': 'actions', 'MSFT': 'actions', 'NVDA': 'actions', 'AMZN': 'actions', 'GOOGL': 'actions', 'META': 'actions', 'TSLA': 'actions',
+  'NFLX': 'actions', 'AMD': 'actions', 'JPM': 'actions', 'GS': 'actions', 'BRK-B': 'actions',
+  'MC.PA': 'actions', 'TTE.PA': 'actions', 'AIR.PA': 'actions', 'ASML.AS': 'actions', 'SAP.DE': 'actions',
+};
+// Ce qui fait bouger chaque classe. Le troisième champ marque un TAUX : il varie en points, pas en %.
+const _ACTIF_MOTEURS = {
+  indices: [['^GSPC', 'S&P 500'], ['^VIX', 'VIX'], ['^TNX', 'Taux US 10 ans', 1], ['DX-Y.NYB', 'Dollar index'], ['^NDX', 'Nasdaq 100']],
+  metaux: [['DX-Y.NYB', 'Dollar index'], ['^TNX', 'Taux US 10 ans', 1], ['GC=F', 'Or'], ['^GSPC', 'S&P 500'], ['SI=F', 'Argent']],
+  energie: [['DX-Y.NYB', 'Dollar index'], ['CAD=X', 'USD/CAD'], ['^GSPC', 'S&P 500'], ['CL=F', 'Pétrole WTI'], ['GC=F', 'Or']],
+  crypto: [['^NDX', 'Nasdaq 100'], ['BTC-USD', 'Bitcoin'], ['DX-Y.NYB', 'Dollar index'], ['GC=F', 'Or'], ['^VIX', 'VIX']],
+  actions: [['@indice'], ['^VIX', 'VIX'], ['^TNX', 'Taux US 10 ans', 1], ['DX-Y.NYB', 'Dollar index']],
+};
+// Une action se lit d'abord face à SON indice : la cote où elle s'échange.
+function _actifIndiceRef(sym) {
+  if (/\.PA$/.test(sym)) return ['^FCHI', 'CAC 40'];
+  if (/\.DE$/.test(sym)) return ['^GDAXI', 'DAX'];
+  if (/\.AS$/.test(sym)) return ['^STOXX50E', 'Euro Stoxx 50'];
+  if (['JPM', 'GS', 'BRK-B'].includes(sym)) return ['^GSPC', 'S&P 500'];
+  return ['^NDX', 'Nasdaq 100'];
+}
+function _actifMoteursDe(sym) {
+  const cl = _ACTIF_YF[sym];
+  return (_ACTIF_MOTEURS[cl] || []).map(m => m[0] === '@indice' ? _actifIndiceRef(sym) : m).filter(m => m[0] !== sym).slice(0, 4);
+}
+const _actifSeries = new Map(), _actifVols = new Map(), _actifProfils = new Map();
+// Série quotidienne : [{ d: 'AAAA-MM-JJ' (date LOCALE de la place), c, h, l }], ordre chronologique.
+// La date locale (gmtoffset) aligne un indice asiatique et un indice américain sur le même jour.
+function _actifSerieDe(raw) {
+  const r = raw && raw.chart && raw.chart.result && raw.chart.result[0];
+  if (!r || !Array.isArray(r.timestamp)) return [];
+  const q = (r.indicators && r.indicators.quote && r.indicators.quote[0]) || {};
+  const dec = ((r.meta && r.meta.gmtoffset) || 0) * 1000, out = [];
+  for (let i = 0; i < r.timestamp.length; i++) {
+    const c = q.close && q.close[i];
+    if (c == null || !isFinite(c) || c <= 0) continue;
+    const d = new Date(r.timestamp[i] * 1000 + dec).toISOString().slice(0, 10);
+    const h = q.high && q.high[i], l = q.low && q.low[i];
+    const p = { d, c: +c, h: h != null && isFinite(h) ? +h : +c, l: l != null && isFinite(l) ? +l : +c };
+    if (out.length && out[out.length - 1].d === d) out[out.length - 1] = p; else out.push(p);
+  }
+  return out;
+}
+async function _actifSerie(sym) {
+  const e = _actifSeries.get(sym);
+  if (e && Date.now() - e.at < 30 * 60e3) return e.s;
+  if (_actifVols.has(sym)) return _actifVols.get(sym);
+  const p = (async () => {
+    const { raw } = await _yfChart(sym, '1d', '1y');
+    const s = _actifSerieDe(raw);
+    if (s.length >= 20) {
+      _actifSeries.delete(sym); _actifSeries.set(sym, { at: Date.now(), s });
+      while (_actifSeries.size > 60) _actifSeries.delete(_actifSeries.keys().next().value);
+      return s;
+    }
+    return e ? e.s : s;   // Yahoo muet : la dernière série connue plutôt que rien
+  })().finally(() => _actifVols.delete(sym));
+  _actifVols.set(sym, p);
+  return p;
+}
+// Variation entre deux niveaux : en pourcentage pour un prix, en points de base pour un taux.
+const _actifVar = (a, b, taux) => taux ? +((b - a) * 100).toFixed(1) : +((b / a - 1) * 100).toFixed(2);
+function _actifPerf(s) {
+  const n = s.length, der = s[n - 1], jour = Date.parse(der.d + 'T00:00:00Z');
+  // Le dernier point AU PLUS TARD `j` jours avant la dernière séance.
+  const avant = j => { const lim = jour - j * 86400e3; for (let i = n - 1; i >= 0; i--) if (Date.parse(s[i].d + 'T00:00:00Z') <= lim) return s[i]; return null; };
+  const an = der.d.slice(0, 4), finAn = (() => { for (let i = n - 1; i >= 0; i--) if (s[i].d.slice(0, 4) < an) return s[i]; return null; })();
+  const H = [['1J', '1 jour', n >= 2 ? s[n - 2] : null], ['1S', '1 semaine', avant(7)], ['1M', '1 mois', avant(30)], ['3M', '3 mois', avant(91)],
+    ['6M', '6 mois', avant(182)], ['YTD', 'Depuis janvier', finAn], ['1A', '1 an', avant(364) || s[0]]];
+  return H.map(([k, lbl, ref]) => ({ k, lbl, v: ref ? _actifVar(ref.c, der.c, false) : null }));
+}
+function _actifMoy(t) { return t.reduce((a, b) => a + b, 0) / t.length; }
+function _actifEcartType(t) { const m = _actifMoy(t); return Math.sqrt(t.reduce((a, b) => a + (b - m) * (b - m), 0) / Math.max(1, t.length - 1)); }
+function _actifStats(s, cl) {
+  const c = s.map(p => p.c), n = c.length, der = c[n - 1];
+  const haut = Math.max(...s.map(p => p.h)), bas = Math.min(...s.map(p => p.l));
+  const mm = k => n >= k ? _actifMoy(c.slice(n - k)) : null;
+  const mm50 = mm(50), mm200 = mm(200);
+  const ret = []; for (let i = 1; i < n; i++) ret.push(Math.log(c[i] / c[i - 1]));
+  // Annualisation : 365 séances pour la crypto (elle ne ferme jamais), 252 ailleurs.
+  const k = Math.sqrt(cl === 'crypto' ? 365 : 252);
+  const vols = []; for (let i = 20; i <= ret.length; i++) vols.push(_actifEcartType(ret.slice(i - 20, i)) * k * 100);
+  const v20 = vols.length ? vols[vols.length - 1] : null;
+  const rang = v20 == null ? null : Math.round(100 * vols.filter(x => x <= v20).length / vols.length);
+  const pas = Math.max(1, Math.ceil(n / 90));
+  return {
+    dernier: der, date: s[n - 1].d,
+    an: { haut, bas, pos: haut > bas ? Math.round(100 * (der - bas) / (haut - bas)) : 50 },
+    tendance: { mm50, mm200, e50: mm50 ? +((der / mm50 - 1) * 100).toFixed(1) : null, e200: mm200 ? +((der / mm200 - 1) * 100).toFixed(1) : null },
+    vol: { v20: v20 == null ? null : +v20.toFixed(1), rang },
+    serie: s.filter((_, i) => i % pas === 0 || i === n - 1).map(p => [p.d, p.c]),
+  };
+}
+// Corrélation des variations quotidiennes sur les dates COMMUNES aux deux séries (un indice ne cote
+// pas le week-end, la crypto si : on compare des jours qui existent des deux côtés).
+function _actifLien(a, b, tauxB) {
+  const m = new Map(b.map(p => [p.d, p.c]));
+  const com = a.filter(p => m.has(p.d)).map(p => [p.c, m.get(p.d)]).slice(-61);
+  if (com.length < 21) return null;
+  const x = [], y = [];
+  for (let i = 1; i < com.length; i++) {
+    x.push(Math.log(com[i][0] / com[i - 1][0]));
+    y.push(tauxB ? com[i][1] - com[i - 1][1] : Math.log(com[i][1] / com[i - 1][1]));
+  }
+  const corr = (u, v) => {
+    const mu = _actifMoy(u), mv = _actifMoy(v); let sxy = 0, sxx = 0, syy = 0;
+    for (let i = 0; i < u.length; i++) { sxy += (u[i] - mu) * (v[i] - mv); sxx += (u[i] - mu) ** 2; syy += (v[i] - mv) ** 2; }
+    return sxx && syy ? sxy / Math.sqrt(sxx * syy) : 0;
+  };
+  const my = _actifMoy(y), mx = _actifMoy(x); let cov = 0, vy = 0;
+  for (let i = 0; i < x.length; i++) { cov += (x[i] - mx) * (y[i] - my); vy += (y[i] - my) ** 2; }
+  // Sensibilité : ce que fait l'actif (en %) quand le moteur fait +1% (ou +10 pb pour un taux).
+  const beta = vy ? cov / vy : 0;
+  return { c60: +corr(x, y).toFixed(2), c20: +corr(x.slice(-20), y.slice(-20)).toFixed(2), n: x.length,
+    sens: +(tauxB ? beta * 10 : beta).toFixed(2) };
+}
+async function _actifProfil(sym) {
+  const e = _actifProfils.get(sym);
+  if (e && Date.now() - e.at < 10 * 60e3) return e.data;
+  const cl = _ACTIF_YF[sym], mots = _actifMoteursDe(sym);
+  const [s, ...ms] = await Promise.all([_actifSerie(sym), ...mots.map(m => _actifSerie(m[0]).catch(() => []))]);
+  if (!s || s.length < 20) return null;
+  const data = Object.assign({ sym, cl, at: Date.now(), perf: _actifPerf(s) }, _actifStats(s, cl), {
+    moteurs: mots.map((m, i) => { const l = ms[i] && ms[i].length >= 21 ? _actifLien(s, ms[i], !!m[2]) : null; return l ? Object.assign({ sym: m[0], nom: m[1], taux: !!m[2] }, l) : null; }).filter(Boolean),
+    source: 'Yahoo Finance, calculs DTP',
+  });
+  _actifProfils.delete(sym); _actifProfils.set(sym, { at: Date.now(), data });
+  while (_actifProfils.size > 40) _actifProfils.delete(_actifProfils.keys().next().value);
+  return data;
+}
+app.get('/api/v2/actif-profil', requireAdmin, async (req, res) => {
+  if (!_v2Actif()) return res.status(404).end();
+  const sym = String(req.query.sym || '');
+  if (!Object.prototype.hasOwnProperty.call(_ACTIF_YF, sym)) return res.status(400).json({ error: 'actif inconnu' });
+  try {
+    const d = await _actifProfil(sym);
+    if (!d) return res.status(502).json({ error: 'historique indisponible' });
+    res.json(d);
+  } catch (e) { res.status(502).json({ error: 'historique indisponible' }); }
+});
+
 app.get('/api/v2/particuliers-historique', requireAdmin, async (req, res) => {
   if (!_v2Actif()) return res.status(404).end();
   const p = String(req.query.pair || '').toUpperCase().replace(/[^A-Z]/g, '');

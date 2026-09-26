@@ -283,6 +283,14 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       { k: 'indices', n: 'Indices', items: [{ sym: '^NDX', nom: 'Nasdaq 100', code: 'NDX', ok: true, dec: 1, prix: 20112.5, chg: -0.41, spark: [20200, 20150, 20112] }] },
       { k: 'crypto', n: 'Crypto', items: [{ sym: 'BTC-USD', nom: 'Bitcoin', code: 'BTC/USD', ok: false }] },
       { k: 'taux', n: 'Taux et volatilité', items: [{ sym: '^TNX', nom: 'US 10 ans', code: 'US10Y', ok: true, dec: 2, rendement: true, prix: 4.21, chg: 3.5, spark: [4.17, 4.2, 4.21] }] }] });
+    // Fiche actif V3 (étape 4) : un profil calculé, tel que le serveur le livre.
+    if (u === '/api/v2/actif-profil') return j({ sym: 'AAPL', cl: 'actions', at: Date.now(), date: '2026-09-25', dernier: 227.4,
+      perf: [['1J', '1 jour', 0.84], ['1S', '1 semaine', -1.2], ['1M', '1 mois', 3.5], ['3M', '3 mois', 7.9], ['6M', '6 mois', 12.1], ['YTD', 'Depuis janvier', 9.4], ['1A', '1 an', 18.6]].map(x => ({ k: x[0], lbl: x[1], v: x[2] })),
+      an: { haut: 237.2, bas: 164.1, pos: 87 }, tendance: { mm50: 221, mm200: 205, e50: 2.9, e200: 10.9 }, vol: { v20: 21.4, rang: 38 },
+      serie: Array.from({ length: 80 }, (_, i) => ['2026-' + String(1 + Math.floor(i / 8)).padStart(2, '0') + '-' + String(1 + (i % 8) * 3).padStart(2, '0'), 180 + i * 0.6 + Math.sin(i / 4) * 6]),
+      moteurs: [{ sym: '^NDX', nom: 'Nasdaq 100', taux: false, c60: 0.78, c20: 0.81, n: 60, sens: 1.12 }, { sym: '^VIX', nom: 'VIX', taux: false, c60: -0.61, c20: -0.12, n: 60, sens: -0.09 },
+        { sym: '^TNX', nom: 'Taux US 10 ans', taux: true, c60: -0.34, c20: -0.3, n: 60, sens: -0.41 }, { sym: 'DX-Y.NYB', nom: 'Dollar index', taux: false, c60: 0.05, c20: 0.1, n: 60, sens: 0.03 }],
+      source: 'Yahoo Finance, calculs DTP' });
     if (u === '/api/currency-strength') return j(FORCE);
     if (u === '/api/admin/data-health') return SC.role === 'admin' ? j(SANTE) : (rs.writeHead(403), rs.end());
     if (u === '/api/v2/briefing') return SC.role === 'admin' ? j(BRIEF) : (rs.writeHead(403), rs.end());
@@ -629,6 +637,42 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       await new Promise(z => setTimeout(z, 400));
       const fi = await page.evaluate(() => { const f = document.getElementById('v3a-fiche'); return f ? { titre: (f.querySelector('.v3a-fiche-t b') || {}).textContent, classe: (f.querySelector('.v3a-fiche-cl') || {}).textContent, graph: !!f.querySelector('#v3a-fiche-tv'), fil: !!f.querySelector('.v3a-fiche-fil') } : null; });
       v('un actif ouvre sa fiche : nom, classe, graphique, dépêches du fil', fi && fi.titre === 'Apple' && fi.classe === 'Actions' && fi.graph && fi.fil, JSON.stringify(fi));
+      // Étape 4 (26/09) : sous-onglets propres à la classe. Une action : « Face à son indice », pas d'onglet de classe.
+      const og = await page.evaluate(() => [...document.querySelectorAll('#v3a-fiche .v3a-og')].map(b => b.textContent + (b.classList.contains('on') ? '*' : '')));
+      v('fiche d\'une action : Aperçu (ouvert), Performance, Face à son indice, Agenda', og.join('|') === 'Aperçu*|Performance|Face à son indice|Agenda', og.join('|'));
+      const clic = async k => { await page.evaluate(k => document.querySelector('#v3a-fiche .v3a-og[data-og="' + k + '"]').click(), k); await new Promise(z => setTimeout(z, 350)); };
+      await clic('perf');
+      const pf = await page.evaluate(() => { const p = document.querySelector('#v3a-fiche [data-pane="perf"]'); const ap = document.querySelector('#v3a-fiche [data-pane="apercu"]');
+        return { visible: p && !p.hidden, apercuCache: ap && ap.hidden, tuiles: p ? [...p.querySelectorAll('.v3a-hz-t')].map(t => t.innerText.replace(/\s+/g, ' ')) : [], courbe: !!(p && p.querySelector('.v3a-an svg polyline')), four: !!(p && p.querySelector('.v3a-four-b i')), txt: p ? p.innerText : '' }; });
+      v('Performance : sept horizons signés et colorés, courbe d\'un an, fourchette, tendance, volatilité', pf.visible && pf.apercuCache && pf.tuiles.length === 7 && /1 jour \+0,84%/.test(pf.tuiles[0]) && /−1,20%/.test(pf.tuiles[1]) && pf.courbe && pf.four && /Tendance haussière/.test(pf.txt) && /21,4%/.test(pf.txt), JSON.stringify(pf).slice(0, 400));
+      v('… sans espace entre le chiffre et « % » (règle du desk)', !/\d\s%/.test(pf.txt), (pf.txt.match(/.{0,12}\d\s%.{0,4}/) || [''])[0]);
+      const bulle = await page.evaluate(async () => { const an = document.querySelector('#v3a-fiche .v3a-an'); const r = an.getBoundingClientRect();
+        an.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + r.width * 0.5, clientY: r.top + 40 })); await new Promise(z => setTimeout(z, 50));
+        const b = an.querySelector('.v3a-an-bulle'); return { vue: !b.hidden, txt: b.textContent }; });
+      v('… la courbe se lit au survol : cours et date sous le curseur', bulle.vue && /\d/.test(bulle.txt) && /2026/.test(bulle.txt), JSON.stringify(bulle));
+      await clic('moteurs');
+      const mo = await page.evaluate(() => { const p = document.querySelector('#v3a-fiche [data-pane="moteurs"]'); return { l: [...p.querySelectorAll('.v3a-mot-l')].map(x => x.innerText.replace(/\s+/g, ' ')), neg: p.querySelectorAll('.v3a-mot-b i.neg').length, pos: p.querySelectorAll('.v3a-mot-b i.pos').length }; });
+      v('Face à son indice : quatre moteurs, barres dans les deux sens, lecture en clair', mo.l.length === 4 && mo.pos >= 1 && mo.neg >= 1 && /Nasdaq 100.*lien fort · dans le même sens.*\+0,78/.test(mo.l[0]) && /Nasdaq 100 \+1% → Apple \+1,12%/.test(mo.l[0]), JSON.stringify(mo));
+      v('… un lien qui a changé récemment est signalé (VIX : −0,61 sur 60 séances, −0,12 sur 20)', /Lien affaibli ces 4 dernières semaines/.test(mo.l[1]) && !/Lien/.test(mo.l[3]), mo.l[1]);
+      v('… un taux se lit pour +10 pb, un lien trop faible n\'affiche pas de sensibilité', /Taux US 10 ans \+10 pb → Apple −0,41%/.test(mo.l[2]) && !/→/.test(mo.l[3]), mo.l[2] + ' // ' + mo.l[3]);
+      await clic('agenda');
+      await page.waitForFunction(() => { const p = document.querySelector('#v3a-fiche [data-pane="agenda"]'); return p && !p.querySelector('.v3a-pane-attente'); }, { timeout: 8000 }).catch(() => {});
+      const ag = await page.evaluate(() => { const p = document.querySelector('#v3a-fiche [data-pane="agenda"]'); return { l: [...p.querySelectorAll('.v3a-ag-l')].map(x => x.innerText.replace(/\s+/g, ' ')), txt: p.innerText }; });
+      v('Agenda d\'Apple : les chiffres forts du dollar, pas la BCE ni l\'impact moyen', ag.l.length === 1 && /consommation/.test(ag.l[0]) && /Élevé/i.test(ag.l[0]) && !/BCE|Ventes/.test(ag.txt), JSON.stringify(ag).slice(0, 300));
+      await page.keyboard.press('Escape');
+      // Un indice : son onglet de classe, et on passe d'un actif à l'autre sans quitter la fiche.
+      await page.evaluate(() => DTPRechercheActifs.ouvrir('US500'));
+      await new Promise(z => setTimeout(z, 300));
+      const ogi = await page.evaluate(() => [...document.querySelectorAll('#v3a-fiche .v3a-og')].map(b => b.textContent));
+      v('fiche d\'un indice : Aperçu, Performance, Moteurs, Agenda, Indices mondiaux', ogi.join('|') === 'Aperçu|Performance|Moteurs|Agenda|Indices mondiaux', ogi.join('|'));
+      await clic('classe');
+      await page.waitForFunction(() => document.querySelector('#v3a-fiche [data-pane="classe"] .v3a-cl-l'), { timeout: 8000 }).catch(() => {});
+      const cl = await page.evaluate(() => [...document.querySelectorAll('#v3a-fiche [data-pane="classe"] .v3a-cl-l')].map(l => ({ t: l.innerText.replace(/\s+/g, ' '), code: l.dataset.code, ouvrable: l.classList.contains('ouvrable') })));
+      v('Indices mondiaux : chaque indice avec son cours et sa variation, ouvrable d\'un clic', cl.length === 1 && /Nasdaq 100/.test(cl[0].t) && /−0,41%/.test(cl[0].t) && cl[0].code === 'US100' && cl[0].ouvrable, JSON.stringify(cl));
+      await page.evaluate(() => document.querySelector('#v3a-fiche [data-pane="classe"] .v3a-cl-l.ouvrable').click());
+      await page.waitForFunction(() => document.querySelector('#v3a-fiche [data-pane="classe"] .v3a-cl-l.moi'), { timeout: 8000 }).catch(() => {});
+      const saut = await page.evaluate(() => ({ titre: (document.querySelector('#v3a-fiche .v3a-fiche-t b') || {}).textContent, onglet: (document.querySelector('#v3a-fiche .v3a-og.on') || {}).textContent, moi: !!document.querySelector('#v3a-fiche .v3a-cl-l.moi'), fiches: document.querySelectorAll('#v3a-fiche').length }));
+      v('… le clic ouvre la fiche du Nasdaq 100, sur le même onglet, lui-même en or', saut.titre === 'Nasdaq 100' && saut.onglet === 'Indices mondiaux' && saut.moi && saut.fiches === 1, JSON.stringify(saut));
       await page.keyboard.press('Escape');
       v('… et Échap la referme', await page.evaluate(() => !document.getElementById('v3a-fiche')));
 
