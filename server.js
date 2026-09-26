@@ -3157,7 +3157,7 @@ const _WDG_ID_RX = /^[a-z0-9-]{2,40}$/; // ids de widgets = catalogue front (keb
 //            liste serait coupee a 32 caracteres au PREMIER enregistrement, l utilisateur
 //            retrouverait 4 paires au lieu de 28 au rechargement, et rien ne le lui dirait.
 //            C est exactement l incident deja paye sur les villes de l Horloge.
-const _WDG_LISTES = new Set(['off', 'villes', 'ticks']);
+const _WDG_LISTES = new Set(['off', 'villes', 'ticks', 'actifs']);
 
 function _wdgClean(body) {
   const b = (body && typeof body === 'object') ? body : {};                  // null/undefined/scalaire → objet vide

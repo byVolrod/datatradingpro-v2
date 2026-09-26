@@ -198,6 +198,18 @@ console.log('\n── 1 ter. Les barres d\'en-tête des écrans du desk dans l\'
   v('app : icônes à la même taille, cibles au doigt, croix « Fermer » retirée', /html\.dtp-app \.cal-title-icon \{[^}]*width: 36px; height: 36px/.test(CSS) && /html\.dtp-app \.cal-title-icon--svg svg \{ width: 18px; height: 18px; \}/.test(CSS) && /html\.dtp-app \.cal-title-icon--fermer \{ display: none; \}/.test(CSS));
 }
 
+console.log('\n── 1 quater. Liste de suivi mixte : un réglage V3, servi par le serveur ──');
+{
+  const WJ = fs.readFileSync(path.join(R, 'public/js/widgets.js'), 'utf8'), V3J = fs.readFileSync(path.join(R, 'public/js/v2/widgets-v3.js'), 'utf8');
+  const bloc = (WJ.match(/\{ k: 'actifs', lbl: 'Autres marchés', type: 'multi', v3: true[\s\S]*?\] \},/) || [''])[0];
+  const codes = [...bloc.matchAll(/\['([A-Z0-9]+)', '/g)].map(m => m[1]);
+  const yf = eval('(' + (V3J.match(/var ACTIF_YF = (\{[\s\S]*?\});/) || [, '{}'])[1] + ')');
+  const serveurYF = [...(SRV.match(/const _MULTI_CLASSES = \[[\s\S]*?\n\];/) || [''])[0].matchAll(/\['([^']+)', '/g)].map(m => m[1]);
+  v('le réglage « Autres marchés » est marqué V3 et masqué hors V3 (réglages ET aide)', !!bloc && /!o\.v3 \|\| _estV3\(\)/.test(WJ) && /!o2\.v3 \|\| _estV3\(\)/.test(WJ));
+  v('chaque marché proposé a sa cotation servie par /api/v2/multi-actifs', codes.length >= 20 && codes.every(c => yf[c] && serveurYF.includes(yf[c])), codes.filter(c => !(yf[c] && serveurYF.includes(yf[c]))).join(','));
+  v('le serveur garde la liste entière (clé « actifs » dans _WDG_LISTES, sinon coupée à 32 caractères)', /_WDG_LISTES = new Set\(\[[^\]]*'actifs'/.test(SRV));
+}
+
 console.log('\n── 1 bis. L\'écran Marchés affiche le chiffre du desk (même échelle) ──');
 {
   const CH = fs.readFileSync(path.join(R, 'public/js/charts.js'), 'utf8');
@@ -255,6 +267,15 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       let corps = ''; rq.on('data', c => { corps += c; }); rq.on('end', () => { (global.__envois = global.__envois || []).push({ u, corps });
         j(u === '/api/auth/me/profile' ? { ok: true, name: (JSON.parse(corps || '{}').name || '') } : { ok: true }); }); return; }
     if (u === '/api/risk-sentiment') return j(RISQUE);
+    // Liste de suivi mixte (V3) : deux sources, deux horizons.
+    // (Champs complets : la vue Liste FX du desk lit aussi ce flux, et plante sur une paire incomplète.)
+    if (u === '/api/fxlist') { const px = (symbol, base, quote, last, changePct, sparkLast) => ({ symbol, base, quote, last, changePct, ret1M: 0.8, ret3M: 1.4, ret12M: 2.1, sparkLast, trend: sparkLast, pattern: sparkLast, seasonal: [], dmx: 55, strength: 0.4 });
+      return j({ pairs: [px('EUR/USD', 'EUR', 'USD', 1.08421, 0.21, [1.07, 1.075, 1.08, 1.084]), px('USD/JPY', 'USD', 'JPY', 148.312, -0.35, [149, 148.8, 148.3])] }); }
+    if (u === '/api/v2/multi-actifs') return j({ at: Date.now(), classes: [
+      { k: 'metaux', n: 'Métaux', items: [{ sym: 'GC=F', nom: 'Or', code: 'XAU/USD', ok: true, dec: 2, prix: 2651.4, chg: 0.62, spark: [2630, 2640, 2651] }] },
+      { k: 'indices', n: 'Indices', items: [{ sym: '^NDX', nom: 'Nasdaq 100', code: 'NDX', ok: true, dec: 1, prix: 20112.5, chg: -0.41, spark: [20200, 20150, 20112] }] },
+      { k: 'crypto', n: 'Crypto', items: [{ sym: 'BTC-USD', nom: 'Bitcoin', code: 'BTC/USD', ok: false }] },
+      { k: 'taux', n: 'Taux et volatilité', items: [{ sym: '^TNX', nom: 'US 10 ans', code: 'US10Y', ok: true, dec: 2, rendement: true, prix: 4.21, chg: 3.5, spark: [4.17, 4.2, 4.21] }] }] });
     if (u === '/api/currency-strength') return j(FORCE);
     if (u === '/api/admin/data-health') return SC.role === 'admin' ? j(SANTE) : (rs.writeHead(403), rs.end());
     if (u === '/api/v2/briefing') return SC.role === 'admin' ? j(BRIEF) : (rs.writeHead(403), rs.end());
@@ -673,6 +694,21 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
       v('Sentiment de risque V3 : jauge dessinée, régime EN FRANÇAIS, les 4 moteurs, EN DIRECT',
         rq.v3 && rq.jauge && rq.regime === 'Léger appétit' && rq.moteurs === 4 && rq.direct, JSON.stringify(rq));
       v('… l\'aiguille tourne jusqu\'au score (+12,4 → 11,2°), sans NaN ni débordement', /rotate\(11\.16\d*deg\)/.test(rq.rot) && !rq.nan && !rq.deborde, JSON.stringify(rq));
+      // Liste de suivi MIXTE (26/09, multi-actifs étape 2) : Forex + autres marchés, groupés, horizons annoncés.
+      const ls = await page.evaluate(async () => {
+        const h = document.createElement('div'); h.style.cssText = 'position:fixed;left:0;top:0;width:640px;height:420px;z-index:99999';
+        document.body.appendChild(h);
+        const un = DTPWidgets.mountInto('ticklist', h, { ticks: 'EUR/USD|USD/JPY', actifs: 'XAUUSD|US100|BTCUSD|US10Y' });
+        await new Promise(r => setTimeout(r, 1500));
+        const txt = h.innerText;
+        const o = { v3: !!h.querySelector('.v3w'), groupes: [...h.querySelectorAll('.v3s-gr')].map(g => g.firstChild.textContent), lignes: h.querySelectorAll('.v3s-l').length,
+          fx6s: /Forex\s*courbe : ~6 semaines/i.test(txt), seance: /Métaux\s*courbe : séance/i.test(txt), pb: /\+3,5 pb/.test(txt), ko: /Cotation indisponible/.test(txt), nan: /NaN|undefined/.test(txt) };
+        un && un(); h.remove();
+        return o;
+      });
+      v('Liste de suivi (V3) : Forex ET autres marchés dans une seule liste, groupés par classe', ls.v3 && ls.lignes === 6 && JSON.stringify(ls.groupes) === JSON.stringify(['Forex', 'Métaux', 'Indices', 'Crypto', 'Taux et volatilité']), JSON.stringify(ls));
+      v('… chaque groupe dit l\'horizon de SA courbe (Forex ~6 semaines, autres marchés : séance)', ls.fx6s && ls.seance, JSON.stringify(ls));
+      v('… un taux varie en points de base, un actif muet reste affiché « indisponible », aucun NaN', ls.pb && ls.ko && !ls.nan, JSON.stringify(ls));
       await ctx.close();
     }
   } catch (e) { v('le banc se termine', false, e.message); }

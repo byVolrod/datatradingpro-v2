@@ -528,11 +528,13 @@
   }
   // `setter` (04/08) : « setOpt » par défaut (réglages de la CARTE) — « setTabOpt » pour les
   // réglages du SOUS-WIDGET affiché dans un panneau à onglets, qui a désormais les siens.
+  // Un réglage marqué `v3` n'existe que dans la V3 (aperçu admin) : ailleurs il n'a aucun effet.
+  function _estV3() { return document.documentElement.classList.contains('dtp-v2'); }
   function _optsHtml(idx, w, it, setter, cell) {
     var l = (w && w.opts) || []; if (!l.length) return '';
     var S = setter || 'setOpt', B = (S === 'setTabOpt') ? 'bumpTabOpt' : 'bumpOpt';
     var AC = _argC(cell);   // « ,2 » quand on règle une CASE d'onglet composite, '' sinon
-    l = l.filter(function (o) { return !o.cache; });      // réglages rendus par un bloc dédié (ex. sections du fil)
+    l = l.filter(function (o) { return !o.cache && (!o.v3 || _estV3()); });      // réglages rendus par un bloc dédié (ex. sections du fil) ; réglages V3 hors V3
     if (!l.length) return '';
     return '<div class="wdg-set-sep"></div>' + l.map(function (o) {
       var cur = opt(it, w, o.k), ctl;
@@ -4539,6 +4541,14 @@
       opts: [
         { k: 'ticks', lbl: 'Paires suivies', type: 'multi',
           def: ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD'], choix: _fxChoix() },
+        // V3 SEULEMENT (26/09, liste de suivi mixte) : `v3: true` masque le réglage aux clients, dont
+        // la carte ne sait afficher que le Forex. Codes = ceux de la recherche multi-actifs V3.
+        { k: 'actifs', lbl: 'Autres marchés', type: 'multi', v3: true, def: [],
+          choix: [['XAUUSD', 'Or'], ['XAGUSD', 'Argent'], ['XPTUSD', 'Platine'], ['XPDUSD', 'Palladium'], ['COPPER', 'Cuivre'],
+            ['WTI', 'Pétrole WTI'], ['BRENT', 'Pétrole Brent'], ['NATGAS', 'Gaz naturel'],
+            ['US500', 'S&P 500'], ['US100', 'Nasdaq 100'], ['US30', 'Dow Jones'], ['DE40', 'DAX'], ['FR40', 'CAC 40'], ['UK100', 'FTSE 100'], ['JP225', 'Nikkei 225'], ['HK50', 'Hang Seng'],
+            ['BTCUSD', 'Bitcoin'], ['ETHUSD', 'Ethereum'], ['SOLUSD', 'Solana'], ['XRPUSD', 'XRP'],
+            ['US10Y', 'Taux US 10 ans'], ['US30Y', 'Taux US 30 ans'], ['DXY', 'Dollar index'], ['VIX', 'VIX']] },
         { k: 'tri', lbl: 'Classement', type: 'choix', def: 'liste',
           choix: [['liste', 'Mon ordre'], ['var', 'Par variation'], ['sym', 'Par symbole']] },
       ],
@@ -11853,7 +11863,7 @@ function _spansAffiches(lay) {
       document.body.appendChild(d);
     }
 
-    var reglages = (w.opts || []).map(function (o2) {
+    var reglages = (w.opts || []).filter(function (o2) { return !o2.v3 || _estV3(); }).map(function (o2) {
       var choix = (o2.choix || []).map(function (c) { return esc(c[1]); }).join(' · ');
       return '<li><b>' + esc(o2.lbl || o2.k) + '</b>' + (choix ? ' : ' + choix : '') + '</li>';
     }).join('');

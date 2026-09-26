@@ -700,8 +700,114 @@
   }
 
 
+
+  /* ══ 7. LISTE DE SUIVI MIXTE (26/09, feuille de route multi-actifs, étape 2) ══════════════════════
+     La « Liste de suivi » des clients ne connaît que le Forex. En V3, un second réglage, « Autres
+     marchés », y ajoute métaux, énergie, indices, crypto, taux et volatilité : une seule liste pour
+     le trader qui suit l'EUR/USD ET l'or ET le Nasdaq. Les paires restent réglées comme avant (rien
+     n'est perdu en passant d'une version à l'autre).
+     ⚠️ DEUX SOURCES, DEUX HORIZONS, ET ON LE DIT. La mini-courbe du Forex (/api/fxlist) résume ~six
+     semaines de clôtures quotidiennes ; celle des autres marchés (/api/v2/multi-actifs) la séance
+     en cours, par pas de 5 min. Les mêler sous une même colonne ferait lire une tendance de six
+     semaines comme un mouvement du jour : chaque groupe annonce donc ce que montre SA courbe. */
+  var ACTIF_YF = { XAUUSD: 'GC=F', XAGUSD: 'SI=F', XPTUSD: 'PL=F', XPDUSD: 'PA=F', COPPER: 'HG=F', WTI: 'CL=F', BRENT: 'BZ=F', NATGAS: 'NG=F',
+    US500: '^GSPC', US100: '^NDX', US30: '^DJI', DE40: '^GDAXI', FR40: '^FCHI', UK100: '^FTSE', JP225: '^N225', HK50: '^HSI',
+    BTCUSD: 'BTC-USD', ETHUSD: 'ETH-USD', SOLUSD: 'SOL-USD', XRPUSD: 'XRP-USD', US10Y: '^TNX', US30Y: '^TYX', DXY: 'DX-Y.NYB', VIX: '^VIX' };
+  window._v3ActifYF = ACTIF_YF;   // pour les bancs (chaque choix doit être servi par le serveur)
+  function stylesS() {
+    if (document.getElementById('v3s-css')) return;
+    var st = document.createElement('style'); st.id = 'v3s-css';
+    st.textContent = ''
+      + 'html.dtp-v2 .v3s-liste{flex:1;min-height:0;overflow-y:auto}'
+      + 'html.dtp-v2 .v3s-gr{position:sticky;top:0;z-index:1;display:flex;align-items:baseline;gap:8px;padding:5px 10px;background:var(--v3-tete, #0e0e11);border-bottom:1px solid var(--v3-ligne, #15151a);font:600 11px/1.2 "Inter Tight",system-ui,sans-serif;color:var(--v3-doux, #8e8e98);letter-spacing:.04em;text-transform:uppercase}'
+      + 'html.dtp-v2 .v3s-gr small{font-weight:500;text-transform:none;letter-spacing:0;color:var(--v3-pale, #6f6f78)}'
+      + 'html.dtp-v2 .v3s-l{display:grid;grid-template-columns:minmax(84px,1.2fr) 72px minmax(70px,1fr) 66px;align-items:center;gap:10px;width:100%;padding:6px 10px;border:0;border-bottom:1px solid var(--v3-ligne, #121215);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}'
+      + 'html.dtp-v2 .v3s-l:hover{background:rgba(227,178,58,.04)}'
+      + 'html.dtp-v2 .v3s-n{min-width:0}html.dtp-v2 .v3s-n b{display:block;font:600 12.5px/1.2 "Inter Tight",system-ui,sans-serif;color:var(--v3-titre, #f0f0f3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+      + 'html.dtp-v2 .v3s-n span{font:500 10.5px/1.2 ui-monospace,Menlo,monospace;color:var(--v3-pale, #6f6f78)}'
+      + 'html.dtp-v2 .v3s-sp{width:72px;height:22px;display:block}'
+      + 'html.dtp-v2 .v3s-p{text-align:right;font:600 12.5px/1 ui-monospace,Menlo,monospace;color:var(--v3-titre, #ececf0)}'
+      + 'html.dtp-v2 .v3s-c{text-align:right;font:600 12px/1 ui-monospace,Menlo,monospace}'
+      + 'html.dtp-v2 .v3s-ko{grid-column:2/-1;color:var(--v3-pale, #6f6f78);font-size:11.5px}'
+      + 'html.dtp-v2 .v3s-vide{padding:22px 14px;text-align:center;color:var(--v3-pale, #6f6f78);font-size:12px;line-height:1.5}'
+      + '@container (max-width:380px){html.dtp-v2 .v3s-l{grid-template-columns:minmax(80px,1fr) 70px 60px}html.dtp-v2 .v3s-sp{display:none}}';
+    document.head.appendChild(st);
+  }
+  function courbeS(a, sens) {
+    a = (a || []).map(Number).filter(isFinite);
+    if (a.length < 2) return '<span class="v3s-sp"></span>';
+    var mn = Math.min.apply(null, a), mx = Math.max.apply(null, a), c = sens > 0 ? VERT : sens < 0 ? ROUGE : TXT;
+    var d = a.map(function (v, i) { return (i ? 'L' : 'M') + (i / (a.length - 1) * 72).toFixed(1) + ',' + (mx > mn ? 20 - (v - mn) / (mx - mn) * 18 : 11).toFixed(1); }).join('');
+    return '<svg class="v3s-sp" viewBox="0 0 72 22" preserveAspectRatio="none"><path d="' + d + '" fill="none" stroke="' + c + '" stroke-width="1.4" vector-effect="non-scaling-stroke"/></svg>';
+  }
+  function suivi(host, it, orig, O) {
+    var W = this, avant = {};
+    styles(); stylesS(); O.skel(host, 5);
+    function charger() {
+      var fx = O.opt(it, W, 'ticks') || [], ac = O.opt(it, W, 'actifs') || [], tri = O.opt(it, W, 'tri');
+      return Promise.all([
+        fx.length ? fetch('/api/fxlist', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }) : Promise.resolve(null),
+        ac.length ? fetch('/api/v2/multi-actifs', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }) : Promise.resolve(null)
+      ]).then(function (r) {
+        if (!host.isConnected) return;
+        var dFx = r[0], dMu = r[1];
+        if (fx.length && !(dFx && Array.isArray(dFx.pairs)) && !(ac.length && dMu)) throw new Error('cotations indisponibles');
+        var groupes = [];
+        if (fx.length) {
+          var par = {}; ((dFx && dFx.pairs) || []).forEach(function (p) { if (p && p.symbol) par[p.symbol] = p; });
+          groupes.push({ n: 'Forex', note: 'courbe : ~6 semaines', l: fx.map(function (s) {
+            var p = par[s]; if (!p) return { code: s, nom: s, ko: true, fx: true };
+            var v = p.changePct == null ? null : Number(p.changePct);
+            return { code: s, nom: s, prix: Number(p.last), dec: /JPY/.test(s) ? 3 : 5, chg: v, unite: '%', spark: p.sparkLast, fx: true };
+          }) });
+        }
+        if (ac.length) {
+          var parSym = {}, classeDe = {};
+          ((dMu && dMu.classes) || []).forEach(function (c) { (c.items || []).forEach(function (x) { parSym[x.sym] = x; classeDe[x.sym] = c; }); });
+          var parClasse = {}, ordre = [];
+          ac.forEach(function (code) {
+            var ys = ACTIF_YF[code], x = parSym[ys], c = classeDe[ys] || { k: 'autres', n: 'Autres marchés' };
+            if (!parClasse[c.k]) { parClasse[c.k] = { n: c.n, note: 'courbe : séance', l: [] }; ordre.push(c.k); }
+            parClasse[c.k].l.push(x && x.ok ? { code: code, nom: x.nom, sous: x.code, prix: x.prix, dec: x.dec, chg: x.chg, unite: x.rendement ? ' pb' : '%', spark: x.spark }
+              : { code: code, nom: (x && x.nom) || code, sous: (x && x.code) || '', ko: true });
+          });
+          ordre.forEach(function (k) { groupes.push(parClasse[k]); });
+        }
+        groupes.forEach(function (g) {
+          if (tri === 'var') g.l.sort(function (a, b) { return (b.chg == null ? -1e9 : b.chg) - (a.chg == null ? -1e9 : a.chg); });
+          else if (tri === 'sym') g.l.sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom), 'fr'); });
+        });
+        var tous = groupes.reduce(function (s, g) { return s.concat(g.l); }, []);
+        var h = 0, b = 0; tous.forEach(function (x) { if (x.chg > 0) h++; else if (x.chg < 0) b++; });
+        var ligne = function (x) {
+          var sens = x.chg > 0 ? 1 : x.chg < 0 ? -1 : 0, cl = sens > 0 ? 'v3w-h' : sens < 0 ? 'v3w-b' : '';
+          var flash = avant[x.code] != null && x.prix != null && avant[x.code] !== x.prix ? (x.prix > avant[x.code] ? ' v3w-maj-h' : ' v3w-maj-b') : '';
+          return '<button type="button" class="v3s-l" data-code="' + esc(x.code) + '"' + (x.fx ? ' data-fx="1"' : '') + '><span class="v3s-n"><b>' + esc(x.nom) + '</b>' + (x.sous ? '<span>' + esc(x.sous) + '</span>' : '') + '</span>'
+            + (x.ko ? '<span class="v3s-ko">Cotation indisponible pour le moment</span>'
+              : courbeS(x.spark, sens) + '<span class="v3s-p' + flash + '">' + fr(x.prix, x.dec) + '</span>'
+                + '<span class="v3s-c ' + cl + '">' + (x.chg == null ? '·' : signe(x.chg, x.unite === ' pb' ? 1 : 2) + x.unite) + '</span>')
+            + '</button>';
+        };
+        host.innerHTML = '<div class="v3w" style="container-type:inline-size"><div class="v3w-tete"><span class="v3w-nom">Liste de suivi</span>'
+          + '<span class="v3w-puce"><b>' + tous.length + '</b> actif' + (tous.length > 1 ? 's' : '') + '</span>'
+          + (h ? '<span class="v3w-puce v3w-h">Hausse <b>' + h + '</b></span>' : '') + (b ? '<span class="v3w-puce v3w-b">Baisse <b>' + b + '</b></span>' : '')
+          + enDirect(Date.now()) + '</div><div class="v3s-liste">'
+          + (tous.length ? groupes.map(function (g) { return '<div class="v3s-gr">' + esc(g.n) + '<small>' + esc(g.note) + '</small></div>' + g.l.map(ligne).join(''); }).join('')
+            : '<div class="v3s-vide">Aucun actif suivi. Réglages de la carte : « Paires suivies » et « Autres marchés ».</div>')
+          + '</div></div>';
+        avant = {}; tous.forEach(function (x) { if (x.prix != null) avant[x.code] = x.prix; });
+        host.querySelector('.v3s-liste').onclick = function (e) {
+          var l = e.target.closest('.v3s-l'); if (!l) return;
+          if (l.dataset.fx) { if (typeof window.openSymbol === 'function') window.openSymbol(l.dataset.code.replace('/', '')); }
+          else if (window.DTPRechercheActifs && typeof DTPRechercheActifs.ouvrir === 'function') DTPRechercheActifs.ouvrir(l.dataset.code);
+        };
+      });
+    }
+    return carte(host, orig, 90000, charger);
+  }
+
   /* ── Branchement : widgets.js appelle ces montages sous html.dtp-v2 seulement ──────────────────── */
-  var MONTAGES = { 'hauts-bas': hautsBas, 'courbe-taux-us': tauxUS, 'vol-horaire': volHoraire, 'distribution-variations': variations, 'sessions': horaires, 'risque-jauge': risque };
+  var MONTAGES = { 'hauts-bas': hautsBas, 'courbe-taux-us': tauxUS, 'vol-horaire': volHoraire, 'distribution-variations': variations, 'sessions': horaires, 'risque-jauge': risque, 'ticklist': suivi };
   window._v3WidgetsMontages = MONTAGES;             // pour les bancs
   function brancher() {
     if (!window.DTPWidgets || typeof DTPWidgets.v3Montage !== 'function') return false;
