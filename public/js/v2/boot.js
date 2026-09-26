@@ -33,10 +33,9 @@
     var s = document.createElement('script');
     s.src = '/js/v2/app-mobile.js?v=' + VER; s.defer = true;
     document.head.appendChild(s);
-    // Traçabilité en direct (V3) : état de chaque source dans l'aide des widgets et les grandes vues.
-    var t = document.createElement('script');
-    t.src = '/js/v2/tracabilite.js?v=' + VER; t.defer = true;
-    document.head.appendChild(t);
+    // (La « traçabilité en direct » — pastille Sources et état des sources dans l'aide — est RETIRÉE
+    // le 26/09 : « cache les sources, ne les montre jamais, sinon les clients peuvent recopier ». La
+    // santé des données reste au panneau admin, qui est le seul endroit où les nommer.)
     // Briefing du matin sourcé (V3) : bouton du Fil, carte de l'écran Marchés.
     var b = document.createElement('script');
     b.src = '/js/v2/briefing-ui.js?v=' + VER; b.defer = true;

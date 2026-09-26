@@ -306,11 +306,11 @@
     var outils = '<select class="v2a-sel" data-cat><option value="noncomm">Non-commerciaux</option><option value="lev_money">Fonds à levier</option><option value="asset_mgr">Gestionnaires d’actifs</option><option value="dealer">Intermédiaires</option><option value="other_rept">Autres déclarants</option></select>';
     var ctx = drapeau(ccy) + '[' + ccy + ']';
     var g = poserGrille(host, 'v2a-g-cot',
-      panneau('pos', 'Positionnement COT', ctx, outils, 'Dernier rapport CFTC (publié le vendredi, positions du mardi). Longs, shorts et position nette de la catégorie choisie.')
+      panneau('pos', 'Positionnement COT', ctx, outils, 'Dernier rapport COT (publié le vendredi, positions du mardi). Longs, shorts et position nette de la catégorie choisie.')
       + panneau('hist', 'Historique COT', '<span data-titre-hist>Position nette</span> <i class="v2a-pp-sep"></i> <span data-cat-nom>Non-commerciaux</span>',
         puces('mode', [['net', 'Net'], ['pct', 'Net % OI']], 'net') + puces('sem', PERIODES_COT, 260),
-        'Position nette hebdomadaire (longs moins shorts). « Net % OI » : la même, rapportée à l’intérêt ouvert total du contrat. Source : CFTC.')
-      + panneau('tab', 'Tableau COT', ctx, '', 'Chaque ligne est un rapport CFTC. Variations : écart avec le rapport précédent. % OI : part de l’intérêt ouvert total. Traders : nombre de déclarants.'));
+        'Position nette hebdomadaire (longs moins shorts). « Net % OI » : la même, rapportée à l’intérêt ouvert total du contrat.')
+      + panneau('tab', 'Tableau COT', ctx, '', 'Chaque ligne est un rapport COT hebdomadaire. Variations : écart avec le rapport précédent. % OI : part de l’intérêt ouvert total. Traders : nombre de déclarants.'));
     var z = function (k) { return g.querySelector('[data-z="' + k + '"]'); };
     var donnees = null;
     var fourn = {
@@ -334,7 +334,7 @@
     }
     function dessinerTout() {
       var r = donnees.rows;
-      if (!r.length) { ['pos', 'hist', 'tab'].forEach(function (k) { z(k).innerHTML = vide('Aucun rapport CFTC pour ' + ccy + ' dans cette catégorie.'); }); return; }
+      if (!r.length) { ['pos', 'hist', 'tab'].forEach(function (k) { z(k).innerHTML = vide('Aucun rapport COT pour ' + ccy + ' dans cette catégorie.'); }); return; }
       var l = r[r.length - 1];
       z('pos').innerHTML = '';
       K.anneau(z('pos'), l.long, l.short, { div: 1000 });
@@ -359,13 +359,13 @@
           + (tr ? '<td>' + fr(x.tl) + '</td><td>' + fr(x.ts) + '</td><td>' + fr(x.tsp) + '</td><td>' + fr(x.tt) + '</td><td class="v2a-net ' + ((x.tl - x.ts) >= 0 ? 'v2a-net-g' : 'v2a-net-r') + '">' + (x.tl != null ? sgn(x.tl - x.ts) : '-') + '</td>' : '')
           + '</tr>';
       });
-      z('tab').innerHTML = html + '</tbody></table></div><div class="v2a-pp-pied">' + esc(donnees.source || 'CFTC') + ' · ' + esc(donnees.categorie || '') + ' · ' + r.length + ' rapports</div>';
+      z('tab').innerHTML = html + '</tbody></table></div><div class="v2a-pp-pied">' + 'Rapport COT · ' + esc(donnees.categorie || '') + ' · ' + r.length + ' rapports</div>';
     }
     function charger() {
       ['pos', 'hist', 'tab'].forEach(function (k) { z(k).innerHTML = '<div class="v2a-pp-charge"><i></i><i></i><i></i></div>'; });
       histoCot(ccy, etat.type).then(function (d) {
         if (!g.isConnected) return;
-        if (!d || !d.rows) { ['pos', 'hist', 'tab'].forEach(function (k) { z(k).innerHTML = vide('Rapports CFTC indisponibles pour le moment.'); }); return; }
+        if (!d || !d.rows) { ['pos', 'hist', 'tab'].forEach(function (k) { z(k).innerHTML = vide('Rapports COT indisponibles pour le moment.'); }); return; }
         donnees = d;
         g.querySelectorAll('[data-cat-nom]').forEach(function (s) { s.textContent = d.categorie || ''; });
         dessinerTout();
@@ -394,7 +394,7 @@
     var g = poserGrille(host, 'v2a-g-sais',
       panneau('proj', 'Projection saisonnière', ctx, '', 'Ce qui s’est produit, les 15 années précédentes, sur les 54 jours qui suivent cette même date du calendrier, appliqué au dernier cours. Bandes : 68% et 95% des cas observés. Une statistique du passé, pas une prévision.')
       + panneau('projtab', 'Tableau de projection', ctx, '', 'Pour chaque horizon : part des années où la paire a monté, puis les niveaux atteints au 84e centile (haut), à la médiane et au 16e centile (bas).')
-      + panneau('heat', 'Performance mois par mois', ctx, puces('ans', [[5, '5 ans'], [10, '10 ans'], [15, '15 ans']], 5), 'Rendement de chaque mois, clôture à clôture (Yahoo Finance). « Moy. » : moyenne des années affichées.')
+      + panneau('heat', 'Performance mois par mois', ctx, puces('ans', [[5, '5 ans'], [10, '10 ans'], [15, '15 ans']], 5), 'Rendement de chaque mois, clôture à clôture. « Moy. » : moyenne des années affichées.')
       + panneau('courbes', 'Année type', ctx, '<span data-leg-courbes></span>', 'Trajectoire cumulée moyenne d’une année civile, jour par jour, sur 5, 10 et 15 ans, et l’année en cours. Trait vertical : aujourd’hui.'));
     var z = function (k) { return g.querySelector('[data-z="' + k + '"]'); };
     var D = null;
@@ -479,8 +479,8 @@
   function enrichirParticuliers(host, p) {
     var cle = p.replace('/', ''), ctx = drapeaux(p) + '[' + p + ']', pas = 'd';
     var g = poserGrille(host, 'v2a-g-dmx',
-      panneau('dmxh', 'Historique des particuliers', ctx, puces('pas', [['h', '1H'], ['d', '1J']], 'd'), 'Part des positions longues et courtes des comptes particuliers (Myfxbook). Myfxbook ne publie que l’instant présent : DTP relève lui-même un point par heure (7 jours) et par jour (120 jours).')
-      + panneau('dmxa', 'Positionnement', ctx, '', 'Nombre de positions ouvertes par les particuliers, à la dernière lecture Myfxbook.')
+      panneau('dmxh', 'Historique des particuliers', ctx, puces('pas', [['h', '1H'], ['d', '1J']], 'd'), 'Part des positions longues et courtes des comptes particuliers. La source ne publie que l’instant présent : DTP relève lui-même un point par heure (7 jours) et par jour (120 jours).')
+      + panneau('dmxa', 'Positionnement', ctx, '', 'Nombre de positions ouvertes par les particuliers, à la dernière lecture.')
       + panneau('dmxs', 'Statistiques', ctx, '', 'Positions, prix moyens d’entrée et volumes des particuliers. Lecture contrarienne : une foule très majoritairement d’un côté est un signal de positionnement, pas une consigne.'));
     var z = function (k) { return g.querySelector('[data-z="' + k + '"]'); };
     var row = null, histo = null;
@@ -495,7 +495,7 @@
         if (!g.isConnected) return;
         histo = d; el.innerHTML = '';
         var pts = (d && d.points) || [];
-        if (pts.length < 2) { el.innerHTML = vide('Historique en cours de constitution' + (d && d.depuis ? ' (relevé par DTP depuis le ' + dateFr(d.depuis) + ')' : '') + ' : il se remplit à chaque lecture Myfxbook.'); return; }
+        if (pts.length < 2) { el.innerHTML = vide('Historique en cours de constitution' + (d && d.depuis ? ' (relevé par DTP depuis le ' + dateFr(d.depuis) + ')' : '') + ' : il se remplit à chaque lecture.'); return; }
         K.barres100(el, pts, pas === 'h'
           ? { fmtX: function (t) { var x = new Date(t); return x.getUTCDate() + '/' + (x.getUTCMonth() + 1) + ' ' + x.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); }, fmtTip: function (t) { return new Date(t).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } }
           : {});
@@ -510,7 +510,7 @@
     getJson('/api/community-outlook?period=H1').then(function (d) {
       if (!g.isConnected) return;
       row = d && d.symbols && d.symbols.filter(function (s) { return s.symbol === cle; })[0];
-      if (!row) { z('dmxa').innerHTML = vide(d && d.pending ? 'Lecture Myfxbook en cours…' : 'Paire non couverte par Myfxbook.'); z('dmxs').innerHTML = vide('Indisponible.'); return; }
+      if (!row) { z('dmxa').innerHTML = vide(d && d.pending ? 'Lecture en cours…' : 'Paire non couverte.'); z('dmxs').innerHTML = vide('Indisponible.'); return; }
       z('dmxa').innerHTML = '';
       var lp = row.longPositions, sp = row.shortPositions;
       if (lp != null && sp != null) K.anneau(z('dmxa'), lp, sp, { net: false, fmt: kilo });
@@ -525,7 +525,7 @@
       if (row.last != null) lignes.push(['Cours actuel', d5(row.last), '']);
       var foule = row.longPct >= 60 ? 'La foule est nettement acheteuse (' + fr(row.longPct, 0) + '% de longs) : lecture contrarienne baissière.' : row.shortPct >= 60 ? 'La foule est nettement vendeuse (' + fr(row.shortPct, 0) + '% de shorts) : lecture contrarienne haussière.' : 'Positionnement équilibré : pas de lecture contrarienne nette.';
       z('dmxs').innerHTML = '<table class="v2a-stats">' + lignes.map(function (l, i) { return '<tr style="animation-delay:' + i * 35 + 'ms"><th>' + l[0] + '</th><td class="' + l[2] + '">' + l[1] + '</td></tr>'; }).join('') + '</table>'
-        + '<div class="v2a-pp-pied">' + foule + (d.updatedAt ? ' · Myfxbook, lu le ' + new Date(d.updatedAt).toLocaleString('fr-FR') : '') + '</div>';
+        + '<div class="v2a-pp-pied">' + foule + (d.updatedAt ? ' · lu le ' + new Date(d.updatedAt).toLocaleString('fr-FR') : '') + '</div>';
     });
   }
 

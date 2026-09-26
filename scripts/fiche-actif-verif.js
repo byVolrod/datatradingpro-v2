@@ -163,7 +163,7 @@ if (T) {
   (async () => {
     for (const s of ['BTC-USD', '^NDX', 'DX-Y.NYB', 'GC=F', '^VIX']) SERIES[s] = serie((i) => marche(i + s.length), s === 'BTC-USD');
     const p = await T._actifProfil('BTC-USD');
-    v('profil complet : 7 horizons, 4 moteurs, fourchette, tendance, volatilité, source', p && p.perf.length === 7 && p.moteurs.length === 4 && p.an && p.tendance && p.vol && /Yahoo/.test(p.source), p && JSON.stringify(Object.keys(p)));
+    v('profil complet : 7 horizons, 4 moteurs, fourchette, tendance, volatilité, source', p && p.perf.length === 7 && p.moteurs.length === 4 && p.an && p.tendance && p.vol && /calculs DTP/i.test(p.source) && !/Yahoo/.test(p.source), p && JSON.stringify(Object.keys(p)));
     const n1 = appels; await T._actifProfil('BTC-USD');
     v('second appel servi par le cache (aucune lecture Yahoo de plus)', appels === n1, (appels - n1) + ' lecture(s)');
     SERIES['SOL-USD'] = null;

@@ -242,7 +242,7 @@
     var fam = '', dernierVol = M.vol || 0.75, raf = 0;
     host.innerHTML = '<div class="v3n">'
       + '<div class="v3n-tete"><span class="v3n-nom">Neuro-ondes</span><span class="v3n-pil v3n-etat"><i></i><b>Prêt</b></span><span class="v3n-pil v3n-pil-fam" hidden></span>'
-      + '<span class="v3n-pil v3n-casque-p" title="Les battements binauraux naissent de l’écart entre les deux oreilles : ils ne s’entendent qu’au casque.">' + ICO.casque + 'Casque conseillé</span></div>'
+      + '<span class="v3n-pil v3n-casque-p" title="À écouter au casque">' + ICO.casque + 'Casque conseillé</span></div>'
       + '<div class="v3n-lecteur"><div class="v3n-titre"></div>'
       + '<div class="v3n-cmd"><button class="v3n-prec" title="Piste précédente" aria-label="Piste précédente">' + ICO.prec + '</button>'
       + '<button class="v3n-lire" title="Lecture" aria-label="Lecture">' + ICO.lire + '</button>'

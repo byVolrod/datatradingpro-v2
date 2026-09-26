@@ -6781,7 +6781,7 @@ window._retryCalendar = function() {
           + '</div>';
       }).join('');
       hostEl.innerHTML = '<div class="sym-bz-grid">' + colHtml + '</div>'
-        + '<div class="sym-src">Source : Radar de Biais (matrice multi-indicateurs · COT, Myfxbook, calendrier, saisonnalité, rapports banques). Narratif IA figé chaque semaine.</div>';
+        + '<div class="sym-src">Source : Radar de Biais DTP (matrice multi-indicateurs · COT, sentiment des particuliers, calendrier, saisonnalité, rapports banques). Narratif IA figé chaque semaine.</div>';
     };
     if (_cBias) { go(_cBias); return; }
     fetch('/api/smart-bias').then(r => r.json()).then(d => { if (d && d.currencies) _cBias = d; go(d); }).catch(() => { hostEl.innerHTML = '<div class="sym-empty">Radar de Biais indisponible.</div>'; });
@@ -6790,11 +6790,11 @@ window._retryCalendar = function() {
   // ── COT (CFTC) : positionnement non-commercial de la devise (base ou quote) ──
   function renderCot(hostId, ccy, pair, role) {
     const hostEl = document.getElementById(hostId); if (!hostEl) return;
-    hostEl.innerHTML = '<div class="sym-load">Chargement COT (CFTC)…</div>';
+    hostEl.innerHTML = '<div class="sym-load">Chargement du COT…</div>';
     const go = d => {
       const arr = (d && d.currencies) || [];
       const row = arr.find(x => x.key === ccy);
-      if (!row) { hostEl.innerHTML = '<div class="sym-empty">Données COT (CFTC) indisponibles pour ' + ccy + '.</div>'; return; }
+      if (!row) { hostEl.innerHTML = '<div class="sym-empty">Données COT indisponibles pour ' + ccy + '.</div>'; return; }
       const lp = Math.round(row.longPct || 0), sp = Math.round(row.shortPct || 0);
       const sent = row.sentiment || 'Neutral';
       const sCls = /bull/i.test(sent) ? 'g' : /bear/i.test(sent) ? 'r' : 'n';
@@ -6810,9 +6810,9 @@ window._retryCalendar = function() {
         + '<div><span class="sym-cot-k">Position nette</span><span class="sym-cot-v ' + ((row.net || 0) >= 0 ? 'g' : 'r') + '">' + ((row.net || 0) >= 0 ? '+' : '') + _nf(row.net) + '</span></div>'
         + '<div><span class="sym-cot-k">Contrats longs</span><span class="sym-cot-v">' + _nf(row.longPos) + '</span></div>'
         + '<div><span class="sym-cot-k">Contrats shorts</span><span class="sym-cot-v">' + _nf(row.shortPos) + '</span></div>'
-        + '<div><span class="sym-cot-k">Rapport CFTC</span><span class="sym-cot-v" style="font-size:12px">' + rd + '</span></div>'
+        + '<div><span class="sym-cot-k">Rapport COT</span><span class="sym-cot-v" style="font-size:12px">' + rd + '</span></div>'
         + '</div>'
-        + '<div class="sym-src">Source : CFTC Commitments of Traders : Legacy Futures, traders non-commerciaux (spéculateurs)' + (d.updatedAt ? ' · MAJ ' + new Date(d.updatedAt).toLocaleString('fr-FR') : '') + '.</div>'
+        + '<div class="sym-src">Rapport COT hebdomadaire : traders non-commerciaux (spéculateurs)' + (d.updatedAt ? ' · MAJ ' + new Date(d.updatedAt).toLocaleString('fr-FR') : '') + '.</div>'
         + '</div>';
     };
     if (_cCot) { go(_cCot); return; }
@@ -6848,7 +6848,7 @@ window._retryCalendar = function() {
         + '<svg viewBox="0 0 ' + W + ' ' + H + '" class="sym-seas-svg" preserveAspectRatio="xMidYMid meet">'
         + '<line x1="' + P + '" y1="' + y0.toFixed(1) + '" x2="' + (W - P) + '" y2="' + y0.toFixed(1) + '" stroke="#2a2a30" stroke-width="1"/>'
         + bars + '</svg>'
-        + '<div class="sym-src">Mois courant en surbrillance orange. Source : rendements mensuels Yahoo Finance moyennés sur 3 ans (vert = mois historiquement haussier, rouge = baissier).</div>'
+        + '<div class="sym-src">Mois courant en surbrillance orange. Rendements mensuels moyennés sur 3 ans (vert = mois historiquement haussier, rouge = baissier).</div>'
         + '</div>';
     };
     if (_cFx) { go(_cFx); return; }
@@ -6872,7 +6872,7 @@ window._retryCalendar = function() {
         + '<div class="sym-rt-bar"><i class="sym-rt-long" style="width:' + lp + '%"></i><i class="sym-rt-short" style="width:' + sp + '%"></i></div>'
         + '<div class="sym-rt-lbls"><span class="g">Long ' + lp + '%</span><span class="r">Short ' + sp + '%</span></div>'
         + '<div class="sym-rt-note">La majorité des traders particuliers est positionnée <b>' + lean + '</b> → lecture contrarian : biais <b class="' + (contra === 'Bullish' ? 'g' : 'r') + '">' + (contra === 'Bullish' ? 'Haussier' : 'Baissier') + '</b>.</div>'
-        + '<div class="sym-src">Source : Myfxbook Community Outlook (positions réelles des comptes particuliers)' + (d.updatedAt ? ' · MAJ ' + new Date(d.updatedAt).toLocaleString('fr-FR') : '') + '.</div>'
+        + '<div class="sym-src">Positions réelles des comptes particuliers' + (d.updatedAt ? ' · MAJ ' + new Date(d.updatedAt).toLocaleString('fr-FR') : '') + '.</div>'
         + '</div>';
     };
     if (_cRetail) { go(_cRetail); return; }

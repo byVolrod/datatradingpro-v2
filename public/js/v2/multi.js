@@ -95,7 +95,7 @@
       id: 'v3-multi', name: 'Multi-actifs', court: 'Actifs', tag: 'MARCHÉS', cat: 'Marché', h: 420,
       desc: 'Métaux, énergie, indices, crypto, taux et volatilité : prix, variation, courbe et range du jour.',
       aide: '<p>Une grille de cotations pour les traders qui ne sont pas que sur le forex : or, argent, platine, palladium et cuivre ; pétrole et gaz ; grands indices ; Bitcoin, Ethereum, Solana et XRP ; courbe des taux américaine, dollar index et VIX.</p><p>Chaque ligne donne le dernier prix, la variation depuis la clôture précédente (en points de base pour un rendement), la courbe de la séance et la position du prix dans son range du jour : un repère collé au plus haut dit un marché qui termine fort.</p>',
-      src: 'Cotations Yahoo Finance (contrats à terme pour les matières premières, indices au comptant, paires crypto en dollar), relues toutes les 90 secondes, différées selon les places.',
+      src: 'Contrats à terme pour les matières premières, indices au comptant, paires crypto en dollar, relus toutes les 90 secondes, différées selon les places.',
       watch: 'Or et dollar qui montent ensemble (aversion au risque), cuivre contre or (croissance), et le VIX quand il dépasse 20.',
       // Vignette de la bibliothèque (120×56) : ce que la carte montre vraiment.
       apercu: '<svg viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"><g font-family="monospace" font-size="6" fill="#9aa1ac"><text x="6" y="12">XAU</text><text x="6" y="25">WTI</text><text x="6" y="38">BTC</text><text x="6" y="51">VIX</text></g>'

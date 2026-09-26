@@ -148,11 +148,12 @@ console.log('\n[3] Les trois états, exécutés');
 
     /* LA RAISON DU SERVEUR PREND LE PAS SUR LA PHRASE GÉNÉRIQUE. C'est tout l'intérêt : « en
        attente » ne se répare pas, « identifiants absents sur le serveur » se répare en une ligne. */
-    const r = jouer({ symbols: [], raison: { cle: 'identifiants-absents', texte: 'Identifiants Myfxbook absents sur le serveur (MFB_EMAIL / MFB_PASS).' } });
-    t('la raison donnée par le serveur est affichée', /Identifiants Myfxbook absents/.test(r.html),
+    // Phrase NEUTRE depuis le 26/09 : le serveur ne nomme plus la source aux clients (cf. _dmxRaison).
+    const r = jouer({ symbols: [], raison: { cle: 'identifiants-absents', texte: 'Positionnement momentanément indisponible, nouvel essai automatique.' } });
+    t('la raison donnée par le serveur est affichée', /momentanément indisponible/.test(r.html),
       JSON.stringify(r.html.slice(0, 90)));
-    const r2 = jouer({ pending: true, raison: { cle: 'navigateur-indisponible', texte: 'Navigateur de récupération indisponible sur le serveur.' } });
-    t('… y compris pendant une attente', /Navigateur de récupération indisponible/.test(r2.html),
+    const r2 = jouer({ pending: true, raison: { cle: 'navigateur-indisponible', texte: 'Positionnement momentanément indisponible, nouvel essai automatique.' } });
+    t('… y compris pendant une attente', /momentanément indisponible/.test(r2.html),
       JSON.stringify(r2.html.slice(0, 120)));
 
     /* TÉMOIN INVERSE : des données réelles ne doivent déclencher NI message NI relance — sinon le

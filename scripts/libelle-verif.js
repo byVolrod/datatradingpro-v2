@@ -106,8 +106,10 @@ t('la rangée affiche le libellé court', /var lbl = labels\[i\] \|\| \(w \? \(w
   'la rangée retomberait sur le nom complet : la demande ne serait pas honorée');
 t('un libellé posé à la main reste prioritaire', /var lbl = labels\[i\] \|\|/.test(W),
   'renommer un onglet soi-même doit toujours l\'emporter');
-t('TÉMOIN — l\'infobulle donne toujours le nom COMPLET', /var ttl = w \? \(w\.name \+ ' : double-clic/.test(W),
-  'la rangée dit vite, le survol doit dire tout');
+// L'infobulle est COURTE depuis le 26/09 (demande user « la description est trop longue ») : le nom
+// complet, rien d'autre — plus de « : double-clic pour renommer » répété à chaque survol.
+t('TÉMOIN — l\'infobulle donne toujours le nom COMPLET', /var ttl = w \? w\.name :/.test(W),
+  'la rangée dit vite, le survol doit dire le nom entier');
 
 console.log('\n[Libellés] ' + ok + ' contrôle(s) vert(s), ' + ko + ' rouge(s).\n');
 process.exit(ko ? 1 : 0);

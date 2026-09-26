@@ -54,7 +54,9 @@ console.log('\n── 2. Historique COT : par devise, USD dérivé seulement qua
   const h = COT._histoDepuisLignes(rows, cfg);
   v('EUR : deux rapports, dans l\'ordre, avec la position nette', h.EUR.length === 2 && h.EUR[0].date === '2026-09-08' && h.EUR[0].net === 20 && h.EUR[1].net === 50, JSON.stringify(h.EUR));
   v('USD dérivé = agrégat inverse des six autres, le 15/09 seulement', h.USD && h.USD.length === 1 && h.USD[0].date === '2026-09-15' && h.USD[0].long === 350 && h.USD[0].short === 721, JSON.stringify(h.USD));
-  v('la lecture CFTC est plafonnée à 15 ans et gardée 12 h', /Math\.min\(780,/.test(fs.readFileSync(path.join(R, 'scrapers/cot.js'), 'utf8')) && /Date\.now\(\) - _histo\[k\]\.ts < 12 \* 3600e3/.test(fs.readFileSync(path.join(R, 'scrapers/cot.js'), 'utf8')));
+  // 26/09 : 12 h quand l'historique porte le dernier rapport paru, 15 min (RELANCE) tant qu'il est en retard
+  // sur le rapport attendu — le COT arrive dès sa publication du vendredi (cf. cot-frais-verif).
+  v('la lecture CFTC est plafonnée à 15 ans, gardée 12 h si à jour, relue vite si en retard', /Math\.min\(780,/.test(fs.readFileSync(path.join(R, 'scrapers/cot.js'), 'utf8')) && /Date\.now\(\) - _histo\[k\]\.ts < \(_histoDernier\(_histo\[k\]\.data\) >= rapportAttendu\(\) \? 12 \* 3600e3 : RELANCE\)/.test(fs.readFileSync(path.join(R, 'scrapers/cot.js'), 'utf8')));
 }
 
 console.log('\n── 2 bis. Tableau COT complet : colonnes en plus, jamais au prix de l\'historique ──');

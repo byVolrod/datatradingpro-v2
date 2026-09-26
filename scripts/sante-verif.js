@@ -23,8 +23,14 @@ const a = SRV.indexOf('function _santeEtat('), b = SRV.indexOf("app.get('/api/ad
 v('l\'agrégateur est extractible de server.js', a > 0 && b > a);
 if (!(a > 0 && b > a)) { console.log('\n✗ banc interrompu\n'); process.exit(1); }
 const SRC = SRV.slice(a, b);
-const NOMS = ['allNews', 'allCalendar', '_calFetchedAt', '_rpCache', 'RP_MAP', '_wtCache', '_fedWatch', '_rbaWatch', 'fetchCOTData', 'outlookTs', '_riskTs', '_riskData', '_csCache', '_fxlTs', '_fxlCache', '_fcEtat'];
-const monter = e => new Function(...NOMS, SRC + '\nreturn _santeDonnees;')(...NOMS.map(n => e[n]));
+const NOMS = ['allNews', 'allCalendar', '_calFetchedAt', '_rpCache', 'RP_MAP', '_wtCache', '_fedWatch', '_rbaWatch', 'fetchCOTData', 'outlookTs', '_riskTs', '_riskData', '_csCache', '_fxlTs', '_fxlCache', '_fcEtat', 'cotRapportAttendu', '_cotDernierRapport'];
+// Les deux fonctions de date du COT sont les VRAIES (scrapers/cot.js), pas des doublures.
+const COT = require(path.join(R, 'scrapers/cot.js'));
+const monter = e => new Function(...NOMS, SRC + '\nreturn _santeDonnees;')(...NOMS.map(n => e[n] !== undefined ? e[n] : ({ cotRapportAttendu: COT.rapportAttendu, _cotDernierRapport: COT._dernierRapport })[n]));
+// ⚠️ LE FORMAT RÉEL DE LA CFTC (26/09) : « 2026-09-15T00:00:00.000 », jamais « 2026-09-15 ». La
+// fixture d'origine portait la forme courte : le banc était vert pendant que la vraie sonde affichait
+// « Indisponible · jamais lue » et « rapport du 22T00:00:00.000/09/2026 ».
+const cotRapport = d => async () => [{ key: 'EUR', reportDate: d + 'T00:00:00.000' }, { key: 'USD', reportDate: d + 'T00:00:00.000', derived: true }];
 
 const H = 3600e3, MERCREDI = Date.UTC(2026, 8, 23, 12), SAMEDI = Date.UTC(2026, 8, 26, 12);
 const base = now => ({
@@ -32,7 +38,7 @@ const base = now => ({
   _rpCache: { bankAt: { USD: now - H, EUR: now - H, GBP: now - H, JPY: now - H, CAD: now - H, AUD: now - H } },
   RP_MAP: { USD: 1, EUR: 1, GBP: 1, JPY: 1, CAD: 1, AUD: 1 },
   _wtCache: { at: now - 2 * H, banks: { CHF: {}, NZD: {} } }, _fedWatch: { at: now - H, meeting: '2026-10-28' }, _rbaWatch: { at: now - H, meeting: '2026-09-29' },
-  fetchCOTData: async () => [{ reportDate: '2026-09-15' }], outlookTs: () => now - 30 * 60e3,
+  fetchCOTData: cotRapport('2026-09-15'), outlookTs: () => now - 30 * 60e3,
   _riskTs: now - 60e3, _riskData: { label: 'NEUTRAL', assets: [1, 2] }, _csCache: { today: { ts: now - 60e3 } }, _fxlTs: now - 60e3, _fxlCache: {},
   _fcEtat: () => ({ pose: true, capJour: 40, n: 5, okAt: now - H, err: '' }),
 });
@@ -74,6 +80,27 @@ const etat = (r, nom) => (r.sources.find(x => x.nom.startsWith(nom)) || {}).etat
     v('budget Firecrawl épuisé → dégradé (pas indisponible)', etat(await monter(e2)(MERCREDI), 'Firecrawl') === 'degrade');
     const e3 = base(MERCREDI); e3.fetchCOTData = async () => { throw new Error('réseau'); };
     v('une erreur de lecture du COT ne fait pas tomber tout le rapport', etat(await monter(e3)(MERCREDI), 'COT') === 'panne');
+  }
+  console.log('\n── 3 bis. COT : jugé contre le rapport ATTENDU, au format réel de la CFTC ──');
+  {
+    const ligne = r => r.sources.find(x => x.nom.startsWith('COT')) || {};
+    const r1 = await monter(base(MERCREDI))(MERCREDI);
+    v('mercredi 23/09, rapport du 15/09 (le dernier paru) → à jour', ligne(r1).etat === 'ok', JSON.stringify(ligne(r1)));
+    v('… son âge est un nombre (jamais « jamais lue »)', Number.isFinite(ligne(r1).age) && ligne(r1).age > 0, String(ligne(r1).age));
+    v('… et sa date se lit « 15/09/2026 »', /rapport du 15\/09\/2026$/.test(ligne(r1).detail), ligne(r1).detail);
+    v('TÉMOIN — aucune date ne porte plus « T00:00 »', r1.sources.every(x => !/T\d\d:\d\d/.test(x.detail)), ligne(r1).detail);
+    const r2 = await monter(base(SAMEDI))(SAMEDI);
+    v('samedi 26/09, toujours le 15/09 alors que le 22/09 est paru → en retard, et il le DIT', ligne(r2).etat === 'degrade' && /attendu : 22\/09\/2026/.test(ligne(r2).detail), JSON.stringify(ligne(r2)));
+    const e3 = base(SAMEDI); e3.fetchCOTData = cotRapport('2026-09-22');
+    const r3 = await monter(e3)(SAMEDI);
+    v('samedi 26/09 avec le rapport du 22/09 → à jour, sans « attendu »', ligne(r3).etat === 'ok' && !/attendu/.test(ligne(r3).detail), JSON.stringify(ligne(r3)));
+    const e4 = base(SAMEDI); e4.fetchCOTData = cotRapport('2026-09-01');
+    v('trois semaines de retard → indisponible', ligne(await monter(e4)(SAMEDI)).etat === 'panne');
+    const VEN_AVANT = Date.UTC(2026, 8, 25, 19, 0), VEN_APRES = Date.UTC(2026, 8, 25, 19, 45);
+    const e5 = base(VEN_AVANT); e5.fetchCOTData = cotRapport('2026-09-15');
+    v('vendredi 15 h 00 à New York, le 15/09 est encore le dernier → à jour', ligne(await monter(e5)(VEN_AVANT)).etat === 'ok');
+    const e6 = base(VEN_APRES); e6.fetchCOTData = cotRapport('2026-09-15');
+    v('vendredi 15 h 45 à New York, le 22/09 est paru → le 15/09 passe en retard', ligne(await monter(e6)(VEN_APRES)).etat === 'degrade');
   }
   console.log('\n── 4. Branché et réservé à l\'admin ──');
   v('la route est derrière requireAdmin', /app\.get\('\/api\/admin\/data-health', requireAdmin/.test(SRV));

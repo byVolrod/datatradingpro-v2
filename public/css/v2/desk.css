@@ -85,7 +85,15 @@
   html.dtp-v2 .wdgt-bar.v3-serre .wdgt-tab:not(.on):has(.wdgt-tico) { padding: 0 11px; }
   html.dtp-v2 .wdg-set-noms { display: flex; gap: 6px; flex-wrap: wrap; }
   html.dtp-v2 .wdg-card--tabs.v3-2lignes .wdgt-bar { width: 100%; margin-top: var(--wdgt-head-h, 34px); padding-left: 4px; }
-  html.dtp-v2 .wdgt-bar.v3-retour { flex-wrap: wrap; }
+  /* Flèches de défilement (26/09) : collées aux bords (sticky), fondues dans le fond de la barre,
+     visibles seulement du côté où des onglets sont cachés. */
+  html.dtp-v2 .wdgt-bar .v3-fl { display: none; }
+  html.dtp-v2 .wdgt-bar.v3-defile .v3-fl { position: sticky; z-index: 3; flex: 0 0 26px; align-self: stretch; border: 0; padding: 0; cursor: pointer; color: var(--v3-doux, #a1a1aa); align-items: center; justify-content: center; }
+  html.dtp-v2 .wdgt-bar.v3-defile .v3-fl svg { width: 15px; height: 15px; }
+  html.dtp-v2 .wdgt-bar.v3-defile .v3-fl:hover { color: var(--v3-or-texte, #e3b23a); }
+  html.dtp-v2 .wdgt-bar.v3-defile .v3-fl--g { left: 0; margin-right: -26px; background: linear-gradient(90deg, var(--v3-tete, #0e0e11) 62%, transparent); justify-content: flex-start; padding-left: 3px; }
+  html.dtp-v2 .wdgt-bar.v3-defile .v3-fl--d { right: 0; margin-left: -26px; background: linear-gradient(270deg, var(--v3-tete, #0e0e11) 62%, transparent); justify-content: flex-end; padding-right: 3px; }
+  html.dtp-v2 .wdgt-bar.v3-defile.v3-fl-g .v3-fl--g, html.dtp-v2 .wdgt-bar.v3-defile.v3-fl-d .v3-fl--d { display: flex; }
   html.dtp-v2 .wdgt-bar.v3-defile { overflow-x: auto; scrollbar-width: none; }
   html.dtp-v2 .wdgt-bar.v3-defile::-webkit-scrollbar { display: none; }
   html.dtp-v2 .wdg-card--tabs .wdgt-tab, html.dtp-v2 .wdg-card--tabs .wdgt-add { min-height: 32px; }

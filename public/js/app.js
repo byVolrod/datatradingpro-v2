@@ -2331,7 +2331,7 @@ function generateReactionNarrative(item) {
   if (cat === 'Fed' || /\bfed\b|fomc|powell|federal reserve/.test(t)) {
     if (/hawkish|higher for longer|not cut|no cut|pause|persistent|resilient|inflation concern/.test(all)) {
       paras.push('Fed hawkish rhetoric : front-end US yields repricing higher as rate cut expectations are pushed back. DXY bid across the board; EUR/USD and GBP/USD face renewed selling pressure.');
-      paras.push('Watch: DXY (bullish), USD/JPY (upside), Gold (near-term bearish), US 2Y yields (higher). Monitor CME FedWatch for cut probability shifts : rate-sensitive sectors (tech, utilities) likely under pressure.');
+      paras.push('Watch: DXY (bullish), USD/JPY (upside), Gold (near-term bearish), US 2Y yields (higher). Monitor fed funds futures pricing for cut probability shifts : rate-sensitive sectors (tech, utilities) likely under pressure.');
     } else if (/dovish|cut|eas|pivot|slow|cooling|below target|confident|progress/.test(all)) {
       paras.push('Fed dovish signal : USD offered as rate cut expectations gain traction. EUR/USD and GBP/USD catching bid; Gold breaking higher as real yields compress.');
       paras.push('Watch: DXY (bearish), EUR/USD (bullish), Gold (bullish), Nasdaq (risk-on). US 2Y yields dropping : monitor the 2Y/10Y spread. Bitcoin may also benefit from the liquidity easing signal.');
@@ -2367,7 +2367,7 @@ function generateReactionNarrative(item) {
   if (/\bnfp\b|nonfarm payroll|non.?farm payroll/.test(t)) {
     if (/above|beat|strong|surge|jump|better/.test(all)) {
       paras.push('NFP beat : strong labour market reinforces the Fed\'s higher-for-longer stance. DXY surging, USD/JPY pressing higher. Gold selling off as rate cut pricing is aggressively unwound.');
-      paras.push('Watch: DXY (bullish), USD/JPY (bullish), Gold (bearish near-term), US 2Y yields (spike). CME FedWatch cut probability will drop sharply : monitor EUR/USD support levels for the next leg.');
+      paras.push('Watch: DXY (bullish), USD/JPY (bullish), Gold (bearish near-term), US 2Y yields (spike). Fed funds futures cut probability will drop sharply : monitor EUR/USD support levels for the next leg.');
     } else if (/below|miss|weak|drop|fall|worse/.test(all)) {
       paras.push('NFP miss : weak jobs data revives Fed cut expectations. USD selling off; EUR/USD and GBP/USD catching a strong bid. Gold rallying as the market reprices a more aggressive easing cycle.');
       paras.push('Watch: DXY (bearish), EUR/USD (bullish), Gold (bullish), US 10Y yields (falling). Equities may initially rally on cut optimism before underlying growth concerns take over : watch the tone.');
@@ -4430,7 +4430,7 @@ function buildNewsItem(item) {
       // tag qu'on vient de cliquer et l'heure est rappelée sous le graphique — la ligne répétait
       // deux informations déjà présentes de part et d'autre.
       expandEl.innerHTML = '<div class="nrx">'
-        + '<div class="nrx-lwc" id="' + _gid + '" title="Bougies du contrat à terme, seule cotation offrant de vraies bougies à la minute sur le change. Flux différé d\u2019environ dix minutes : le graphique se complète tant qu\u2019il reste ouvert.">'
+        + '<div class="nrx-lwc" id="' + _gid + '" title="Contrat à terme · différé d\u2019env. 10 min">'
         +   dtpLoader('Chargement du graphique…', { small: true }) + '</div>'
         // La phrase fixe vit dans son propre élément : le dictionnaire est indexé par CHAÎNE
         // EXACTE, donc une phrase où l'on incruste une date ne serait jamais traduite.
@@ -10708,6 +10708,12 @@ function _renderWeeklyRecap(item) {
            rubrique inventée sur un rapport qui n a pas été produit pour ça. */
         const _rubOK = Array.isArray(cd.rubriquesVides);
         const _rien = '<div class="wr-text wr-rien">Aucune publication cette semaine.</div>';
+        /* UNE RUBRIQUE VIDE SE DIT D'UNE SEULE FAÇON (26/09, capture : sous INFLATION, « → Aucune donnée
+           d'inflation spécifique au NZD publiée cette semaine. » en lecture dorée, quand EMPLOI et
+           CROISSANCE disent sobrement « Aucune publication cette semaine. »). Une prose qui ne dit QUE
+           « rien n'a été publié », sans aucun chiffre de la semaine, est la phrase sobre. Même règle dans
+           l'e-mail (mailer.js, _ditRien). Une vraie lecture de l'inflation, elle, reste affichée. */
+        const _ditRien = t => { const x = String(t || '').replace(/^[\s→>*•-]+/, '').trim(); return x.length > 0 && x.length < 220 && /^(?:aucun(?:e)?\b|pas de\b|pas d['’]|il n['’]y a (?:eu )?(?:aucun|pas)|rien n['’]a)/i.test(x) && /(publi|donnée|chiffre|statistique|indicateur|parution)/i.test(x); };
         // 1) Banque centrale — prose IA + décision de la semaine + 1 puce PAR INTERVENANT + pricing marché.
         if (cd.monetaryPolicy || cbBullets.length || cd.pricing || _rubOK) {
           // Rubrique nommée d'après LA banque de la devise (« Fed / Pricing », « BoE / Pricing »…),
@@ -10744,9 +10750,10 @@ function _renderWeeklyRecap(item) {
         // 2) Inflation — prose IA + 1 puce PAR PRINT de la semaine (réel vs attendu vs précédent, déterministe).
         if (cd.inflation || infPrints.length || _rubOK) {
           body += `<div class="wr-macro-heading">Inflation</div>`;
-          if (cd.inflation) body += _wrLecture(cd.inflation);
+          const _infRien = !infPrints.length && (!cd.inflation || _ditRien(cd.inflation));
+          if (cd.inflation && !_infRien) body += _wrLecture(cd.inflation);
           infPrints.forEach(p => { body += printRow(p); });
-          if (!cd.inflation && !infPrints.length) body += _rien;
+          if (_infRien) body += _rien;
         }
         // 3) Emploi — prints de la semaine, déterministe (v42 : rubrique séparée de la croissance).
         if (empPrints.length || _rubOK) {
@@ -15182,7 +15189,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
        silencieusement inerte quand le caractère NUL devenait U+FFFD. */
     const _lbl = _jrCompte ? _jrDisp('account', _jrCompte) : 'Tous les comptes';
     host.innerHTML =
-      '<button type="button" class="jr-cpt-sel' + (_jrCompte ? ' jr-cpt-sel--on' : '') + '" id="jr-cpt-sel" title="Le compte commande tout l’écran : trades, statistiques, tableau de bord et annuel.">'
+      '<button type="button" class="jr-cpt-sel' + (_jrCompte ? ' jr-cpt-sel--on' : '') + '" id="jr-cpt-sel" title="Compte affiché partout">'
       + '<span class="jr-cpt-lbl">' + _esc(_lbl) + '</span><span class="jr-cpt-chev">▾</span></button>'
       /* ⚠️ « NOUVEAU COMPTE » EST UN BOUTON, PAS UNE OPTION DU MENU, et ce n'est pas un choix
          d'ergonomie. Une option-sentinelle demande une valeur qui ne puisse être le nom d'aucun
@@ -15191,7 +15198,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
          menu aurait été silencieusement inerte, sans la moindre erreur en console. Un bouton n'a
          pas d'espace de noms à partager avec les données. */
       + '<button type="button" class="jr-cpt-neuf-b" id="jr-cpt-plus" title="Créer un compte">+</button>'
-      + (vide ? '<button type="button" class="jr-cpt-x" id="jr-cpt-x" title="Retirer ce compte de la liste (il ne porte aucun trade)">×</button>' : '');
+      + (vide ? '<button type="button" class="jr-cpt-x" id="jr-cpt-x" title="Retirer ce compte">×</button>' : '');
     const sel = document.getElementById('jr-cpt-sel');
     if (sel) sel.onclick = () => {
       const pop = _jrOpenPop(sel,
@@ -15469,10 +15476,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const host = document.getElementById('jr-toolbar'); if (!host) return;
     host.innerHTML =
       '<button type="button" class="jr-tb-btn jr-tb-btn--add" id="jr-add">+ Nouveau</button>'
-      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : vos colonnes deviennent VOTRE journal">↑ Importer</button>'
+      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer Notion ou CSV">↑ Importer</button>'
       + '<input type="file" id="jr-import-file" accept=".zip,.csv,.tsv,.txt,application/zip,application/x-zip-compressed,text/csv,text/tab-separated-values" style="display:none">'
       + '<button type="button" class="jr-tb-btn" id="jr-props" title="Afficher / masquer des propriétés">⚙ Propriétés</button>'
-      + '<button type="button" class="jr-tb-btn" id="jr-export" title="Telecharger votre journal en CSV (ré-importable ici, lisible dans Excel)">↓ Exporter</button>'
+      + '<button type="button" class="jr-tb-btn" id="jr-export" title="Télécharger en CSV">↓ Exporter</button>'
       + '<span class="jr-tb-spacer"></span>'
       // L'indicateur porte desormais son EXPLICATION : « ○ Gabarit DTP » ne disait a personne ce
       // qu'il fallait en comprendre. Le titre dit ce que le mode change concretement.
@@ -15554,7 +15561,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + '<div class="jr-empty-sub">Consignez votre premier trade ou importez votre journal existant : statistiques, courbe de performance et tableau de bord se construisent automatiquement.</div>'
         + '<div class="jr-empty-actions">'
         + '<button type="button" class="jr-tb-btn jr-tb-btn--add jr-addrow">+ Ajouter un trade</button>'
-        + '<button type="button" class="jr-tb-btn" id="jr-empty-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : vos colonnes deviennent votre journal">↑ Importer (Notion / CSV)</button>'
+        + '<button type="button" class="jr-tb-btn" id="jr-empty-import" title="Importer Notion ou CSV">↑ Importer (Notion / CSV)</button>'
         + '</div></div></td></tr></tbody>';
       const ei = document.getElementById('jr-empty-import');
       if (ei) ei.onclick = () => { const f = document.getElementById('jr-import-file'); if (f) f.click(); };

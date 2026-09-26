@@ -24,7 +24,7 @@ const _WA = require('./walabels');    // titres, gloses FR et descriptions des c
 const _SEA = require('./seance');     // récap de séance fabriqué par le desk : fenêtres, écarts, familles (pur + testé : scripts/seance-verif.js)
 const _WSEG = require('./wrapseg');   // mise en page du rapport de séance segmenté : rubriques, Macro complétée par notre calendrier (pur + testé)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
-const { fetchCOTData, fetchCOTHistory } = require('./scrapers/cot');
+const { fetchCOTData, fetchCOTHistory, rapportAttendu: cotRapportAttendu, _dernierRapport: _cotDernierRapport } = require('./scrapers/cot');
 const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs, outlookDiag, identifiantsPresents } = require('./scrapers/myfxbook');
 const auth = require('./auth');
 const mailer = require('./mailer');   // emails (bienvenue, renouvellement, reset)
@@ -1393,6 +1393,9 @@ function _npCleanCfg(b) {
 // (id stable 'dtpu-AAAAMMJJ-slug', ts = date du déploiement, ton annonce produit, zéro jargon).
 // Le client les injecte en silence dans l'onglet DTP des alertes (fenêtre de fraîcheur 7 j côté panneau).
 const DTP_UPDATES = [
+  { id: 'dtpu-20260926-cot-vendredi', ts: Date.UTC(2026, 8, 26, 13, 29), title: 'COT : le nouveau rapport arrive dès sa publication', desc: 'Le rapport COT hebdomadaire paraît le vendredi soir (heure de Paris) avec les positions arrêtées au mardi. Le desk pouvait le relire plusieurs heures après sa parution. Il sait désormais quel rapport doit être paru à chaque instant et le relit dans le quart d’heure qui suit sa publication, y compris quand elle est décalée. Si la source ne répond pas, vous gardez le dernier rapport connu, toujours daté, au lieu d’un widget vide.' },
+  { id: 'dtpu-20260926-infobulles-courtes', ts: Date.UTC(2026, 8, 26, 13, 15), title: 'Infobulles plus courtes sur le desk', desc: 'Au survol, les petites bulles d’information du desk disaient parfois une phrase entière (« Sessions de marché : double-clic pour renommer »). Elles tiennent désormais en quelques mots : le nom de l’onglet, l’action du bouton, l’essentiel d’une valeur. Le double-clic pour renommer un onglet fonctionne toujours.' },
+  { id: 'dtpu-20260926-recap-rubriques', ts: Date.UTC(2026, 8, 26, 13, 9), title: 'Récap hebdo : les rubriques sans publication se lisent toutes pareil', desc: 'Dans le récap hebdo, une devise sans chiffre d’inflation publié dans la semaine affichait sous « Inflation » une phrase différente de celle des rubriques Emploi et Croissance économique. Les trois disent désormais la même chose, « Aucune publication cette semaine. », sur le desk comme dans l’e-mail, pour une lecture alignée d’une devise à l’autre.' },
   { id: 'dtpu-20260926-volet-analystes', ts: Date.UTC(2026, 8, 26, 12, 32), title: 'Volet profil remis en ordre, et l’onglet Analystes complet dès l’ouverture', desc: 'Dans le volet de votre profil, les rubriques Abonnement, Parrainages et Support étaient repoussées tout en bas, sous un grand vide, et le bouton Déconnexion s’affichait en bas du desk au lieu du volet. Tout est de nouveau à sa place : les rubriques se suivent et Déconnexion reste au pied du volet. Dans l’onglet Analystes, les récaps hebdo apparaissaient parfois quelques secondes après le reste de la liste : les rapports sont désormais préparés dès l’arrivée sur le desk, et la liste s’affiche d’un seul coup, récaps hebdo compris.' },
   { id: 'dtpu-20260926-notifs-coherentes', ts: Date.UTC(2026, 8, 26, 9, 6), title: 'Notifications : le nom exact du rapport, et un toucher qui l’ouvre', desc: 'Les notifications de l’onglet Analystes portent désormais exactement le nom du rapport tel qu’il apparaît dans la liste : Récap Quotidien, Récap Hebdo des Marchés, Récap Éco des Marchés, et pour les récaps de séance, la séance elle-même (Récap Séance Asie-Pacifique, Londres ou New York). Un récap de séance attend son titre français avant de sonner, au lieu d’un texte générique. Toucher la notification ouvre ce rapport, même s’il vient tout juste de paraître. Dans le mail du Récap Hebdo, les courbes de force de chaque devise sont plus légères, pour s’afficher sur téléphone.' },
   { id: 'dtpu-20260926-titres-hebdo', ts: Date.UTC(2026, 8, 26, 6, 48), title: 'Récaps hebdo : des titres entièrement en français', desc: 'Dans l’onglet Analystes, le titre du récap hebdo des marchés et celui du récap éco pouvaient garder une partie en anglais : le sujet de la semaine ou l’intitulé d’un événement, et la semaine couverte (« Week of 21–25 September »). Ils s’affichent désormais en français, y compris pour les récaps déjà publiés.' },
@@ -12644,7 +12647,10 @@ function _dmxRaison() {
     const d = (typeof outlookDiag === 'function') ? outlookDiag() : null;
     const cle = d && d.raison;
     if (!cle) return undefined;
-    return { cle, texte: _DMX_RAISONS[cle] || 'Positionnement indisponible.' };
+    // AUX CLIENTS, UNE PHRASE NEUTRE (26/09, demande user : « cache les sources, ne les montre jamais,
+    // sinon les clients peuvent recopier »). La cause technique, qui nomme la source et les variables
+    // du serveur, reste au panneau admin (`explication` de /api/admin/dmx, lue dans _DMX_RAISONS).
+    return { cle, texte: cle === 'source-vide' ? 'Aucun positionnement publié pour le moment.' : 'Positionnement momentanément indisponible, nouvel essai automatique.' };
   } catch (e) { return undefined; }
 }
 
@@ -26119,24 +26125,28 @@ void _checkReengagement;
 //   setInterval(_checkReengagement, 12 * 60 * 60 * 1000);   // puis toutes les 12 h
 // })();
 
-// COT — check for new weekly data every 6 h, broadcast on change
-let _lastCotHash = '';
+/* COT — LE NOUVEAU RAPPORT ARRIVE DANS LE QUART D'HEURE DE SA PUBLICATION (26/09, demande user : « que
+   le COT soit bien à jour en temps réel, c'est important »). Passage toutes les 10 min : il ne coûte
+   AUCUNE requête tant que le rapport en main est le dernier paru (cache de 6 h), et relit toutes les
+   15 min dès qu'il est en retard sur le rapport attendu (vendredi 15 h 30, New York — cf. cot.js).
+   ⚠️ L'ANCIENNE DÉTECTION DIFFUSAIT À CHAQUE PASSAGE : elle comparait `type:date` à une empreinte
+   UNIQUE partagée par les cinq types, donc le type suivant différait toujours du précédent. Toutes les
+   6 h, c'était invisible ; toutes les 10 min, chaque desk aurait relu le COT pour rien. On suit
+   désormais la DATE du rapport le plus récent, tous types confondus : on ne diffuse que si elle avance. */
+let _cotDernier = '';
 setInterval(async () => {
   try {
-    const TYPES = ['noncomm','dealer','asset_mgr','lev_money','other_rept'];
-    for (const type of TYPES) {
-      const data = await fetchCOTData(type);
-      if (!data?.length) continue;
-      const hash = `${type}:${data[0]?.reportDate}`;
-      if (hash !== _lastCotHash) {
-        _lastCotHash = hash;
-        broadcast({ type: 'cot_update' });
-        console.log(`[COT] New report detected (${data[0]?.reportDate}) : broadcasting`);
-        break;
-      }
+    let d = '';
+    for (const type of ['noncomm', 'dealer', 'asset_mgr', 'lev_money', 'other_rept']) {
+      const r = _cotDernierRapport(await fetchCOTData(type));
+      if (r > d) d = r;
+    }
+    if (d && d > _cotDernier) {
+      const avant = _cotDernier; _cotDernier = d;
+      if (avant) { broadcast({ type: 'cot_update' }); console.log('[COT] nouveau rapport ' + d + ' : diffusé'); }
     }
   } catch {}
-}, 6 * 60 * 60 * 1000);
+}, 10 * 60 * 1000);
 
 // ForexFactory News — fast poll every 20s, broadcasts instantly on new items
 startFFNewsPoll(freshItems => {
@@ -32384,10 +32394,18 @@ async function _santeDonnees(now) {
   pousse('Taux', 'CME FedWatch (Fed)', _fedWatch && _fedWatch.at ? now - _fedWatch.at : null, 6 * H, 24 * H, _fedWatch ? 'réunion ' + (_fedWatch.meeting || '?') : 'aucune lecture');
   pousse('Taux', 'ASX IB (RBA)', _rbaWatch && _rbaWatch.at ? now - _rbaWatch.at : null, 24 * H, 72 * H, _rbaWatch ? 'réunion ' + (_rbaWatch.meeting || '?') : 'aucune lecture');
   // Positionnement.
+  // ⚠️ La CFTC date ses lignes « 2026-09-22T00:00:00.000 », pas « 2026-09-22 » : la sonde collait
+  // « T20:30:00Z » derrière, obtenait une date INVALIDE, et affichait « Indisponible · jamais lue » et
+  // « rapport du 22T00:00:00.000/09/2026 » pendant que le desk servait le bon rapport (26/09). Le banc
+  // tournait sur « 2026-09-15 » : une fixture plus propre que la réalité ne voit pas ce défaut.
+  // L'ÉTAT se juge contre le rapport ATTENDU (dernier vendredi 15 h 30 à New York), pas contre un âge.
   let cotDate = null;
-  try { const c = await fetchCOTData('noncomm'); for (const x of (c || [])) if (x && x.reportDate && (!cotDate || x.reportDate > cotDate)) cotDate = x.reportDate; } catch {}
-  const cotAge = cotDate ? now - Date.parse(cotDate + 'T20:30:00Z') : null;
-  pousse('Positionnement', 'COT (CFTC, hebdomadaire)', cotAge, 10 * J, 17 * J, cotDate ? 'rapport du ' + cotDate.split('-').reverse().join('/') : 'aucun rapport lu');
+  try { cotDate = _cotDernierRapport(await fetchCOTData('noncomm')) || null; } catch {}
+  const cotAttendu = cotRapportAttendu(now), jj = d => d.split('-').reverse().join('/');
+  const cotAge = cotDate ? now - Date.parse(cotDate + 'T00:00:00Z') : null;
+  const cotEtat = !cotDate || !isFinite(cotAge) ? 'panne' : cotDate >= cotAttendu ? 'ok' : (Date.parse(cotAttendu) - Date.parse(cotDate) <= 7 * J ? 'degrade' : 'panne');
+  pousse('Positionnement', 'COT (CFTC, hebdomadaire)', cotAge, 0, 0,
+    cotDate ? 'rapport du ' + jj(cotDate) + (cotDate < cotAttendu ? ' · attendu : ' + jj(cotAttendu) : '') : 'aucun rapport lu', cotEtat);
   let dmxTs = 0; try { dmxTs = outlookTs() || 0; } catch {}
   pousse('Positionnement', 'DMX particuliers (Myfxbook)', dmxTs ? now - dmxTs : null, 3 * H, 24 * H, dmxTs ? '' : 'aucune lecture depuis le démarrage');
   // Calculs à la demande (âge = dernière demande, rouge seulement si jamais produit).
@@ -32466,16 +32484,20 @@ setInterval(() => {
     _briefingGenerer().catch(() => {});
   } catch (e) {}
 }, 5 * 60e3).unref();
+// Les faits cités gardent leur texte ; le NOM DE LEUR FOURNISSEUR ne sort jamais du serveur (26/09,
+// « cache les sources, sinon les clients peuvent recopier ») : briefing.js s'en sert pour valider les
+// citations, le desk n'en a pas besoin.
+const _briefingPublic = b => (b && Array.isArray(b.faits)) ? Object.assign({}, b, { faits: b.faits.map(f => ({ id: f.id, txt: f.txt, at: f.at })) }) : b;
 app.get('/api/v2/briefing', requireAdmin, (req, res) => {
   if (!_v2Actif()) return res.status(404).end();
   if (!_briefing) return res.json({ vide: true, raison: _briefingEchec || 'Pas encore rédigé : il part chaque jour ouvré à partir de 08 h 30.' });
-  res.json(Object.assign({ aujourdhui: _briefing.jour === briefingMod.jourParis(Date.now()) }, _briefing));
+  res.json(Object.assign({ aujourdhui: _briefing.jour === briefingMod.jourParis(Date.now()) }, _briefingPublic(_briefing)));
 });
 app.post('/api/v2/briefing/regen', requireAdmin, async (req, res) => {
   if (!_v2Actif()) return res.status(404).end();
-  if (Date.now() - _briefingEssai < 2 * 60e3) return res.json(_briefing ? Object.assign({ aujourdhui: true }, _briefing) : { vide: true, raison: 'Une rédaction vient d’être tentée : réessayez dans deux minutes.' });
+  if (Date.now() - _briefingEssai < 2 * 60e3) return res.json(_briefing ? Object.assign({ aujourdhui: true }, _briefingPublic(_briefing)) : { vide: true, raison: 'Une rédaction vient d’être tentée : réessayez dans deux minutes.' });
   const b = await _briefingGenerer();
-  res.json(b ? Object.assign({ aujourdhui: true }, b) : { vide: true, raison: _briefingEchec || 'Rédaction impossible pour le moment.' });
+  res.json(b ? Object.assign({ aujourdhui: true }, _briefingPublic(b)) : { vide: true, raison: _briefingEchec || 'Rédaction impossible pour le moment.' });
 });
 
 /* ══ V3 · VUE PAIRE EN GRILLE : DEUX LECTURES DE DONNÉES (admin + « Aperçu V2 ») ═══════════════════════
@@ -32496,7 +32518,7 @@ app.get('/api/v2/cot-historique', requireAdmin, async (req, res) => {
   try {
     const h = await fetchCOTHistory(type, parseInt(req.query.semaines, 10) || 260);
     res.json({ ccy, type, categorie: _COT_CATEGORIES[type], categories: _COT_CATEGORIES, rows: (h && h[ccy]) || [],
-               source: 'CFTC Commitments of Traders (' + (type === 'noncomm' ? 'Legacy' : 'Traders in Financial Futures') + ')' });
+               source: 'Rapport COT (' + (type === 'noncomm' ? 'non-commerciaux' : 'fonds financiers') + ')' });
   } catch (e) { res.status(503).json({ error: 'CFTC indisponible : ' + String(e.message || e).slice(0, 120) }); }
 });
 /* La saisonnalité part des clôtures JOURNALIÈRES (plage « max », la seule plage longue que Yahoo
@@ -32516,7 +32538,7 @@ app.get('/api/v2/saisonnalite', requireAdmin, async (req, res) => {
     const ts = [], closes = [];
     for (let i = 0; i < ts0.length; i++) if (ts0[i] >= borne) { ts.push(ts0[i]); closes.push(cl0[i]); }
     if (ts.length < 300) return res.status(503).json({ error: 'clôtures journalières indisponibles' });
-    const data = Object.assign({ pair: p, source: 'Yahoo Finance, clôtures journalières', lu: Date.now() }, saisonMod.saisonnaliteComplete(ts, closes));
+    const data = Object.assign({ pair: p, source: 'Clôtures journalières', lu: Date.now() }, saisonMod.saisonnaliteComplete(ts, closes));
     _saisCache.set(p, { at: Date.now(), data });
     if (_saisCache.size > 30) _saisCache.delete(_saisCache.keys().next().value);
     res.json(data);
@@ -32766,7 +32788,7 @@ async function _actifProfil(sym) {
   if (!s || s.length < 20) return null;
   const data = Object.assign({ sym, cl, at: Date.now(), perf: _actifPerf(s) }, _actifStats(s, cl), {
     moteurs: mots.map((m, i) => { const l = ms[i] && ms[i].length >= 21 ? _actifLien(s, ms[i], !!m[2]) : null; return l ? Object.assign({ sym: m[0], nom: m[1], taux: !!m[2] }, l) : null; }).filter(Boolean),
-    source: 'Yahoo Finance, calculs DTP',
+    source: 'Calculs DTP',
   });
   _actifProfils.delete(sym); _actifProfils.set(sym, { at: Date.now(), data });
   while (_actifProfils.size > 40) _actifProfils.delete(_actifProfils.keys().next().value);
@@ -32807,7 +32829,7 @@ function _vixCalc(derniers, serie) {
     terme: _VIX_TERME.map(([s, lbl]) => ({ sym: s, lbl, v: derniers[s] ? derniers[s].prix : null })),
     pente: v3 && v3.prix ? +(v.prix / v3.prix).toFixed(3) : null,
     rang, an,
-    source: 'Cboe via Yahoo Finance, calculs DTP',
+    source: 'Calculs DTP',
   };
 }
 async function _vixLire() {
@@ -32874,7 +32896,7 @@ async function _ratiosLire() {
   const S = {};
   await Promise.all(syms.map(async s => { S[s] = await _actifSerie(s).catch(() => []); }));
   const ratios = _RATIOS_METAUX.map(d => _ratioCalc(d, S[d.a] || [], S[d.b] || [])).filter(Boolean);
-  return ratios.length ? { at: Date.now(), ratios, source: 'Contrats à terme COMEX / NYMEX via Yahoo Finance, calculs DTP' } : null;
+  return ratios.length ? { at: Date.now(), ratios, source: 'Contrats à terme COMEX / NYMEX, calculs DTP' } : null;
 }
 app.get('/api/v2/ratios-metaux', requireAdmin, async (req, res) => {
   if (!_v2Actif()) return res.status(404).end();
@@ -32930,7 +32952,7 @@ async function _cryptoLire() {
   const btc = S['BTC-USD'] || [], ndx = S['^NDX'] || [];
   return { at: Date.now(), lignes, ethBtc: _rapportSeries(S['ETH-USD'] || [], btc),
     lienNdx: btc.length >= 21 && ndx.length >= 21 ? _actifLien(btc, ndx, false) : null,
-    source: 'Yahoo Finance (paires en dollar), calculs DTP' };
+    source: 'Paires en dollar, calculs DTP' };
 }
 async function _geantsLire() {
   const S = {};
@@ -32943,7 +32965,7 @@ async function _geantsLire() {
   const moy = k => { const v = ok.map(l => l[k]).filter(x => x != null); return v.length ? +(v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) : null; };
   return { at: Date.now(), lignes, panier: { j1: moy('j1'), m1: moy('m1'), ytd: moy('ytd') },
     sp: _tableauLigne('^GSPC', 'S&P 500', 'US500', S['^GSPC']),
-    source: 'Yahoo Finance (actions au comptant, dernière séance), calculs DTP' };
+    source: 'Actions au comptant, dernière séance, calculs DTP' };
 }
 app.get('/api/v2/crypto-tableau', requireAdmin, async (req, res) => {
   if (!_v2Actif()) return res.status(404).end();
@@ -32981,7 +33003,7 @@ app.get('/api/v2/particuliers-historique', requireAdmin, async (req, res) => {
   await _dmxHistCharger();
   const pas = req.query.pas === 'h' ? 'h' : 'd';
   const pts = ((_dmxHist[pas][p]) || []).map(x => ({ t: x[0], long: x[1], short: +(100 - x[1]).toFixed(1) }));
-  res.json({ pair: p, pas, points: pts, depuis: _dmxHist.depuis || null, source: 'Myfxbook, relevé par DTP' });
+  res.json({ pair: p, pas, points: pts, depuis: _dmxHist.depuis || null, source: 'Relevé par DTP' });
 });
 
 app.get('/api/risk-sentiment', async (req, res) => {

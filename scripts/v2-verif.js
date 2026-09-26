@@ -567,15 +567,33 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
         const barres = [...document.querySelectorAll('.wdg-card--tabs .wdgt-bar')];
         const t = document.querySelector('.topbar');
         return { app: document.documentElement.classList.contains('dtp-app'), grille: !!g && cs.display === 'grid', defile: cs && cs.overflowY,
-          lignes: barres.map(b => { const tabs = [...b.querySelectorAll('.wdgt-tab')].map(x => Math.round(x.getBoundingClientRect().top)); return { n: new Set(tabs).size, retour: b.classList.contains('v3-retour') }; }),
+          lignes: barres.map(b => { const tabs = [...b.querySelectorAll('.wdgt-tab')].map(x => Math.round(x.getBoundingClientRect().top)); return { n: new Set(tabs).size, defile: b.classList.contains('v3-defile'), deborde: b.scrollWidth > b.clientWidth + 1, flecheD: (() => { const f = b.querySelector('.v3-fl--d'); return !!f && getComputedStyle(f).display !== 'none'; })() }; }),
           cachees: barres.map(b => b.scrollWidth > b.clientWidth + 1 && !b.classList.contains('v3-defile')).filter(Boolean).length,
-          rognes: barres.map(b => { const c = b.closest('.wdg-card').getBoundingClientRect(); return [...b.querySelectorAll('.wdgt-tab')].filter(x => { const q = x.getBoundingClientRect(); return q.bottom > c.bottom + 1 || q.right > c.right + 1; }).length; }).reduce((a, n) => a + n, 0),
+          // Un onglet hors de la zone visible d'une barre QUI DÉFILE n'est pas rogné : les flèches y mènent.
+          rognes: barres.filter(b => !b.classList.contains('v3-defile')).map(b => { const c = b.closest('.wdg-card').getBoundingClientRect(); return [...b.querySelectorAll('.wdgt-tab')].filter(x => { const q = x.getBoundingClientRect(); return q.bottom > c.bottom + 1 || q.right > c.right + 1; }).length; }).reduce((a, n) => a + n, 0),
           rangee: [...document.querySelectorAll('#wdg-grid > .wdg-card')].map(c => getComputedStyle(c).gridRowStart),
           barreHaut: t ? Math.round(t.getBoundingClientRect().top) : null };
       });
       v('pas d\'app sur un PC étroit : Mon Desk reste affiché', !r.app && r.grille, JSON.stringify(r));
       v('… le modèle garde ses rangées (aucune carte réduite à sa hauteur de contenu), sans défilement de page', r.rangee.length > 0 && r.rangee.every(x => /span/.test(x)) && r.defile === 'hidden', JSON.stringify(r.rangee) + ' · ' + r.defile);
-      v('… chaque barre d\'onglets tient sur UNE ligne, sauf quand elle passe les noms à la ligne, et sans onglet caché ni rogné', r.lignes.length > 0 && r.lignes.every(l => l.n === 1 || l.retour) && r.cachees === 0 && r.rognes === 0, JSON.stringify(r));
+      // 26/09 (« Neuro-ondes ne doit pas créer une deuxième ligne ; une flèche qui fait défiler sur le côté ») :
+      // JAMAIS de seconde ligne d'onglets ; une barre qui déborde défile, sa flèche droite visible.
+      v('… chaque barre d\'onglets tient sur UNE ligne, sans exception, et sans onglet rogné', r.lignes.length > 0 && r.lignes.every(l => l.n === 1) && r.cachees === 0 && r.rognes === 0, JSON.stringify(r));
+      v('… une barre qui déborde défile, et sa flèche « onglets suivants » est visible', r.lignes.filter(l => l.deborde).every(l => l.defile && l.flecheD), JSON.stringify(r.lignes));
+      // Rangée forcée à déborder (carte réduite à 300 px) : la flèche fait défiler, l'autre apparaît.
+      const fl = await page.evaluate(async () => {
+        const b = document.querySelector('.wdg-card--tabs .wdgt-bar'); if (!b) return { absent: true };
+        const carte = b.closest('.wdg-card'), w0 = carte.style.width; carte.style.width = '300px';
+        carte.classList.add('v3-essai');   // une mutation de classe relance la mesure (le style seul n'est pas observé)
+        await new Promise(z => setTimeout(z, 500));
+        const d = b.querySelector('.v3-fl--d'), avant = b.scrollLeft, visD = !!d && getComputedStyle(d).display !== 'none';
+        if (d) d.click(); await new Promise(z => setTimeout(z, 700));
+        const g = b.querySelector('.v3-fl--g'), apres = b.scrollLeft, visG = !!g && getComputedStyle(g).display !== 'none';
+        const lignes = new Set([...b.querySelectorAll('.wdgt-tab')].map(x => Math.round(x.getBoundingClientRect().top))).size;
+        carte.style.width = w0; carte.classList.remove('v3-essai');
+        return { visD, avant, apres, visG, lignes, defile: b.classList.contains('v3-defile') };
+      });
+      v('… flèche « onglets suivants » : elle fait défiler la rangée, puis « précédents » apparaît, toujours sur une ligne', fl.absent || (fl.visD && fl.apres > fl.avant && fl.visG && fl.lignes === 1 && fl.defile), JSON.stringify(fl));
       // Réglage « Noms des onglets » : seul l'onglet ouvert garde son nom, les autres restent en icône.
       const nm = await page.evaluate(() => {
         const carte = document.querySelector('#wdg-grid > .wdg-card--tabs'); if (!carte || !window.DTPWidgets || !DTPWidgets.setTabNoms) return { absent: true };
@@ -599,23 +617,13 @@ const BANQUES = [{ id: 'b1', title: 'FX Weekly : dollar rally masks lingering ri
         return { puce: !!document.querySelector('.topbar .v3-puce'), gap: g ? getComputedStyle(g).columnGap : null, casse: t ? getComputedStyle(t).textTransform : null, rang: c ? c.style.getPropertyValue('--v3i') : null }; });
       v('habillage V3 du desk : puce V3, cartes collées (1 px), titres en casse normale, apparition échelonnée', hab.puce && hab.gap === '1px' && hab.casse === 'none' && hab.rang !== '', JSON.stringify(hab));
 
-      console.log('\n── 6. V3 · traçabilité en direct (admin, V2 activée) ──');
-      const p = await page.evaluate(() => [...document.querySelectorAll('.v2a-src-pill')].map(b => ({ v: b.dataset.vue, c: getComputedStyle(b.querySelector('i')).backgroundColor })));
-      v('une pastille « Sources » sur les 4 grandes vues (Fil, Taux, Biais, Semaine)', p.length === 4 && ['view-news', 'view-taux', 'view-bias', 'view-weekahead'].every(x => p.some(y => y.v === x)), JSON.stringify(p));
-      const coul = x => (p.find(y => y.v === x) || {}).c;
-      v('… couleur de la source la PLUS en retard : Fil vert, Taux orange (rateprobability en retard), Biais rouge (COT indisponible)',
-        coul('view-news') === 'rgb(34, 197, 94)' && coul('view-taux') === 'rgb(255, 179, 0)' && coul('view-bias') === 'rgb(239, 68, 68)', JSON.stringify(p));
-      await page.evaluate(() => { document.querySelector('#view-taux .v2a-src-pill').click(); });
-      await new Promise(z => setTimeout(z, 400));
-      const pop = await page.evaluate(() => { const x = document.getElementById('v2a-src-pop'); return x ? x.innerText : ''; });
-      v('… un clic ouvre le détail : les sources RÉELLES de la vue, leur état et leur âge', /rateprobability/.test(pop) && /En retard · il y a 40 h/.test(pop) && /WatchTower/.test(pop) && !/COT/.test(pop), pop.replace(/\n/g, ' | '));
+      console.log('\n── 6. V3 · les sources ne se montrent JAMAIS (26/09, « sinon les clients peuvent recopier ») ──');
+      v('aucune pastille « Sources » dans les grandes vues', await page.evaluate(() => !document.querySelector('.v2a-src-pill') && !/\bSources\b/.test([...document.querySelectorAll('.panel-header')].map(h => h.innerText).join(' '))));
       await page.evaluate(() => { try { DTPWidgets.aideDe('force-devises'); } catch (e) {} });
       await new Promise(z => setTimeout(z, 600));
-      const aide = await page.evaluate(() => { const x = document.querySelector('#wdg-aide .v2a-src'); return x ? x.innerText : ''; });
-      v('l\'aide d\'un widget gagne « État de la source, en direct » (Force des devises : à jour)', /État de la source, en direct/i.test(aide) && /Force des devises/.test(aide) && /À jour · il y a 1 min/.test(aide), aide.replace(/\n/g, ' | '));
-      await page.evaluate(() => { try { DTPWidgets.aideDe('horloge'); } catch (e) {} });
-      await new Promise(z => setTimeout(z, 600));
-      v('… et RIEN pour un widget dont la source n\'est pas suivie (jamais un vert de complaisance)', await page.evaluate(() => !document.querySelector('#wdg-aide .v2a-src')));
+      const aide = await page.evaluate(() => { const x = document.getElementById('wdg-aide'); return { t: x ? x.innerText : '', sec: !!document.querySelector('#wdg-aide .v2a-src') }; });
+      v('l\'aide d\'un widget ne gagne plus « État de la source »', aide.t.length > 40 && !/État de la source/i.test(aide.t) && !aide.sec, aide.t.slice(0, 160).replace(/\n/g, ' | '));
+      v('… et le module de traçabilité n\'est plus chargé', await page.evaluate(() => !window._v2aTrace && ![...document.scripts].some(x => /tracabilite/.test(x.src))));
 
       console.log('\n── 7. V3 · briefing du matin sourcé (admin, V2 activée) ──');
       await page.evaluate(() => { const a = document.getElementById('wdg-aide-ov'); if (a) a.click(); if (window.activateView) activateView('news'); });

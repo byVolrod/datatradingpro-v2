@@ -201,26 +201,6 @@ html.dtp-app .v2a-puces::-webkit-scrollbar { display: none; }
 .v2a-puces button.v2a-puce-on { background: rgba(227,178,58,.16); border-color: rgba(227,178,58,.55); color: var(--v2a-or); }
 .v2a-puces-sep { width: 1px; height: 18px; background: var(--v2a-trait); flex: 0 0 auto; }
 
-/* ── V3 · Traçabilité en direct (tracabilite.js) : état de la source dans l'aide des widgets et
-      pastille « Sources » des grandes vues. Toutes les règles sont bornées par .v2a- ─────────── */
-.v2a-src { border-top: 1px solid rgba(227,178,58,.18); padding-top: 10px; }
-.v2a-src-l { display: grid; grid-template-columns: 8px 1fr auto; column-gap: 8px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid #16161a; font-size: 12px; }
-.v2a-src-l:last-child { border-bottom: 0; }
-.v2a-src-l > i { width: 7px; height: 7px; border-radius: 50%; align-self: center; }
-.v2a-src-l > b { color: #e6e6ea; font-weight: 600; min-width: 0; }
-.v2a-src-e { font-size: 11px; font-weight: 600; white-space: nowrap; }
-.v2a-src-d { grid-column: 2 / -1; color: #8b8b93; font-size: 11px; line-height: 1.35; margin-top: 2px; }
-.v2a-src-att { color: #8b8b93; font-size: 12px; margin: 0; }
-.v2a-src-pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; margin-right: 6px; border-radius: 11px;
-  border: 1px solid #26262c; background: #111114; color: #b8b8c0; font: 600 10.5px/1 'Inter Tight', system-ui, sans-serif; letter-spacing: .03em; cursor: pointer; }
-.v2a-src-pill:hover { border-color: rgba(227,178,58,.55); color: #e3b23a; }
-.v2a-src-pill > i { width: 7px; height: 7px; border-radius: 50%; background: #6b7280; }
-.v2a-src-pop { position: fixed; z-index: 1500; width: min(360px, calc(100vw - 16px)); background: #0c0c0e; border: 1px solid #1c1c20; border-radius: 6px;
-  box-shadow: 0 12px 32px rgba(0,0,0,.55); padding: 10px 12px 8px; }
-.v2a-src-h { display: flex; align-items: center; justify-content: space-between; font-family: 'Fraunces', Georgia, serif; font-size: 14px; color: #e3b23a; margin-bottom: 6px; }
-.v2a-src-h > button { background: none; border: 0; color: #8b8b93; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }
-.v2a-src-h > button:hover { color: #e6e6ea; }
-
 /* ── V3 · Briefing du matin sourcé (briefing-ui.js) : bouton du Fil, carte de l'écran Marchés,
       feuille de lecture et bulles de citation. Toutes les règles sont bornées par .v2a- ─────────── */
 .v2a-bf-btn { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; margin-right: 6px; border-radius: 11px;

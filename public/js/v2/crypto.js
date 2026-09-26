@@ -132,7 +132,7 @@
       id: 'v3-crypto', name: 'Marché crypto', court: 'Crypto', tag: 'CRYPTO', cat: 'Marché', h: 380,
       desc: 'Sept cryptos sur 24 h, 7 et 30 jours, ETH / BTC et le lien du Bitcoin avec le Nasdaq.',
       aide: '<p>Sept cryptos en dollar : Bitcoin, Ethereum, Solana, XRP, BNB, Cardano et Dogecoin, avec leur variation sur 24 heures, 7 jours et 30 jours, et leur volatilité sur 30 jours (annualisée). Un clic ouvre la fiche de la crypto.</p><p>En tête, deux repères. <b>ETH / BTC</b> : quand l’Ethereum gagne sur le Bitcoin, l’appétit s’étend aux autres cryptos ; quand il recule, le marché se replie sur la valeur la plus solide. <b>Bitcoin et Nasdaq</b> : la corrélation de leurs variations quotidiennes sur 60 séances communes ; forte, elle dit que le Bitcoin se traite comme une valeur technologique, et que les chiffres américains le font bouger.</p>',
-      src: 'Paires en dollar via Yahoo Finance, clôtures quotidiennes à 00:00 UTC ; Nasdaq 100 aux clôtures de Wall Street ; calculs DTP.',
+      src: 'Paires en dollar, clôtures quotidiennes à 00:00 UTC ; Nasdaq 100 aux clôtures de Wall Street ; calculs DTP.',
       watch: 'Un ETH / BTC qui repart à la hausse après une longue baisse, et un lien avec le Nasdaq qui se renforce avant une publication américaine forte.',
       apercu: '<svg viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"><g font-family="sans-serif" font-size="5" fill="#8e8e98"><text x="4" y="8">ETH / BTC</text><text x="62" y="8">BITCOIN ET NASDAQ</text></g>'
         + '<g font-family="monospace" font-size="7" font-weight="700" fill="#f2f2f4"><text x="4" y="17">0,0385</text><text x="62" y="17">+0,52</text></g><line x1="0" x2="120" y1="21" y2="21" stroke="#1c1c21"/>'
@@ -146,7 +146,7 @@
       id: 'v3-geants', name: 'Géants de la cote', court: 'Géants', tag: 'ACTIONS', cat: 'Marché', h: 360,
       desc: 'Les sept grandes valeurs américaines face au S&P 500 : séance, mois, depuis janvier.',
       aide: '<p>Apple, Microsoft, Nvidia, Amazon, Alphabet, Meta et Tesla pèsent à elles seules une part considérable du S&amp;P 500 : leur mouvement suffit souvent à faire monter ou baisser l’indice. La carte donne pour chacune la variation de la dernière séance, du mois et depuis janvier, puis la moyenne simple des sept et le S&amp;P 500.</p><p>Quand la moyenne des sept fait nettement mieux que l’indice, ce sont elles qui mènent ; quand elle fait moins bien, le marché avance sans elles. Un clic sur une ligne ouvre la fiche de la valeur.</p>',
-      src: 'Actions au comptant (Nasdaq, NYSE) via Yahoo Finance, clôtures quotidiennes ; moyenne simple des sept, sans pondération par la capitalisation ; calculs DTP.',
+      src: 'Actions au comptant (Nasdaq, NYSE), clôtures quotidiennes ; moyenne simple des sept, sans pondération par la capitalisation ; calculs DTP.',
       watch: 'Un écart qui se creuse entre la moyenne des sept et le S&P 500, et une séance où Nvidia décroche seule avant des résultats.',
       apercu: '<svg viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"><g font-family="sans-serif" font-size="5.5" fill="#f2f2f4"><text x="4" y="10">Apple</text><text x="4" y="20">Nvidia</text><text x="4" y="30">Microsoft</text><text x="4" y="40">Tesla</text></g>'
         + '<g font-family="sans-serif" font-size="5.5" fill="#e3b23a"><text x="4" y="51">S&amp;P 500</text></g><line x1="0" x2="120" y1="44" y2="44" stroke="#24242a"/>'

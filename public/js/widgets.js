@@ -300,7 +300,7 @@
               // onglets ») : sur la dernière ligne restante, pas de × — un panneau à onglets vide
               // n'a aucun sens (et retirer le WIDGET entier se fait depuis l'en-tête de la carte).
               + (tl.length > 1
-                  ? '<button class="wdg-set-tabdel" title="' + (estGrille ? 'Retirer cet onglet et sa disposition' : (estVide ? 'Retirer cet onglet vide' : 'Retirer l\'onglet et son widget « ' + esc(w2.name) + ' »')) + '" onclick="DTPWidgets.removeTab(' + idx + ',' + j + ')">×</button>'
+                  ? '<button class="wdg-set-tabdel" title="' + (estGrille ? 'Retirer l\'onglet' : (estVide ? 'Retirer l\'onglet' : 'Retirer l\'onglet')) + '" onclick="DTPWidgets.removeTab(' + idx + ',' + j + ')">×</button>'
                   : '<span class="wdg-set-tabone" title="Un panneau garde au moins un onglet">min. 1</span>')
               + '</div>';
           }).join('')
@@ -1087,7 +1087,7 @@
   function _cotVerdict(nomFonds, dev, pL, net, netTxt, dateRapport, derived) {
     if (!isFinite(pL) || !isFinite(net)) return null;
     var pLr = Math.round(pL);
-    var agr = derived ? ' (agrégat calculé : la CFTC ne publie pas de contrat dollar)' : '';
+    var agr = derived ? ' (agrégat calculé : aucun contrat dollar publié)' : '';
     var dRap = dateRapport ? ' (rapport du ' + esc(dateRapport) + ')' : '';
     if (Math.abs(pL - 50) < 3) {
       return { etat: 'equilibre',
@@ -2476,7 +2476,7 @@
   var CATALOG = [
     {
       id: 'graphique', name: 'Graphique', tag: 'CHART', cat: 'Marchés', h: 340,
-      desc: 'Le graphique TradingView : outils de dessin, unités de temps en un clic, du 5m au mensuel.',
+      desc: 'Le graphique avancé : outils de dessin, unités de temps en un clic, du 5m au mensuel.',
       aide: "<p>Un graphique en chandeliers classique : chaque bougie résume une période (ouverture, clôture, extrêmes). La paire ET l'unité de temps se choisissent dans la barre de la carte : drapeaux + sélecteur à gauche, boutons 5m à 1M à droite, l'unité active à l'or. Les outils de dessin, sur le bord gauche du graphique, permettent de poser niveaux et lignes de tendance directement sur les cours, et deux cartes peuvent coexister sur des paires différentes.</p><p>Dans une décision, le graphique est le juge de paix du <em>moment</em> : les autres widgets disent le contexte (biais, calendrier, positionnement), lui seul montre où le prix se trouve par rapport aux niveaux où ce contexte peut s'exprimer.</p>",
       src: "Cotations en continu du moteur de graphiques embarqué, sur un fournisseur unique pour toutes les cartes (des CFD : quelques points d'écart avec le comptant sont normaux) ; s'il ne répond pas, le moteur DTP prend le relais avec de vraies bougies.",
       watch: "La réaction du prix aux niveaux travaillés (extrêmes de séance, zones de clôture) et le comportement des bougies autour des heures de publication du calendrier.",
@@ -3580,7 +3580,7 @@
               var partage = l.scn != null && l.scn.pct < 60;
               var scnH = l.scn
                 ? '<span class="wdg-rbc-scn ' + SCN[l.scn.type].cls + (partage ? ' est-partage' : '') + '"'
-                  + (partage ? ' title="Pricing partagé : aucune issue ne dépasse 60%"' : '') + '>'
+                  + (partage ? ' title="Aucune issue au-dessus de 60%"' : '') + '>'
                   + SCN[l.scn.type].t + ' ' + l.scn.pct + '%</span>'
                 : '<span class="wdg-rbc-scn">-</span>';
               html += '<div class="wdg-rbc-l' + (i === iPrem ? ' est-present' : '') + '">'
@@ -3933,7 +3933,7 @@
                 + (b
                   ? '<span class="wdg-ec-b ' + b.cls + '">' + b.mot + (b.delta ? ' ' + b.delta : '') + '</span>'
                   // Unités différentes ou valeur illisible : pas de badge inventé, un « n/c » honnête.
-                  : '<span class="wdg-ec-b est-nc" title="Valeurs non comparables (unités différentes ou illisibles)">n/c</span>')
+                  : '<span class="wdg-ec-b est-nc" title="Valeurs non comparables">n/c</span>')
                 + '</div>';
             });
             h += '</div>';
@@ -4073,7 +4073,7 @@
       id: 'oblig-10a', name: 'Rendements 10 ans', court: '10 ans', tag: 'TAUX LONGS', cat: 'Marchés', h: 300,
       desc: 'Le prix de l’argent long, pays par pays, et l’écart qui fait bouger les paires.',
       aide: "<p>Le rendement de l’emprunt d’État à <strong>10 ans</strong> des huit pays majeurs. La barre ne montre pas le niveau mais l’<strong>écart au 10 ans américain</strong> : vert vers la droite, le pays paie plus cher que les États-Unis ; rouge vers la gauche, il paie moins. Les États-Unis sont la référence, leur barre reste vide.</p><p>Pourquoi l’écart et pas le niveau : 4,3% n’a pas le même sens partout. C’est élevé pour l’Allemagne, bas pour la Nouvelle-Zélande. Le dollar étant la jambe commune de sept des huit majeures, c’est le <strong>différentiel</strong> qui explique le portage d’une paire, pas le chiffre isolé.</p><p>La colonne de droite donne la variation en <strong>points de base</strong> depuis la valeur précédente. Un point de base vaut un centième de point : « +12 bp » se compare d’un pays à l’autre, là où « +0,12 » se confond avec un pourcentage.</p><p>La prime de terme, affichée au survol, est l’écart entre ce 10 ans et le taux directeur du pays. Négative, le marché price des baisses ; fortement positive, il price de la croissance ou un risque budgétaire.</p>",
-      src: "Rendements souverains lus sur la page pays de TradingEconomics, la même que le Radar de Biais consulte déjà toutes les 8 heures pour ses fondamentaux : aucune requête supplémentaire. Une valeur que la source ne publie pas reste vide, jamais remplacée par la dernière connue.",
+      src: "Rendements souverains relus toutes les 8 heures, en même temps que les fondamentaux du Radar de Biais. Une valeur que la source ne publie pas reste vide, jamais remplacée par la dernière connue.",
       watch: "L’écart qui BOUGE plus que le niveau : c’est lui qui déplace une paire. Un pays dont le 10 ans grimpe de vingt points de base quand les autres ne bougent pas attire les capitaux, ou inquiète — la prime de terme dit lequel des deux.",
       mount: function (host) {
         var vivant = true;
@@ -4188,7 +4188,7 @@
               // rouge à gauche — même grammaire que le différentiel de taux.
               var w = Math.min(50, Math.abs(r.pct) / max * 50);
               h += '<div class="wdg-ps-l' + (r.calc ? ' est-calc' : '') + '"'
-                + (r.calc ? ' title="USD : agrégat calculé, moyenne inversée des 7 paires contre dollar"' : '') + '>'
+                + (r.calc ? ' title="USD : moyenne des 7 paires"' : '') + '>'
                 + '<span class="wdg-ps-d">' + _drapeauDev(r.dev) + '<b>' + esc(r.dev) + '</b>' + (r.calc ? '<i>calc.</i>' : '') + '</span>'
                 + '<span class="wdg-ps-piste"><u class="' + (r.pct >= 0 ? 'est-haut' : 'est-bas') + '"'
                 + ' style="' + (r.pct >= 0 ? 'left:50%' : 'right:50%') + ';width:' + w.toFixed(1) + '%"></u></span>'
@@ -4347,9 +4347,9 @@
     {
       id: 'cot-inst', name: 'Positionnement COT', court: 'COT instit.',
       maj: 30 * 60 * 1000, tag: 'COT', cat: 'Risque', h: 340,   // le COT est hebdomadaire : ce rythme sert a se reparer, pas a rafraichir
-      desc: 'Le positionnement net des institutionnels (CFTC), par devise.',
+      desc: 'Le positionnement net des institutionnels, par devise.',
       aide: "<p>Le positionnement déclaré des grands intervenants sur les contrats à terme, publié chaque semaine avec plusieurs jours de décalage. C'est une photographie du <strong>passé récent</strong>, jamais un signal d'entrée.</p><p>Sa valeur est dans les extrêmes et dans les inflexions : un positionnement très étiré d'un côté signale une asymétrie, un retournement de tendance dans les positions signale souvent un changement de régime avant les prix.</p>",
-      src: "Le rapport hebdomadaire officiel de la CFTC, arrêté le mardi et publié en fin de semaine ; la relecture de fond toutes les 30 minutes sert à se réparer, pas à rafraîchir : rien ne bouge en intrajournalier.",
+      src: "Le rapport COT hebdomadaire officiel, arrêté le mardi et publié le vendredi soir : le desk le relit dès sa parution. Rien ne bouge en intrajournalier.",
       watch: "Les positionnements très étirés d'un côté (beaucoup d'intervenants à déboucler en même temps) et les retournements d'une semaine à l'autre : les inflexions dans les positions précèdent souvent celles des prix.",
       // IDENTIQUE AU DESK (23/07) : réutilise buildCOTChart(gridId, type) de charts.js (rendu rétrocompatible)
       // → mêmes cartes donut SVG .cot-cell, mêmes 5 catégories CFTC. Zéro root amCharts.
@@ -6957,7 +6957,7 @@
         function rendre(rows) {
           var h = '<table class="wdg-dmxstats-table"><thead><tr>'
             + '<th class="est-g">Paire</th><th class="est-g">Camp</th><th>%</th><th>Lots</th><th>Pos.</th><th>Prix moy.</th>'
-            + '<th title="Écart au prix actuel, en pips : positif, le camp gagne ; négatif, il perd.">Écart</th>'
+            + '<th title="Écart au prix, en pips">Écart</th>'
             + '</tr></thead><tbody>';
           rows.forEach(function (r) {
             var domCourt = (parseFloat(r.shortPct) || 0) >= (parseFloat(r.longPct) || 0);
@@ -7000,9 +7000,9 @@
     },
     {
       id: 'cot-devise', name: 'COT par devise', court: 'COT devise', tag: 'COT', cat: 'Risque', h: 320,
-      desc: 'Le positionnement CFTC d\'UNE devise : long/short en volumes réels, et la position nette.',
-      aide: "<p>Le positionnement CFTC d'une devise pour une catégorie de fonds : long et short en contrats réels, la position nette, et la date du rapport (arrêté le mardi, publié le vendredi). La ligne du haut lit le donut ; la mention « agrégat calculé » signale l'USD, sur lequel la CFTC ne publie aucun contrat direct.</p><p>Les fonds à levier sont la catégorie spéculative que suivent les desks FX : leur position nette dit de quel côté penche l'argent institutionnel. La donnée est <strong>hebdomadaire et décalée</strong> de plusieurs jours : un contexte de fond, jamais un signal d'entrée.</p>",
-      src: "Le rapport hebdomadaire officiel de la CFTC, daté de son mardi d'arrêté ; la fraîcheur affichée est l'âge du rapport, jamais l'heure de service, et la carte se resynchronise toutes les 30 minutes.",
+      desc: 'Le positionnement COT d\'UNE devise : long/short en volumes réels, et la position nette.',
+      aide: "<p>Le positionnement COT d'une devise pour une catégorie de fonds : long et short en contrats réels, la position nette, et la date du rapport (arrêté le mardi, publié le vendredi). La ligne du haut lit le donut ; la mention « agrégat calculé » signale l'USD, pour lequel aucun contrat direct n'est publié.</p><p>Les fonds à levier sont la catégorie spéculative que suivent les desks FX : leur position nette dit de quel côté penche l'argent institutionnel. La donnée est <strong>hebdomadaire et décalée</strong> de plusieurs jours : un contexte de fond, jamais un signal d'entrée.</p>",
+      src: "Le rapport COT hebdomadaire officiel, daté de son mardi d'arrêté ; la fraîcheur affichée est l'âge du rapport, jamais l'heure de service. Le desk relit le nouveau rapport dès sa parution, le vendredi soir.",
       watch: "Les positions nettes extrêmes (beaucoup d'intervenants à déboucler du même côté) et les inflexions d'un rapport à l'autre, qui précèdent souvent celles des prix.",
       /* Le donut de référence, INTÉGRALEMENT reproductible ici : la source COT porte les positions
          ABSOLUES (longPos/shortPos en contrats, net, sentiment, date du rapport CFTC) — comme le
@@ -7127,7 +7127,7 @@
               var net = Number(row.net) || 0;
               sNk.textContent = (net > 0 ? '+' : '') + enK(net);
               elNote.textContent = row.derived
-                ? 'Agrégat calculé : la CFTC ne publie pas de contrat sur le dollar.'
+                ? 'Agrégat calculé : aucun contrat sur le dollar n\'est publié.'
                 : '';
               elNote.style.display = row.derived ? '' : 'none';
 
@@ -8711,9 +8711,11 @@
                la main par le lecteur (`labels[i]`) reste prioritaire sur tout : c'est le sien.
                L'INFOBULLE, elle, garde le nom COMPLET : la rangée dit vite, le survol dit tout. */
             var lbl = labels[i] || (w ? (w.court || w.name) : (estG ? 'GRILLE' : 'Vide'));
-            var ttl = w ? (w.name + ' : double-clic pour renommer')
-              : (estG ? ('Onglet composite · ' + _tabCells(it, i).filter(function (x) { return x !== 'vide'; }).length + ' widget(s) : double-clic pour renommer')
-                      : 'Onglet vide : choisis sa disposition dans le corps');
+            // INFOBULLE COURTE (26/09, demande user « la description est trop longue, raccourcis
+            // pour tout ») : le nom, rien d'autre. Le double-clic pour renommer reste, il n'est
+            // plus répété à chaque survol.
+            var _nG = estG ? _tabCells(it, i).filter(function (x) { return x !== 'vide'; }).length : 0;
+            var ttl = w ? w.name : (estG ? ('Grille · ' + _nG + ' widget' + (_nG > 1 ? 's' : '')) : 'Onglet vide');
             var _ic = _tabIconSvg(icons[i]), _auto = !_ic && (w || estG) ? _tabIconV3(w, estG) : '';
             // LE CHEVRON S'EFFACE DÈS QU'UNE ICÔNE EST POSÉE (31/08, demande user : « quand on
             // ajoute une icône à l'onglet il faut enlever le ›, vu que l'icône prend sa place »).
@@ -9673,7 +9675,7 @@
     vide(false);
     el.innerHTML = vis.map(function (l) {
       // classes de la NAV DU DESK : l'apparence vient d'elle, pas d'une copie de ses valeurs
-      return '<span class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' · renommer : double-clic"'
+      return '<span class="nav-item wdg-lay' + (l.id === c.active ? ' nav-item--active on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + '"'
         + ' role="button" tabindex="0"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
         // L'icône choisie REMPLACE le chevron (18/08, demande user : « la flèche est l'icône par
@@ -9692,7 +9694,7 @@
       // « + » = NOUVEL ONGLET (demande user 04/08) : ouvre la fenêtre des LAYOUTS sur le choix de
       // disposition (newLayout → _mgrMode='dispo'), comme le « + » d'un panneau à onglets.
       + (c.layouts.length < _LMAX
-          ? '<button class="nav-item wdg-lay wdg-lay-add" title="Nouvel onglet : choisir une disposition" onclick="DTPWidgets.newLayout()">+</button>'
+          ? '<button class="nav-item wdg-lay wdg-lay-add" title="Nouvel onglet" onclick="DTPWidgets.newLayout()">+</button>'
           : '');
   }
   // Synchronise le contrôle de densité (barre statique, jamais re-rendue) avec l'état persisté.
@@ -10407,7 +10409,7 @@
           + '<span class="wdg-lib-soon">Bientôt</span>'
           + '</button>';
       }
-      return '<button class="wdg-lib-card wdg-lib-card--prev' + (w.id === _justAdded ? ' wdg-lib-card--added' : '') + '" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' » · ' + esc(w.desc) + '">'
+      return '<button class="wdg-lib-card wdg-lib-card--prev' + (w.id === _justAdded ? ' wdg-lib-card--added' : '') + '" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' »">'
         + '<span class="wdg-lib-fav' + (favSet[w.id] ? ' on' : '') + '" role="button" tabindex="0"'
         +   ' title="' + (favSet[w.id] ? 'Retirer des favoris' : 'Épingler en favori') + '"'
         +   ' onclick="event.stopPropagation();DTPWidgets.toggleWfav(\'' + w.id + '\')"'
@@ -11910,9 +11912,8 @@ function _spansAffiches(lay) {
                     : '<section><h4>Réglages disponibles</h4><p class="wdg-aide-vide">Ce widget n\'a aucun réglage : il affiche la même chose pour tout le monde.</p></section>')
       + '</div>';
     var x = d.querySelector('.wdg-aide-x'); if (x) x.onclick = _aideFermer;
-    /* Signal « aide ouverte » (24/09) : sans effet pour les clients, personne ne l'écoute. L'Aperçu V2
-       des admins s'y branche pour ajouter l'état EN DIRECT de la source (public/js/v2/tracabilite.js),
-       sans que ce fichier ait à connaître la V2. */
+    /* Signal « aide ouverte » (24/09) : personne ne l'écoute aujourd'hui. Il servait à la traçabilité
+       en direct de la V3, retirée le 26/09 (les sources ne se montrent jamais aux clients). */
     try { document.dispatchEvent(new CustomEvent('dtp:aide', { detail: { id: w.id } })); } catch (e) {}
 
     requestAnimationFrame(function () { ov.classList.add('open'); d.classList.add('open'); });

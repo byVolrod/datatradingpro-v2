@@ -10,6 +10,37 @@ const fs    = require('fs');
 const path  = require('path');
 
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+/* ⚠️ LE COT EST « À JOUR » QUAND ON A LE DERNIER RAPPORT PARU, PAS QUAND LE CACHE EST JEUNE (26/09).
+   La CFTC publie le VENDREDI à 15 h 30, heure de New York, les positions arrêtées au MARDI précédent.
+   Un cache aveugle de 6 h, rempli à 15 h 25, gardait le rapport de la semaine d'avant jusqu'à 21 h 25 ;
+   et un vendredi de publication décalée, rien ne relisait avant le passage suivant. On calcule donc le
+   rapport ATTENDU à l'instant présent : tant que celui en main est plus ancien, le cache ne vaut que
+   RELANCE (quinze minutes) ; dès qu'il est le bon, il retrouve ses six heures. Une semaine calme ne
+   coûte donc rien de plus, et le vendredi soir le nouveau rapport arrive dans le quart d'heure. */
+const RELANCE = 15 * 60 * 1000;
+const _JOURS = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+function rapportAttendu(now) {
+  now = now || Date.now();
+  let an, mois, jour, js, minutes;
+  try {
+    const p = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' })
+      .formatToParts(new Date(now)).forEach(x => { p[x.type] = x.value; });
+    an = +p.year; mois = +p.month; jour = +p.day; js = _JOURS[p.weekday]; minutes = (+p.hour % 24) * 60 + +p.minute;
+  } catch (e) {
+    const d = new Date(now - 4 * 3600e3);   // repli sans fuseau : heure d'été de New York
+    an = d.getUTCFullYear(); mois = d.getUTCMonth() + 1; jour = d.getUTCDate(); js = d.getUTCDay(); minutes = d.getUTCHours() * 60 + d.getUTCMinutes();
+  }
+  let depuisVendredi = (js - 5 + 7) % 7;
+  if (depuisVendredi === 0 && minutes < 15 * 60 + 30) depuisVendredi = 7;
+  return new Date(Date.UTC(an, mois - 1, jour) - (depuisVendredi + 3) * 864e5).toISOString().slice(0, 10);
+}
+// Date (AAAA-MM-JJ) du rapport le plus récent d'une liste : la CFTC renvoie « 2026-09-22T00:00:00.000 ».
+const _jourRapport = d => String(d || '').slice(0, 10);
+function _dernierRapport(data) {
+  return (Array.isArray(data) ? data : []).reduce((m, x) => { const d = _jourRapport(x && x.reportDate); return d > m ? d : m; }, '');
+}
+const _ttlDe = (dernier, now) => (dernier && dernier >= rapportAttendu(now) ? CACHE_TTL : RELANCE);
 
 // CME currency futures contract codes (shared across both CFTC endpoints)
 const FX_CONTRACTS = [
@@ -59,23 +90,33 @@ function saveDisk(type, data) {
   try { fs.writeFileSync(getCacheFile(type), JSON.stringify({ ts: Date.now(), data })); } catch {}
 }
 
-function loadDisk(type) {
+// `repli` : lecture de SECOURS (la CFTC ne répond pas) → le dernier rapport connu, quel que soit son
+// âge. Un repli qui expire rend le positionnement muet au pire moment ; un rapport d'une semaine
+// reste une vraie donnée, datée comme telle à l'écran.
+function loadDisk(type, repli) {
   try {
     const raw = JSON.parse(fs.readFileSync(getCacheFile(type), 'utf8'));
-    if (Date.now() - raw.ts < CACHE_TTL && Array.isArray(raw.data) && raw.data.length > 0)
-      return raw.data;
+    if (!Array.isArray(raw.data) || !raw.data.length) return null;
+    if (repli || Date.now() - raw.ts < _ttlDe(_dernierRapport(raw.data))) return raw.data;
   } catch {}
   return null;
 }
 
+const _enCours = {};   // une seule lecture CFTC par type à la fois (512 Mo : pas de rafale en parallèle)
 async function fetchCOTData(type = 'noncomm') {
   if (!VALID_TYPES.includes(type)) type = 'noncomm';
 
-  if (_cache[type] && Date.now() - _cache[type].ts < CACHE_TTL) return _cache[type].data;
+  if (_cache[type] && Date.now() - _cache[type].ts < _ttlDe(_dernierRapport(_cache[type].data))) return _cache[type].data;
 
-  const disk = loadDisk(type);
-  if (disk) { _cache[type] = { data: disk, ts: Date.now() }; return disk; }
-
+  if (!_cache[type]) {
+    const disk = loadDisk(type);
+    if (disk) { _cache[type] = { data: disk, ts: Date.now() }; return disk; }
+  }
+  if (_enCours[type]) return _enCours[type];
+  _enCours[type] = _lireCOT(type).finally(() => { delete _enCours[type]; });
+  return _enCours[type];
+}
+async function _lireCOT(type) {
   const cfg = TYPE_CONFIG[type];
 
   try {
@@ -149,7 +190,12 @@ async function fetchCOTData(type = 'noncomm') {
     return result;
   } catch (err) {
     console.error(`[COT/${type}]`, err.message);
-    return loadDisk(type) || [];
+    // Dernier rapport connu (mémoire, puis disque, sans limite d'âge) ; horodaté MAINTENANT pour ne
+    // pas relancer à chaque requête : s'il est en retard sur le rapport attendu, son cache ne vaut
+    // que RELANCE, donc on retente dans le quart d'heure.
+    const repli = (_cache[type] && _cache[type].data) || loadDisk(type, true) || [];
+    if (repli.length) _cache[type] = { data: repli, ts: Date.now() };
+    return repli;
   }
 }
 
@@ -198,11 +244,17 @@ function _histoDepuisLignes(rows, cfg, extra) {
   }
   return out;
 }
+// Date du rapport le plus récent d'un historique { EUR: [{ date }…], … } (séries triées par date).
+function _histoDernier(h) {
+  let m = '';
+  for (const k of Object.keys(h || {})) { const s = h[k]; const d = s && s.length ? s[s.length - 1].date : ''; if (d > m) m = d; }
+  return m;
+}
 async function fetchCOTHistory(type = 'noncomm', semaines = 260) {
   if (!VALID_TYPES.includes(type)) type = 'noncomm';
   const n = Math.max(8, Math.min(780, parseInt(semaines, 10) || 260));
   const k = type + '|' + n;
-  if (_histo[k] && Date.now() - _histo[k].ts < 12 * 3600e3) return _histo[k].data;
+  if (_histo[k] && Date.now() - _histo[k].ts < (_histoDernier(_histo[k].data) >= rapportAttendu() ? 12 * 3600e3 : RELANCE)) return _histo[k].data;
   const cfg = TYPE_CONFIG[type];
   const extra = HISTO_EXTRA[type] || null;
   const codes = FX_CONTRACTS.map(c => `'${c.code}'`).join(',');
@@ -230,4 +282,4 @@ async function fetchCOTHistory(type = 'noncomm', semaines = 260) {
   }
 }
 
-module.exports = { fetchCOTData, fetchCOTHistory, _histoDepuisLignes, HISTO_EXTRA, VALID_TYPES, TYPE_CONFIG };
+module.exports = { fetchCOTData, fetchCOTHistory, _histoDepuisLignes, HISTO_EXTRA, VALID_TYPES, TYPE_CONFIG, rapportAttendu, _dernierRapport };

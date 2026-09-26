@@ -193,7 +193,7 @@
         + '<div class="v3x-b"><h6>VIX / VIX 3 mois</h6><b>' + (d.pente == null ? '·' : nf(d.pente, 2)) + '</b><p>' + (d.pente == null ? '' : d.pente > 1 ? 'au-dessus de 1 : courbe inversée' : 'sous 1 : courbe normale') + '</p></div></div>';
       var h = new Date(d.at);
       tracer();
-      pied.textContent = 'Indices de volatilité du Cboe (VIX 9 jours, VIX, 3 et 6 mois) · relu à ' + (h.getHours() < 10 ? '0' : '') + h.getHours() + ':' + (h.getMinutes() < 10 ? '0' : '') + h.getMinutes();
+      pied.textContent = 'Indices de volatilité (VIX 9 jours, VIX, 3 et 6 mois) · relu à ' + (h.getHours() < 10 ? '0' : '') + h.getHours() + ':' + (h.getMinutes() < 10 ? '0' : '') + h.getMinutes();
     }
     function charger() {
       if (!vivant || document.visibilityState === 'hidden') return;
@@ -213,7 +213,7 @@
       id: 'v3-indices', name: 'Indices mondiaux', court: 'Indices', tag: 'INDICES', cat: 'Marché', h: 380,
       desc: 'Les grandes places par région : variation du jour, séance ouverte ou fermée, largeur du mouvement.',
       aide: '<p>Les grands indices mondiaux rangés par région : Amériques, Europe, Asie. Chaque tuile se teinte selon la variation du jour, plus franchement quand le mouvement est fort, et dit où en est la place : ouverte (point vert qui pulse) et dans combien de temps elle ferme, en pause de midi, ou dans combien de temps elle ouvre.</p><p>En tête, la largeur du mouvement : combien d\'indices montent et combien baissent. Un mouvement large, tous dans le même sens, est plus solide qu\'une hausse portée par une seule place. Un clic sur une tuile ouvre la fiche de l\'indice.</p>',
-      src: 'Cotations Yahoo Finance (indices au comptant), relues toutes les 90 secondes, différées selon les places. Horaires de séance des places, hors jours fériés.',
+      src: 'Indices au comptant, relus toutes les 90 secondes, différées selon les places. Horaires de séance des places, hors jours fériés.',
       watch: 'Une Asie qui baisse franchement avant l\'ouverture européenne, et un écart qui se creuse entre le Nasdaq et le Dow Jones (technologie contre valeurs industrielles).',
       apercu: '<svg viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"><g font-family="sans-serif" font-size="5" fill="#8e8e98"><text x="4" y="8">AMÉRIQUES</text><text x="4" y="30">EUROPE</text></g>'
         + '<rect x="4" y="11" width="36" height="14" rx="2" fill="rgba(0,230,118,.35)"/><rect x="42" y="11" width="36" height="14" rx="2" fill="rgba(0,230,118,.5)"/><rect x="80" y="11" width="36" height="14" rx="2" fill="rgba(0,230,118,.18)"/>'
@@ -227,7 +227,7 @@
       id: 'v3-vix', name: 'Régime de volatilité', court: 'VIX', tag: 'VOLATILITÉ', cat: 'Marché', h: 360,
       desc: 'Le VIX, son régime et sa courbe à terme : normale ou inversée, face à son année.',
       aide: '<p>Le VIX mesure la volatilité que le marché des options attend sur le S&amp;P 500 pour les 30 prochains jours. La carte le range en quatre régimes : calme (sous 15), normal (15 à 20), tension (20 à 30) et stress (au-delà).</p><p>La courbe relie le VIX à 9 jours, à 1 mois, à 3 mois et à 6 mois. Elle monte normalement avec l\'échéance. Quand elle s\'INVERSE (le court terme au-dessus du long), le stress est immédiat : c\'est souvent le moment des baisses rapides. Le rang dit où se situe le VIX dans sa fourchette des 12 derniers mois.</p>',
-      src: 'Indices de volatilité du Cboe (VIX9D, VIX, VIX3M, VIX6M) via Yahoo Finance, relus toutes les 5 minutes ; rang calculé par DTP sur un an de clôtures.',
+      src: 'Indices de volatilité (VIX9D, VIX, VIX3M, VIX6M), relus toutes les 5 minutes ; rang calculé par DTP sur un an de clôtures.',
       watch: 'Le rapport VIX / VIX 3 mois qui passe au-dessus de 1, et un VIX qui franchit 20 à la hausse.',
       apercu: '<svg viewBox="0 0 120 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"><text x="6" y="18" font-family="monospace" font-size="12" font-weight="700" fill="#f2f2f4">16,4</text>'
         + '<rect x="6" y="23" width="26" height="7" rx="3.5" fill="rgba(255,179,0,.15)"/><text x="19" y="28.5" text-anchor="middle" font-family="sans-serif" font-size="4.5" font-weight="700" fill="#ffb300">NORMAL</text>'

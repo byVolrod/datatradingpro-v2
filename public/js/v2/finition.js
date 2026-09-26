@@ -86,7 +86,7 @@
     var l = Object.keys(v).sort(function (a, b) { return v[b].v - v[a].v; }), fo = l[0], fa = l[l.length - 1];
     return '<span class="v3f-puce" data-k="fort">Plus forte ' + drap(fo) + '<b>' + fo + '</b><b class="h">' + sg(v[fo].v, 2) + '</b></span>'
       + '<span class="v3f-puce" data-k="faible">Plus faible ' + drap(fa) + '<b>' + fa + '</b><b class="b">' + sg(v[fa].v, 2) + '</b></span>'
-      + '<span class="v3f-puce or" title="La plus forte face à la plus faible : la paire qui porte le mouvement le plus franc de l\'instant">Paire la plus nette <b>' + paire(fo, fa) + '</b></span>';
+      + '<span class="v3f-puce or" title="La paire au mouvement le plus franc">Paire la plus nette <b>' + paire(fo, fa) + '</b></span>';
   }
   function barometre(host, it, repli) {
     var W = this, c = cadre(host), vivant = true, tetePrec = '';
@@ -122,7 +122,7 @@
     return '<span class="v3f-puce"><b class="h">' + hau + '</b> haussière' + (hau > 1 ? 's' : '') + ' · <b class="b">' + bai + '</b> baissière' + (bai > 1 ? 's' : '') + '</span>'
       + '<span class="v3f-puce">' + drap(fo) + '<b>' + fo + '</b><b class="h">' + esc(MOT[co[fo]]) + '</b></span>'
       + '<span class="v3f-puce">' + drap(fa) + '<b>' + fa + '</b><b class="b">' + esc(MOT[co[fa]]) + '</b></span>'
-      + (net ? '<span class="v3f-puce or" title="La devise la plus haussière face à la plus baissière">Paire la plus nette <b>' + paire(fo, fa) + '</b></span>' : '')
+      + (net ? '<span class="v3f-puce or" title="Plus haussière contre plus baissière">Paire la plus nette <b>' + paire(fo, fa) + '</b></span>' : '')
       + (t ? '<span class="v3f-maj">mis à jour le ' + esc(new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })) + ' à ' + heure(t) + '</span>' : '');
   }
   function radar(host, it, repli) {
@@ -161,7 +161,7 @@
     var tete = '<span class="v3f-puce or">' + esc(CAT[cat] || 'COT') + '</span>'
       + (ok.length ? '<span class="v3f-puce">Plus achetée ' + drap(ok[0].key) + '<b>' + ok[0].key + '</b><b class="h">' + ok[0].longPct + '%</b></span>'
         + '<span class="v3f-puce">Plus vendue ' + drap(ok[ok.length - 1].key) + '<b>' + ok[ok.length - 1].key + '</b><b class="b">' + ok[ok.length - 1].shortPct + '%</b></span>' : '')
-      + '<span class="v3f-maj">rapport hebdomadaire de la CFTC</span>';
+      + '<span class="v3f-maj">rapport hebdomadaire</span>';
     var corps = '<div class="v3f-cot">' + l.map(function (x) {
       var e = etatCot(x);
       if (e === 'na') return '<div class="v3f-cl"><span class="dev">' + drap(x.key) + x.key + '</span><span class="v3f-vide" style="margin:0;padding:0;text-align:left">pas de rapport publié</span><span></span><span class="v3f-ver na">' + V.na + '</span></div>';
@@ -171,7 +171,7 @@
         + '<span class="v3f-bar"><i class="l" style="width:' + x.longPct + '%"></i><i class="s" style="width:' + x.shortPct + '%"></i><em></em>'
         + (x.longPct >= 18 ? '<b class="l">' + x.longPct + '%</b>' : '') + (x.shortPct >= 18 ? '<b class="s">' + x.shortPct + '%</b>' : '') + '</span>'
         + '<span class="v3f-net" title="Position nette">' + (x.longPos >= x.shortPos ? '+' : '−') + kilo(Math.abs(x.longPos - x.shortPos)) + '</span>'
-        + '<span class="v3f-ver ' + e + '">' + V[e] + (etire ? '<span class="v3f-etire" title="Au moins 75% d’un côté : beaucoup de positions à déboucler en même temps">ÉTIRÉ</span>' : '') + '</span></div>';
+        + '<span class="v3f-ver ' + e + '">' + V[e] + (etire ? '<span class="v3f-etire" title="Positionnement extrême (75% et plus)">ÉTIRÉ</span>' : '') + '</span></div>';
     }).join('') + '</div>';
     return { tete: tete, corps: corps };
   }
@@ -220,7 +220,7 @@
     if (tri !== 'alpha') devs.sort(function (a, b) { return M.score[b] - M.score[a]; });
     var tous = []; devs.forEach(function (a) { devs.forEach(function (b) { if (a !== b && M.m[a][b] != null) tous.push(Math.abs(M.m[a][b])); }); });
     var max = Math.max(0.3, Math.max.apply(null, tous.concat([0])));
-    var h = '<div class="v3f-mat"><table><thead><tr><th class="r"></th>' + devs.map(function (b) { return '<th>' + b + '</th>'; }).join('') + '<th title="Moyenne de la devise face aux sept autres">Moy.</th></tr></thead><tbody>';
+    var h = '<div class="v3f-mat"><table><thead><tr><th class="r"></th>' + devs.map(function (b) { return '<th>' + b + '</th>'; }).join('') + '<th title="Moyenne face aux 7 autres">Moy.</th></tr></thead><tbody>';
     devs.forEach(function (a) {
       h += '<tr><th class="r">' + drap(a) + a + '</th>';
       devs.forEach(function (b) {

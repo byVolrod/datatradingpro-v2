@@ -1984,8 +1984,12 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     const croiL = croiP ? _lect(cd.growth) + croiP : '';
     const empP = ((Array.isArray(cd.employmentPrints) && cd.employmentPrints.length) || rv) ? listeP(cd.employmentPrints) : '';
     const empL = empP ? _lect(cd.employment) + empP : '';
-    const infTxt = _lect(cd.inflation);
+    // Une prose qui ne dit QUE « rien n'a été publié » est la phrase sobre (même règle que le desk,
+    // app.js _ditRien, 26/09) : INFLATION se lit alors comme EMPLOI et CROISSANCE.
+    const _ditRien = t => { const x = _md(t).replace(/^[\s→>*•-]+/, '').trim(); return x.length > 0 && x.length < 220 && /^(?:aucun(?:e)?\b|pas de\b|pas d['’]|il n['’]y a (?:eu )?(?:aucun|pas)|rien n['’]a)/i.test(x) && /(publi|donnée|chiffre|statistique|indicateur|parution)/i.test(x); };
     const infPr = listeP(cd.inflationPrints);
+    const infRien = !infPr && _ditRien(cd.inflation);
+    const infTxt = infRien ? '' : _lect(cd.inflation);
     const infL = infTxt + infPr;
     // Banque centrale : intitulé UNIQUE pour les huit devises (15/08) + posture accolée.
     // DÉDUP PAR INTERVENANT au rendu, comme le desk, mais sur l'intervenant ET son propos :
@@ -2023,7 +2027,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       // « banque » y est déclarée vide dès que `pricing` manque, propos ou pas), et la phrase
       // sobre seulement si le rapport a VRAIMENT déclaré cette rubrique vide.
       { titre: titreCB, html: cbL, vide: !cbL && declVide('banque') },
-      { titre: 'Inflation', html: infL, vide: !infL && declVide('inflation') },
+      { titre: 'Inflation', html: infL, vide: !infL && (declVide('inflation') || infRien) },
       { titre: 'Emploi', html: empL, vide: !empL && declVide('emploi') },
       { titre: titreCroi, html: croiL, vide: !croiL && declVide('croissance') },
     ];

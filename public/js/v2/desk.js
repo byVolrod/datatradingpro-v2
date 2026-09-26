@@ -57,7 +57,7 @@
     var b = document.createElement('button');
     b.type = 'button'; b.id = 'v3-fj-voix'; b.className = 'v3-fj-voix';
     b.textContent = 'Écouter la voix FinancialJuice ↗';
-    b.title = 'Ouvre la Voice News officielle sur financialjuice.com, avec votre compte FinancialJuice';
+    b.title = 'Voice News sur FinancialJuice';
     b.addEventListener('click', function () {
       var w = window.open('https://www.financialjuice.com/home', 'dtp_fj_voix', 'popup,width=460,height=780');
       if (w) { try { w.opener = null; } catch (e) {} }
@@ -97,16 +97,15 @@
   /* ── BARRE D'ONGLETS SUR UNE LIGNE (25/09, « le responsive doit être mieux », fenêtre rétrécie sur
      PC : la barre s'empilait sur trois à cinq rangées). On MESURE chaque barre, libellés visibles :
      s'ils ne tiennent pas, la barre passe « serrée » (onglets inactifs en icône seule, desk.css) ; si
-     même les icônes ne tiennent pas À CÔTÉ des boutons de la carte, la barre prend SA PROPRE LIGNE,
-     pleine largeur, sous eux (même principe que `wdg-card--tabs-2lignes` de widgets.js, qui ne
-     regarde que le plus large onglet) ; elle ne défile qu'en tout dernier recours. Mesuré à chaque
-     rendu d'onglets et à chaque changement de taille de la grille — jamais figé à l'arrivée. */
+     même les icônes ne tiennent pas À CÔTÉ des boutons de la carte, elle DÉFILE sur place, avec ses
+     flèches ‹ › (26/09 : plus de ligne à part sous les boutons, plus de retour à la ligne). Mesuré à
+     chaque rendu d'onglets et à chaque changement de taille de la grille — jamais figé à l'arrivée. */
   /* ⚠️ LES NOMS RESTENT (25/09, seconde demande du jour : « affiche le nom des widgets »). La barre ne
      passe plus d'elle-même en icônes seules : c'est désormais un CHOIX du lecteur, dans les réglages du
      panneau (« Noms des onglets : tous / onglet ouvert seulement », `data-noms` posé par widgets.js).
-       · tous (défaut) : la barre garde les noms ; s'ils ne tiennent pas à côté des boutons, elle prend
-         sa propre ligne, et s'ils ne tiennent toujours pas, elle passe à la ligne (jamais d'icône seule) ;
-       · onglet ouvert seulement : icônes pour les autres, puis sa propre ligne, puis défilement. */
+       · tous (défaut) : la barre garde les noms ; s'ils ne tiennent pas à côté des boutons, elle défile
+         sur place avec ses flèches (jamais d'icône seule, jamais de seconde ligne) ;
+       · onglet ouvert seulement : icônes pour les autres, puis défilement avec flèches. */
   function barres() {
     var g = document.getElementById('wdg-grid'); if (!g) return;
     g.querySelectorAll('.wdg-card--tabs .wdgt-bar').forEach(function (b) {
@@ -116,9 +115,66 @@
       if (!MQ_DESK.matches) return;
       if (actifSeul) b.classList.add('v3-serre');
       if (tient()) return;
-      if (carte && !carte.classList.contains('wdg-card--tabs-2lignes')) { carte.classList.add('v3-2lignes'); if (tient()) return; }
-      b.classList.add(actifSeul ? 'v3-defile' : 'v3-retour');
+      /* ⚠️ LA BARRE RESTE EN HAUT, À CÔTÉ DES BOUTONS (26/09, capture user : « les onglets doivent
+         être en haut, alignés aux boutons ; pourquoi les avoir mis en bas, ça prend de l'espace »).
+         L'étape qui descendait la barre sur sa propre ligne sous les boutons (`v3-2lignes`) est
+         retirée : les flèches la rendent inutile. Seul reste le filet des clients
+         (`wdg-card--tabs-2lignes`, widgets.js) pour une carte si étroite qu'un onglet ne tiendrait
+         même pas seul à côté des boutons. */
+      /* ⚠️ PLUS JAMAIS DE SECONDE LIGNE D'ONGLETS (26/09, capture user : « Neuro-ondes ne doit pas
+         créer une deuxième ligne ; s'il n'y a plus d'espace, on doit pouvoir cliquer sur une flèche
+         qui fait défiler les onglets sur le côté »). Le retour à la ligne (`v3-retour`) est retiré :
+         la barre reste sur UNE ligne et défile, avec une flèche de chaque côté où il reste des
+         onglets cachés, la molette qui défile aussi, et l'onglet ouvert toujours ramené en vue. */
+      b.classList.add('v3-defile');
+      fleches(b);
     });
+  }
+  // Flèches ‹ › collées aux bords de la barre (position sticky : elles restent aux bords pendant que
+  // les onglets défilent dessous). Chacune n'apparaît QUE s'il reste des onglets cachés de son côté.
+  function fleches(b) {
+    var g = b.querySelector(':scope > .v3-fl--g'), d = b.querySelector(':scope > .v3-fl--d');
+    if (!g) { g = document.createElement('button'); g.type = 'button'; g.className = 'v3-fl v3-fl--g'; g.setAttribute('aria-label', 'Onglets précédents'); g.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>'; b.insertBefore(g, b.firstChild); }
+    if (!d) { d = document.createElement('button'); d.type = 'button'; d.className = 'v3-fl v3-fl--d'; d.setAttribute('aria-label', 'Onglets suivants'); d.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>'; b.appendChild(d); }
+    if (!b._v3fl) {
+      b._v3fl = true;
+      b.addEventListener('click', function (e) {
+        var f = e.target.closest('.v3-fl'); if (!f || f.parentNode !== b) return;
+        e.preventDefault(); e.stopPropagation(); defiler(b, f.classList.contains('v3-fl--g') ? -1 : 1);
+      }, true);
+      b.addEventListener('scroll', function () { etatFleches(b); }, { passive: true });
+      // (La molette fait déjà défiler la rangée, onglet par onglet : widgets.js, `_bordSuivant`.)
+    }
+    /* L'onglet ouvert ramené en vue — SEULEMENT quand il vient de changer. Refait à chaque mesure, ce
+       recadrage annulait le défilement du lecteur : la rangée revenait au début sitôt la flèche
+       cliquée (mesuré dans Chromium). */
+    var on = b.querySelector('.wdgt-tab.on'), iOn = on ? on.getAttribute('data-i') : null;
+    if (on && iOn !== b._v3act) {
+      b._v3act = iOn;
+      var marge = 30, x0 = on.offsetLeft - marge, x1 = on.offsetLeft + on.offsetWidth + marge;
+      if (x0 < b.scrollLeft) b.scrollLeft = Math.max(0, x0);
+      else if (x1 > b.scrollLeft + b.clientWidth) b.scrollLeft = x1 - b.clientWidth;
+    }
+    etatFleches(b);
+  }
+  /* Un cran de flèche : jusqu'au bord de l'onglet suivant qui dépasse (jamais un onglet coupé en
+     deux), animé à la main — `scrollBy({behavior:'smooth'})` n'avançait pas dans tous les moteurs. */
+  function defiler(b, sens) {
+    var tabs = [].slice.call(b.querySelectorAll('.wdgt-tab, .wdgt-add')), cur = b.scrollLeft, w = b.clientWidth, max = b.scrollWidth - w, cible;
+    if (sens > 0) { var t = tabs.filter(function (x) { return x.offsetLeft + x.offsetWidth > cur + w - 26; })[0]; cible = t ? t.offsetLeft - 28 : max; }
+    else { var u = tabs.filter(function (x) { return x.offsetLeft < cur + 26; }).pop(); cible = u ? u.offsetLeft + u.offsetWidth - w + 28 : 0; }
+    cible = Math.max(0, Math.min(max, cible));
+    if (Math.abs(cible - cur) < 4) cible = Math.max(0, Math.min(max, cur + sens * w * 0.6));
+    var t0 = performance.now(), duree = 220, depart = cur;
+    (function pas(t) {
+      var k = Math.min(1, (t - t0) / duree), e = 1 - Math.pow(1 - k, 3);
+      b.scrollLeft = depart + (cible - depart) * e;
+      if (k < 1) requestAnimationFrame(pas);
+    })(t0);
+  }
+  function etatFleches(b) {
+    b.classList.toggle('v3-fl-g', b.scrollLeft > 2);
+    b.classList.toggle('v3-fl-d', b.scrollLeft + b.clientWidth < b.scrollWidth - 2);
   }
   /* ── CASSE DES ONGLETS (25/09, capture user : « des fois tout est en majuscule et d'autres fois
      non ») ─────────────────────────────────────────────────────────────────────────────────────
